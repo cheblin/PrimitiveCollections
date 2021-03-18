@@ -2,7 +2,7 @@
 
 `This is nightly bleeding-edge release`
 
-Yet another Java primitive's collections with support  of unsigned and nullable values features 
+Yet another Java primitive's collections with support  of unsigned and nullable type 
 
 Took the best ideas from 
 
@@ -21,7 +21,12 @@ in the upcoming AdHoc protocol parser code generator.
 
 First and foremost, I was interested in performance and memory efficiency.
 The compatibility with the existing Java Collections API was the last thing I was interested in. 
-Moreover, this is impossible in the  primitive's realm, 
-I use a new iterator's protocol that does not generate any garbage in the heap. 
+Moreover, this is impossible in the  primitive's realm.
+
+Each collection type has two parts,
+**R**- read-only and **RW** - read-write. **RW** extends **R** so you can always easily get 
+and pass read-only(**R**) collection from **RW**
+
+I use a special iterator's protocol that does not generate any garbage in the heap. 
 For communication between caller and responder and for holding iterator state, 
-the tag is used. The tag is allocated in the stack and has int or long the primitive type.
+the tag is used. The tag is allocated in the stack and has `int` or `long` primitive types.
