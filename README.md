@@ -1,4 +1,7 @@
 # Java Primitive Collections
+
+`This is nightly bleeding-edge release`
+
 Yet another Java primitive's collections with support  of unsigned and nullable values features 
 
 Took the best ideas from 
@@ -20,4 +23,4 @@ First, I was interested in performance and memory efficiency.
 I have not to tried to achieve any compatibility with the existing Java 
 collections API. In the primitive's realm, it is impossible. I use a new 
 iterator's protocol that does not generate any garbage in the heap. To hold its state 
-and for communication, the tag is used, tag - primitive value int or long.
+and for communication, the tag is used? tag ia the primitive value int or long.
