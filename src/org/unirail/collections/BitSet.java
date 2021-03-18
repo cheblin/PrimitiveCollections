@@ -182,7 +182,7 @@ public interface BitSet {
 			return i * 32 + BITS - z;
 		}
 		
-		public /*CLS*/ long[] subList( int from_bit, int to_bit ) {
+		public long[] subList( int from_bit, int to_bit ) {
 			to_bit = prev1( to_bit );
 			
 			if (to_bit <= from_bit) return new long[0];

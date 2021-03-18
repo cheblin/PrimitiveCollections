@@ -106,7 +106,7 @@ public interface ObjectSet {
 				
 				public int tag( int tag ) { while (-1 < --tag) if (keys.array[tag] != null) return tag; return -1; }
 				
-				public K/*KEXT*/ value( int tag ) {return assigned == 0 || tag == keys.array.length ? null : keys.array[tag]; }
+				public K value( int tag ) {return assigned == 0 || tag == keys.array.length ? null : keys.array[tag]; }
 				
 			} : producer;
 		}

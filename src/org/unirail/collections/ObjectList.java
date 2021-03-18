@@ -83,7 +83,7 @@ public interface ObjectList {
 				
 				public int tag( int tag ) { return --tag; }
 				
-				public V/*VEXT*/ value( int tag ) {return array[tag]; }
+				public V value( int tag ) {return array[tag]; }
 				
 			} : producer;
 		}

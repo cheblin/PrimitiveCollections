@@ -25,7 +25,7 @@ Moreover, this is impossible in the  primitive's realm.
 
 Each collection type has two parts,
 **R**- read-only and **RW** - read-write. **RW** extends **R** so you can always easily get 
-and pass read-only(**R**) collection from **RW**
+and pass read-only(**R**) collection interface from **RW**
 
 I use a special iterator's protocol that does not generate any garbage in the heap. 
 For communication between caller and responder and for holding iterator state, 
