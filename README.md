@@ -23,7 +23,7 @@ Each collection type has two parts,
 **R**- read-only and **RW** - read-write. **RW** extends **R** so you can always easily get 
 and pass read-only(**R**) collection interface from **RW**
 
-I use a special iterator's protocol that does not generate any garbage in the heap. 
+The project used a special iterator's "protocol" that does not generate any garbage in heap. 
 For communication between caller and responder and for holding iterator state, 
 the tag is used. The tag is allocated in the stack and has `int` or `long` primitive types.
 
@@ -47,3 +47,5 @@ public StringBuilder toString( StringBuilder dst ) {
     return dst;
 }
 ```
+While to avoid cluttering garbage collector while iterating, [HPPC-RT](https://github.com/vsonnier/hppcrt) project used:  
+>Pooled, recyclable iterators: ability to use iterators the usual way, without creating iterator instances dynamically at runtime. That means in particular using the enhanced for loop without any dynamic allocation underneath.
