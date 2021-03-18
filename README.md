@@ -6,14 +6,10 @@ Yet another Java primitive's collections with support  of unsigned and nullable 
 
 Took the best ideas from 
 
-[Trove](https://bitbucket.org/trove4j/trove)
-
-[HPPC](https://labs.carrotsearch.com/hppc.html)
-
-[HPPC-RT](https://github.com/vsonnier/hppcrt)
-
-[fastutil](https://fastutil.di.unimi.it/)
-
+[Trove](https://bitbucket.org/trove4j/trove)  
+[HPPC](https://labs.carrotsearch.com/hppc.html)  
+[HPPC-RT](https://github.com/vsonnier/hppcrt)  
+[fastutil](https://fastutil.di.unimi.it/)  
 [Koloboke](https://github.com/leventov/Koloboke)
 
 Added new features, unsigned and nullable primitive types, will be needed 
@@ -31,7 +27,10 @@ I use a special iterator's protocol that does not generate any garbage in the he
 For communication between caller and responder and for holding iterator state, 
 the tag is used. The tag is allocated in the stack and has `int` or `long` primitive types.
 
-Example, iterate over and print content of the`IntIntNullMap` K-int V-nullable int,  map
+For example, iterate over and print the content of the `IntIntNullMap`  
+Map where:  
+K - int  
+V - nullable int
 ```java
 public StringBuilder toString( StringBuilder dst ) {
     if (dst == null) dst = new StringBuilder( assigned * 10 );
