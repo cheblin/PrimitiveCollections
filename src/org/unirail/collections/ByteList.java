@@ -18,7 +18,7 @@ public interface ByteList {
 	}
 	
 	
-	class R implements Array,  Comparable<R> {
+	class R implements Array, Comparable<R> {
 		
 		public byte[] array;
 		
@@ -150,12 +150,13 @@ public interface ByteList {
 			return null;
 			
 		}
+		
 		private Producer producer;
 		
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
 				
-				public int tag()          { return size - 1; }
+				public int tag() { return size - 1; }
 				
 				public int tag( int tag ) { return --tag; }
 				
@@ -175,7 +176,7 @@ public interface ByteList {
 		}
 		
 		public String toString() { return toString( null ).toString();}
-	
+		
 	}
 	
 	class RW extends R implements Consumer {
@@ -225,16 +226,18 @@ public interface ByteList {
 		
 		public int removeAll( Producer src ) {
 			int fix = size;
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) remove( src.value( tag ) );
+			for (int tag = src.tag(), i; tag != -1; tag = src.tag( tag ))
+				if (-1 < (i = indexOf( src.value( tag ) ))) remove( i );
 			return fix - size;
 		}
 		
 		public boolean retainAll( Consumer chk ) {
 			
-			final int fix = size;
-			
-			for (int index = 0, v; index < size; index++)
-				if (!chk.add( v = get( index ) )) remove( v );
+			final int   fix = size;
+			byte v;
+			for (int index = 0; index < size; index++)
+				if (!chk.add( v = get( index ) ))
+					remove( indexOf( v ) );
 			
 			return fix != size;
 		}

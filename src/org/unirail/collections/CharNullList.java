@@ -37,11 +37,11 @@ public interface CharNullList {
 			nulls.allocate( length );
 		}
 		
-		public R( Integer... values ) {
+		public R( Character... values ) {
 			
 			this.values.allocate( values.length );
 			nulls.allocate( values.length );
-			for (Integer value : values)
+			for (Character value : values)
 				if (value == null) ++size;
 				else
 				{
@@ -169,7 +169,7 @@ public interface CharNullList {
 			super( length );
 		}
 		
-		public RW( Integer... values ) {
+		public RW( Character... values ) {
 			super( values );
 		}
 		

@@ -37,11 +37,11 @@ public interface LongNullList {
 			nulls.allocate( length );
 		}
 		
-		public R( Integer... values ) {
+		public R( Long... values ) {
 			
 			this.values.allocate( values.length );
 			nulls.allocate( values.length );
-			for (Integer value : values)
+			for (Long value : values)
 				if (value == null) ++size;
 				else
 				{
@@ -169,7 +169,7 @@ public interface LongNullList {
 			super( length );
 		}
 		
-		public RW( Integer... values ) {
+		public RW( Long... values ) {
 			super( values );
 		}
 		

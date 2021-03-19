@@ -69,7 +69,7 @@ fit:
 				return size;
 			}
 			
-			final int new_size = index + resize + (index < size ? size - 1 - index : 0);
+			final int new_size = index < size ? size + resize : index + 1 + resize;
 			
 			final int length = length();
 			
