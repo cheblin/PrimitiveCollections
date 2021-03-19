@@ -73,3 +73,39 @@ null
 null
 9
 ```
+
+same as nullable `IntIntNullMap` 
+```java
+int t;
+
+IntIntNullMap.RW map = new IntIntNullMap.RW();
+
+int key = 1;
+map.put( key, 11 ); // 1 -> 11
+if ((t = map.tag( key )) != -1) System.out.println( map.get( t ) ); //print 11
+
+map.put( 2, 22 ); // 2 -> 22
+
+key = 3;
+map.put( key ); // 3 -> null
+if ((t = map.tag( key )) != -1) System.out.println( map.tag( t ) ); //skip null value
+
+map.put( 4 ); // 3 -> null
+map.put( 5, 55 );
+map.put( 8, 88 );
+map.put( 9 );// 3 -> null
+map.put( 10 );// 3 -> null
+System.out.println( map.toString() );
+```
+printout
+```
+11
+2 -> 22
+4 -> null
+8 -> 88
+9 -> null
+10 -> null
+1 -> 11
+3 -> null
+5 -> 55
+```
