@@ -117,4 +117,6 @@ Like a list of "nullable-boolean" enum
 }
 ```
 Its value can be stored in two bits. The special form "enum" - [SlimEnum](https://github.com/cheblin/SlimEnum)  was used here.
+
+
 All these collections are primitive-types-backed
