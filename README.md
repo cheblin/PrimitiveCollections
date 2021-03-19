@@ -54,7 +54,7 @@ While to avoid cluttering garbage collector while iterating, [HPPC-RT](https://g
 
 ### List of nullable primitives
 
-This is an ordinary list of primitives with "nulls info" stored in BitSet. A bit per "null" item.
+This is an ordinary list of primitives with "nulls info" stored in BitSet which allocates a bit per item.
 Working with a nullable list is straightforward.
 ```java
 IntNullList.RW list = new IntNullList.RW( 1, 2, null, 4, 5, null, null, null, 9 );
@@ -74,7 +74,7 @@ null
 9
 ```
 
-same as nullable `IntIntNullMap` 
+similar to nullable `IntIntNullMap` 
 ```java
 int t;
 
