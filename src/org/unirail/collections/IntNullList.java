@@ -37,6 +37,21 @@ public interface IntNullList {
 			nulls.allocate( length );
 		}
 		
+		public R( Integer... values ) {
+			
+			this.values.allocate( values.length );
+			nulls.allocate( values.length );
+			for (Integer value : values)
+				if (value == null) ++size;
+				else
+				{
+					this.values.add( value );
+					nulls.set1( size );
+					++size;
+				}
+		}
+		
+		
 		int size = 0;
 		
 		public int size()                { return size; }
@@ -132,12 +147,12 @@ public interface IntNullList {
 		
 		public StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( size * 4 );
-			else dst.ensureCapacity( dst.length()  + size * 64  );
+			else dst.ensureCapacity( dst.length() + size * 64 );
 			
-			for (int i = 0; i < size; dst.append(  '\n' ), i++)
+			for (int i = 0; i < size; dst.append( '\n' ), i++)
 				if (nulls.get( i )) dst.append( get( i ) );
 				else dst.append( "null" );
-				
+			
 			return dst;
 		}
 		
@@ -154,6 +169,9 @@ public interface IntNullList {
 			super( length );
 		}
 		
+		public RW( Integer... values ) {
+			super( values );
+		}
 		
 		public boolean remove() {
 			if (size < 1) return false;
@@ -235,7 +253,10 @@ public interface IntNullList {
 				return false;
 			}
 			
-			values.add( nulls.rank( index ), value );
+			
+			nulls.set1(index);
+			values.add( nulls.rank( index )-1, value );
+			
 			return true;
 		}
 		

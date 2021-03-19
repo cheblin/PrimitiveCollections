@@ -6,20 +6,6 @@ import java.util.Arrays;
 public interface BitsList {
 	
 	
-	interface Consumer {
-		boolean add( int value );
-	}
-	
-	
-	interface Producer {
-		int tag();
-		
-		int tag( int tag );
-		
-		int value( int tag );
-	}
-	
-	
 	class R implements Cloneable, Comparable<R> {
 		
 		public int[] array = new int[4];
@@ -92,10 +78,10 @@ public interface BitsList {
 			return false;
 		}
 		
-		private Producer producer;
+		private IntList.Producer producer;
 		
-		public Producer producer() {
-			return producer == null ? producer = new Producer() {
+		public IntList.Producer producer() {
+			return producer == null ? producer = new IntList.Producer() {
 				public int tag() { return size() - 1; }
 				
 				public int tag( int tag ) {return --tag;}
@@ -186,7 +172,7 @@ public interface BitsList {
 		}
 		
 		
-		public boolean containsAll( Producer src ) {
+		public boolean containsAll( IntList.Producer src ) {
 			return false;
 		}
 		
@@ -229,7 +215,7 @@ public interface BitsList {
 		public String toString() { return toString( null ).toString();}
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements IntList.Consumer {
 		
 		public RW( int bits ) {
 			super( bits );
@@ -276,8 +262,7 @@ public interface BitsList {
 			
 			value &= mask;
 			
-			int       item = (index *= bits) >>> LEN;
-			final int bit  = index & MASK;
+			int item = index * bits >>> LEN;
 			size++;
 			
 			final int[] src = array;
@@ -289,24 +274,25 @@ public interface BitsList {
 				if (0 < item) System.arraycopy( src, 0, dst, 0, item );
 			}
 			
+			final int bit = index * bits & MASK;
 			if (0 < bit)
 			{
 				final int i = src[item];
 				final int k = BITS - bit;
-				if (BITS < bit + bits)
+				if (bit + bits < BITS)
 				{
-					dst[item] = (i << k) >>> k | value << bit;
-					value     = value >> bits - k | src[item + 1] << k & mask;
+					dst[item] = i << k >>> k | value << bit | i >>> bit << bit + bits;
+					value     = i >>> bit + bits | src[item + 1] << k - bits & mask;
 				}
 				else
 				{
-					dst[item] = (i << k) >>> k | value << bit | i >>> bit << bit + bits;
-					value     = i >>> bit + bits | src[item + 1] << k - bits & mask;
+					dst[item] = i << k >>> k | value << bit;
+					value     = value >> k | i >> bit << bits - k;
 				}
 				item++;
 			}
 			
-			for (final int max = (size >> LEN) + ((size & MASK) == 0 ? 0 : 1); ; )
+			for (final int max = (size * bits >> LEN) + ((size * bits & MASK) == 0 ? 0 : 1); ; )
 			{
 				final int i = src[item];
 				dst[item] = i << bits | value;
@@ -319,7 +305,7 @@ public interface BitsList {
 			
 			value &= mask;
 			
-			final int item = (index = bits * (index < size ? index : size)) >>> LEN;
+			final int item = (index = bits * Math.min( index, size )) >>> LEN;
 			final int bit  = index & MASK;
 			final int i    = array[item];
 			
@@ -335,15 +321,19 @@ public interface BitsList {
 				return ret;
 			}
 			
-			array[item] = (i << k) >>> k | value << bit | i >>> bit + bits << bit + bits;
+			array[item] = i << k >>> k | value << bit | i >>> bit + bits << bit + bits;
 			
 			return i >>> bit & mask;
 		}
 		
 		
 		public boolean remove( int value ) {
+			int fix = size;
 			
-			return false;
+			for (int i; -1 < (i = lastIndexOf( value )); )
+			     removeAt( i );
+			
+			return size != fix;
 		}
 		
 		
@@ -358,25 +348,25 @@ public interface BitsList {
 			int       i = array[item];
 			
 			if (bit == 0) array[item] = i >>>= bits;
-			else if (k < bits)//на разломе
+			else if (k < bits)
 			{
 				int ii = array[item + 1];
 				
-				array[item]   = (i << k) >>> k | ii >>> bit + bits - BITS << bit;
+				array[item]   = i << k >>> k | ii >>> bit + bits - BITS << bit;
 				array[++item] = i = ii >>> bits;
 			}
-			else if (bits < k)//полностью внутри
+			else if (bits < k)
 			{
 				int ii = array[item + 1];
 				
-				array[item]   = (i << k) >>> k | i >>> bit + bits << bit | ii << BITS - bits;
+				array[item]   = i << k >>> k | i >>> bit + bits << bit | ii << BITS - bits;
 				array[++item] = i = ii >>> bits;
 			}
 			
 			for (final int max = size * bits; item * BITS < max; )
 			{
 				final int ii = array[item + 1];
-				array[item]   = (i << bits) >>> bits | ii << BITS - bits;
+				array[item]   = i << bits >>> bits | ii << BITS - bits;
 				array[++item] = i = ii >>> bits;
 			}
 			
@@ -385,29 +375,39 @@ public interface BitsList {
 			return ret;
 		}
 		
-		public boolean addAll( Producer src ) {
-			return false;
+		public boolean addAll( IntList.Producer src ) {
+			int fix = size;
+			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) add( src.value( tag ) );
+			return size != fix;
 		}
 		
-		public boolean addAll( int index, Producer src ) {
-			return false;
+		public int addAll( int index, IntList.Producer src ) {
+			int fix = size;
+			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) add( index++, src.value( tag ) );
+			return size - fix;
 		}
 		
-		public boolean removeAll( Producer src ) {
-			return false;
+		public int removeAll( IntList.Producer src ) {
+			
+			int fix = size;
+			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) remove( src.value( tag ) );
+			return fix - size;
 		}
 		
-		public boolean retainAll( Producer src ) {
-			return false;
+		public boolean retainAll( IntList.Consumer chk ) {
+			final int fix = size;
+			
+			for (int index = 0, v; index < size; index++)
+				if (!chk.add( v = get( index ) )) remove( v );
+			
+			return fix != size;
 		}
 		
-		public void clear() {
+		public void clear()                { size = 0; }
 		
-		}
+		public IntList.Consumer consumer() {return this; }
 		
-		public Consumer consumer() {return this; }
-		
-		public RW clone()          { return (RW) super.clone(); }
+		public RW clone()                  { return (RW) super.clone(); }
 		
 	}
 }

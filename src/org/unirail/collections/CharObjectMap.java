@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 import java.util.Arrays;
 
-public interface CharObjectMap{
+public interface CharObjectMap {
 	
 	public interface Consumer<V extends Comparable<? super V>> {
 		boolean put( char key, V value );//return false to interrupt
@@ -29,7 +29,7 @@ public interface CharObjectMap{
 		
 		public CharList.RW keys = new CharList.RW( 0 );
 		
-		public ObjectList.RW<V> values =new ObjectList.RW<>();
+		public ObjectList.RW<V> values = new ObjectList.RW<>();
 		
 		
 		int assigned;
@@ -47,19 +47,18 @@ public interface CharObjectMap{
 		
 		protected double loadFactor;
 		
-	
 		
-		public R(  double loadFactor ) {
+		public R( double loadFactor ) {
 			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
 		}
 		
-		public R(  int expectedItems ) {
-			this(  expectedItems, 0.75 );
+		public R( int expectedItems ) {
+			this( expectedItems, 0.75 );
 		}
 		
 		
-		public R(  int expectedItems, double loadFactor ) {
-			this(  loadFactor );
+		public R( int expectedItems, double loadFactor ) {
+			this( loadFactor );
 			
 			final long length = (long) Math.ceil( expectedItems / loadFactor );
 			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
@@ -121,11 +120,11 @@ public interface CharObjectMap{
 			return producer == null ? producer = new Producer<>() {
 				
 				public int tag() {
-					final int len = keys.array.length;
-					if (hasOKey) return OKeyValue == null ? Integer.MIN_VALUE | len : len;
+					int i = keys.array.length;
+					if (hasOKey) return OKeyValue == null ? Integer.MIN_VALUE | i : i;
 					
 					if (0 < assigned)
-						for (int i = len - 1; -1 < --i; )
+						while (-1 < --i)
 							if (keys.array[i] != 0)
 								return values.array[i] == null ? i | Integer.MIN_VALUE : i;
 					
@@ -143,7 +142,7 @@ public interface CharObjectMap{
 				
 				public char key( int tag ) {return (tag &= Integer.MAX_VALUE) == keys.array.length ? (char) 0 : (char) keys.array[tag]; }
 				
-				public V value( int tag ) {return tag == keys.array.length ? OKeyValue :  values.array[tag] ; }
+				public V value( int tag ) {return tag == keys.array.length ? OKeyValue : values.array[tag]; }
 				
 				
 			} : producer;
@@ -177,7 +176,6 @@ public interface CharObjectMap{
 			
 			return 0;
 		}
-		
 		
 		
 		@SuppressWarnings("unchecked")

@@ -213,41 +213,30 @@ public interface UByteList {
 		}
 		
 		
-		public void addAll( Producer src, int count ) {
-			resize( size, count, false );
+		public void addAll( Producer src ) {
 			for (int tag = src.tag(), i = size; tag != -1; tag = src.tag( tag )) array[i++] = (byte) src.value( tag );
 		}
 		
-		public boolean addAll( Producer src, int index, int count ) {
-			
-			resize( index, count, false );
+		public boolean addAll( Producer src, int index ) {
 			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) array[index++] = (byte) src.value( tag );
 			return true;
 		}
 		
 		
 		public int removeAll( Producer src ) {
-			final int fix = size;
-			
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag ))
-				for (int i = size - 1; i >= 0; i--) if (array[i] == src.value( tag )) resize( i, -1, false );
-			
+			int fix = size;
+			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) remove( src.value( tag ) );
 			return fix - size;
 		}
 		
 		public boolean retainAll( Consumer chk ) {
 			
-			final int s = size;
+			final int fix = size;
 			
-			for (int i = 0, max = size; i < max; i++)
-				if (!chk.add( (char)( 0xFFFF &  array[i]) ))
-				{
-					final byte val = array[i];
-					for (int j = size; j > 0; j--) if (array[j] == val) size = resize( j, -1, false );
-					max = size;
-				}
+			for (int index = 0, v; index < size; index++)
+				if (!chk.add( v = get( index ) )) remove( v );
 			
-			return s != size;
+			return fix != size;
 		}
 		
 		public void clear() { size = 0;}

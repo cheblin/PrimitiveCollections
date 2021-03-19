@@ -65,23 +65,22 @@ public interface UIntFloatNullMap {
 			values.values.allocate( size );
 		}
 		
-		public int tag() { return hasOKey == Nullable.VALUE ? Integer.MAX_VALUE : -1; }
 		
 		public int tag( long key ) {
 			
-			if (key == 0) return tag();
+			if (key == 0) return  hasOKey == Nullable.VALUE ? Integer.MAX_VALUE : -1;
 			
 			final int key_ = (int) key ;
 			
 			int slot = hashKey( key ) & mask;
 			
 			for (int k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_) return slot;
+				if (k == key_) return values.tag( slot ) ;
 			
-			return -1;
+			return -1;//the key is not present
 		}
 		
-		public boolean contains( long key ) {return -1 < tag( key );}
+		public boolean contains( long key ) {return tag( key ) != -1;}
 		
 		
 		public float get( int tag ) { return tag == Nullable.VALUE ? OKeyValue : values.get( tag ); }
@@ -110,14 +109,14 @@ public interface UIntFloatNullMap {
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
 				public int tag() {
-					int len = keys.array.length;
+					int i = keys.array.length;
 					switch (hasOKey)
 					{
-						case Nullable.VALUE: return len;
-						case Nullable.NULL: return Integer.MIN_VALUE | len;
+						case Nullable.VALUE: return i;
+						case Nullable.NULL: return Integer.MIN_VALUE | i;
 						default:
 							if (0 < assigned)
-								for (int i = len - 1; -1 < --i; )
+								while ( -1 < --i )
 									if (keys.array[i] != 0)
 										return values.nulls.get( i ) ? i : i | Integer.MIN_VALUE;
 							
@@ -189,16 +188,17 @@ public interface UIntFloatNullMap {
 		}
 		
 		public StringBuilder toString( StringBuilder dst ) {
-			
 			if (dst == null) dst = new StringBuilder( assigned * 10 );
 			else dst.ensureCapacity( dst.length() + assigned * 10 );
 			
 			Producer src = producer();
 			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			     dst.append( src.key( tag ) )
-					     .append( " -> " )
-					     .append( src.value( tag ) );
-			
+			{
+				dst.append( src.key( tag ) ).append( " -> " );
+				
+				if (src.isNull( tag )) dst.append( "null" );
+				else dst.append( src.value( tag ) );
+			}
 			return dst;
 		}
 		
@@ -221,8 +221,6 @@ public interface UIntFloatNullMap {
 		public Consumer consumer() {return this; }
 		
 		
-		
-		
 		//put key -> null
 		public boolean put( long key ) {
 			if (key == 0)
@@ -242,7 +240,7 @@ public interface UIntFloatNullMap {
 				}
 			
 			keys.array[slot] = key_;
-			values.addNull( slot );
+			values.set( slot );
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
@@ -270,7 +268,7 @@ public interface UIntFloatNullMap {
 				}
 			
 			keys.array[slot] = key_;
-			values.add( slot, value );
+			values.set( slot, value );
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
