@@ -48,4 +48,28 @@ public StringBuilder toString( StringBuilder dst ) {
 }
 ```
 While to avoid cluttering garbage collector while iterating, [HPPC-RT](https://github.com/vsonnier/hppcrt) project used:  
->Pooled, recyclable iterators: ability to use iterators the usual way, without creating iterator instances dynamically at runtime. That means in particular using the enhanced for loop without any dynamic allocation underneath.
+>Pooled, recyclable iterators: ability to use iterators the usual way, without creating iterator instances dynamically at runtime. 
+> That means in particular using the enhanced for loop without any dynamic allocation underneath.
+
+
+###List of nullable primitives
+
+This is an ordinary list of primitives with "nulls info" stored in BitSet. A bit per null item.
+Working with a nullable list is straightforward.
+```java
+IntNullList.RW list = new IntNullList.RW( 1, 2, null, 4, 5, null, null, null, 9 );
+		
+System.out.println( list.toString() );
+```
+printout
+```
+1
+2
+null
+4
+5
+null
+null
+null
+9
+```
