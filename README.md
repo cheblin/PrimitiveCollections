@@ -120,3 +120,5 @@ Its value can be stored in two bits. The special form "enum" - [SlimEnum](https:
 
 
 All these collections are primitive-types-backed
+
+Bugs? --->> [issues](https://github.com/cheblin/PrimitiveCollections/issues)
