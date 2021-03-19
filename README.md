@@ -110,10 +110,10 @@ printout
 5 -> 55
 ```
 The `BitsList` was created to store in tightly-packed form tiny-range values/enums that can be fitted in several (up to 7 bits). 
-Like a list of enum "nullable boolean"
+Like a list of "nullable-boolean" enum
 ```java
 @interface NullableBoolean {
     int TRUE = 1, FALSE = 0, NONE = 2;
 }
 ```
-can be fitted in two bits. The special form "enum" - [SlimEnum](https://github.com/cheblin/SlimEnum)  was used here.
+Its value can be stored in two bits. The special form "enum" - [SlimEnum](https://github.com/cheblin/SlimEnum)  was used here.
