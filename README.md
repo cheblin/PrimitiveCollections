@@ -52,9 +52,9 @@ While to avoid cluttering garbage collector while iterating, [HPPC-RT](https://g
 > That means in particular using the enhanced for loop without any dynamic allocation underneath.
 
 
-###List of nullable primitives
+##List of nullable primitives
 
-This is an ordinary list of primitives with "nulls info" stored in BitSet. A bit per null item.
+This is an ordinary list of primitives with "nulls info" stored in BitSet. A bit per "null" item.
 Working with a nullable list is straightforward.
 ```java
 IntNullList.RW list = new IntNullList.RW( 1, 2, null, 4, 5, null, null, null, 9 );
