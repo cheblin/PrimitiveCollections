@@ -143,7 +143,8 @@ a:
 		
 		public CharList.Producer producer() {
 			return producer == null ? producer = new CharList.Producer() {
-				public int tag() { return 0 < size() ? 0 : -1; }
+				
+				public int tag() { return 0 < size() ? tag( -1 ) : -1; }
 				
 				public int tag( int tag ) {
 					tag++;
@@ -153,24 +154,24 @@ a:
 					{
 						if (tag < 64)
 						{
-							if ((l = _1 >>> tag) != 0) return Long.numberOfTrailingZeros( l );
+							if ((l = _1 >>> tag) != 0) return tag + Long.numberOfTrailingZeros( l );
 							tag = 0;
 						}
 						else tag -= 64;
 						
-						if ((l = _2 >>> tag) != 0) return (Long.numberOfTrailingZeros( l ) + 64);
+						if ((l = _2 >>> tag) != 0) return (tag + Long.numberOfTrailingZeros( l ) + 64);
 						tag = 128;
 					}
 					
 					if (tag < 192)
 					{
-						if ((l = _3 >>> (tag - 128)) != 0) return (Long.numberOfTrailingZeros( l ) + 128);
+						if ((l = _3 >>> (tag - 128)) != 0) return (tag + Long.numberOfTrailingZeros( l ) + 128);
 						
 						tag = 0;
 					}
 					else tag -= 192;
 					
-					if ((l = _4 >>> tag) != 0) return (Long.numberOfTrailingZeros( l ) + 192);
+					if ((l = _4 >>> tag) != 0) return (tag + Long.numberOfTrailingZeros( l ) + 192);
 					
 					return -1;
 				}
@@ -225,7 +226,9 @@ a:
 			return dst;
 		}
 		
-		public String toString() { return toString( null ).toString();}
+		public String toString() {
+			return  toString( null ).toString();
+		}
 	}
 	
 	class RW extends R implements CharList.Consumer {
