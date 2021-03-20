@@ -37,11 +37,11 @@ public interface FloatNullList {
 			nulls.allocate( length );
 		}
 		
-		public R( Float... values ) {
+		public R(  Float    ... values ) {
 			
 			this.values.allocate( values.length );
 			nulls.allocate( values.length );
-			for (Float value : values)
+			for ( Float     value : values)
 				if (value == null) ++size;
 				else
 				{
@@ -169,7 +169,7 @@ public interface FloatNullList {
 			super( length );
 		}
 		
-		public RW( Float... values ) {
+		public RW(  Float    ... values ) {
 			super( values );
 		}
 		

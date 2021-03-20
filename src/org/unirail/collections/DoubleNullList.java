@@ -37,11 +37,11 @@ public interface DoubleNullList {
 			nulls.allocate( length );
 		}
 		
-		public R( Double... values ) {
+		public R(  Double   ... values ) {
 			
 			this.values.allocate( values.length );
 			nulls.allocate( values.length );
-			for (Double value : values)
+			for ( Double    value : values)
 				if (value == null) ++size;
 				else
 				{
@@ -169,7 +169,7 @@ public interface DoubleNullList {
 			super( length );
 		}
 		
-		public RW( Double... values ) {
+		public RW(  Double   ... values ) {
 			super( values );
 		}
 		

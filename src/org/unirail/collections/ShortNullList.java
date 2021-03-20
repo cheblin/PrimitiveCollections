@@ -37,11 +37,11 @@ public interface ShortNullList {
 			nulls.allocate( length );
 		}
 		
-		public R( Short... values ) {
+		public R(  Short    ... values ) {
 			
 			this.values.allocate( values.length );
 			nulls.allocate( values.length );
-			for (Short value : values)
+			for ( Short     value : values)
 				if (value == null) ++size;
 				else
 				{
@@ -169,7 +169,7 @@ public interface ShortNullList {
 			super( length );
 		}
 		
-		public RW( Short... values ) {
+		public RW(  Short    ... values ) {
 			super( values );
 		}
 		

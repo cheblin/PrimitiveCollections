@@ -37,11 +37,11 @@ public interface UIntNullList {
 			nulls.allocate( length );
 		}
 		
-		public R( Long... values ) {
+		public R(  Long     ... values ) {
 			
 			this.values.allocate( values.length );
 			nulls.allocate( values.length );
-			for (Long value : values)
+			for ( Long      value : values)
 				if (value == null) ++size;
 				else
 				{
@@ -169,7 +169,7 @@ public interface UIntNullList {
 			super( length );
 		}
 		
-		public RW( Long... values ) {
+		public RW(  Long     ... values ) {
 			super( values );
 		}
 		

@@ -37,11 +37,11 @@ public interface IntNullList {
 			nulls.allocate( length );
 		}
 		
-		public R( Integer... values ) {
+		public R(  Integer  ... values ) {
 			
 			this.values.allocate( values.length );
 			nulls.allocate( values.length );
-			for (Integer value : values)
+			for ( Integer   value : values)
 				if (value == null) ++size;
 				else
 				{
@@ -169,7 +169,7 @@ public interface IntNullList {
 			super( length );
 		}
 		
-		public RW( Integer... values ) {
+		public RW(  Integer  ... values ) {
 			super( values );
 		}
 		

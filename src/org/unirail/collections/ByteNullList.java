@@ -37,11 +37,11 @@ public interface ByteNullList {
 			nulls.allocate( length );
 		}
 		
-		public R( Byte... values ) {
+		public R(  Byte     ... values ) {
 			
 			this.values.allocate( values.length );
 			nulls.allocate( values.length );
-			for (Byte value : values)
+			for ( Byte      value : values)
 				if (value == null) ++size;
 				else
 				{
@@ -169,7 +169,7 @@ public interface ByteNullList {
 			super( length );
 		}
 		
-		public RW( Byte... values ) {
+		public RW(  Byte     ... values ) {
 			super( values );
 		}
 		
