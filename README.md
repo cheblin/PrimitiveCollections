@@ -22,9 +22,9 @@ Each collection type has two parts,
 **R**- read-only and **RW** - read-write. **RW** extends **R** so you can always easily get 
 and pass read-only(**R**) collection interface from **RW**
 
-The project used a special iterator's "protocol" that does not generate any garbage in heap. 
-For communication between caller and responder and for holding iterator state, 
-the tag is used. The tag is allocated in the stack and has `int` or `long` primitive types.
+The project used a special iterator "protocol" that does not generate any garbage in heap.
+The process of the communication between the caller and the responder can be imagined as passing a baton in the relay 
+where the tag serves as the baton. The tag is allocated in the stack and has `int` or `long` primitive types.
 
 For example, iterate over and print the content of the `IntIntNullMap`  
 Map where:  
