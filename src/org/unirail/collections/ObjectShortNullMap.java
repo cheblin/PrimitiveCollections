@@ -129,9 +129,7 @@ public interface ObjectShortNullMap {
 		
 		public int size()                          { return assigned + (hasNullKey == Nullable.NONE ? 0 : 1); }
 		
-		
 		public boolean isEmpty()                   { return size() == 0; }
-		
 		
 		protected int hashKey( K key )             { return Array.hashKey( key.hashCode() ); }
 		

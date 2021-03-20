@@ -68,25 +68,26 @@ public interface LongLongNullMap {
 		}
 		
 		
-		public int tag( long key ) {
+		public @Nullable int tag( long key ) {
 			
-			if (key == 0) return  hasOKey == Nullable.VALUE ? Integer.MAX_VALUE : -1;
+			if (key == 0) return  hasOKey ;
 			
 			final long key_ =  key ;
 			
 			int slot = hashKey( key ) & mask;
 			
 			for (long k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_) return values.tag( slot ) ;
+				if (k == key_) return (slot = values.tag( slot )) == -1 ? Nullable.NULL : slot;
 			
-			return -1;//the key is not present
+			return Nullable.NONE;//the key is not present
 		}
 		
-		public boolean contains( int tag ) {return tag  != -1;}
 		
+		public long get( @Nullable  int tag ) { return tag == Nullable.VALUE ? OKeyValue : values.get( tag ); }
 		
-		public long get( int tag ) { return tag == Nullable.VALUE ? OKeyValue : values.get( tag ); }
+		public boolean isNull( @Nullable int tag ) {return tag == Nullable.NULL; }
 		
+		public boolean contains( int tag )         {return tag != Nullable.NONE;}
 		
 		public boolean isEmpty()                   { return size() == 0; }
 		
