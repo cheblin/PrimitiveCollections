@@ -76,12 +76,12 @@ null
 
 similar to nullable `IntIntNullMap` 
 ```java
-int t;
-
 IntIntNullMap.RW map = new IntIntNullMap.RW();
 
 int key = 1;
+
 map.put( key, 11 ); // 1 -> 11
+int t;
 if ((t = map.tag( key )) != -1) System.out.println( map.get( t ) ); //print 11
 
 map.put( 2, 22 ); // 2 -> 22
@@ -95,6 +95,7 @@ map.put( 5, 55 );
 map.put( 8, 88 );
 map.put( 9 );// 3 -> null
 map.put( 10 );// 3 -> null
+
 System.out.println( map );
 ```
 printout
@@ -116,6 +117,8 @@ ObjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
 
 oim.put( "key -> null" );
 oim.put( "key -> value", 11 );
+
+System.out.println(oim);
 ```
 printout
 ```
