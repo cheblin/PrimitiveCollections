@@ -59,7 +59,7 @@ Working with a nullable list is straightforward.
 ```java
 IntNullList.RW list = new IntNullList.RW( 1, 2, null, 4, 5, null, null, null, 9 );
 		
-System.out.println( list.toString() );
+System.out.println( list );
 ```
 printout
 ```
@@ -95,7 +95,7 @@ map.put( 5, 55 );
 map.put( 8, 88 );
 map.put( 9 );// 3 -> null
 map.put( 10 );// 3 -> null
-System.out.println( map.toString() );
+System.out.println( map );
 ```
 printout
 ```
@@ -109,6 +109,22 @@ printout
 3 -> null
 5 -> 55
 ```
+
+and
+```java
+ObjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
+
+oim.put( "key -> null" );
+oim.put( "key -> value", 11 );
+```
+printout
+```
+key -> value -> 11
+key -> null -> null
+```
+
+
+
 The `BitsList` was created to store in tightly-packed form tiny-range values/enums that can be fitted in several (up to 7 bits). 
 Like a list of "nullable-boolean" enum
 ```java

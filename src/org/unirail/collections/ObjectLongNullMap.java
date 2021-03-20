@@ -23,22 +23,14 @@ public interface ObjectLongNullMap {
 		default boolean isNull( int tag ) { return tag < 0; }
 	}
 	
-	class Entry<K extends Comparable<? super K>> {
-		final K               key;
-		final  Long      value;
-		
-		public Entry( K key,  Long      value ) {
-			this.key   = key;
-			this.value = value;
-		}
-	}
+	
 	
 	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
 		
 		
-		public ObjectList.RW<K> keys = new ObjectList.RW<>();
+		 ObjectList.RW<K> keys = new ObjectList.RW<>();
 		
-		public LongNullList.RW values = new LongNullList.RW( 0 );
+		 LongNullList.RW values = new LongNullList.RW( 0 );
 		
 		
 		protected int assigned;
@@ -58,11 +50,6 @@ public interface ObjectLongNullMap {
 		
 		public R() { this( 4 ); }
 		
-		public R( Entry<K>... items ) {
-			this( items.length );
-			for (Entry<K> item : items)
-				put( item.key, item.value );
-		}
 		
 		
 		public R( double loadFactor ) {this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );}
@@ -86,77 +73,7 @@ public interface ObjectLongNullMap {
 		
 		private Producer<K> producer;
 		
-		protected boolean put( K key, long value ) {
-			
-			if (key == null)
-			{
-				
-				hasNullKey   = Nullable.VALUE;
-				NullKeyValue = value;
-				return true;
-			}
-			
-			int slot = hashKey( key ) & mask;
-			
-			
-			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0)
-				{
-					values.set( slot, value );
-					return true;
-				}
-			
-			keys.array[slot] = key;
-			values.add( slot, value );
-			
-			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
-			
-			return true;
-		}
 		
-		protected void allocate( int size ) {
-			
-			if (assigned < 1)
-			{
-				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-				mask     = size - 1;
-				
-				if (keys.length() < size) keys.allocate( size );
-				else Arrays.fill( keys.array, null );
-				
-				if (values.nulls.length() < size) values.nulls.allocate( size );
-				else values.nulls.clear();
-				
-				if (values.values.length() < size) values.values.allocate( size );
-				else values.values.clear();
-				
-				return;
-			}
-			
-			LongNullList.RW vals = values;
-			values = new LongNullList.RW( size + 1 );
-			
-			final K[] k = keys.array;
-			
-			keys.allocate( size + 1 );
-			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
-			
-			K kk;
-			for (int i = k.length - 1; 0 <= --i; )
-				if ((kk = k[i]) != null)
-				{
-					int slot = hashKey( kk ) & mask;
-					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
-					
-					keys.array[slot] = kk;
-					int tag = vals.tag( slot );
-					if (tag < 0) values.set( slot );
-					else values.set( slot, vals.get( tag ) );
-				}
-			
-		}
 		
 		
 		public Producer<K> producer() {
@@ -194,25 +111,23 @@ public interface ObjectLongNullMap {
 		}
 		
 		
-		public int tag() { return hasNullKey == Nullable.VALUE ? Integer.MAX_VALUE : -1; }
-		
 		public int tag( K key ) {
 			
-			if (key == null) return tag();
+			if (key == null) return hasNullKey == Nullable.VALUE ? Integer.MAX_VALUE : -1;
 			
 			
 			int slot = hashKey( key ) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0) return slot;
+				if (k.compareTo( key ) == 0) return values.tag( slot );
 			
-			return -1;
+			return -1;//the key is not present
 		}
 		
 		public long get( int tag ) { return tag == Nullable.VALUE ? NullKeyValue : values.get( tag ); }
 		
 		
-		public boolean contains( K key ) {return -1 < tag( key );}
+		public boolean contains( K key ) {return tag( key ) != -1;}
 		
 		public int size()                { return assigned + (hasNullKey == Nullable.NONE ? 0 : 1); }
 		
@@ -288,9 +203,12 @@ public interface ObjectLongNullMap {
 			
 			Producer<K> src = producer();
 			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			     dst.append( src.key( tag ) )
-					     .append( " -> " )
-					     .append( src.value( tag ) );
+			{
+				dst.append( src.key( tag ) ).append( " -> " );
+				
+				if (src.isNull( tag )) dst.append( "null" );
+				else dst.append( src.value( tag ) );
+			}
 			
 			return dst;
 		}
@@ -304,9 +222,6 @@ public interface ObjectLongNullMap {
 		public RW() {
 		}
 		
-		public RW( Entry<K>... items ) {
-			super( items );
-		}
 		
 		public RW( double loadFactor ) {
 			super( loadFactor );
@@ -352,14 +267,84 @@ public interface ObjectLongNullMap {
 				}
 			
 			keys.array[slot] = key;
-			values.addNull( slot );
+			values.set( slot );
 			
 			if (++assigned == resizeAt) this.allocate( mask + 1 << 1 );
 			
 			return true;
 		}
 		
-		public boolean put( K key, long value ) { return super.put( key, value ); }
+		public boolean put( K key, long value ) {
+			
+			if (key == null)
+			{
+				
+				hasNullKey   = Nullable.VALUE;
+				NullKeyValue = value;
+				return true;
+			}
+			
+			int slot = hashKey( key ) & mask;
+			
+			
+			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
+				if (k.compareTo( key ) == 0)
+				{
+					values.set( slot, value );
+					return true;
+				}
+			
+			keys.array[slot] = key;
+			values.set( slot, value );
+			
+			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
+			
+			return true;
+		}
+		
+		protected void allocate( int size ) {
+			
+			if (assigned < 1)
+			{
+				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
+				mask     = size - 1;
+				
+				if (keys.length() < size) keys.allocate( size );
+				else Arrays.fill( keys.array, null );
+				
+				if (values.nulls.length() < size) values.nulls.allocate( size );
+				else values.nulls.clear();
+				
+				if (values.values.length() < size) values.values.allocate( size );
+				else values.values.clear();
+				
+				return;
+			}
+			
+			LongNullList.RW vals = values;
+			values = new LongNullList.RW( size + 1 );
+			
+			final K[] k = keys.array;
+			
+			keys.allocate( size + 1 );
+			
+			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
+			mask     = size - 1;
+			
+			K kk;
+			for (int i = k.length - 1; 0 <= --i; )
+				if ((kk = k[i]) != null)
+				{
+					int slot = hashKey( kk ) & mask;
+					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
+					
+					keys.array[slot] = kk;
+					int tag = vals.tag( slot );
+					if (tag < 0) values.set( slot );
+					else values.set( slot, vals.get( tag ) );
+				}
+			
+		}
 		
 		
 		public void remove()                   {hasNullKey = Nullable.NONE;}
@@ -403,6 +388,8 @@ public interface ObjectLongNullMap {
 			
 			return false;
 		}
+		
+		
 	}
 	
 }
