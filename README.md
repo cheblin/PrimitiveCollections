@@ -12,8 +12,7 @@ This project get the best from...
 [fastutil](https://fastutil.di.unimi.it/)  
 [Koloboke](https://github.com/leventov/Koloboke)
 
-and add new features, unsigned and nullable primitive types, will be needed 
-in the upcoming AdHoc protocol parser code generator.
+...add new features, unsigned and nullable primitive types.
 
 First and foremost, I was interested in performance and memory efficiency.
 The compatibility with the existing Java Collections API was the last thing I was interested in. 
@@ -88,7 +87,7 @@ map.put( 2, 22 ); // 2 -> 22
 
 key = 3;
 map.put( key ); // 3 -> null
-if ((t = map.tag( key )) != -1) System.out.println( map.tag( t ) ); //skip null value
+if ((t = map.tag( key )) != -1) System.out.println( map.get( t ) ); //skip null value
 
 map.put( 4 ); // 3 -> null
 map.put( 5, 55 );
