@@ -2,9 +2,9 @@
 
 `This is nightly bleeding-edge release`
 
-Yet another Java primitive's collections with support  of unsigned and nullable type 
+Yet another Java primitive's collections with support  of unsigned and nullable types 
 
-Took the best ideas from 
+This project get the best from...
 
 [Trove](https://bitbucket.org/trove4j/trove)  
 [HPPC](https://labs.carrotsearch.com/hppc.html)  
@@ -12,7 +12,7 @@ Took the best ideas from
 [fastutil](https://fastutil.di.unimi.it/)  
 [Koloboke](https://github.com/leventov/Koloboke)
 
-Added new features, unsigned and nullable primitive types, will be needed 
+and add new features, unsigned and nullable primitive types, will be needed 
 in the upcoming AdHoc protocol parser code generator.
 
 First and foremost, I was interested in performance and memory efficiency.
