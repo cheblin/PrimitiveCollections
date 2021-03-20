@@ -14,6 +14,8 @@ public interface DoubleList {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		double  value( int tag );
 	}
 	
@@ -63,11 +65,7 @@ public interface DoubleList {
 		
 		public boolean isEmpty() { return size == 0; }
 		
-		public boolean contains( double value ) {
-			
-			for (int i = size - 1; -1 < i; i--) if (array[i] == value) return true;
-			return false;
-		}
+		public boolean contains( double value ) {return -1 < indexOf(value);}
 		
 		
 		public double[] toArray( double[] dst ) {

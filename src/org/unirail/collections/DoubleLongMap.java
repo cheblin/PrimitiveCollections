@@ -11,6 +11,8 @@ public interface DoubleLongMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		double key( int tag );
 		
 		long value( int tag );

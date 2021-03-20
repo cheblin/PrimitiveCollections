@@ -11,6 +11,8 @@ public interface CharULongMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		char key( int tag );
 		
 		long value( int tag );

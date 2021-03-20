@@ -12,6 +12,8 @@ public interface ByteFloatMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		byte key( int tag );
 		
 		float value( int tag );

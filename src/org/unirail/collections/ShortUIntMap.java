@@ -11,6 +11,8 @@ public interface ShortUIntMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		short key( int tag );
 		
 		long value( int tag );

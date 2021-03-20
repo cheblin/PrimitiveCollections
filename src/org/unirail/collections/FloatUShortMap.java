@@ -11,6 +11,8 @@ public interface FloatUShortMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		float key( int tag );
 		
 		char value( int tag );

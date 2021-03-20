@@ -13,6 +13,8 @@ public interface ShortCharNullMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		short key( int tag );
 		
 		char value( int tag );
@@ -80,7 +82,7 @@ public interface ShortCharNullMap {
 			return -1;//the key is not present
 		}
 		
-		public boolean contains( short key ) {return tag( key ) != -1;}
+		public boolean contains( int tag ) {return tag  != -1;}
 		
 		
 		public char get( int tag ) { return tag == Nullable.VALUE ? OKeyValue : values.get( tag ); }

@@ -11,6 +11,8 @@ public interface IntDoubleMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		int key( int tag );
 		
 		double value( int tag );

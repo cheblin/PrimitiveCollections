@@ -11,6 +11,8 @@ public interface LongByteMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		long key( int tag );
 		
 		byte value( int tag );

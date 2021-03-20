@@ -11,6 +11,8 @@ public interface DoubleShortMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		double key( int tag );
 		
 		short value( int tag );

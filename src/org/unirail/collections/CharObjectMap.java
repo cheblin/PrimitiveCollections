@@ -15,6 +15,8 @@ public interface CharObjectMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		default boolean isNull( int tag ) { return tag < 0; }
 		
 		char key( int tag );

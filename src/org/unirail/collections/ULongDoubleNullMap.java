@@ -13,6 +13,8 @@ public interface ULongDoubleNullMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		long key( int tag );
 		
 		double value( int tag );
@@ -80,7 +82,7 @@ public interface ULongDoubleNullMap {
 			return -1;//the key is not present
 		}
 		
-		public boolean contains( long key ) {return tag( key ) != -1;}
+		public boolean contains( int tag ) {return tag  != -1;}
 		
 		
 		public double get( int tag ) { return tag == Nullable.VALUE ? OKeyValue : values.get( tag ); }

@@ -15,6 +15,8 @@ public interface LongObjectMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		default boolean isNull( int tag ) { return tag < 0; }
 		
 		long key( int tag );

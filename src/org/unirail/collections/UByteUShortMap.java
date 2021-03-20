@@ -11,6 +11,8 @@ public interface UByteUShortMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		char key( int tag );
 		
 		char value( int tag );

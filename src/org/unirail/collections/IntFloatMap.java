@@ -11,6 +11,8 @@ public interface IntFloatMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		int key( int tag );
 		
 		float value( int tag );

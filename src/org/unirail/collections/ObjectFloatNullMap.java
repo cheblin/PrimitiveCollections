@@ -16,6 +16,8 @@ public interface ObjectFloatNullMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag )     {return tag != -1;}
+		
 		K key( int tag );
 		
 		float  value( int tag );
@@ -24,13 +26,12 @@ public interface ObjectFloatNullMap {
 	}
 	
 	
-	
 	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
 		
 		
-		 ObjectList.RW<K> keys = new ObjectList.RW<>();
+		ObjectList.RW<K> keys = new ObjectList.RW<>();
 		
-		 FloatNullList.RW values = new FloatNullList.RW( 0 );
+		FloatNullList.RW values = new FloatNullList.RW( 0 );
 		
 		
 		protected int assigned;
@@ -48,8 +49,7 @@ public interface ObjectFloatNullMap {
 		protected double loadFactor;
 		
 		
-		public R() { this( 4 ); }
-		
+		public R()                    { this( 4 ); }
 		
 		
 		public R( double loadFactor ) {this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );}
@@ -72,8 +72,6 @@ public interface ObjectFloatNullMap {
 		}
 		
 		private Producer<K> producer;
-		
-		
 		
 		
 		public Producer<K> producer() {
@@ -111,31 +109,31 @@ public interface ObjectFloatNullMap {
 		}
 		
 		
-		public int tag( K key ) {
+		public @Nullable int tag( K key ) {
 			
-			if (key == null) return hasNullKey == Nullable.VALUE ? Integer.MAX_VALUE : -1;
-			
+			if (key == null) return hasNullKey;
 			
 			int slot = hashKey( key ) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0) return values.tag( slot );
+				if (k.compareTo( key ) == 0) return (slot = values.tag( slot )) == -1 ? Nullable.NULL : slot;
 			
-			return -1;//the key is not present
+			return Nullable.NONE;//the key is not present
 		}
 		
-		public float get( int tag ) { return tag == Nullable.VALUE ? NullKeyValue : values.get( tag ); }
+		public float get( @Nullable int tag ) { return tag == Nullable.VALUE ? NullKeyValue : values.get( tag ); }
+		
+		public boolean isNull( @Nullable int tag ) {return tag == Nullable.NULL; }
+		
+		public boolean contains( int tag )         {return tag != Nullable.NONE;}
+		
+		public int size()                          { return assigned + (hasNullKey == Nullable.NONE ? 0 : 1); }
 		
 		
-		public boolean contains( K key ) {return tag( key ) != -1;}
-		
-		public int size()                { return assigned + (hasNullKey == Nullable.NONE ? 0 : 1); }
+		public boolean isEmpty()                   { return size() == 0; }
 		
 		
-		public boolean isEmpty()         { return size() == 0; }
-		
-		
-		protected int hashKey( K key )   { return Array.hashKey( key.hashCode() ); }
+		protected int hashKey( K key )             { return Array.hashKey( key.hashCode() ); }
 		
 		public int hashCode() {
 			int h = hasNullKey == Nullable.VALUE ? 0xDEADBEEF : 0;
@@ -347,7 +345,7 @@ public interface ObjectFloatNullMap {
 		}
 		
 		
-		public void remove()                   {hasNullKey = Nullable.NONE;}
+		public void remove() {hasNullKey = Nullable.NONE;}
 		
 		public boolean remove( K key ) {
 			if (key == null)

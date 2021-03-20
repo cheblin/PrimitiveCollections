@@ -14,6 +14,8 @@ public interface ShortList {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		short  value( int tag );
 	}
 	
@@ -63,11 +65,7 @@ public interface ShortList {
 		
 		public boolean isEmpty() { return size == 0; }
 		
-		public boolean contains( short value ) {
-			
-			for (int i = size - 1; -1 < i; i--) if (array[i] == value) return true;
-			return false;
-		}
+		public boolean contains( short value ) {return -1 < indexOf(value);}
 		
 		
 		public short[] toArray( short[] dst ) {

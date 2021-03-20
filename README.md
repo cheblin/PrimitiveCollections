@@ -24,10 +24,10 @@ and pass read-only(**R**) collection interface from **RW**
 
 The project used a special iterator "protocol" that does not generate any garbage in heap.
 The process of the communication between the caller and the responder can be imagined as passing a baton in the relay 
-where the tag serves as the baton. The tag is allocated in the stack and has `int` or `long` primitive types.
+where the `tag` serves as the baton. The `tag` is allocated in the stack and has `int` or `long` primitive types.
 
 For example, iterate over and print the content of the `IntIntNullMap`  
-Map where:  
+The Map where:  
 K - int  
 V - nullable int
 ```java
@@ -36,7 +36,7 @@ public StringBuilder toString( StringBuilder dst ) {
     else dst.ensureCapacity( dst.length() + assigned * 10 );
     
     Producer src = producer();
-    for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
+    for (int tag = src.tag(); src.ok( tag ); dst.append( '\n' ), tag = src.tag( tag ))
     {
         dst.append( src.key( tag ) ).append( " -> " );
         
@@ -77,25 +77,22 @@ similar to nullable `IntIntNullMap`
 ```java
 IntIntNullMap.RW map = new IntIntNullMap.RW();
 
-int key = 1;
-
-map.put( key, 11 ); // 1 -> 11
-int t;
-if ((t = map.tag( key )) != -1) System.out.println( map.get( t ) ); //print 11
-
+map.put( 1, 11 ); // 1 -> 11
 map.put( 2, 22 ); // 2 -> 22
-
-key = 3;
-map.put( key ); // 3 -> null
-if ((t = map.tag( key )) != -1) System.out.println( map.get( t ) ); //skip null value
-
+map.put( 3 ); // 3 -> null
 map.put( 4 ); // 3 -> null
 map.put( 5, 55 );
 map.put( 8, 88 );
 map.put( 9 );// 3 -> null
 map.put( 10 );// 3 -> null
 
-System.out.println( map );
+int tag = map.tag( 3 );
+if (map.contains( tag )) System.out.println( map.get( tag ) ); //skip null value
+
+tag = map.tag( 1 );
+if (map.contains( tag )) System.out.println( map.get( tag ) ); //print 11
+
+System.out.println( map.toString() );
 ```
 printout
 ```
@@ -112,15 +109,35 @@ printout
 
 and
 ```java
+int tag;
+
 ObjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
 
 oim.put( "key -> null" );
 oim.put( "key -> value", 11 );
 
-System.out.println(oim);
+tag = oim.tag( "Note exists" );
+
+assert (!oim.contains( tag ));
+assert (!oim.isNull( tag ));
+
+tag = oim.tag( "key -> null" );
+
+assert (oim.contains( tag ));
+assert (oim.isNull( tag ));
+
+tag = oim.tag( "key -> value" );
+
+assert (oim.contains( tag ));
+assert (!oim.isNull( tag ));
+
+System.out.println( oim.get( tag ) );
+
+System.out.println( oim );
 ```
 printout
 ```
+11
 key -> value -> 11
 key -> null -> null
 ```

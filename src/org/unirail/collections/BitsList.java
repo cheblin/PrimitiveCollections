@@ -68,15 +68,13 @@ public interface BitsList {
 			}
 		}
 		
-		public int length()      { return array.length * BITS / bits; }
+		public int length()                  { return array.length * BITS / bits; }
 		
-		public int size()        { return size; }
+		public int size()                    { return size; }
 		
-		public boolean isEmpty() { return size == 0; }
+		public boolean isEmpty()             { return size == 0; }
 		
-		public boolean contains( int value ) {
-			return false;
-		}
+		public boolean contains( int value ) { return -1 < indexOf( value ); }
 		
 		private IntList.Producer producer;
 		

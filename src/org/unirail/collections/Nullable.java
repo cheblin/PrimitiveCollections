@@ -1,5 +1,5 @@
 package org.unirail.collections;
 
 public @interface Nullable {
-	int NONE = 0, VALUE = 1, NULL = 2;
+	int NONE = -1, VALUE = Integer.MAX_VALUE, NULL = -2;
 }

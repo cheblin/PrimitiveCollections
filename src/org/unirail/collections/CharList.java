@@ -14,6 +14,8 @@ public interface CharList {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		char  value( int tag );
 	}
 	
@@ -63,11 +65,7 @@ public interface CharList {
 		
 		public boolean isEmpty() { return size == 0; }
 		
-		public boolean contains( char value ) {
-			
-			for (int i = size - 1; -1 < i; i--) if (array[i] == value) return true;
-			return false;
-		}
+		public boolean contains( char value ) {return -1 < indexOf(value);}
 		
 		
 		public char[] toArray( char[] dst ) {

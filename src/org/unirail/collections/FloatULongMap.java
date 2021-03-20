@@ -11,6 +11,8 @@ public interface FloatULongMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		float key( int tag );
 		
 		long value( int tag );

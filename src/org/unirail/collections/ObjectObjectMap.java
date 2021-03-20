@@ -12,6 +12,8 @@ public interface ObjectObjectMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		K key( int tag );
 		
 		V value( int tag );

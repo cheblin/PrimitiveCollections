@@ -14,6 +14,8 @@ public interface UIntList {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		long  value( int tag );
 	}
 	
@@ -63,11 +65,7 @@ public interface UIntList {
 		
 		public boolean isEmpty() { return size == 0; }
 		
-		public boolean contains( long value ) {
-			
-			for (int i = size - 1; -1 < i; i--) if (array[i] == (int)value) return true;
-			return false;
-		}
+		public boolean contains( long value ) {return -1 < indexOf(value);}
 		
 		
 		public long[] toArray( long[] dst ) {

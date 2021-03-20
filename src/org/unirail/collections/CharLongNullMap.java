@@ -13,6 +13,8 @@ public interface CharLongNullMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		char key( int tag );
 		
 		long value( int tag );
@@ -80,7 +82,7 @@ public interface CharLongNullMap {
 			return -1;//the key is not present
 		}
 		
-		public boolean contains( char key ) {return tag( key ) != -1;}
+		public boolean contains( int tag ) {return tag  != -1;}
 		
 		
 		public long get( int tag ) { return tag == Nullable.VALUE ? OKeyValue : values.get( tag ); }

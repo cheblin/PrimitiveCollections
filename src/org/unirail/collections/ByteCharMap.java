@@ -12,6 +12,8 @@ public interface ByteCharMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		byte key( int tag );
 		
 		char value( int tag );

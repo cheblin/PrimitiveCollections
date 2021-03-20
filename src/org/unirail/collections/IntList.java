@@ -14,6 +14,8 @@ public interface IntList {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		int  value( int tag );
 	}
 	
@@ -63,11 +65,7 @@ public interface IntList {
 		
 		public boolean isEmpty() { return size == 0; }
 		
-		public boolean contains( int value ) {
-			
-			for (int i = size - 1; -1 < i; i--) if (array[i] == value) return true;
-			return false;
-		}
+		public boolean contains( int value ) {return -1 < indexOf(value);}
 		
 		
 		public int[] toArray( int[] dst ) {

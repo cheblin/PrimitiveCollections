@@ -11,6 +11,8 @@ public interface ShortByteMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		short key( int tag );
 		
 		byte value( int tag );

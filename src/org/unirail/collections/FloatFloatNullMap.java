@@ -13,6 +13,8 @@ public interface FloatFloatNullMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		float key( int tag );
 		
 		float value( int tag );
@@ -80,7 +82,7 @@ public interface FloatFloatNullMap {
 			return -1;//the key is not present
 		}
 		
-		public boolean contains( float key ) {return tag( key ) != -1;}
+		public boolean contains( int tag ) {return tag  != -1;}
 		
 		
 		public float get( int tag ) { return tag == Nullable.VALUE ? OKeyValue : values.get( tag ); }

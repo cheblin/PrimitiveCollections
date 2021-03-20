@@ -9,6 +9,8 @@ public interface ObjectList {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		V value( int tag );
 	}
 	
@@ -63,15 +65,11 @@ public interface ObjectList {
 		
 		int size = 0;
 		
-		public int size()        { return size; }
+		public int size()                  { return size; }
 		
-		public boolean isEmpty() { return size == 0; }
+		public boolean isEmpty()           { return size == 0; }
 		
-		public boolean contains( V value ) {
-			
-			for (int i = size - 1; -1 < i; i--) if (array[i] == value) return true;
-			return false;
-		}
+		public boolean contains( V value ) { return -1 < indexOf( value ); }
 		
 		
 		private Producer<V> producer;

@@ -14,6 +14,8 @@ public interface ByteList {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		byte  value( int tag );
 	}
 	
@@ -63,11 +65,7 @@ public interface ByteList {
 		
 		public boolean isEmpty() { return size == 0; }
 		
-		public boolean contains( byte value ) {
-			
-			for (int i = size - 1; -1 < i; i--) if (array[i] == value) return true;
-			return false;
-		}
+		public boolean contains( byte value ) {return -1 < indexOf(value);}
 		
 		
 		public byte[] toArray( byte[] dst ) {

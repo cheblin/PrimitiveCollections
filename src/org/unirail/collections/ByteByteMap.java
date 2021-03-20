@@ -12,6 +12,8 @@ public interface ByteByteMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		byte key( int tag );
 		
 		byte value( int tag );

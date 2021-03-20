@@ -11,6 +11,8 @@ public interface CharFloatMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		char key( int tag );
 		
 		float value( int tag );

@@ -11,6 +11,8 @@ public interface DoubleCharMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		double key( int tag );
 		
 		char value( int tag );

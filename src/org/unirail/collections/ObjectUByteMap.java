@@ -13,6 +13,8 @@ public interface ObjectUByteMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		K key( int tag );
 		
 		char  value( int tag );
@@ -82,7 +84,7 @@ public interface ObjectUByteMap {
 		
 		public char get( int tag ) {return tag == Integer.MAX_VALUE ? NullKeyValue :  (char)( 0xFFFF &  values.array[tag]); }
 		
-		public boolean contains( K key ) {return -1 < tag( key );}
+		public boolean contains( int tag ) {return -1 < tag;}
 		
 		
 		public int size()                { return assigned + (hasNullKey ? 1 : 0); }

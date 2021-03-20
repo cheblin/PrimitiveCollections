@@ -13,6 +13,8 @@ public interface ByteNullList {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		byte value( int tag );
 		
 		default boolean exists( int tag ) { return -1 < tag; }

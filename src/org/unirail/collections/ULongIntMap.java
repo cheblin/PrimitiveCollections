@@ -11,6 +11,8 @@ public interface ULongIntMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		long key( int tag );
 		
 		int value( int tag );

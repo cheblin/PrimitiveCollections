@@ -13,6 +13,8 @@ public interface ObjectByteMap {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		K key( int tag );
 		
 		byte  value( int tag );
@@ -82,7 +84,7 @@ public interface ObjectByteMap {
 		
 		public byte get( int tag ) {return tag == Integer.MAX_VALUE ? NullKeyValue :   values.array[tag]; }
 		
-		public boolean contains( K key ) {return -1 < tag( key );}
+		public boolean contains( int tag ) {return -1 < tag;}
 		
 		
 		public int size()                { return assigned + (hasNullKey ? 1 : 0); }

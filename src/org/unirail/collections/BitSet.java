@@ -15,6 +15,8 @@ public interface BitSet {
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		boolean value( int tag );
 	}
 	

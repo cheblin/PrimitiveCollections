@@ -11,6 +11,8 @@ public interface ShortDoubleMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		short key( int tag );
 		
 		double value( int tag );

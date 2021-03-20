@@ -11,6 +11,8 @@ public interface DoubleFloatMap{
 		
 		int tag( int tag );
 		
+		default boolean ok( int tag ) {return tag != -1;}
+		
 		double key( int tag );
 		
 		float value( int tag );
