@@ -40,8 +40,8 @@ public StringBuilder toString( StringBuilder dst ) {
     {
         dst.append( src.key( tag ) ).append( " -> " );
         
-        if (src.isNull( tag )) dst.append( "null" );
-        else dst.append( src.value( tag ) );
+        if (src.hasValue( tag )) dst.append( src.value( tag ) );
+        else dst.append( "null" );
     }
     return dst;
 }
