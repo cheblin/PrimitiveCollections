@@ -2,6 +2,36 @@ package org.unirail.collections;
 
 public interface UByteSet {
 	
+	interface Consumer {
+		boolean add( char value );
+		
+		boolean add(  Byte      key );
+		
+		default boolean add( int value )     { return add( (byte) (value & 0xFF) ); }
+	}
+	
+	interface Producer {
+		@Nullable int tag();
+		
+		@Nullable int tag( int tag );
+		
+		default boolean ok( @Nullable int tag ) {return tag != Nullable.NONE;}
+		
+		boolean hasNullKey();
+		
+		char  key( @Nullable int tag );
+		
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			if (hasNullKey()) dst.append( "null\n" );
+			
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( key( tag ) ).append( '\n' );
+			return dst;
+		}
+	}
+	
 	class R implements Cloneable, Comparable<R> {
 		long
 				_1,
@@ -10,31 +40,37 @@ public interface UByteSet {
 				_4;
 		
 		int size = 0;
+		protected boolean hasNull;
 		
-		private static boolean add( UByteSet.R dst, final char value ) {
+		public R()                        { }
+		
+		public R( char... items ) { for (char i : items) add( this, i ); }
+		
+		private static void add( UByteSet.R dst, final char value ) {
 			
 			final int val = value & 0xFF;
 			
 			if (val < 128)
 				if (val < 64)
 					if ((dst._1 & 1L << val) == 0) dst._1 |= 1L << val;
-					else return false;
+					else return;
 				else if ((dst._2 & 1L << val - 64) == 0) dst._2 |= 1L << val - 64;
-				else return false;
+				else return;
 			else if (val < 192)
 				if ((dst._3 & 1L << val - 128) == 0) dst._3 |= 1L << val - 128;
-				else return false;
+				else return;
 			else if ((dst._4 & 1L << val - 192) == 0) dst._4 |= 1L << val - 192;
-			else return false;
+			else return;
 			
 			dst.size++;
-			return true;
-			
 		}
 		
-		public int size()        { return size; }
 		
-		public boolean isEmpty() { return size < 1; }
+		public int size()                           { return hasNull ? size + 1 : size; }
+		
+		public boolean isEmpty()                    { return size < 1; }
+		
+		public boolean contains(  Byte      key ) { return key == null ? hasNull : contains( (char) (key+0) ); }
 		
 		public boolean contains( char key ) {
 			if (size == 0) return false;
@@ -48,12 +84,46 @@ public interface UByteSet {
 					) != 0;
 		}
 		
-		public R()                        {}
+		protected @Nullable int tag()          { return 0 < size ? tag( Nullable.NONE, Nullable.NONE ) : hasNull ? Nullable.VALUE : Nullable.NONE; }
 		
-		public R( char... items ) { for (char i : items) add( this, i ); }
+		protected @Nullable int tag( int tag ) {return tag == Nullable.VALUE ? Nullable.NONE : tag( tag >> 8, tag & 0xFF );}
+		
+		private @Nullable int tag( int key, int index ) {
+			index++;
+			key++;
+			
+			long l;
+			if (key < 128)
+			{
+				if (key < 64)
+				{
+					if ((l = _1 >>> key) != 0) return (key + Long.numberOfTrailingZeros( l )) << 8 | index;
+					key = 0;
+				}
+				else key -= 64;
+				
+				if ((l = _2 >>> key) != 0) return ((key + Long.numberOfTrailingZeros( l ) + 64)) << 8 | index;
+				key = 128;
+			}
+			
+			if (key < 192)
+			{
+				if ((l = _3 >>> (key - 128)) != 0) return ((key + Long.numberOfTrailingZeros( l ) + 128)) << 8 | index;
+				
+				key = 0;
+			}
+			else key -= 192;
+			
+			if ((l = _4 >>> key) != 0) return ((key + Long.numberOfTrailingZeros( l ) + 192)) << 8 | index;
+			
+			
+			return hasNull ? Nullable.VALUE : -1;
+		}
+		
 		
 		//Rank returns the number of integers that are smaller or equal to x
-		public int rank( char key ) {
+		//return inversed value if key does not exists
+		protected int rank( char key ) {
 			final int val = key & 0xFF;
 			
 			int  ret  = 0;
@@ -89,31 +159,9 @@ a:
 			return ~ret;
 		}
 		
-		public char[] toArray( char[] dst ) {
-			if (dst == null || dst.length < size) dst = new char[size];
+		public boolean containsAll( Consumer ask ) {
 			
-			int ind = 0;
-			
-			int  i;
-			long l;
-			
-			for (i = 0, l = _1; l != 0; l >>>= ++i)
-			     dst[ind++] = (char) (i += Long.numberOfTrailingZeros( l ));
-			
-			for (i = 0, l = _2; l != 0; l >>>= ++i)
-			     dst[ind++] = (char) (i += Long.numberOfTrailingZeros( l ) + 64);
-			
-			for (i = 0, l = _3; l != 0; l >>>= ++i)
-			     dst[ind++] = (char) (i += Long.numberOfTrailingZeros( l ) + 128);
-			
-			for (i = 0, l = _4; l != 0; l >>>= ++i)
-			     dst[ind++] = (char) (i += Long.numberOfTrailingZeros( l ) + 192);
-			
-			return dst;
-		}
-		
-		
-		public boolean containsAll( CharList.Consumer ask ) {
+			if (hasNull && !ask.add( null )) return false;
 			
 			int  i;
 			long l;
@@ -133,57 +181,31 @@ a:
 			return true;
 		}
 		
-		public boolean containsAll( CharList.Producer src ) {
+		public boolean containsAll( Producer src ) {
+			if (src.hasNullKey() != hasNull) return false;
 			
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) if (!contains( src.value( tag ) )) return false;
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) if (!contains( src.key( tag ) )) return false;
 			return true;
 		}
 		
-		private CharList.Producer producer;
+		private Producer producer;
 		
-		public CharList.Producer producer() {
-			return producer == null ? producer = new CharList.Producer() {
+		public Producer producer() {
+			return producer == null ? producer = new Producer() {
 				
-				public int tag() { return 0 < size() ? tag( -1 ) : -1; }
+				public int tag() { return R.this.tag(); }
 				
-				public int tag( int tag ) {
-					tag++;
-					
-					long l;
-					if (tag < 128)
-					{
-						if (tag < 64)
-						{
-							if ((l = _1 >>> tag) != 0) return tag + Long.numberOfTrailingZeros( l );
-							tag = 0;
-						}
-						else tag -= 64;
-						
-						if ((l = _2 >>> tag) != 0) return (tag + Long.numberOfTrailingZeros( l ) + 64);
-						tag = 128;
-					}
-					
-					if (tag < 192)
-					{
-						if ((l = _3 >>> (tag - 128)) != 0) return (tag + Long.numberOfTrailingZeros( l ) + 128);
-						
-						tag = 0;
-					}
-					else tag -= 192;
-					
-					if ((l = _4 >>> tag) != 0) return (tag + Long.numberOfTrailingZeros( l ) + 192);
-					
-					return -1;
-				}
+				public int tag( int tag ) {return R.this.tag( tag );}
 				
+				public boolean hasNullKey() { return hasNull; }
 				
-				public char value( int tag ) { return (char) tag; }
+				public char key( int tag ) { return (char) (tag >> 8); }
 				
 			} : producer;
 		}
 		
 		
-		@Override public boolean equals( Object obj ) {
+		public boolean equals( Object obj ) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
@@ -218,22 +240,24 @@ a:
 			
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
-			
-			final CharList.Producer src = producer();
-			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			     dst.append( src.value( tag ) );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
-		public String toString() {
-			return  toString( null ).toString();
-		}
+		public String toString() { return toString( null ).toString(); }
 	}
 	
-	class RW extends R implements CharList.Consumer {
+	class RW extends R implements Consumer {
 		
-		public boolean add( char value ) { return R.add( this, value ); }
+		public boolean add(  Byte      key ) {
+			if (key == null) hasNull = true;
+			else add( key+0 );
+			return true;
+		}
+		
+		public boolean add( char value ) {
+			R.add( this, value );
+			return true;
+		}
 		
 		
 		public boolean retainAll( R src ) {
@@ -264,7 +288,7 @@ a:
 			return ret;
 		}
 		
-		public boolean retainAll( CharList.Consumer ask ) {
+		public boolean retainAll( Consumer ask ) {
 			boolean ret = false;
 			int     i;
 			long    l;
@@ -303,9 +327,20 @@ a:
 			return ret;
 		}
 		
+		public boolean remove(  Byte      key ) {
+			if (key == null)
+				if (hasNull)
+				{
+					hasNull = false;
+					return true;
+				}
+				else return false;
+			
+			return remove( (byte) (key+0) );
+		}
+		
 		public boolean remove( char value ) {
 			if (size == 0) return false;
-			
 			
 			final int val = value & 0xFF;
 			
@@ -326,16 +361,16 @@ a:
 		}
 		
 		
-		public boolean retainAll( CharList.Producer src ) {
+		public boolean retainAll( Producer src ) {
 			long
 					_1 = 0,
 					_2 = 0,
 					_3 = 0,
 					_4 = 0;
 			
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag ))
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
 			{
-				final int val = src.value( tag ) & 0xFF;
+				final int val = src.key( tag ) & 0xFF;
 				
 				if (val < 128)
 					if (val < 64) _1 |= 1L << val;
@@ -343,7 +378,6 @@ a:
 				else if (val < 192) _3 |= 1L << val - 128;
 				else _4 |= 1L << val - 192;
 			}
-			
 			
 			boolean ret = false;
 			
@@ -372,32 +406,33 @@ a:
 			return ret;
 		}
 		
-		public boolean removeAll( CharList.Producer src ) {
+		public boolean removeAll( Producer src ) {
 			boolean ret = false;
 			
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag ))
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
 			{
-				remove( src.value( tag ) );
+				remove( src.key( tag ) );
 				ret = true;
 			}
 			return ret;
 		}
 		
 		public void clear() {
-			size = 0;
-			_1   = 0;
-			_2   = 0;
-			_3   = 0;
-			_4   = 0;
+			size    = 0;
+			_1      = 0;
+			_2      = 0;
+			_3      = 0;
+			_4      = 0;
+			hasNull = false;
 		}
 		
 		
-		public boolean addAll( CharList.Producer src ) {
+		public boolean addAll( Producer src ) {
 			boolean      ret = false;
 			char val;
 			
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag ))
-				if (!contains( val = src.value( tag ) ))
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
+				if (!contains( val = src.key( tag ) ))
 				{
 					ret = true;
 					R.add( this, val );
@@ -406,8 +441,8 @@ a:
 			return ret;
 		}
 		
-		public CharList.Consumer consumer() {return this; }
+		public Consumer consumer() {return this; }
 		
-		public RW clone()                           { return (RW) super.clone(); }
+		public RW clone()          { return (RW) super.clone(); }
 	}
 }

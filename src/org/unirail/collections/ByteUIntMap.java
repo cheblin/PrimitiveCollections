@@ -3,7 +3,9 @@ package org.unirail.collections;
 public interface ByteUIntMap {
 	
 	interface Consumer {
-		boolean put( byte key, long value );//return false to interrupt
+		boolean put( byte key, long value );
+		
+		boolean put(  Byte      key, long value );
 	}
 	
 	
@@ -17,32 +19,72 @@ public interface ByteUIntMap {
 		byte key( int tag );
 		
 		long value( int tag );
+		
+		boolean hasNullKey();
+		
+		long nullKeyValue();
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			if (hasNullKey()) dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
+			
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( key( tag ) )
+					     .append( " -> " )
+					     .append( value( tag ) )
+					     .append( '\n' );
+			return dst;
+		}
 	}
 	
 	
 	class R implements Cloneable, Comparable<R> {
 		
 		ByteSet.RW         keys = new ByteSet.RW();
-		LongList.RW values;
+		UIntList.RW values;
+		
+		long NullValue = 0;
 		
 		
-		public int size()        { return keys.size; }
-		
-		public boolean isEmpty() { return keys.isEmpty();}
-		
-		public R()               {this( 8 );}
+		public R() {this( 8 );}
 		
 		public R( int length ) {
-			values = new LongList.RW( 265 < length ? 256 : length );
+			values = new UIntList.RW( 265 < length ? 256 : length );
 		}
 		
+		public int size()                            { return keys.size(); }
 		
-		public int tag( byte key )       {return keys.contains( key ) ? key : key | Integer.MIN_VALUE;}
+		public boolean isEmpty()                     { return keys.isEmpty();}
 		
-		public boolean exists( int tag ) { return -1 < tag; }
 		
-		public long  get( int tag ) {return  (0xFFFFFFFFL &   values.array[keys.rank( (byte) tag )]);}
+		public @Nullable int tag(  Byte      key ) {return key == null ? keys.contains( null ) ? Nullable.NULL : Nullable.NONE : tag( (byte) (key + 0) );}
 		
+		public @Nullable int tag( byte key ) {return keys.contains( (byte) (key + 0) ) ? key : Nullable.NONE;}
+		
+		public boolean contains( int tag )           { return tag != -1; }
+		
+		public long  get( int tag ) {return tag == Nullable.NULL ? NullValue :  (0xFFFFFFFFL &   values.array[keys.rank( (byte) tag )]);}
+		
+		private Producer producer;
+		
+		public Producer producer() {
+			return producer == null ? producer = new Producer() {
+				
+				public int tag() { return keys.tag(); }
+				
+				public int tag( int tag ) {return keys.tag( tag );}
+				
+				public byte key( int tag ) { return (byte) (tag >>> 8); }
+				
+				public long value( int tag ) { return (0xFFFFFFFFL &  values.array[tag & 0xFF]); }
+				
+				public boolean hasNullKey() { return keys.hasNull; }
+				
+				public long nullKeyValue() { return NullValue; }
+				
+			} : producer;
+		}
 		
 		public boolean equals( Object obj ) {
 			
@@ -54,56 +96,13 @@ public interface ByteUIntMap {
 		
 		public int compareTo( R other ) {
 			if (other == null) return -1;
+			
 			int diff;
-			if ((diff = other.keys.compareTo( keys )) != 0 ||
-			    (diff = other.values.compareTo( values )) != 0) return diff;
+			if ((diff = other.keys.compareTo( keys )) != 0 || (diff = other.values.compareTo( values )) != 0) return diff;
+			if (keys.hasNull && NullValue != other.NullValue) return 1;
 			
 			return 0;
 		}
-		
-		private Producer producer;
-		
-		public Producer producer() {
-			return producer == null ? producer = new Producer() {
-				public int tag() { return 0 < values.size() ? 0 : -1; }
-				
-				public int tag( int tag ) {
-					int key = (tag >> 16) + 1, index = (tag & 0xFFFF) + 1;
-					
-					long l;
-					if (key < 128)
-					{
-						if (key < 64)
-						{
-							if ((l = keys._1 >>> key) != 0) return Long.numberOfTrailingZeros( l ) << 16 | index;
-							key = 0;
-						}
-						else key -= 64;
-						
-						if ((l = keys._2 >>> key) != 0) return (Long.numberOfTrailingZeros( l ) + 64) << 16 | index;
-						key = 128;
-					}
-					
-					if (key < 192)
-					{
-						if ((l = keys._3 >>> (key -= 128)) != 0) return (Long.numberOfTrailingZeros( l ) + 128) << 16 | index;
-						
-						key = 0;
-					}
-					else key -= 192;
-					
-					if ((l = keys._4 >>> key) != 0) return (Long.numberOfTrailingZeros( l ) + 192) | index;
-					
-					return -1;
-				}
-				
-				public byte key( int tag ) { return (byte) (tag >>> 16); }
-				
-				public long value( int tag ) { return (0xFFFFFFFFL &  values.array[tag & 0xFFFF]); }
-				
-			} : producer;
-		}
-		
 		
 		public R clone() {
 			
@@ -126,14 +125,7 @@ public interface ByteUIntMap {
 			
 			if (dst == null) dst = new StringBuilder( keys.size() * 10 );
 			else dst.ensureCapacity( dst.length() + keys.size() * 10 );
-			
-			Producer src = producer();
-			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			     dst.append( src.key( tag ) )
-					     .append( " -> " )
-					     .append( src.value( tag ) );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -141,45 +133,38 @@ public interface ByteUIntMap {
 	
 	class RW extends R implements Consumer {
 		
-		public Consumer consumer() {return this; }
-		
-		public boolean put( byte key, long value ) {
-			
-			if (keys.size < 1)
-			{
-				values.resize( 0, 1, false );
-				values.array[0] = (int)value;
-				keys.add( key );
-				return false;
-			}
-			
-			final int rank = keys.rank( key );
-			
-			if (-1 < rank)
-			{
-				values.array[rank] = (int)value;
-				return true;
-			}
-			
-			values.resize( ~rank, 1, false );
-			values.array[~rank] = (int)value;
-			
-			return false;
+		public RW() {
 		}
 		
-		public boolean remove( byte key ) {
-			if (!keys.contains( key )) return false;
+		public RW( int length ) {
+			super( length );
+		}
+		
+		
+		public boolean put(  Byte      key, long value ) {
+			if (key != null) return put( (byte) (key + 0), value );
 			
-			int rank = keys.rank( key );
-			
-			values.resize( rank, -1, false );
-			values.array[keys.size] = 0;
-			
-			keys.remove( key );
-			
+			keys.add( null );
+			NullValue = value;
 			return true;
 		}
 		
+		public boolean put( byte key, long value ) {
+			keys.add( key + 0 );
+			values.array[keys.rank( (byte) key ) - 1] = (int) value;
+			return true;
+		}
+		
+		public boolean remove(  Byte       key ) { return key == null ? keys.remove( null ) : remove( (byte) (key + 0) ); }
+		
+		public boolean remove( byte key ) {
+			if (!keys.contains((byte) key )) return false;
+			
+			values.resize( values.size, keys.rank((byte) key ) - 1, -1, false );
+			keys.remove((byte) key );
+			
+			return true;
+		}
 		
 		public void clear() {
 			if (keys.size < 1) return;
@@ -187,7 +172,8 @@ public interface ByteUIntMap {
 			values.clear();
 		}
 		
-		public RW clone() { return (RW) super.clone(); }
+		public Consumer consumer() {return this; }
 		
+		public RW clone()          { return (RW) super.clone(); }
 	}
 }

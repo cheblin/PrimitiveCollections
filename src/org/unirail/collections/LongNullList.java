@@ -5,7 +5,7 @@ public interface LongNullList {
 	interface Consumer {
 		boolean add( long value );
 		
-		boolean addNull();
+		boolean add(  Long      value );
 	}
 	
 	interface Producer {
@@ -13,17 +13,26 @@ public interface LongNullList {
 		
 		int tag( int tag );
 		
-		default boolean ok( int tag ) {return tag != -1;}
+		default boolean ok( int tag )       {return tag != -1;}
 		
 		long value( int tag );
 		
-		default boolean exists( int tag ) { return -1 < tag; }
+		default boolean hasValue( int tag ) { return -1 < tag; }
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			for (int tag = tag(); ok( tag ); dst.append( '\n' ), tag = tag( tag ))
+				if (hasValue( tag )) dst.append( value( tag ) );
+				else dst.append( "null" );
+			return dst;
+		}
 	}
 	
 	
 	class R implements Comparable<R> {
 		
-		BitSet.RW          nulls  = new BitSet.RW();
+		IntBoolMap.RW      nulls  = new IntBoolMap.RW();
 		LongList.RW values = new LongList.RW( 4 );
 		
 		public void fit() {
@@ -47,7 +56,7 @@ public interface LongNullList {
 				if (value == null) ++size;
 				else
 				{
-					this.values.add( value );
+					this.values.add( (long) (value + 0) );
 					nulls.set1( size );
 					++size;
 				}
@@ -56,24 +65,24 @@ public interface LongNullList {
 		
 		int size = 0;
 		
-		public int size()                { return size; }
+		public int size()                  { return size; }
 		
-		public boolean isEmpty()         { return size < 1; }
+		public boolean isEmpty()           { return size < 1; }
 		
 		
-		public int tag( int index )      {return nulls.get( index ) ? index : -1;}
+		public int tag( int index )        {return nulls.contains( index ) ? index : -1;}
 		
 		public long get( int tag ) {return  values.array[nulls.rank( tag ) - 1]; }
 		
-		public boolean exists( int tag ) { return -1 < tag; }
+		public boolean hasValue( int tag ) { return -1 < tag; }
 		
 		private Producer producer;
 		
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
-				public int tag() { return nulls.get( size - 1 ) ? size - 1 : size - 1 & Integer.MIN_VALUE; }
+				public int tag() { return 0 < size ? nulls.contains( 0 ) ? 0 : Integer.MIN_VALUE : -1; }
 				
-				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) == 0 ? -1 : nulls.get( --tag ) ? tag : tag | Integer.MIN_VALUE; }
+				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? nulls.contains( ++tag ) ? tag : Integer.MIN_VALUE | tag : -1; }
 				
 				public long value( int tag ) {return  values.array[nulls.rank( tag ) - 1]; }
 				
@@ -84,14 +93,14 @@ public interface LongNullList {
 		
 		public int indexOf( long value ) {
 			int i = values.indexOf( value );
-			return i < 0 ? i : nulls.bit( i );
+			return i < 0 ? i : nulls.key( i );
 		}
 		
 		public int lastIndexOf() { return nulls.prev0( size );}
 		
 		public int lastIndexOf( long value ) {
 			int i = values.lastIndexOf( value );
-			return i < 0 ? i : nulls.bit( i );
+			return i < 0 ? i : nulls.key( i );
 		}
 		
 		public R subList( int fromIndex, int toIndex ) {
@@ -150,12 +159,7 @@ public interface LongNullList {
 		public StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( size * 4 );
 			else dst.ensureCapacity( dst.length() + size * 64 );
-			
-			for (int i = 0; i < size; dst.append( '\n' ), i++)
-				if (nulls.get( i )) dst.append( get( i ) );
-				else dst.append( "null" );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -193,7 +197,7 @@ public interface LongNullList {
 			
 			if (nulls.size() <= index) return false;
 			
-			if (nulls.get( index )) values.remove( nulls.rank( index ) );
+			if (nulls.contains( index )) values.remove( nulls.rank( index ) );
 			nulls.del( index );
 			
 			return true;
@@ -202,8 +206,8 @@ public interface LongNullList {
 		public int addAll( Producer src, int count ) {
 			int fix = size;
 			
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag ))
-				if (src.exists( tag )) size++;
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
+				if (src.hasValue( tag )) size++;
 				else
 					add( src.value( tag ) );
 			return size - fix;
@@ -218,8 +222,8 @@ public interface LongNullList {
 		public void swap( int bit1, int bit2 ) {
 			
 			int exist, empty;
-			if (nulls.get( bit1 ))
-				if (nulls.get( bit2 ))
+			if (nulls.contains( bit1 ))
+				if (nulls.contains( bit2 ))
 				{
 					values.swap( nulls.rank( bit1 ) - 1, nulls.rank( bit2 ) - 1 );
 					return;
@@ -231,7 +235,7 @@ public interface LongNullList {
 					nulls.set0( bit1 );
 					nulls.set1( bit2 );
 				}
-			else if (nulls.get( bit2 ))
+			else if (nulls.contains( bit2 ))
 			{
 				exist = nulls.rank( bit2 ) - 1;
 				empty = nulls.rank( bit1 );
@@ -246,26 +250,11 @@ public interface LongNullList {
 			values.add( empty, v );
 		}
 		
-		
-		public boolean set( int index, long value ) {
+		public boolean set( int index,  Long      value ) {
 			
-			if (nulls.get( index ))
-			{
-				values.set( nulls.rank( index ) - 1, value );
-				return false;
-			}
+			if (value != null) return set( index, (long) (value + 0) );
 			
-			
-			nulls.set1(index);
-			values.add( nulls.rank( index )-1, value );
-			
-			return true;
-		}
-		
-		
-		public boolean set( int index ) {
-			
-			if (!nulls.get( index )) return false;
+			if (!nulls.contains( index )) return false;
 			
 			nulls.set0( index );
 			
@@ -274,18 +263,28 @@ public interface LongNullList {
 			return true;
 		}
 		
-		
-		public boolean addNull() {
-			++size;
+		public boolean set( int index, long value ) {
+			
+			if (nulls.contains( index ))
+			{
+				values.set( nulls.rank( index ) - 1, value );
+				return false;
+			}
+			
+			
+			nulls.set1( index );
+			values.add( nulls.rank( index ) - 1, value );
+			
 			return true;
 		}
 		
-		//insert null in index
-		public void addNull( int index ) {
-			nulls.add( index, false );
-			size++;
-		}
 		
+		public boolean add(  Long      value ) {
+			if (value != null) return add( (long) (value + 0) );
+			
+			size++;
+			return true;
+		}
 		
 		public boolean add( long value ) {
 			values.add( value );
@@ -294,6 +293,14 @@ public interface LongNullList {
 			return true;
 		}
 		
+		
+		public boolean add( int index,  Long      value ) {
+			if (value != null) return add( index, (long) (value + 0) );
+			
+			nulls.add( index, false );
+			size++;
+			return true;
+		}
 		
 		public boolean add( int index, long value ) {
 			if (index < size - 1)

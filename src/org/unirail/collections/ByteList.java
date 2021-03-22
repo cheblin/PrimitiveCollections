@@ -14,9 +14,17 @@ public interface ByteList {
 		
 		int tag( int tag );
 		
-		default boolean ok( int tag ) {return tag != -1;}
+		default boolean ok( int tag ) {return -1 < tag;}
 		
 		byte  value( int tag );
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( value( tag ) ).append( '\n' );
+			return dst;
+		}
 	}
 	
 	
@@ -27,6 +35,8 @@ public interface ByteList {
 		public Object array()              {return array;}
 		
 		public Object allocate( int size ) { return array = size == 0 ? null : new byte[size];}
+		
+		public void fit()                  {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
 		
 		public int length()                { return array == null ? 0 : array.length; }
 		
@@ -39,19 +49,19 @@ public interface ByteList {
 			size = items.length;
 			
 			for (int i = 0; i < size; i++)
-			     array[i] =items[i];
+			     array[i] = (byte)items[i];
 		}
 		
 		int size = 0;
 		
 		public int size() { return size; }
 		
-		public int resize( int index, int resize, boolean fit ) {
+		public int resize(int size, int index, int resize, boolean fit ) {
 			final Object src        = array();
 			final int    fix_length = length();
-			final int    fix_size   = size();
+			final int    fix_size   = size;
 			
-			size = Array.super.resize( index, resize, fit );
+			this.size = Array.super.resize( size, index, resize, fit );
 			
 			if (fix_length < 1) return size;
 			
@@ -63,28 +73,28 @@ public interface ByteList {
 			return size;
 		}
 		
-		public boolean isEmpty() { return size == 0; }
+		public boolean isEmpty()                     { return size == 0; }
 		
-		public boolean contains( byte value ) {return -1 < indexOf(value);}
+		public boolean contains( byte value ) {return -1 < indexOf( value );}
 		
 		
 		public byte[] toArray( byte[] dst ) {
 			if (size == 0) return null;
 			if (dst == null || dst.length < size) dst = new byte[size];
-			for (int i = 0; i < size; i++) dst[i] =  array[i];
+			for (int i = 0; i < size; i++) dst[i] = (byte) array[i];
 			
 			return dst;
 		}
 		
 		public boolean containsAll( Producer src ) {
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag ))
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
 				if (!contains( src.value( tag ) )) return false;
 			
 			return true;
 		}
 		
 		
-		public byte get( int index ) {return   array[index]; }
+		public byte get( int index ) {return  (byte) array[index]; }
 		
 		
 		public int indexOf( byte value ) {
@@ -154,11 +164,11 @@ public interface ByteList {
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
 				
-				public int tag() { return size - 1; }
+				public int tag() { return 0 < size ? 0 : -1; }
 				
-				public int tag( int tag ) { return --tag; }
+				public int tag( int tag ) { return ++tag < size ? tag : -1; }
 				
-				public byte value( int tag ) {return  array[tag]; }
+				public byte value( int tag ) {return (byte) array[tag]; }
 				
 			} : producer;
 		}
@@ -166,11 +176,7 @@ public interface ByteList {
 		public StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
-			
-			for (int i = 0; i < size; dst.append( '\n' ), i++)
-			     dst.append( get( i ) );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -197,7 +203,7 @@ public interface ByteList {
 		}
 		
 		public boolean add( byte value ) {
-			resize( size, 1, false );
+			resize(size, size, 1, false );
 			array[size - 1] = value;
 			return true;
 		}
@@ -207,24 +213,24 @@ public interface ByteList {
 		public boolean remove( int index ) {
 			if (size < 1 || !(index < size)) return false;
 			
-			resize( index, -1, false );
+			resize(size, index, -1, false );
 			return true;
 		}
 		
 		
 		public void addAll( Producer src ) {
-			for (int tag = src.tag(), i = size; tag != -1; tag = src.tag( tag )) array[i++] =  src.value( tag );
+			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] =  src.value( tag );
 		}
 		
 		public boolean addAll( Producer src, int index ) {
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) array[index++] =  src.value( tag );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] =  src.value( tag );
 			return true;
 		}
 		
 		
 		public int removeAll( Producer src ) {
 			int fix = size;
-			for (int tag = src.tag(), i; tag != -1; tag = src.tag( tag ))
+			for (int tag = src.tag(), i; src.ok( tag ); tag = src.tag( tag ))
 				if (-1 < (i = indexOf( src.value( tag ) ))) remove( i );
 			return fix - size;
 		}
@@ -246,7 +252,7 @@ public interface ByteList {
 		public boolean set( int index, byte value ) {
 			
 			boolean resize = !(index < size);
-			if (resize) resize( index = size, 1, false );
+			if (resize) resize(size, index = size, 1, false );
 			
 			array[index] = value;
 			
@@ -256,7 +262,7 @@ public interface ByteList {
 		public void add( int index, byte value ) {
 			if (size < index) index = size;
 			
-			resize( index, 1, false );
+			resize(size, index, 1, false );
 			array[index] = value;
 		}
 		

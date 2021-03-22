@@ -7,7 +7,7 @@ public interface ObjectDoubleNullMap {
 	interface Consumer<K extends Comparable<? super K>> {
 		boolean put( K key, double value );
 		
-		boolean put( K key );
+		boolean put( K key,  Double    value );
 	}
 	
 	
@@ -16,20 +16,34 @@ public interface ObjectDoubleNullMap {
 		
 		int tag( int tag );
 		
-		default boolean ok( int tag )     {return tag != -1;}
+		default boolean ok( int tag )       {return tag != -1;}
 		
 		K key( int tag );
 		
 		double  value( int tag );
 		
-		default boolean isNull( int tag ) { return tag < 0; }
+		default boolean hasValue( int tag ) { return -1 < tag; }
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			for (int tag = tag(); ok( tag ); dst.append( '\n' ), tag = tag( tag ))
+			{
+				dst.append( key( tag ) ).append( " -> " );
+				
+				if (hasValue( tag ))dst.append( value( tag ) );
+				else dst.append( "null" );
+			}
+			
+			return dst;
+		}
 	}
 	
 	
 	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
 		
 		
-		ObjectList.RW<K> keys = new ObjectList.RW<>();
+		ObjectList.RW<K> keys = new ObjectList.RW<>( 0 );
 		
 		DoubleNullList.RW values = new DoubleNullList.RW( 0 );
 		
@@ -43,8 +57,8 @@ public interface ObjectDoubleNullMap {
 		protected int resizeAt;
 		
 		
-		@Nullable int hasNullKey;
-		double NullKeyValue = 0;
+		@Nullable int hasNull;
+		double NullValue = 0;
 		
 		protected double loadFactor;
 		
@@ -71,6 +85,21 @@ public interface ObjectDoubleNullMap {
 			values.values.allocate( size );
 		}
 		
+		public int size()              { return assigned + (hasNull == Nullable.NONE ? 0 : 1); }
+		
+		public boolean isEmpty()       { return size() == 0; }
+		
+		protected int hashKey( K key ) { return Array.hashKey( key.hashCode() ); }
+		
+		public int hashCode() {
+			int h = hasNull == Nullable.VALUE ? 0xDEADBEEF : 0;
+			K   k;
+			for (int i = keys.array.length - 1; 0 <= i; i--)
+				if ((k = keys.array[i]) != null)
+					h += Array.hash( k ) + Array.hash( values.hashCode() );
+			return h;
+		}
+		
 		private Producer<K> producer;
 		
 		
@@ -78,32 +107,26 @@ public interface ObjectDoubleNullMap {
 			return producer == null ? producer = new Producer<>() {
 				
 				public int tag() {
-					int i = keys.array.length;
-					switch (hasNullKey)
+					int len = keys.array.length;
+					switch (hasNull)
 					{
-						case Nullable.VALUE: return i;
-						case Nullable.NULL: return Integer.MIN_VALUE | i;
-						default:
-							if (0 < assigned)
-								while (-1 < --i)
-									if (keys.array[i] != null)
-										return values.nulls.get( i ) ? i : i | Integer.MIN_VALUE;
-							
-							return -1;
+						case Nullable.VALUE: return len;
+						case Nullable.NULL: return Integer.MIN_VALUE | len;
 					}
+					return 0 < assigned ? tag( len ) : -1;
 				}
 				
 				public int tag( int tag ) {
 					tag &= Integer.MAX_VALUE;
 					while (-1 < --tag)
 						if (keys.array[tag] != null)
-							return values.nulls.get( tag ) ? tag : tag | Integer.MIN_VALUE;
+							return values.nulls.contains( tag ) ? tag : tag | Integer.MIN_VALUE;
 					return -1;
 				}
 				
-				public K key( int tag ) {return (tag &= Integer.MAX_VALUE) == keys.array.length ? null :  keys.array[tag]; }
+				public K key( int tag ) {return (tag &= Integer.MAX_VALUE) < keys.array.length ? keys.array[tag] : null; }
 				
-				public double value( int tag ) {return tag == keys.array.length ? NullKeyValue :  values.get( values.tag( tag ) ) ; }
+				public double value( int tag ) {return tag < keys.array.length ? values.get( values.tag( tag ) ) : NullValue; }
 				
 			} : producer;
 		}
@@ -111,7 +134,7 @@ public interface ObjectDoubleNullMap {
 		
 		public @Nullable int tag( K key ) {
 			
-			if (key == null) return hasNullKey;
+			if (key == null) return hasNull;
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -121,26 +144,12 @@ public interface ObjectDoubleNullMap {
 			return Nullable.NONE;//the key is not present
 		}
 		
-		public double get( @Nullable int tag ) { return tag == Nullable.VALUE ? NullKeyValue : values.get( tag ); }
+		public boolean hasValue( @Nullable int tag ) {return -1 < tag; }
 		
-		public boolean isNull( @Nullable int tag ) {return tag == Nullable.NULL; }
+		public double get( @Nullable int tag ) { return tag == Nullable.VALUE ? NullValue : values.get( tag ); }
 		
-		public boolean contains( int tag )         {return tag != Nullable.NONE;}
 		
-		public int size()                          { return assigned + (hasNullKey == Nullable.NONE ? 0 : 1); }
-		
-		public boolean isEmpty()                   { return size() == 0; }
-		
-		protected int hashKey( K key )             { return Array.hashKey( key.hashCode() ); }
-		
-		public int hashCode() {
-			int h = hasNullKey == Nullable.VALUE ? 0xDEADBEEF : 0;
-			K   k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((k = keys.array[i]) != null)
-					h += Array.hash( k ) + Array.hash( values.hashCode() );
-			return h;
-		}
+		public boolean contains( int tag )           {return tag != Nullable.NONE;}
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals( Object obj ) {
@@ -155,8 +164,8 @@ public interface ObjectDoubleNullMap {
 		public int compareTo( R<K> other ) {
 			if (other == null) return -1;
 			
-			if (hasNullKey != other.hasNullKey ||
-			    hasNullKey == Nullable.VALUE && NullKeyValue != other.NullKeyValue) return 1;
+			if (hasNull != other.hasNull ||
+			    hasNull == Nullable.VALUE && NullValue != other.NullValue) return 1;
 			
 			int diff = size() - other.size();
 			if (diff != 0) return diff;
@@ -165,7 +174,7 @@ public interface ObjectDoubleNullMap {
 			K key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key = keys.array[i]) != null)
-					if (values.nulls.get( i ))
+					if (values.nulls.contains( i ))
 					{
 						int tag = other.tag( key );
 						if (tag == -1 || values.get( i ) != other.get( tag )) return 1;
@@ -196,17 +205,7 @@ public interface ObjectDoubleNullMap {
 			
 			if (dst == null) dst = new StringBuilder( assigned * 10 );
 			else dst.ensureCapacity( dst.length() + assigned * 10 );
-			
-			Producer<K> src = producer();
-			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			{
-				dst.append( src.key( tag ) ).append( " -> " );
-				
-				if (src.isNull( tag )) dst.append( "null" );
-				else dst.append( src.value( tag ) );
-			}
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -236,19 +235,20 @@ public interface ObjectDoubleNullMap {
 		public Consumer<K> consumer() {return this; }
 		
 		public void clear() {
-			assigned   = 0;
-			hasNullKey = Nullable.NONE;
+			assigned = 0;
+			hasNull  = Nullable.NONE;
 			keys.clear();
 			values.clear();
 		}
 		
 		
 		//put key -> null
-		public boolean put( K key ) {
+		public boolean put( K key,  Double    value ) {
+			if (value != null) put( key, (double) value );
 			
 			if (key == null)
 			{
-				hasNullKey = Nullable.NULL;
+				hasNull = Nullable.NULL;
 				return true;
 			}
 			
@@ -258,12 +258,12 @@ public interface ObjectDoubleNullMap {
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0)
 				{
-					values.set( slot );
+					values.set( slot,null );
 					return true;
 				}
 			
 			keys.array[slot] = key;
-			values.set( slot );
+			values.set( slot, null );
 			
 			if (++assigned == resizeAt) this.allocate( mask + 1 << 1 );
 			
@@ -275,8 +275,8 @@ public interface ObjectDoubleNullMap {
 			if (key == null)
 			{
 				
-				hasNullKey   = Nullable.VALUE;
-				NullKeyValue = value;
+				hasNull   = Nullable.VALUE;
+				NullValue = value;
 				return true;
 			}
 			
@@ -336,19 +336,17 @@ public interface ObjectDoubleNullMap {
 					
 					keys.array[slot] = kk;
 					int tag = vals.tag( slot );
-					if (tag < 0) values.set( slot );
+					if (tag < 0) values.set( slot,null );
 					else values.set( slot, vals.get( tag ) );
 				}
 			
 		}
 		
 		
-		public void remove() {hasNullKey = Nullable.NONE;}
-		
 		public boolean remove( K key ) {
 			if (key == null)
 			{
-				hasNullKey = Nullable.NONE;
+				hasNull = Nullable.NONE;
 				return true;
 			}
 			
@@ -367,17 +365,17 @@ public interface ObjectDoubleNullMap {
 						{
 							array[gapSlot] = kk;
 							
-							if (values.nulls.get( s ))
+							if (values.nulls.contains( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot );
+								values.set( gapSlot,null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = null;
-					values.set( gapSlot );
+					values.set( gapSlot, null );
 					assigned--;
 					return true;
 				}

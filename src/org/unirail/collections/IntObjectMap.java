@@ -6,6 +6,9 @@ public interface IntObjectMap {
 	
 	public interface Consumer<V extends Comparable<? super V>> {
 		boolean put( int key, V value );//return false to interrupt
+		
+		boolean put(  Integer   key, V value );
+		
 	}
 	
 	
@@ -17,12 +20,28 @@ public interface IntObjectMap {
 		
 		default boolean ok( int tag ) {return tag != -1;}
 		
-		default boolean isNull( int tag ) { return tag < 0; }
+		
+		boolean hasNullKey();
+		
+		V nullKeyValue();
 		
 		int key( int tag );
 		
 		V value( int tag );
 		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			if (hasNullKey()) dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
+			
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( key( tag ) )
+					     .append( " -> " )
+					     .append( value( tag ) )
+					     .append( '\n' );
+			
+			return dst;
+		}
 	}
 	
 	
@@ -31,7 +50,7 @@ public interface IntObjectMap {
 		
 		public IntList.RW keys = new IntList.RW( 0 );
 		
-		public ObjectList.RW<V> values = new ObjectList.RW<>();
+		public ObjectList.RW<V> values = new ObjectList.RW<>( 0 );
 		
 		
 		int assigned;
@@ -42,9 +61,12 @@ public interface IntObjectMap {
 		
 		int resizeAt;
 		
+		boolean hasNull;
+		V       NullValue;
 		
-		boolean hasOKey;
-		V       OKeyValue;
+		
+		boolean hasO;
+		V       OValue;
 		
 		
 		protected double loadFactor;
@@ -74,7 +96,7 @@ public interface IntObjectMap {
 		
 		
 		public V get( int key ) {
-			if (key == 0) return hasOKey ? OKeyValue : null;
+			if (key == 0) return hasO ? OValue : null;
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -86,7 +108,7 @@ public interface IntObjectMap {
 		
 		
 		public boolean contains( int key ) {
-			if (key == 0) return hasOKey;
+			if (key == 0) return hasO;
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -98,11 +120,11 @@ public interface IntObjectMap {
 		
 		public boolean isEmpty() { return size() == 0; }
 		
-		public int size()        { return assigned + (hasOKey ? 1 : 0); }
+		public int size()        { return assigned + (hasO ? 1 : 0) + (hasNull ? 1 : 0); }
 		
 		
 		public int hashCode() {
-			int         h = hasOKey ? 0xDEADBEEF : 0;
+			int         h = hasO ? 0xDEADBEEF : 0;
 			int k;
 			
 			for (int i = mask; 0 <= i; i--)
@@ -123,30 +145,30 @@ public interface IntObjectMap {
 				
 				public int tag() {
 					int i = keys.array.length;
-					if (hasOKey) return OKeyValue == null ? Integer.MIN_VALUE | i : i;
+					if (hasO) return i;
 					
 					if (0 < assigned)
 						while (-1 < --i)
 							if (keys.array[i] != 0)
-								return values.array[i] == null ? i | Integer.MIN_VALUE : i;
-					
+								return i;
 					return -1;
-					
 				}
 				
 				public int tag( int tag ) {
-					tag &= Integer.MAX_VALUE;
+					
 					while (-1 < --tag)
 						if (keys.array[tag] != 0)
-							return values.array[tag] == null ? tag | Integer.MIN_VALUE : tag;
+							return tag;
 					return -1;
 				}
 				
-				public int key( int tag ) {return (tag &= Integer.MAX_VALUE) == keys.array.length ? (int) 0 :  keys.array[tag]; }
+				public boolean hasNullKey() {return hasNull;}
 				
-				public V value( int tag ) {return tag == keys.array.length ? OKeyValue : values.array[tag]; }
+				public V nullKeyValue() {return NullValue;}
 				
+				public int key( int tag ) {return tag < keys.array.length ? keys.array[tag] : (int) 0; }
 				
+				public V value( int tag ) {return tag < keys.array.length ? values.array[tag] : OValue; }
 			} : producer;
 		}
 		
@@ -163,10 +185,10 @@ public interface IntObjectMap {
 			
 			if (other == null) return -1;
 			if (assigned != other.assigned) return assigned - other.assigned;
-			if (other.hasOKey != hasOKey) return 1;
+			if (other.hasO != hasO) return 1;
 			
 			int diff;
-			if (hasOKey && (diff = OKeyValue.compareTo( other.OKeyValue )) != 0) return diff;
+			if (hasO && (diff = OValue.compareTo( other.OValue )) != 0) return diff;
 			
 			
 			V           v;
@@ -200,14 +222,7 @@ public interface IntObjectMap {
 			
 			if (dst == null) dst = new StringBuilder( assigned * 10 );
 			else dst.ensureCapacity( dst.length() + assigned * 10 );
-			
-			Producer<V> src = producer();
-			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			     dst.append( src.key( tag ) )
-					     .append( " -> " )
-					     .append( src.value( tag ) );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -231,11 +246,20 @@ public interface IntObjectMap {
 		public Consumer<V> consumer() {return this; }
 		
 		
+		public boolean put(  Integer   key, V value ) {
+			if (key != null) return put( (int) key, value );
+			
+			hasNull   = true;
+			NullValue = value;
+			
+			return true;
+		}
+		
 		public boolean put( int key, V value ) {
 			if (key == 0)
 			{
-				hasOKey   = true;
-				OKeyValue = value;
+				hasO   = true;
+				OValue = value;
 				return true;
 			}
 			
@@ -258,17 +282,21 @@ public interface IntObjectMap {
 		}
 		
 		
-		public V remove( int key ) {
-			
-			if (key == 0)
-				if (hasOKey)
+		public boolean remove(  Integer   key ) {
+			if (key == null)
+				if (hasNull)
 				{
-					hasOKey = false;
-					V v = OKeyValue;
-					OKeyValue = null;
-					return v;
+					hasNull = false;
+					return true;
 				}
-				else return null;
+				else return false;
+			
+			return remove( (int) key );
+		}
+		
+		public boolean remove( int key ) {
+			
+			if (key == 0) return hasO && !(hasO = false);
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -292,18 +320,21 @@ public interface IntObjectMap {
 					keys.array[gapSlot]   = 0;
 					values.array[gapSlot] = null;
 					assigned--;
-					return v;
+					return true;
 				}
 			
-			return null;
+			return false;
 		}
 		
 		public void clear() {
-			assigned = 0;
-			hasOKey  = false;
+			assigned  = 0;
+			hasO      = false;
 			
-			Arrays.fill( keys.array,  0 );
-			Arrays.fill( values.array, null );
+			hasNull   = false;
+			NullValue = null;
+			
+			keys.clear();
+			values.clear();
 		}
 		
 		void allocate( int size ) {

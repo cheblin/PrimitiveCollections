@@ -17,12 +17,23 @@ public interface ObjectObjectMap {
 		K key( int tag );
 		
 		V value( int tag );
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			for (int tag = tag();ok( tag );  tag = tag( tag ))
+			     dst.append( key( tag ) )
+					     .append( " -> " )
+					     .append( value( tag ) )
+					     .append( '\n' );
+			return dst;
+		}
 	}
 	
 	class R<K extends Comparable<? super K>, V extends Comparable<? super V>> implements Cloneable, Comparable<R<K, V>> {
 		
-		public ObjectList.RW<K> keys   = new ObjectList.RW<>();
-		public ObjectList.RW<V> values = new ObjectList.RW<>();
+		public ObjectList.RW<K> keys   = new ObjectList.RW<>( 0 );
+		public ObjectList.RW<V> values = new ObjectList.RW<>( 0 );
 		
 		
 		protected int assigned;
@@ -34,9 +45,9 @@ public interface ObjectObjectMap {
 		protected int resizeAt;
 		
 		
-		protected boolean hasNullKey;
+		protected boolean hasNull;
 		
-		V NullKeyValue = null;
+		V NullValue = null;
 		
 		protected double loadFactor;
 		
@@ -65,7 +76,7 @@ public interface ObjectObjectMap {
 		}
 		
 		public int tag( K key ) {
-			if (key == null) return hasNullKey ? Integer.MAX_VALUE : -1;
+			if (key == null) return hasNull ? Integer.MAX_VALUE : -1;
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -75,12 +86,12 @@ public interface ObjectObjectMap {
 			return -1;
 		}
 		
-		public V get( int tag )           {return tag == Integer.MAX_VALUE ? NullKeyValue : values.array[tag]; }
+		public V get( int tag )          {return tag == Integer.MAX_VALUE ? NullValue : values.array[tag]; }
 		
 		public boolean contains( K key ) {return -1 < tag( key );}
 		
 		
-		public int size()                { return assigned + (hasNullKey ? 1 : 0); }
+		public int size()                { return assigned + (hasNull ? 1 : 0); }
 		
 		
 		public boolean isEmpty()         { return size() == 0; }
@@ -89,7 +100,7 @@ public interface ObjectObjectMap {
 		protected int hashKey( K key )   { return Array.hashKey( key.hashCode() ); }
 		
 		public int hashCode() {
-			int h = hasNullKey ? 0xDEADBEEF : 0;
+			int h = hasNull ? 0xDEADBEEF : 0;
 			K   k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((k = keys.array[i]) != null)
@@ -110,12 +121,12 @@ public interface ObjectObjectMap {
 			if (other == null) return -1;
 			if (size() != other.size()) return size() - other.size();
 			
-			if (hasNullKey != other.hasNullKey) return 1;
+			if (hasNull != other.hasNull) return 1;
 			
 			int diff;
-			if (hasNullKey)
-				if (NullKeyValue == null) {if (other.NullKeyValue != null) return -1;}
-				else if ((diff = NullKeyValue.compareTo( other.NullKeyValue )) != 0) return diff;
+			if (hasNull)
+				if (NullValue == null) {if (other.NullValue != null) return -1;}
+				else if ((diff = NullValue.compareTo( other.NullValue )) != 0) return diff;
 			
 			K key;
 			
@@ -149,13 +160,22 @@ public interface ObjectObjectMap {
 		public Producer<K, V> producer() {
 			return producer == null ? producer = new Producer<>() {
 				
-				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasNullKey ? 0 : 1); }
+				public int tag() {
+					int len = 0 < assigned ? keys.array.length : 0;
+					return hasNull ? len : (tag( len ));
+				}
 				
-				public int tag( int tag ) { while (-1 < --tag) if (keys.array[tag] != null) return tag; return -1; }
+				public int tag( int tag ) {
+					
+					while (-1 < --tag)
+						if (keys.array[tag] != null)
+							return tag;
+					return -1;
+				}
 				
 				public K key( int tag ) {return assigned == 0 || tag == keys.array.length ? null : keys.array[tag]; }
 				
-				public V value( int tag ) {return assigned == 0 || tag == keys.array.length ? (hasNullKey ? NullKeyValue : null) : values.array[tag]; }
+				public V value( int tag ) {return assigned == 0 || tag == keys.array.length ? (hasNull ? NullValue : null) : values.array[tag]; }
 				
 			} : producer;
 		}
@@ -165,13 +185,7 @@ public interface ObjectObjectMap {
 			if (dst == null) dst = new StringBuilder( assigned * 10 );
 			else dst.ensureCapacity( dst.length() + assigned * 10 );
 			
-			Producer<K, V> src = producer();
-			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			     dst.append( src.key( tag ) )
-					     .append( " -> " )
-					     .append( src.value( tag ) );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -193,16 +207,16 @@ public interface ObjectObjectMap {
 		}
 		
 		public void clear() {
-			assigned   = 0;
-			hasNullKey = false;
+			assigned = 0;
+			hasNull  = false;
 			
 			keys.clear();
 			values.clear();
 		}
 		
 		public boolean put( V value ) {
-			hasNullKey   = true;
-			NullKeyValue = value;
+			hasNull   = true;
+			NullValue = value;
 			return true;
 		}
 		
@@ -257,8 +271,8 @@ public interface ObjectObjectMap {
 		public V remove( K key ) {
 			if (key == null)
 			{
-				hasNullKey = false;
-				return NullKeyValue;
+				hasNull = false;
+				return NullValue;
 			}
 			
 			int slot = hashKey( key ) & mask;

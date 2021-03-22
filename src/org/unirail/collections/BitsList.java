@@ -80,9 +80,9 @@ public interface BitsList {
 		
 		public IntList.Producer producer() {
 			return producer == null ? producer = new IntList.Producer() {
-				public int tag() { return size() - 1; }
+				public int tag() { return 0 < size ? 0 : -1; }
 				
-				public int tag( int tag ) {return --tag;}
+				public int tag( int tag ) { return ++tag < size ? tag : -1; }
 				
 				public int value( int tag ) {return get( tag );}
 				
@@ -203,11 +203,7 @@ public interface BitsList {
 			
 			if (dst == null) dst = new StringBuilder( size * 2 );
 			else dst.ensureCapacity( dst.length() + size * 2 );
-			
-			for (int i = 0; i < size; dst.append( '\n' ), i++)
-			     dst.append( get( i ) );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -375,20 +371,20 @@ public interface BitsList {
 		
 		public boolean addAll( IntList.Producer src ) {
 			int fix = size;
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) add( src.value( tag ) );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) add( src.value( tag ) );
 			return size != fix;
 		}
 		
 		public int addAll( int index, IntList.Producer src ) {
 			int fix = size;
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) add( index++, src.value( tag ) );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) add( index++, src.value( tag ) );
 			return size - fix;
 		}
 		
 		public int removeAll( IntList.Producer src ) {
 			
 			int fix = size;
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) remove( src.value( tag ) );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) remove( src.value( tag ) );
 			return fix - size;
 		}
 		

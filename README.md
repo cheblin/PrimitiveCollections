@@ -57,7 +57,17 @@ This is an ordinary list of primitives with "nulls info" stored in BitSet which 
 Working with a nullable list is straightforward.
 ```java
 IntNullList.RW list = new IntNullList.RW( 1, 2, null, 4, 5, null, null, null, 9 );
-		
+
+System.out.println( list.toString() );
+
+list.add( 12    ) ;
+list.add( null  ) ;
+list.add( 122   ) ;
+list.add( null  ) ;
+list.add( 1222  ) ;
+list.add( 12222 ) ;
+
+System.out.println( "=======================" );
 System.out.println( list );
 ```
 printout
@@ -71,28 +81,54 @@ null
 null
 null
 9
+
+=======================
+1
+2
+null
+4
+5
+null
+null
+null
+9
+12
+null
+122
+null
+1222
+12222
 ```
 
 similar to nullable `IntIntNullMap` 
 ```java
 IntIntNullMap.RW map = new IntIntNullMap.RW();
+		
+map.put( 1  , 11   ) ;// 1  -> 11
+map.put( 2  , 22   ) ;// 2  -> 22
+map.put( 3  , null ) ;// 3  -> null
+map.put( 4  , null ) ;// 3  -> null
+map.put( 5  , 55   ) ;// 5  -> 55
+map.put( 8  , 88   ) ;// 8  -> 88
+map.put( 9  , null ) ;// 9  -> null
+map.put( 10 , null ) ;// 10 -> null
 
-map.put( 1, 11 ); // 1 -> 11
-map.put( 2, 22 ); // 2 -> 22
-map.put( 3 ); // 3 -> null
-map.put( 4 ); // 3 -> null
-map.put( 5, 55 );
-map.put( 8, 88 );
-map.put( 9 );// 3 -> null
-map.put( 10 );// 3 -> null
-
-int tag = map.tag( 3 );
-if (map.contains( tag )) System.out.println( map.get( tag ) ); //skip null value
+tag = map.tag( 3 );
+assert (map.contains( tag ));
+assert (!map.hasValue( tag ));
+if (map.hasValue( tag )) System.out.println( map.get( tag ) ); //skip null value
 
 tag = map.tag( 1 );
-if (map.contains( tag )) System.out.println( map.get( tag ) ); //print 11
+assert (map.contains( tag ));
+assert (map.hasValue( tag ));
+if (map.hasValue( tag )) System.out.println( map.get( tag ) ); //print 11
 
-System.out.println( map.toString() );
+tag = map.tag( 99 );
+assert (!map.contains( tag ));//key 99 is not present
+assert (!map.hasValue( tag ));
+
+
+System.out.println( map );
 ```
 printout
 ```
@@ -109,27 +145,25 @@ printout
 
 and
 ```java
-int tag;
-
 ObjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
 
-oim.put( "key -> null" );
+oim.put( "key -> null", null );
 oim.put( "key -> value", 11 );
 
-tag = oim.tag( "Note exists" );
+int tag = oim.tag( "Note exists" );
 
 assert (!oim.contains( tag ));
-assert (!oim.isNull( tag ));
+assert (!oim.hasValue( tag ));
 
 tag = oim.tag( "key -> null" );
 
 assert (oim.contains( tag ));
-assert (oim.isNull( tag ));
+assert (!oim.hasValue( tag ));
 
 tag = oim.tag( "key -> value" );
 
 assert (oim.contains( tag ));
-assert (!oim.isNull( tag ));
+assert (oim.hasValue( tag ));
 
 System.out.println( oim.get( tag ) );
 
@@ -150,10 +184,31 @@ Like a list of "nullable-boolean" enum
 @interface NullableBoolean {
     int TRUE = 1, FALSE = 0, NONE = 2;
 }
+
+BitsList.RW bits = new BitsList.RW( 2 );//3 bits per item
+bits.add( NullableBoolean.FALSE) ;
+bits.add( NullableBoolean.TRUE ) ;
+bits.add( NullableBoolean.TRUE ) ;
+bits.add( NullableBoolean.NONE ) ;
+bits.add( NullableBoolean.NONE ) ;
+bits.add( NullableBoolean.NONE ) ;
+bits.add( NullableBoolean.FALSE) ;
+System.out.println( bits );
 ```
+printout
+```
+0
+1
+1
+2
+2
+2
+0
+```
+
 Its value can be stored in two bits. The special form "enum" - [SlimEnum](https://github.com/cheblin/SlimEnum)  was used here.
 
 
-All these collections are primitive-types-backed
+All these collections are primitive-types-backed, no boxing/unboxing.
 
 Bugs? --->> [issues](https://github.com/cheblin/PrimitiveCollections/issues)

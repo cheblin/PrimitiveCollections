@@ -1,9 +1,11 @@
 package org.unirail.collections;
 
-public interface UShortLongMap{
+public interface UShortLongMap {
 	
 	interface Consumer {
-		boolean put( char key, long value );//return false to interrupt
+		boolean put( char key, long value );
+		
+		boolean put(  Character key, long value );
 	}
 	
 	interface Producer {
@@ -16,6 +18,23 @@ public interface UShortLongMap{
 		char key( int tag );
 		
 		long value( int tag );
+		
+		boolean hasNullKey();
+		
+		long nullKeyValue();
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			if (hasNullKey()) dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
+			
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( key( tag ) )
+					     .append( " -> " )
+					     .append( value( tag ) )
+					     .append( '\n' );
+			return dst;
+		}
 	}
 	
 	
@@ -29,8 +48,12 @@ public interface UShortLongMap{
 		
 		int resizeAt;
 		
-		boolean hasOKey;
-		long       OKeyValue;
+		
+		boolean hasNull;
+		long       NullValue;
+		
+		boolean hasO;
+		long       OValue;
 		
 		protected double loadFactor;
 		
@@ -57,16 +80,15 @@ public interface UShortLongMap{
 			values.allocate( size );
 		}
 		
+		public boolean isEmpty()                        { return size() == 0; }
 		
-		public long get( int tag ) {
-			
-			if (tag == assigned) return OKeyValue;
-			return   values.array[tag];
-		}
+		public int size()                               { return assigned + (hasO ? 1 : 0) + (hasNull ? 1 : 0); }
 		
+		
+		public @Nullable int tag(  Character key ) {return key == null ? hasNull ? Nullable.NULL : Nullable.NONE : tag( (char) key );}
 		
 		public int tag( char key ) {
-			if (key == 0) return hasOKey ? assigned : -1;
+			if (key == 0) return hasO ? Nullable.VALUE : Nullable.NONE;
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -76,16 +98,21 @@ public interface UShortLongMap{
 			return -1;
 		}
 		
+		public boolean contains( @Nullable int tag ) {return tag != Nullable.NONE;}
 		
-		public boolean isEmpty()                 { return size() == 0; }
 		
-		public int size()                        { return assigned + (hasOKey ? 1 : 0); }
+		public long get( @Nullable int tag ) {
+			if (tag == Nullable.NULL) return NullValue;
+			if (tag == Nullable.VALUE) return OValue;
+			return   values.array[tag];
+		}
+		
 		
 		protected int hashKey( char key ) {return Array.hashKey( key ); }
 		
 		
 		public int hashCode() {
-			int h = hasOKey ? 0xDEADBEEF : 0;
+			int h = hasO ? 0xDEADBEEF : 0;
 			
 			char k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
@@ -95,19 +122,21 @@ public interface UShortLongMap{
 			return h;
 		}
 		
-		
-	
 		private Producer producer;
 		
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
-				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasOKey ? 0 : 1); }
+				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasO ? 0 : 1); }
 				
 				public int tag( int tag ) { while (-1 < --tag) if (keys.array[tag] != 0) return tag; return -1; }
 				
 				public char key( int tag ) {return assigned == 0 || tag == keys.array.length ? (char) 0 :  keys.array[tag]; }
 				
-				public long value( int tag ) {return assigned == 0 || tag == keys.array.length ? OKeyValue :  values.array[tag]; }
+				public long value( int tag ) {return assigned == 0 || tag == keys.array.length ? OValue :  values.array[tag]; }
+				
+				public boolean hasNullKey() {return hasNull;}
+				
+				public long nullKeyValue() {return NullValue;}
 			} : producer;
 		}
 		
@@ -123,8 +152,7 @@ public interface UShortLongMap{
 		public int compareTo( R other ) {
 			if (other == null) return -1;
 			
-			if (hasOKey != other.hasOKey ||
-			    hasOKey && OKeyValue != other.OKeyValue) return 1;
+			if (hasO != other.hasO || hasO && OValue != other.OValue) return 1;
 			
 			int diff;
 			if ((diff = size() - other.size()) != 0) return diff;
@@ -154,6 +182,16 @@ public interface UShortLongMap{
 			}
 			return null;
 		}
+		
+		public StringBuilder toString( StringBuilder dst ) {
+			
+			if (dst == null) dst = new StringBuilder( keys.size() * 10 );
+			else dst.ensureCapacity( dst.length() + keys.size() * 10 );
+			return producer().toString( dst );
+			
+		}
+		
+		public String toString() { return toString( null ).toString();}
 	}
 	
 	
@@ -199,17 +237,26 @@ public interface UShortLongMap{
 				}
 		}
 		
+		public boolean put(  Character key, long value ) {
+			if (key != null) return put( (char) key, value );
+			
+			hasNull   = true;
+			NullValue = value;
+			
+			return true;
+		}
+		
 		public boolean put( char key, long value ) {
 			
 			if (key == 0)
 			{
-				if (hasOKey)
+				if (hasO)
 				{
-					OKeyValue = value;
+					OValue = value;
 					return true;
 				}
-				hasOKey   = true;
-				OKeyValue = value;
+				hasO   = true;
+				OValue = value;
 				return false;
 			}
 			
@@ -234,15 +281,21 @@ public interface UShortLongMap{
 		}
 		
 		
-		public boolean remove( char key ) {
-			
-			if (key == 0)
-				if (hasOKey)
+		public boolean remove(  Character key ) {
+			if (key == null)
+				if (hasNull)
 				{
-					hasOKey = false;
+					hasNull = false;
 					return true;
 				}
 				else return false;
+			
+			return remove( (char) key );
+		}
+		
+		public boolean remove( char key ) {
+			
+			if (key == 0) return hasO && !(hasO = false);
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -275,7 +328,8 @@ public interface UShortLongMap{
 		
 		public void clear() {
 			assigned = 0;
-			hasOKey  = false;
+			hasO     = false;
+			hasNull  = false;
 			
 			keys.clear();
 			values.clear();

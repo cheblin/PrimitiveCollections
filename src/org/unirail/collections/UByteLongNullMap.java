@@ -1,14 +1,18 @@
 package org.unirail.collections;
 
 public interface UByteLongNullMap {
-	public interface Consumer {
+	interface Consumer {
 		boolean put( char key, long value );
 		
-		boolean put( char key );
+		boolean put( char key,  Long      value );
+		
+		boolean put(  Byte      key,  Long      value );
+		
+		boolean put(  Byte      key, long value );
 	}
 	
 	
-	public interface Producer {
+	interface Producer {
 		int tag();
 		
 		int tag( int tag );
@@ -17,12 +21,37 @@ public interface UByteLongNullMap {
 		
 		char key( int tag );
 		
+		boolean hasValue( int tag );
+		
 		long value( int tag );
 		
-		default boolean isNull( int tag ) { return tag < 0; }
+		
+		@Nullable int hasNullKey();
+		
+		long nullKeyValue();
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			switch (hasNullKey())
+			{
+				case Nullable.VALUE: dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
+				case Nullable.NULL: dst.append( "null -> null\n" );
+			}
+			
+			for (int tag = tag(); ok( tag ); dst.append( '\n' ), tag = tag( tag ))
+			{
+				dst.append( key( tag ) ).append( " -> " );
+				
+				if (hasValue( tag )) dst.append( value( tag ) );
+				else dst.append( "null" );
+			}
+			
+			return dst;
+		}
 	}
 	
-	public static class R implements Cloneable, Comparable<R> {
+	class R implements Cloneable, Comparable<R> {
 		public UByteList.RW     keys   = new UByteList.RW( 0 );
 		public LongNullList.RW values = new LongNullList.RW( 0 );
 		
@@ -36,8 +65,12 @@ public interface UByteLongNullMap {
 		int resizeAt;
 		
 		
-		@Nullable int hasOKey;
-		long       OKeyValue;
+		@Nullable int hasNull;
+		long NullValue = 0;
+		
+		
+		@Nullable int hasO;
+		long       OValue;
 		
 		
 		protected double loadFactor;
@@ -67,37 +100,15 @@ public interface UByteLongNullMap {
 			values.values.allocate( size );
 		}
 		
+		public boolean isEmpty()                 { return size() == 0; }
 		
-		public @Nullable int tag( char key ) {
-			
-			if (key == 0) return  hasOKey ;
-			
-			final byte key_ = (byte) key ;
-			
-			int slot = hashKey( key ) & mask;
-			
-			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_) return (slot = values.tag( slot )) == -1 ? Nullable.NULL : slot;
-			
-			return Nullable.NONE;//the key is not present
-		}
+		public int size()                        { return assigned + (hasO == Nullable.NONE ? 0 : 1) + (hasNull == Nullable.NONE ? 0 : 1); }
 		
-		
-		public long get( @Nullable  int tag ) { return tag == Nullable.VALUE ? OKeyValue : values.get( tag ); }
-		
-		public boolean isNull( @Nullable int tag ) {return tag == Nullable.NULL; }
-		
-		public boolean contains( int tag )         {return tag != Nullable.NONE;}
-		
-		public boolean isEmpty()                   { return size() == 0; }
-		
-		public int size()                          { return assigned + (hasOKey == Nullable.NONE ? 0 : 1); }
-		
-		protected int hashKey( char key )   {return Array.hashKey( key ); }
+		protected int hashKey( char key ) {return Array.hashKey( key ); }
 		
 		
 		public int hashCode() {
-			int h = hasOKey == Nullable.NONE ? 0xDEADBEEF : 0;
+			int h = hasO == Nullable.NONE ? 0xDEADBEEF : 0;
 			
 			byte k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
@@ -107,21 +118,54 @@ public interface UByteLongNullMap {
 			return h;
 		}
 		
+		public @Nullable int tag(  Byte      key ) {return key == null ? hasNull : tag( (char) (key + 0) );}
+		
+		public @Nullable int tag( char key ) {
+			
+			if (key == 0)
+				if (hasO == Nullable.NONE) return Nullable.NONE;
+				else return hasO - 1;
+			
+			final byte key_ = (byte) key ;
+			
+			int slot = hashKey( key ) & mask;
+			
+			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+				if (k == key_) return (slot = values.tag( slot )) == -1 ? Integer.MIN_VALUE | slot : slot;
+			
+			return Nullable.NONE;//the key is not present
+		}
+		
+		public boolean contains( int tag )           {return tag != Nullable.NONE;}
+		
+		public boolean hasValue( @Nullable int tag ) { return -1 < tag; }
+		
+		public long get( @Nullable int tag ) {
+			switch (tag)
+			{
+				case Nullable.VALUE: return NullValue;
+				case Nullable.VALUE - 1: return OValue;
+			}
+			return values.get( tag & Integer.MAX_VALUE );
+		}
+		
+		
 		private Producer producer;
 		
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
+				
 				public int tag() {
 					int i = keys.array.length;
-					switch (hasOKey)
+					switch (hasO)
 					{
 						case Nullable.VALUE: return i;
 						case Nullable.NULL: return Integer.MIN_VALUE | i;
 						default:
 							if (0 < assigned)
-								while ( -1 < --i )
+								while (-1 < --i)
 									if (keys.array[i] != 0)
-										return values.nulls.get( i ) ? i : i | Integer.MIN_VALUE;
+										return values.nulls.contains( i ) ? i : Integer.MIN_VALUE | i;
 							
 							return -1;
 					}
@@ -131,13 +175,19 @@ public interface UByteLongNullMap {
 					tag &= Integer.MAX_VALUE;
 					while (-1 < --tag)
 						if (keys.array[tag] != 0)
-							return values.nulls.get( tag ) ? tag : tag | Integer.MIN_VALUE;
+							return values.nulls.contains( tag ) ? tag : Integer.MIN_VALUE | tag;
 					return -1;
 				}
 				
-				public char key( int tag ) {return (tag &= Integer.MAX_VALUE) == keys.array.length ? (char) 0 : (char)( 0xFFFF &   keys.array[tag]); }
+				public char key( int tag ) {return (tag &= Integer.MAX_VALUE) < keys.array.length ? (char)( 0xFFFF &  keys.array[tag]) : (char) 0; }
 				
-				public long value( int tag ) {return tag == keys.array.length ? OKeyValue :  values.get( values.tag( tag ) ) ; }
+				public boolean hasValue( int tag ) { return -1 < tag; }
+				
+				public long value( int tag ) {return tag < keys.array.length ? values.get( values.tag( tag ) ) : OValue; }
+				
+				public @Nullable int hasNullKey() { return hasNull; }
+				
+				public long nullKeyValue() { return NullValue; }
 			} : producer;
 		}
 		
@@ -153,8 +203,11 @@ public interface UByteLongNullMap {
 		public int compareTo( R other ) {
 			if (other == null) return -1;
 			
-			if (hasOKey != other.hasOKey ||
-			    hasOKey == Nullable.VALUE && OKeyValue != other.OKeyValue) return 1;
+			if (hasNull != other.hasNull ||
+			    hasNull == Nullable.VALUE && NullValue != other.NullValue) return 1;
+			
+			if (hasO != other.hasO ||
+			    hasO == Nullable.VALUE && OValue != other.OValue) return 1;
 			
 			int diff = size() - other.size();
 			if (diff != 0) return diff;
@@ -163,7 +216,7 @@ public interface UByteLongNullMap {
 			char           key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key = (char)( 0xFFFF &  keys.array[i])) != 0)
-					if (values.nulls.get( i ))
+					if (values.nulls.contains( i ))
 					{
 						int tag = other.tag( key );
 						if (tag == -1 || values.get( i ) != other.get( tag )) return 1;
@@ -193,22 +246,13 @@ public interface UByteLongNullMap {
 		public StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( assigned * 10 );
 			else dst.ensureCapacity( dst.length() + assigned * 10 );
-			
-			Producer src = producer();
-			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			{
-				dst.append( src.key( tag ) ).append( " -> " );
-				
-				if (src.isNull( tag )) dst.append( "null" );
-				else dst.append( src.value( tag ) );
-			}
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
 	}
 	
-	public static class RW extends R implements Consumer {
+	class RW extends R implements Consumer {
 		
 		public RW() {
 		}
@@ -221,14 +265,37 @@ public interface UByteLongNullMap {
 			super( expectedItems, loadFactor );
 		}
 		
+		
 		public Consumer consumer() {return this; }
 		
+		public boolean put(  Byte      key, long value ) {
+			if (key != null) return put( (char) (key + 0), value );
+			
+			hasNull   = Nullable.VALUE;
+			NullValue = value;
+			return true;
+		}
 		
-		//put key -> null
-		public boolean put( char key ) {
+		public boolean put(  Byte      key,  Long      value ) {
+			if (key != null) return put( (char) (key + 0), value );
+			
+			if (value == null)
+				hasNull = Nullable.NULL;
+			else
+			{
+				hasNull   = Nullable.VALUE;
+				NullValue = value;
+			}
+			
+			return true;
+		}
+		
+		public boolean put( char key,  Long      value ) {
+			if (value != null) return put( key, (long) value );
+			
 			if (key == 0)
 			{
-				hasOKey = Nullable.NULL;
+				hasO = Nullable.NULL;
 				return true;
 			}
 			
@@ -238,24 +305,24 @@ public interface UByteLongNullMap {
 			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.set( slot );
+					values.set( slot, null );
 					return true;
 				}
 			
 			keys.array[slot] = key_;
-			values.set( slot );
+			values.set( slot, null );
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
 			return true;
 		}
 		
-		//put key -> value
+		
 		public boolean put( char key, long value ) {
 			if (key == 0)
 			{
-				hasOKey   = Nullable.VALUE;
-				OKeyValue = value;
+				hasO   = Nullable.VALUE;
+				OValue = value;
 				return true;
 			}
 			
@@ -279,7 +346,7 @@ public interface UByteLongNullMap {
 		}
 		
 		
-		public boolean remove() { return hasOKey != Nullable.NONE && (hasOKey = Nullable.NONE) == Nullable.NONE; }
+		public boolean remove() { return hasO != Nullable.NONE && (hasO = Nullable.NONE) == Nullable.NONE; }
 		
 		public boolean remove( char key ) {
 			if (key == 0) return remove();
@@ -301,17 +368,17 @@ public interface UByteLongNullMap {
 							
 							array[gapSlot] = kk;
 							
-							if (values.nulls.get( s ))
+							if (values.nulls.contains( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot );
+								values.set( gapSlot, null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = 0;
-					values.set( gapSlot );
+					values.set( gapSlot, null );
 					assigned--;
 					return true;
 				}
@@ -337,15 +404,15 @@ public interface UByteLongNullMap {
 				return;
 			}
 			
-			RW tmp = new RW( size + 1, loadFactor );
+			RW tmp = new RW( size - 1, loadFactor );
 			
 			byte[] array = keys.array;
 			byte   key;
 			
 			for (int i = array.length - 1; -1 < --i; )
 				if ((key = array[i]) != 0)
-					if (values.nulls.get( i )) tmp.put((char)( 0xFFFF &  key), values.get( i ) );
-					else tmp.put((char)( 0xFFFF &  key) );
+					if (values.nulls.contains( i )) tmp.put((char)( 0xFFFF &  key), values.get( i ) );
+					else tmp.put((char)( 0xFFFF &  key), null );
 			
 			keys   = tmp.keys;
 			values = tmp.values;
@@ -357,7 +424,7 @@ public interface UByteLongNullMap {
 		
 		public void clear() {
 			assigned = 0;
-			hasOKey  = Nullable.NONE;
+			hasO     = Nullable.NONE;
 			keys.clear();
 			values.clear();
 		}

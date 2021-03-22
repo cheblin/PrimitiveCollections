@@ -2,6 +2,35 @@ package org.unirail.collections;
 
 public interface DoubleSet {
 	
+	interface Consumer {
+		boolean add( double value );
+		
+		boolean add(  Double    key );
+	}
+	
+	interface Producer {
+		@Nullable int tag();
+		
+		@Nullable int tag( int tag );
+		
+		default boolean ok( @Nullable int tag ) {return tag != Nullable.NONE;}
+		
+		boolean hasNullKey();
+		
+		double  key( @Nullable int tag );
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			if (hasNullKey()) dst.append( "null\n" );
+			
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( key( tag ) ).append( '\n' );
+			
+			return dst;
+		}
+	}
+	
 	class R implements Cloneable, Comparable<R> {
 		
 		public DoubleList.RW keys = new DoubleList.RW( 0 );
@@ -12,15 +41,12 @@ public interface DoubleSet {
 		
 		int resizeAt;
 		
-		
-		boolean hasOKey;
-		
+		boolean hasO;
+		boolean hasNull;
 		
 		protected double loadFactor;
 		
-		
 		public R()                    { this( 4 ); }
-		
 		
 		public R( int expectedItems ) { this( expectedItems, 0.75 ); }
 		
@@ -73,7 +99,7 @@ public interface DoubleSet {
 				{
 					int slot = src.hashKey( key ) & src.mask;
 					while (src.keys.array[slot] != 0) slot = slot + 1 & src.mask;
-					src.keys.array[slot] = key;
+					src.keys.array[slot] =Double.doubleToLongBits( key);
 				}
 		}
 		
@@ -81,22 +107,25 @@ public interface DoubleSet {
 			
 			if (key == 0)
 			{
-				src.hasOKey = true;
+				src.hasO = true;
 				return;
 			}
 			
 			int slot = src.hashKey( key ) & src.mask;
 			
+			
 			for (double k; (k = src.keys.array[slot]) != 0; slot = slot + 1 & src.mask)
 				if (k == key) return;
 			
-			src.keys.array[slot] =  key;
+			src.keys.array[slot] = Double.doubleToLongBits( key);
 			
 			if (src.assigned++ == src.resizeAt) allocate( src, src.mask + 1 << 1 );
 		}
 		
+		public boolean contains(  Double    key ) { return key == null ? hasNull : contains( (double) (key + 0) ); }
+		
 		public boolean contains( double key ) {
-			if (key == 0) return hasOKey;
+			if (key == 0) return hasO;
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -109,11 +138,11 @@ public interface DoubleSet {
 		public boolean isEmpty() { return size() == 0; }
 		
 		
-		public int size()        { return assigned + (hasOKey ? 1 : 0); }
+		public int size()        { return assigned + (hasO ? 1 : 0); }
 		
 		
 		public int hashCode() {
-			int         h = hasOKey ? 0xDEADBEEF : 0;
+			int         h = hasO ? 0xDEADBEEF : 0;
 			double k;
 			
 			for (int slot = mask; slot >= 0; slot--)
@@ -125,16 +154,18 @@ public interface DoubleSet {
 		
 		protected int hashKey( double key ) {return Array.hashKey( key );}
 		
-		private DoubleList.Producer producer;
+		private Producer producer;
 		
-		public DoubleList.Producer producer() {
-			return producer == null ? producer = new DoubleList.Producer() {
+		public Producer producer() {
+			return producer == null ? producer = new Producer() {
 				
-				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasOKey ? 0 : 1); }
+				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasO ? 0 : 1); }
 				
 				public int tag( int tag ) { while (-1 < --tag) if (keys.array[tag] != 0) return tag; return -1; }
 				
-				public double value( int tag ) {return assigned == 0 || tag == keys.array.length ? (double) 0 :   keys.array[tag]; }
+				public boolean hasNullKey() { return hasNull; }
+				
+				public double key( int tag ) {return assigned == 0 || tag == keys.array.length ? (double) 0 :   keys.array[tag]; }
 			} : producer;
 		}
 		
@@ -187,19 +218,14 @@ public interface DoubleSet {
 			
 			if (dst == null) dst = new StringBuilder( assigned * 10 );
 			else dst.ensureCapacity( dst.length() + assigned * 10 );
-			
-			DoubleList.Producer src = producer();
-			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			     dst.append( src.value( tag ) );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
 	}
 	
 	
-	class RW extends R implements DoubleList.Consumer {
+	class RW extends R implements Consumer {
 		public RW() {
 			super();
 		}
@@ -220,14 +246,34 @@ public interface DoubleSet {
 			super( items );
 		}
 		
+		public boolean add(  Double    key ) {
+			if (key == null) hasNull = true;
+			else add( (double) key );
+			return true;
+		}
+		
 		public boolean add( double  value ) {
 			R.add( this, value );
 			return true;
 		}
 		
+		
+		public boolean remove(  Double    key ) {
+			if (key == null)
+				if (hasNull)
+				{
+					hasNull = false;
+					return true;
+				}
+				else return false;
+			
+			return remove( (double) key );
+		}
+		
+		
 		public boolean remove( double key ) {
 			
-			if (key == 0) return hasOKey && !(hasOKey = false);
+			if (key == 0) return hasO && !(hasO = false);
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -240,7 +286,7 @@ public interface DoubleSet {
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hashKey( kk ) & mask) >= distance)
 						{
-							keys.array[gapSlot] =  kk;
+							keys.array[gapSlot] = Double.doubleToLongBits( kk);
 							                                 gapSlot = s;
 							                                 distance = 0;
 						}
@@ -255,11 +301,11 @@ public interface DoubleSet {
 		
 		public void clear() {
 			assigned = 0;
-			hasOKey  = false;
+			hasO     = false;
 			keys.clear();
 		}
 		
-		public void retainAll( DoubleList.Consumer chk ) {
+		public void retainAll( Consumer chk ) {
 			
 			double key;
 			
@@ -267,24 +313,20 @@ public interface DoubleSet {
 				if ((key = keys.array[i]) != 0 && !chk.add( key )) remove( key );
 			
 			
-			if (hasOKey && !chk.add( (double) 0 )) hasOKey = false;
+			if (hasO && !chk.add( (double) 0 )) hasO = false;
 			
 		}
 		
 		public int removeAll( DoubleList.Producer src ) {
 			int fix = size();
 			
-			for (int tag = src.tag(); tag != -1; tag = src.tag( tag )) remove( src.value( tag ) );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) remove( src.value( tag ) );
 			
 			return fix - size();
 		}
 		
-		public DoubleList.Consumer consumer() {return this; }
+		public Consumer consumer() {return this; }
 		
-		public RW clone()                          { return (RW) super.clone(); }
-		
-		
+		public RW clone()          { return (RW) super.clone(); }
 	}
-	
-	
 }

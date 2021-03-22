@@ -10,21 +10,7 @@ public interface Array extends Cloneable {
 	
 	int length();
 	
-	int size();
-	
-	
-	default void fit() {
-		int size   = size();
-		int length = length();
-		if (length == 0) return;
-		
-		if (size == 0) allocate( 0 );
-		else System.arraycopy( array(), 0, allocate( size ), 0, size );
-	}
-	
-	default int resize( int index, final int resize, final boolean fit ) {
-		int size = size();
-
+	default int resize( int size, int index, final int resize, final boolean fit ) {
 fit:
 		{
 			if (size < 0) size = 0;
@@ -69,7 +55,7 @@ fit:
 				return size;
 			}
 			
-			final int new_size = index < size ? size + resize : index + 1 + resize;
+			final int new_size = index <= size ? size + resize : index + 1 + resize;
 			
 			final int length = length();
 			
@@ -90,8 +76,8 @@ fit:
 					}
 					else
 					{
-						System.arraycopy( src, 0, dst, 0, index );
-						System.arraycopy( src, index, dst, index + resize, size - 1 - index );
+						if (src != dst) System.arraycopy( src, 0, dst, 0, index );
+						System.arraycopy( src, index, dst, index + resize, size - index );
 					}
 				else if (src != dst) System.arraycopy( src, 0, dst, 0, size );
 			

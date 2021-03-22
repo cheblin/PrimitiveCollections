@@ -1,10 +1,13 @@
 package org.unirail.collections;
 
-public interface UByteFloatMap{
+public interface UByteFloatMap {
 	
 	interface Consumer {
-		boolean put( char key, float value );//return false to interrupt
+		boolean put( char key, float value );
+		
+		boolean put(  Byte      key, float value );
 	}
+	
 	
 	interface Producer {
 		int tag();
@@ -16,101 +19,72 @@ public interface UByteFloatMap{
 		char key( int tag );
 		
 		float value( int tag );
+		
+		boolean hasNullKey();
+		
+		float nullKeyValue();
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			if (hasNullKey()) dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
+			
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( key( tag ) )
+					     .append( " -> " )
+					     .append( value( tag ) )
+					     .append( '\n' );
+			return dst;
+		}
 	}
 	
 	
 	class R implements Cloneable, Comparable<R> {
-		public UByteList.RW keys   = new UByteList.RW( 0 );
-		public FloatList.RW values = new FloatList.RW( 0 );
 		
-		int assigned;
+		ByteSet.RW         keys = new ByteSet.RW();
+		FloatList.RW values;
 		
-		int mask;
+		float NullValue = 0;
 		
-		int resizeAt;
 		
-		boolean hasOKey;
-		float       OKeyValue;
+		public R() {this( 8 );}
 		
-		protected double loadFactor;
-		
-		public R() {
-			this( 4 );
+		public R( int length ) {
+			values = new FloatList.RW( 265 < length ? 256 : length );
 		}
 		
+		public int size()                            { return keys.size(); }
 		
-		public R( int expectedItems ) {
-			this( expectedItems, 0.75 );
-		}
-		
-		
-		public R( int expectedItems, double loadFactor ) {
-			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
-			
-			final long length = (long) Math.ceil( expectedItems / loadFactor );
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
-			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
-			
-			keys.allocate( size );
-			values.allocate( size );
-		}
+		public boolean isEmpty()                     { return keys.isEmpty();}
 		
 		
-		public float get( int tag ) {
-			
-			if (tag == assigned) return OKeyValue;
-			return   values.array[tag];
-		}
+		public @Nullable int tag(  Byte      key ) {return key == null ? keys.contains( null ) ? Nullable.NULL : Nullable.NONE : tag( (char) (key + 0) );}
 		
+		public @Nullable int tag( char key ) {return keys.contains( (byte) (key + 0) ) ? key : Nullable.NONE;}
 		
-		public int tag( char key ) {
-			if (key == 0) return hasOKey ? assigned : -1;
-			
-			int slot = hashKey( key ) & mask;
-			
-			for (byte key_ = (byte) key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_) return slot;
-			
-			return -1;
-		}
+		public boolean contains( int tag )           { return tag != -1; }
 		
+		public float  get( int tag ) {return tag == Nullable.NULL ? NullValue :    values.array[keys.rank( (byte) tag )];}
 		
-		public boolean isEmpty()                 { return size() == 0; }
-		
-		public int size()                        { return assigned + (hasOKey ? 1 : 0); }
-		
-		protected int hashKey( char key ) {return Array.hashKey( key ); }
-		
-		
-		public int hashCode() {
-			int h = hasOKey ? 0xDEADBEEF : 0;
-			
-			byte k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((k = keys.array[i]) != 0)
-					h += Array.hash( k ) + Array.hash( values.array[i] );
-			
-			return h;
-		}
-		
-		
-	
 		private Producer producer;
 		
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
-				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasOKey ? 0 : 1); }
 				
-				public int tag( int tag ) { while (-1 < --tag) if (keys.array[tag] != 0) return tag; return -1; }
+				public int tag() { return keys.tag(); }
 				
-				public char key( int tag ) {return assigned == 0 || tag == keys.array.length ? (char) 0 : (char)( 0xFFFF &  keys.array[tag]); }
+				public int tag( int tag ) {return keys.tag( tag );}
 				
-				public float value( int tag ) {return assigned == 0 || tag == keys.array.length ? OKeyValue :  values.array[tag]; }
+				public char key( int tag ) { return (char) (tag >>> 8); }
+				
+				public float value( int tag ) { return  values.array[tag & 0xFF]; }
+				
+				public boolean hasNullKey() { return keys.hasNull; }
+				
+				public float nullKeyValue() { return NullValue; }
+				
 			} : producer;
 		}
-		
 		
 		public boolean equals( Object obj ) {
 			
@@ -123,29 +97,21 @@ public interface UByteFloatMap{
 		public int compareTo( R other ) {
 			if (other == null) return -1;
 			
-			if (hasOKey != other.hasOKey ||
-			    hasOKey && OKeyValue != other.OKeyValue) return 1;
-			
 			int diff;
-			if ((diff = size() - other.size()) != 0) return diff;
-			
-			
-			char           k;
-			for (int i = keys.array.length - 1, ii; -1 < i; i--)
-				if ((k = (char)( 0xFFFF &  keys.array[i])) != 0)
-					if ((ii = other.tag( k )) < 0 || other.values.array[ii] != values.array[i]) return 1;
+			if ((diff = other.keys.compareTo( keys )) != 0 || (diff = other.values.compareTo( values )) != 0) return diff;
+			if (keys.hasNull && NullValue != other.NullValue) return 1;
 			
 			return 0;
 		}
 		
-		
 		public R clone() {
+			
 			try
 			{
 				R dst = (R) super.clone();
-				
 				dst.keys   = keys.clone();
 				dst.values = values.clone();
+				
 				return dst;
 				
 			} catch (CloneNotSupportedException e)
@@ -154,135 +120,60 @@ public interface UByteFloatMap{
 			}
 			return null;
 		}
+		
+		public StringBuilder toString( StringBuilder dst ) {
+			
+			if (dst == null) dst = new StringBuilder( keys.size() * 10 );
+			else dst.ensureCapacity( dst.length() + keys.size() * 10 );
+			return producer().toString( dst );
+		}
+		
+		public String toString() { return toString( null ).toString();}
 	}
-	
 	
 	class RW extends R implements Consumer {
 		
-		public Consumer consumer() {return this; }
+		public RW() {
+		}
 		
-		void allocate( int size ) {
+		public RW( int length ) {
+			super( length );
+		}
+		
+		
+		public boolean put(  Byte      key, float value ) {
+			if (key != null) return put( (char) (key + 0), value );
 			
-			if (assigned < 1)
-			{
-				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-				mask     = size - 1;
-				
-				if (keys.length() < size) keys.allocate( size );
-				else keys.clear();
-				
-				if (values.length() < size) values.allocate( size );
-				else values.clear();
-				
-				return;
-			}
-			
-			final byte[] k = keys.array;
-			final float[] v = values.array;
-			
-			keys.allocate( size + 1 );
-			values.allocate( size + 1 );
-			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
-			
-			if (k == null || assigned < 1) return;
-			
-			
-			byte key;
-			for (int i = k.length - 1; -1 < --i; )
-				if ((key = k[i]) != 0)
-				{
-					int slot = hashKey( (char)( 0xFFFF &  key ) ) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot]   = key;
-					values.array[slot] = v[i];
-				}
+			keys.add( null );
+			NullValue = value;
+			return true;
 		}
 		
 		public boolean put( char key, float value ) {
-			
-			if (key == 0)
-			{
-				if (hasOKey)
-				{
-					OKeyValue = value;
-					return true;
-				}
-				hasOKey   = true;
-				OKeyValue = value;
-				return false;
-			}
-			
-			
-			int slot = hashKey( key ) & mask;
-			
-			final byte key_ = (byte) key;
-			
-			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_)
-				{
-					values.array[slot] =Float.floatToIntBits( value);
-					return true;
-				}
-			
-			keys.array[slot]   =            key_;
-			values.array[slot] = Float.floatToIntBits( value);
-			
-			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
-			
-			return false;
+			keys.add( key + 0 );
+			values.array[keys.rank( (byte) key ) - 1] = Float.floatToIntBits( value);
+			return true;
 		}
 		
+		public boolean remove(  Byte       key ) { return key == null ? keys.remove( null ) : remove( (char) (key + 0) ); }
 		
 		public boolean remove( char key ) {
+			if (!keys.contains((byte) key )) return false;
 			
-			if (key == 0)
-				if (hasOKey)
-				{
-					hasOKey = false;
-					return true;
-				}
-				else return false;
+			values.resize( values.size, keys.rank((byte) key ) - 1, -1, false );
+			keys.remove((byte) key );
 			
-			int slot = hashKey( key ) & mask;
-			
-			final byte key_ = (byte) key;
-			
-			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_)
-				{
-					int gapSlot = slot;
-					
-					byte kk;
-					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hashKey( (char)( 0xFFFF &  kk ) ) & mask) >= distance)
-						{
-							
-							keys.array[gapSlot]   = kk;
-							values.array[gapSlot] = values.array[s];
-							                        gapSlot = s;
-							                        distance = 0;
-						}
-					
-					keys.array[gapSlot]   = 0;
-					values.array[gapSlot] = 0;
-					assigned--;
-					return true;
-				}
-			
-			return false;
+			return true;
 		}
 		
 		public void clear() {
-			assigned = 0;
-			hasOKey  = false;
-			
+			if (keys.size < 1) return;
 			keys.clear();
 			values.clear();
 		}
 		
-		public RW clone() { return (RW) super.clone(); }
+		public Consumer consumer() {return this; }
 		
-		
+		public RW clone()          { return (RW) super.clone(); }
 	}
 }

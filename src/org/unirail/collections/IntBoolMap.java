@@ -3,11 +3,13 @@ package org.unirail.collections;
 
 import java.util.Arrays;
 
-public interface BitSet {
+public interface IntBoolMap {
 	
 	
 	interface Consumer {
-		boolean set( int bit, boolean value );
+		boolean set( int key, boolean value );
+		
+		boolean set( Integer key, boolean value );
 	}
 	
 	interface Producer {
@@ -17,7 +19,22 @@ public interface BitSet {
 		
 		default boolean ok( int tag ) {return tag != -1;}
 		
+		boolean hasNullKey();
+		
 		boolean value( int tag );
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			if (hasNullKey()) dst.append( "null -> true\n" );
+			
+			for (int tag = tag(), b = 0; ok( tag ); b++, tag = tag( tag ))
+			{
+				dst.append( value( tag ) ? '*' : '.' );
+				if ((b & 63) == 63) dst.append( '\n' );
+			}
+			return dst;
+		}
 	}
 	
 	
@@ -35,6 +52,8 @@ public interface BitSet {
 		
 		int used = 0;
 		
+		protected boolean NullValue = false;
+		
 		int used() {
 			if (-1 < used) return used;
 			
@@ -46,9 +65,9 @@ public interface BitSet {
 			return used = i + 1;
 		}
 		
-		int used( int bit ) {
+		int used( int key ) {
 			
-			final int index = bit >> LEN;
+			final int index = key >> LEN;
 			if (index < used()) return index;
 			
 			if (array.length < (used = index + 1)) array = Arrays.copyOf( array, Math.max( 2 * array.length, used ) );
@@ -65,10 +84,11 @@ public interface BitSet {
 			used       = array.length | IO;
 		}
 		
+		public boolean contains( Integer key ) { return key == null ? NullValue : contains( (int/*KEXT*/) key ); }
 		
-		public boolean get( int bit ) {
-			final int index = bit >> LEN;
-			return index < used() && (array[index] & 1L << bit) != 0;
+		public boolean contains( int key ) {
+			final int index = key >> LEN;
+			return index < used() && (array[index] & 1L << key) != 0;
 		}
 		
 		public int get( long[] dst, int from_bit, int to_bit ) {
@@ -96,12 +116,12 @@ public interface BitSet {
 		}
 		
 		
-		public int next1( int bit ) {
+		public int next1( int key ) {
 			
-			int index = bit >> LEN;
+			int index = key >> LEN;
 			if (used() <= index) return -1;
 			
-			for (long i = array[index] & FFFFFFFFFFFFFFFF << bit; ; i = array[index])
+			for (long i = array[index] & FFFFFFFFFFFFFFFF << key; ; i = array[index])
 			{
 				if (i != 0) return index * BITS + Long.numberOfTrailingZeros( i );
 				if (++index == used) return -1;
@@ -109,25 +129,25 @@ public interface BitSet {
 		}
 		
 		
-		public int next0( int bit ) {
+		public int next0( int key ) {
 			
-			int index = bit >> LEN;
-			if (used() <= index) return bit;
+			int index = key >> LEN;
+			if (used() <= index) return key;
 			
-			for (long i = ~array[index] & FFFFFFFFFFFFFFFF << bit; ; i = ~array[index])
+			for (long i = ~array[index] & FFFFFFFFFFFFFFFF << key; ; i = ~array[index])
 			{
 				if (i != 0) return index * BITS + Long.numberOfTrailingZeros( i );
 				if (++index == used) return used * BITS;
 			}
 		}
 		
-		public int prev1( int bit ) {
+		public int prev1( int key ) {
 			
-			int index = bit >> LEN;
+			int index = key >> LEN;
 			if (used() <= index) return size() - 1;
 			
 			
-			for (long i = array[index] & FFFFFFFFFFFFFFFF >>> -(bit + 1); ; i = array[index])
+			for (long i = array[index] & FFFFFFFFFFFFFFFF >>> -(key + 1); ; i = array[index])
 			{
 				if (i != 0) return (index + 1) * BITS - 1 - Long.numberOfLeadingZeros( i );
 				if (index-- == 0) return -1;
@@ -135,11 +155,11 @@ public interface BitSet {
 		}
 		
 		
-		public int prev0( int bit ) {
-			int index = bit >> LEN;
-			if (used() <= index) return bit;
+		public int prev0( int key ) {
+			int index = key >> LEN;
+			if (used() <= index) return key;
 			
-			for (long i = ~array[index] & FFFFFFFFFFFFFFFF >>> -(bit + 1); ; i = ~array[index])
+			for (long i = ~array[index] & FFFFFFFFFFFFFFFF >>> -(key + 1); ; i = ~array[index])
 			{
 				if (i != 0) return (index + 1) * BITS - 1 - Long.numberOfLeadingZeros( i );
 				if (index-- == 0) return -1;
@@ -153,13 +173,13 @@ public interface BitSet {
 		public boolean isEmpty() { return used == 0; }
 		
 		
-		public int rank( int bit ) {
-			final int max = bit >> LEN;
+		public int rank( int key ) {
+			final int max = key >> LEN;
 			
 			if (max < used())
 				for (int i = 0, sum = 0; ; i++)
 					if (i < max) sum += Long.bitCount( array[i] );
-					else return sum + Long.bitCount( array[i] & ((FFFFFFFFFFFFFFFF >>> BITS - (bit + 1))) );
+					else return sum + Long.bitCount( array[i] & ((FFFFFFFFFFFFFFFF >>> BITS - (key + 1))) );
 			
 			return cardinality();
 		}
@@ -171,7 +191,7 @@ public interface BitSet {
 				else return sum;
 		}
 		
-		public int bit( int cardinality ) {
+		public int key( int cardinality ) {
 			
 			int i = 0, c = 0;
 			while ((c += Long.bitCount( array[i] )) < cardinality) i++;
@@ -260,22 +280,16 @@ public interface BitSet {
 				
 				public int tag( int tag ) {return --tag;}
 				
-				public boolean value( int tag ) {return get( tag );}
+				public boolean hasNullKey() { return NullValue; }
+				
+				public boolean value( int tag ) {return contains( tag );}
 			} : producer;
 		}
 		
 		public StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( used * 64 );
 			else dst.ensureCapacity( dst.length() + used * 64 );
-			
-			
-			for (int i = 0; i < used; dst.append( '\n' ), i++)
-			{
-				long l = array[i];
-				for (int b = 63; -1 < b; b--)
-				     dst.append( (1L << b & l) == 0 ? '_' : '*' );
-			}
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -352,9 +366,9 @@ public interface BitSet {
 		void allocate( int size ) {array = new long[(size >> 6) + ((size & 63) == 0 ? 0 : 1)]; }
 		
 		
-		public void flip( int bit ) {
-			final int index = used( bit );
-			if ((array[index] ^= 1L << bit) == 0 && index + 1 == used) used |= IO;
+		public void flip( int key ) {
+			final int index = used( key );
+			if ((array[index] ^= 1L << key) == 0 && index + 1 == used) used |= IO;
 		}
 		
 		
@@ -390,14 +404,26 @@ public interface BitSet {
 		
 		public void set1()          { set1( size() ); }
 		
-		public void set1( int bit ) {array[used( bit )] |= 1L << bit; }
+		
+		public void set1( int key ) {array[used( key )] |= 1L << key; }
+		
+		public void set1( Integer key ) {
+			if (key == null) NullValue = true;
+			else set1( key.intValue() );
+		}
 		
 		
-		public boolean set( int bit, boolean value ) {
+		public boolean set( int key, boolean value ) {
 			if (value)
-				set1( bit );
+				set1( key );
 			else
-				set0( bit );
+				set0( key );
+			return true;
+		}
+		
+		public boolean set( Integer key, boolean value ) {
+			if (key == null) NullValue = value;
+			else set( (int) key, value );
 			return true;
 		}
 		
@@ -435,17 +461,17 @@ public interface BitSet {
 		}
 		
 		
-		public void add( int bit, boolean value ) {
-			if (bit < size())
+		public void add( int key, boolean value ) {
+			if (key < size())
 			{
-				int index = bit >> LEN;
+				int index = key >> LEN;
 				
 				long i = array[index];
-				long m = FFFFFFFFFFFFFFFF << bit;
+				long m = FFFFFFFFFFFFFFFF << key;
 				
 				m = (i & m) << 1 | i & ~m;
 				
-				if (value) m |= 1L << bit;
+				if (value) m |= 1L << key;
 				
 				array[index] = m;
 				
@@ -458,23 +484,23 @@ public interface BitSet {
 					i            = m;
 				}
 			}
-			else if (value) set1( bit );
+			else if (value) set1( key );
 		}
 		
 		public void del() { set0( size() - 1 ); }
 		
-		public void del( int bit ) {
+		public void del( int key ) {
 			final int size = size();
 			
-			if (bit < size)
+			if (key < size)
 				if (size == 1) array[0] = 0;
 				else
 				{
-					int index = bit >> LEN;
+					int index = key >> LEN;
 					
 					long i = array[index];
 					
-					long m = FFFFFFFFFFFFFFFF << bit;
+					long m = FFFFFFFFFFFFFFFF << key;
 					
 					m = i >>> 1 & m | i & ~m;
 					
@@ -492,13 +518,18 @@ public interface BitSet {
 				}
 		}
 		
-		public void set0( int bit ) {
-			final int index = bit >> LEN;
+		public void set0( int key ) {
+			final int index = key >> LEN;
 			
 			if (index < used())
-				if (index + 1 == used && (array[index] &= ~(1L << bit)) == 0) used |= IO;
+				if (index + 1 == used && (array[index] &= ~(1L << key)) == 0) used |= IO;
 				else
-					array[index] &= ~(1L << bit);
+					array[index] &= ~(1L << key);
+		}
+		
+		public void set0( Integer key ) {
+			if (key == null) NullValue = false;
+			else set0( key.intValue() );
 		}
 		
 		
@@ -541,8 +572,6 @@ public interface BitSet {
 		public Consumer consumer() {return this; }
 		
 		public RW clone()          { return (RW) super.clone(); }
-		
-		
 	}
 }
 

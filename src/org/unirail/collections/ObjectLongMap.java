@@ -4,7 +4,7 @@ package org.unirail.collections;
 public interface ObjectLongMap {
 	
 	interface Consumer<K extends Comparable<? super K>> {
-		boolean put( K key, long value );//return false to interrupt
+		boolean put( K key, long value );
 	}
 	
 	
@@ -18,6 +18,15 @@ public interface ObjectLongMap {
 		K key( int tag );
 		
 		long  value( int tag );
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( key( tag ) )
+					     .append( " -> " )
+					     .append( value( tag ) ).append( '\n' );
+			return dst;
+		}
 	}
 	
 	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
@@ -32,9 +41,9 @@ public interface ObjectLongMap {
 		
 		protected int resizeAt;
 		
-		protected boolean hasNullKey;
+		protected boolean hasNull;
 		
-		long NullKeyValue = 0;
+		long NullValue = 0;
 		
 		protected double loadFactor;
 		
@@ -72,7 +81,7 @@ public interface ObjectLongMap {
 		
 		
 		public int tag( K key ) {
-			if (key == null) return hasNullKey ? Integer.MAX_VALUE : -1;
+			if (key == null) return hasNull ? Integer.MAX_VALUE : -1;
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -82,20 +91,20 @@ public interface ObjectLongMap {
 			return -1;
 		}
 		
-		public long get( int tag ) {return tag == Integer.MAX_VALUE ? NullKeyValue :   values.array[tag]; }
+		public long get( int tag ) {return tag == Integer.MAX_VALUE ? NullValue :   values.array[tag]; }
 		
 		public boolean contains( int tag ) {return -1 < tag;}
 		
 		
-		public int size()                { return assigned + (hasNullKey ? 1 : 0); }
+		public int size()                  { return assigned + (hasNull ? 1 : 0); }
 		
-		public boolean isEmpty()         { return size() == 0; }
+		public boolean isEmpty()           { return size() == 0; }
 		
 		
-		protected int hashKey( K key )   { return Array.hashKey( key.hashCode() ); }
+		protected int hashKey( K key )     { return Array.hashKey( key.hashCode() ); }
 		
 		public int hashCode() {
-			int h = hasNullKey ? 0xDEADBEEF : 0;
+			int h = hasNull ? 0xDEADBEEF : 0;
 			K   k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((k = keys.array[i]) != null)
@@ -115,8 +124,8 @@ public interface ObjectLongMap {
 		public int compareTo( R<K> other ) {
 			if (other == null) return -1;
 			
-			if (hasNullKey != other.hasNullKey ||
-			    hasNullKey && NullKeyValue != other.NullKeyValue) return 1;
+			if (hasNull != other.hasNull ||
+			    hasNull && NullValue != other.NullValue) return 1;
 			
 			int diff;
 			if ((diff = size() - other.size()) != 0) return diff;
@@ -152,28 +161,33 @@ public interface ObjectLongMap {
 		public Producer<K> producer() {
 			return producer == null ? producer = new Producer<>() {
 				
-				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasNullKey ? 0 : 1); }
+				public int tag() {
+					int len = 0 < assigned ? keys.array.length : 0;
+					return hasNull ? len : (tag( len ));
+				}
 				
-				public int tag( int tag ) { while (-1 < --tag) if (keys.array[tag] != null) return tag; return -1; }
+				public int tag( int tag ) {
+					
+					while (-1 < --tag)
+						if (keys.array[tag] != null)
+							return tag;
+					return -1;
+				}
 				
 				public K key( int tag ) {return assigned == 0 || tag == keys.array.length ? null : keys.array[tag]; }
 				
-				public long value( int tag ) {return assigned == 0 || tag == keys.array.length ? NullKeyValue :  values.array[tag]; }
+				
+				public long value( int tag ) {return assigned == 0 || tag == keys.array.length ? NullValue :  values.array[tag]; }
 				
 			} : producer;
 		}
+		
 		public StringBuilder toString( StringBuilder dst ) {
 			
 			if (dst == null) dst = new StringBuilder( assigned * 10 );
 			else dst.ensureCapacity( dst.length() + assigned * 10 );
 			
-			Producer<K> src = producer();
-			for (int tag = src.tag(); tag != -1; dst.append( '\n' ), tag = src.tag( tag ))
-			     dst.append( src.key( tag ) )
-					     .append( " -> " )
-					     .append( src.value( tag ) );
-			
-			return dst;
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
@@ -198,21 +212,20 @@ public interface ObjectLongMap {
 		}
 		
 		public void clear() {
-			assigned   = 0;
-			hasNullKey = false;
+			assigned = 0;
+			hasNull  = false;
 			keys.clear(); ;
 			values.clear();
 		}
 		
-		public boolean put( long value ) {
-			hasNullKey   = true;
-			NullKeyValue = value;
-			return true;
-		}
-		
 		public boolean put( K key, long value ) {
 			
-			if (key == null) return put( value );
+			if (key == null)
+			{
+				hasNull   = true;
+				NullValue = value;
+				return true;
+			}
 			
 			int slot = hashKey( key ) & mask;
 			
@@ -229,7 +242,7 @@ public interface ObjectLongMap {
 			
 			if (assigned++ == resizeAt) allocate( mask + 1 << 1 );
 			
-			return false;
+			return true;
 		}
 		
 		protected void allocate( int size ) {
@@ -269,10 +282,8 @@ public interface ObjectLongMap {
 				}
 		}
 		
-		public boolean remove() {return hasNullKey && !(hasNullKey = false);}
-		
 		public boolean remove( K key ) {
-			if (key == null) return hasNullKey && !(hasNullKey = false);
+			if (key == null) return hasNull && !(hasNull = false);
 			
 			int slot = hashKey( key ) & mask;
 			
