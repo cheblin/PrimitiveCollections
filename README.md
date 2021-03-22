@@ -178,7 +178,7 @@ key -> value -> 11
 key -> null -> null
 ```
 
-### Map's and Set's keys are nullable
+> ### Map's and Set's keys are nullable
 
 The `BitsList` was created to store in tightly-packed form tiny-range values/enums that can be fitted in several (up to 7 bits). 
 Like a list of "nullable-boolean" enum
