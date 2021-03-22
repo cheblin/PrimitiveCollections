@@ -147,24 +147,26 @@ and
 ```java
 ObjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
 
+oim.put( null, 777 );
 oim.put( "key -> null", null );
 oim.put( "key -> value", 11 );
 
-int tag = oim.tag( "Note exists" );
-
+int tag = oim.tag( "Not exists" );
 assert (!oim.contains( tag ));
 assert (!oim.hasValue( tag ));
 
-tag = oim.tag( "key -> null" );
+tag = oim.tag( null );
+assert (oim.contains( tag ));
+assert (oim.hasValue( tag ));
+System.out.println( oim.get( tag ) );
 
+tag = oim.tag( "key -> null" );
 assert (oim.contains( tag ));
 assert (!oim.hasValue( tag ));
 
 tag = oim.tag( "key -> value" );
-
 assert (oim.contains( tag ));
 assert (oim.hasValue( tag ));
-
 System.out.println( oim.get( tag ) );
 
 System.out.println( oim );
@@ -176,7 +178,7 @@ key -> value -> 11
 key -> null -> null
 ```
 
-
+### Map's and Set's keys are nullable
 
 The `BitsList` was created to store in tightly-packed form tiny-range values/enums that can be fitted in several (up to 7 bits). 
 Like a list of "nullable-boolean" enum
