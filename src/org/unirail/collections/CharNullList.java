@@ -303,7 +303,7 @@ public interface CharNullList {
 		}
 		
 		public boolean add( int index, char value ) {
-			if (index < size - 1)
+			if (index < size )
 			{
 				nulls.add( index, true );
 				values.add( nulls.rank( index ) - 1, value );

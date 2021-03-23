@@ -303,7 +303,7 @@ public interface IntNullList {
 		}
 		
 		public boolean add( int index, int value ) {
-			if (index < size - 1)
+			if (index < size )
 			{
 				nulls.add( index, true );
 				values.add( nulls.rank( index ) - 1, value );

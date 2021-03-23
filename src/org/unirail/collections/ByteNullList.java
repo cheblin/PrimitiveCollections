@@ -303,7 +303,7 @@ public interface ByteNullList {
 		}
 		
 		public boolean add( int index, byte value ) {
-			if (index < size - 1)
+			if (index < size )
 			{
 				nulls.add( index, true );
 				values.add( nulls.rank( index ) - 1, value );
