@@ -62,9 +62,9 @@ public interface ObjectSet {
 			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 			mask     = size - 1;
 			
-			keys.allocate( size );
+			keys.length( size );
 			
-			keys.allocate( size );
+			keys.length( size );
 		}
 		
 		
@@ -199,7 +199,7 @@ public interface ObjectSet {
 			final K[] k = keys.array;
 			
 			mask = size - 1;
-			keys.allocate( size + 1 );
+			keys.length( size + 1 );
 			resizeAt = Math.min( mask, (int) Math.ceil( size * loadFactor ) );
 			
 			if (k == null || isEmpty()) return;

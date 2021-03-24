@@ -30,18 +30,18 @@ public interface CharList {
 	
 	class R implements Array, Comparable<R> {
 		
-		public char[] array;
+		char[] array;
 		
-		public Object array()              {return array;}
+		public char[] array()             {return array;}
 		
-		public Object allocate( int size ) { return array = size == 0 ? null : new char[size];}
+		public char[] length( int items ) { return array = items == 0 ? null : new char[items];}
 		
-		public void fit()                  {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
+		public void fit()                        {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
 		
-		public int length()                { return array == null ? 0 : array.length; }
+		public int length()                      { return array == null ? 0 : array.length; }
 		
 		public R( int length ) {
-			if (0 < length) allocate( length );
+			if (0 < length) length( length );
 		}
 		
 		public R( char... items ) {
@@ -49,29 +49,13 @@ public interface CharList {
 			size = items.length;
 			
 			for (int i = 0; i < size; i++)
-			     array[i] = (char)items[i];
+			     array[i] = (char) items[i];
 		}
 		
 		int size = 0;
 		
-		public int size() { return size; }
+		public int size()                            { return size; }
 		
-		public int resize(int size, int index, int resize, boolean fit ) {
-			final Object src        = array();
-			final int    fix_length = length();
-			final int    fix_size   = size;
-			
-			this.size = Array.super.resize( size, index, resize, fit );
-			
-			if (fix_length < 1) return size;
-			
-			if (0 < resize &&
-			    0 < fix_size &&
-			    index < fix_size && src == array())
-				Arrays.fill( array, index, resize, (char) 0 );
-			
-			return size;
-		}
 		
 		public boolean isEmpty()                     { return size == 0; }
 		
@@ -115,7 +99,7 @@ public interface CharList {
 			if (toIndex == fromIndex) return null;
 			
 			if (dst == null) dst = new R( toIndex - fromIndex );
-			if (dst.length() < toIndex - fromIndex) dst.allocate( toIndex - fromIndex );
+			if (dst.length() < toIndex - fromIndex) dst.length( toIndex - fromIndex );
 			
 			System.arraycopy( array, fromIndex, dst.array, 0, toIndex - fromIndex );
 			return dst;
@@ -195,28 +179,49 @@ public interface CharList {
 			super( items );
 		}
 		
-		public void swap( int item1, int item2 ) {
-			final char tmp = array[item1];
-			array[item1] = array[item2];
-			array[item2] = tmp;
-			
-		}
 		
 		public boolean add( char value ) {
-			resize(size, size, 1, false );
+			size            = Array.resize( this, size, size, 1, false );
 			array[size - 1] = value;
 			return true;
 		}
 		
-		public boolean remove() { return 0 < size && remove( size - 1 );}
-		
-		public boolean remove( int index ) {
-			if (size < 1 || !(index < size)) return false;
+		public void add( int index, char value ) {
+			if (index < size)
+			{
+				size         = Array.resize( this, size, index, 1, false );
+				array[index] = value;
+			}
+			else set( index, value );
 			
-			resize(size, index, -1, false );
-			return true;
 		}
 		
+		public void remove() { remove( size - 1 );}
+		
+		public void remove( int index ) {
+			if (size < 1 || size <= index) return;
+			size = Array.resize( this, size, index, -1, false );
+		}
+		
+		public void set( int index, char value ) {
+			if (size <= index)
+			{
+				int    fix = size;
+				Object obj = array;
+				
+				size = Array.resize( this, size, index, 1, false );
+				if (obj == array) Arrays.fill( array, fix, size - 1, (char) 0 );
+			}
+			
+			array[index] = value;
+		}
+		
+		public void swap( int index1, int index2 ) {
+			final char tmp = array[index1];
+			array[index1] = array[index2];
+			array[index2] = tmp;
+			
+		}
 		
 		public void addAll( Producer src ) {
 			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] =  src.value( tag );
@@ -249,24 +254,7 @@ public interface CharList {
 		public void clear() { size = 0;}
 		
 		
-		public boolean set( int index, char value ) {
-			
-			boolean resize = !(index < size);
-			if (resize) resize(size, index = size, 1, false );
-			
-			array[index] = value;
-			
-			return resize;
-		}
-		
-		public void add( int index, char value ) {
-			if (size < index) index = size;
-			
-			resize(size, index, 1, false );
-			array[index] = value;
-		}
-		
-		public RW clone() { return (RW) super.clone(); }
+		public RW clone()   { return (RW) super.clone(); }
 		
 	}
 }

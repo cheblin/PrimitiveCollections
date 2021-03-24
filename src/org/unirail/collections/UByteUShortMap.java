@@ -158,10 +158,10 @@ public interface UByteUShortMap {
 		public boolean remove(  Byte       key ) { return key == null ? keys.remove( null ) : remove( (char) (key + 0) ); }
 		
 		public boolean remove( char key ) {
-			if (!keys.contains((byte) key )) return false;
+			if (!keys.contains( (byte) key )) return false;
 			
-			values.resize( values.size, keys.rank((byte) key ) - 1, -1, false );
-			keys.remove((byte) key );
+			values.remove( keys.rank( (byte) key ) - 1 );
+			keys.remove( (byte) key );
 			
 			return true;
 		}

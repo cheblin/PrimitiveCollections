@@ -26,6 +26,7 @@ public interface UByteObjectMap {
 		boolean hasNullKey();
 		
 		V nullKeyValue();
+		
 		default StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( 255 );
 			
@@ -157,10 +158,10 @@ public interface UByteObjectMap {
 		public boolean remove(  Byte       key ) { return key == null ? keys.remove( null ) : remove( (char) (key + 0) ); }
 		
 		public boolean remove( char key ) {
-			final byte k=(byte) key;
-			if (!keys.contains( k)) return false;
+			final byte k = (byte) key;
+			if (!keys.contains( k )) return false;
 			
-			values.resize(values.size, keys.rank( k ) - 1, -1, false );
+			values.remove( keys.rank( k ) - 1 );
 			keys.remove( k );
 			
 			return true;

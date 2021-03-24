@@ -71,8 +71,8 @@ public interface ObjectObjectMap {
 			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 			mask     = size - 1;
 			
-			keys.allocate( size );
-			values.allocate( size );
+			keys.length( size );
+			values.length( size );
 		}
 		
 		public int tag( K key ) {
@@ -248,8 +248,8 @@ public interface ObjectObjectMap {
 			final K[] k = this.keys.array;
 			final V[] v = this.values.array;
 			
-			keys.allocate( arraySize + 1 );
-			values.allocate( arraySize + 1 );
+			keys.length( arraySize + 1 );
+			values.length( arraySize + 1 );
 			
 			resizeAt = Math.min( arraySize - 1, (int) Math.ceil( arraySize * loadFactor ) );
 			mask     = arraySize - 1;

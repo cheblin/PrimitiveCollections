@@ -6,11 +6,11 @@ public interface Array extends Cloneable {
 	
 	Object array();
 	
-	Object allocate( int size );
+	Object length( int size );
 	
 	int length();
 	
-	default int resize( int size, int index, final int resize, final boolean fit ) {
+	static int resize( Array array, int size, int index, final int resize, final boolean fit ) {
 fit:
 		{
 			if (size < 0) size = 0;
@@ -24,7 +24,7 @@ fit:
 			{
 				if (size == 0)
 				{
-					if (fit) allocate( 0 );
+					if (fit) array.length( 0 );
 					return 0;
 				}
 				
@@ -36,14 +36,14 @@ fit:
 				
 				if (index == 0 && size <= -resize)
 				{
-					if (fit) allocate( 0 );
+					if (fit) array.length( 0 );
 					return 0;
 				}
 				
 				if (index + (-resize) < size)//есть хвост который надо перенести
 				{
-					final Object array = array();
-					System.arraycopy( array, index + (-resize), array, index, size - (index + (-resize)) );
+					final Object tmp = array.array();
+					System.arraycopy( tmp, index + (-resize), tmp, index, size - (index + (-resize)) );
 					
 					size += resize;
 				}
@@ -57,16 +57,16 @@ fit:
 			
 			final int new_size = index <= size ? size + resize : index + 1 + resize;
 			
-			final int length = length();
+			final int length = array.length();
 			
 			if (length < 1)
 			{
-				allocate( new_size );
+				array.length( new_size );
 				return new_size;
 			}
 			
-			Object src = array();
-			Object dst = new_size < length ? src : allocate( fit ? new_size : Math.max( new_size, length + length / 2 ) );
+			Object src = array.array();
+			Object dst = new_size < length ? src : array.length( fit ? new_size : Math.max( new_size, length + length / 2 ) );
 			
 			if (0 < size)
 				if (index < size)
@@ -86,9 +86,9 @@ fit:
 			if (!fit) return size;
 		}
 		
-		if (size < length())
-			if (size == 0) allocate( 0 );
-			else System.arraycopy( array(), 0, allocate( size ), 0, size );
+		if (size < array.length())
+			if (size == 0) array.length( 0 );
+			else System.arraycopy( array.array(), 0, array.length( size ), 0, size );
 		
 		return size;
 	}

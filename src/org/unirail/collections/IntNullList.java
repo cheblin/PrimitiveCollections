@@ -32,7 +32,7 @@ public interface IntNullList {
 	
 	class R implements Comparable<R> {
 		
-		IntBoolMap.RW      nulls  = new IntBoolMap.RW();
+		BitSet.RW          nulls  = new BitSet.RW();
 		IntList.RW values = new IntList.RW( 4 );
 		
 		public void fit() {
@@ -44,14 +44,14 @@ public interface IntNullList {
 		public R( int length ) {
 			if (length < 1) return;
 			
-			values.allocate( length );
-			nulls.allocate( length );
+			values.length( length );
+			nulls.length( length );
 		}
 		
 		public R(  Integer  ... values ) {
 			
-			this.values.allocate( values.length );
-			nulls.allocate( values.length );
+			this.values.length( values.length );
+			nulls.length( values.length );
 			for ( Integer   value : values)
 				if (value == null) ++size;
 				else
@@ -70,7 +70,7 @@ public interface IntNullList {
 		public boolean isEmpty()           { return size < 1; }
 		
 		
-		public int tag( int index )        {return nulls.contains( index ) ? index : -1;}
+		public int tag( int index )        {return nulls.get( index ) ? index : -1;}
 		
 		public int get( int tag ) {return  values.array[nulls.rank( tag ) - 1]; }
 		
@@ -80,9 +80,9 @@ public interface IntNullList {
 		
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
-				public int tag() { return 0 < size ? nulls.contains( 0 ) ? 0 : Integer.MIN_VALUE : -1; }
+				public int tag() { return 0 < size ? nulls.get( 0 ) ? 0 : Integer.MIN_VALUE : -1; }
 				
-				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? nulls.contains( ++tag ) ? tag : Integer.MIN_VALUE | tag : -1; }
+				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? nulls.get( ++tag ) ? tag : Integer.MIN_VALUE | tag : -1; }
 				
 				public int value( int tag ) {return  values.array[nulls.rank( tag ) - 1]; }
 				
@@ -93,14 +93,14 @@ public interface IntNullList {
 		
 		public int indexOf( int value ) {
 			int i = values.indexOf( value );
-			return i < 0 ? i : nulls.key( i );
+			return i < 0 ? i : nulls.bit( i );
 		}
 		
 		public int lastIndexOf() { return nulls.prev0( size );}
 		
 		public int lastIndexOf( int value ) {
 			int i = values.lastIndexOf( value );
-			return i < 0 ? i : nulls.key( i );
+			return i < 0 ? i : nulls.bit( i );
 		}
 		
 		public R subList( int fromIndex, int toIndex ) {
@@ -179,31 +179,88 @@ public interface IntNullList {
 			super( values );
 		}
 		
-		public boolean remove() {
-			if (size < 1) return false;
+		public void remove() { remove( size - 1 ); }
+		
+		public void remove( int index ) {
+			if (size < 1 || size <= index) return;
 			
 			size--;
-			if (nulls.size() <= size) return true;
 			
-			nulls.set0( size );
-			values.remove();
-			return true;
+			if (nulls.get( index )) values.remove( nulls.rank( index ) - 1 );
+			nulls.remove( index );
 		}
 		
-		public boolean remove( int index ) {
-			if (size - 1 < index) index = size - 1;
-			
-			size--;
-			
-			if (nulls.size() <= index) return false;
-			
-			if (nulls.contains( index )) values.remove( nulls.rank( index ) );
-			nulls.del( index );
+		public boolean add(  Integer   value ) {
+			if (value == null) size++;
+			else add( (int) (value + 0) );
 			
 			return true;
 		}
 		
-		public int addAll( Producer src, int count ) {
+		public boolean add( int value ) {
+			values.add( value );
+			nulls.add( size, true );
+			++size;
+			return true;
+		}
+		
+		
+		public void add( int index,  Integer   value ) {
+			if (value == null)
+			{
+				nulls.add( index, false );
+				size++;
+			}
+			else add( index, (int) (value + 0) );
+		}
+		
+		public void add( int index, int value ) {
+			if (index < size)
+			{
+				nulls.add( index, true );
+				values.add( nulls.rank( index ) - 1, value );
+				++size;
+			}
+			else set( index, value );
+		}
+		
+		public boolean set( int index,  Integer   value ) {
+			
+			if (value != null) return set( index, (int) (value + 0) );
+			
+			if (!nulls.get( index )) return false;
+			
+			nulls.remove( index );
+			values.remove( nulls.rank( index ) );
+			
+			return true;
+		}
+		
+		public boolean set( int index, int value ) {
+			
+			if (index < size)
+				if (nulls.get( index ))
+				{
+					values.set( nulls.rank( index ) - 1, value );
+					return false;
+				}
+				else
+				{
+					nulls.set1( index );
+					values.add( nulls.rank( index ) - 1, value );
+				}
+			else
+			{
+				nulls.set1( index );
+				values.add( value );
+				size = index + 1;
+			}
+			
+			return true;
+		}
+		
+		
+		public int addAll( Producer src ) {
 			int fix = size;
 			
 			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
@@ -219,98 +276,35 @@ public interface IntNullList {
 			size = 0;
 		}
 		
-		public void swap( int bit1, int bit2 ) {
+		public void swap( int index1, int index2 ) {
 			
 			int exist, empty;
-			if (nulls.contains( bit1 ))
-				if (nulls.contains( bit2 ))
+			if (nulls.get( index1 ))
+				if (nulls.get( index2 ))
 				{
-					values.swap( nulls.rank( bit1 ) - 1, nulls.rank( bit2 ) - 1 );
+					values.swap( nulls.rank( index1 ) - 1, nulls.rank( index2 ) - 1 );
 					return;
 				}
 				else
 				{
-					exist = nulls.rank( bit1 ) - 1;
-					empty = nulls.rank( bit2 );
-					nulls.set0( bit1 );
-					nulls.set1( bit2 );
+					exist = nulls.rank( index1 ) - 1;
+					empty = nulls.rank( index2 );
+					nulls.set0( index1 );
+					nulls.set1( index2 );
 				}
-			else if (nulls.contains( bit2 ))
+			else if (nulls.get( index2 ))
 			{
-				exist = nulls.rank( bit2 ) - 1;
-				empty = nulls.rank( bit1 );
+				exist = nulls.rank( index2 ) - 1;
+				empty = nulls.rank( index1 );
 				
-				nulls.set1( bit1 );
-				nulls.set0( bit2 );
+				nulls.set1( index1 );
+				nulls.set0( index2 );
 			}
 			else return;
 			
 			int v = values.get( exist );
 			values.remove( exist );
 			values.add( empty, v );
-		}
-		
-		public boolean set( int index,  Integer   value ) {
-			
-			if (value != null) return set( index, (int) (value + 0) );
-			
-			if (!nulls.contains( index )) return false;
-			
-			nulls.set0( index );
-			
-			values.remove( nulls.rank( index ) );
-			
-			return true;
-		}
-		
-		public boolean set( int index, int value ) {
-			
-			if (nulls.contains( index ))
-			{
-				values.set( nulls.rank( index ) - 1, value );
-				return false;
-			}
-			
-			
-			nulls.set1( index );
-			values.add( nulls.rank( index ) - 1, value );
-			
-			return true;
-		}
-		
-		
-		public boolean add(  Integer   value ) {
-			if (value != null) return add( (int) (value + 0) );
-			
-			size++;
-			return true;
-		}
-		
-		public boolean add( int value ) {
-			values.add( value );
-			nulls.set1( size );
-			++size;
-			return true;
-		}
-		
-		
-		public boolean add( int index,  Integer   value ) {
-			if (value != null) return add( index, (int) (value + 0) );
-			
-			nulls.add( index, false );
-			size++;
-			return true;
-		}
-		
-		public boolean add( int index, int value ) {
-			if (index < size )
-			{
-				nulls.add( index, true );
-				values.add( nulls.rank( index ) - 1, value );
-			}
-			else add( value );
-			
-			return true;
 		}
 		
 	}

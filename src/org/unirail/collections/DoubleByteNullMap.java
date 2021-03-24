@@ -95,9 +95,9 @@ public interface DoubleByteNullMap {
 			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 			mask     = size - 1;
 			
-			keys.allocate( size );
-			values.nulls.allocate( size );
-			values.values.allocate( size );
+			keys.length( size );
+			values.nulls.length( size );
+			values.values.length( size );
 		}
 		
 		public boolean isEmpty()                 { return size() == 0; }
@@ -165,7 +165,7 @@ public interface DoubleByteNullMap {
 							if (0 < assigned)
 								while (-1 < --i)
 									if (keys.array[i] != 0)
-										return values.nulls.contains( i ) ? i : Integer.MIN_VALUE | i;
+										return values.nulls.get( i ) ? i : Integer.MIN_VALUE | i;
 							
 							return -1;
 					}
@@ -175,7 +175,7 @@ public interface DoubleByteNullMap {
 					tag &= Integer.MAX_VALUE;
 					while (-1 < --tag)
 						if (keys.array[tag] != 0)
-							return values.nulls.contains( tag ) ? tag : Integer.MIN_VALUE | tag;
+							return values.nulls.get( tag ) ? tag : Integer.MIN_VALUE | tag;
 					return -1;
 				}
 				
@@ -216,7 +216,7 @@ public interface DoubleByteNullMap {
 			double           key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key =  keys.array[i]) != 0)
-					if (values.nulls.contains( i ))
+					if (values.nulls.get( i ))
 					{
 						int tag = other.tag( key );
 						if (tag == -1 || values.get( i ) != other.get( tag )) return 1;
@@ -368,7 +368,7 @@ public interface DoubleByteNullMap {
 							
 							array[gapSlot] = kk;
 							
-							if (values.nulls.contains( s ))
+							if (values.nulls.get( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
 								values.set( gapSlot, null );
@@ -392,13 +392,13 @@ public interface DoubleByteNullMap {
 				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 				mask     = size - 1;
 				
-				if (keys.length() < size) keys.allocate( size );
+				if (keys.length() < size) keys.length( size );
 				else keys.clear();
 				
-				if (values.nulls.length() < size) values.nulls.allocate( size );
+				if (values.nulls.length() < size) values.nulls.length( size );
 				else values.nulls.clear();
 				
-				if (values.values.length() < size) values.values.allocate( size );
+				if (values.values.length() < size) values.values.length( size );
 				else values.values.clear();
 				
 				return;
@@ -411,7 +411,7 @@ public interface DoubleByteNullMap {
 			
 			for (int i = array.length - 1; -1 < --i; )
 				if ((key = array[i]) != 0)
-					if (values.nulls.contains( i )) tmp.put( key, values.get( i ) );
+					if (values.nulls.get( i )) tmp.put( key, values.get( i ) );
 					else tmp.put( key, null );
 			
 			keys   = tmp.keys;

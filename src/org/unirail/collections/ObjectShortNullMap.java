@@ -80,9 +80,9 @@ public interface ObjectShortNullMap {
 			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 			mask     = size - 1;
 			
-			keys.allocate( size );
-			values.nulls.allocate( size );
-			values.values.allocate( size );
+			keys.length( size );
+			values.nulls.length( size );
+			values.values.length( size );
 		}
 		
 		public int size()              { return assigned + (hasNull == Nullable.NONE ? 0 : 1); }
@@ -120,7 +120,7 @@ public interface ObjectShortNullMap {
 					tag &= Integer.MAX_VALUE;
 					while (-1 < --tag)
 						if (keys.array[tag] != null)
-							return values.nulls.contains( tag ) ? tag : tag | Integer.MIN_VALUE;
+							return values.nulls.get( tag ) ? tag : tag | Integer.MIN_VALUE;
 					return -1;
 				}
 				
@@ -174,7 +174,7 @@ public interface ObjectShortNullMap {
 			K key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key = keys.array[i]) != null)
-					if (values.nulls.contains( i ))
+					if (values.nulls.get( i ))
 					{
 						int tag = other.tag( key );
 						if (tag == -1 || values.get( i ) != other.get( tag )) return 1;
@@ -305,13 +305,13 @@ public interface ObjectShortNullMap {
 				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 				mask     = size - 1;
 				
-				if (keys.length() < size) keys.allocate( size );
+				if (keys.length() < size) keys.length( size );
 				else Arrays.fill( keys.array, null );
 				
-				if (values.nulls.length() < size) values.nulls.allocate( size );
+				if (values.nulls.length() < size) values.nulls.length( size );
 				else values.nulls.clear();
 				
-				if (values.values.length() < size) values.values.allocate( size );
+				if (values.values.length() < size) values.values.length( size );
 				else values.values.clear();
 				
 				return;
@@ -322,7 +322,7 @@ public interface ObjectShortNullMap {
 			
 			final K[] k = keys.array;
 			
-			keys.allocate( size + 1 );
+			keys.length( size + 1 );
 			
 			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 			mask     = size - 1;
@@ -365,7 +365,7 @@ public interface ObjectShortNullMap {
 						{
 							array[gapSlot] = kk;
 							
-							if (values.nulls.contains( s ))
+							if (values.nulls.get( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
 								values.set( gapSlot,null );

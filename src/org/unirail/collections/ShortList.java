@@ -30,18 +30,18 @@ public interface ShortList {
 	
 	class R implements Array, Comparable<R> {
 		
-		public short[] array;
+		short[] array;
 		
-		public Object array()              {return array;}
+		public short[] array()             {return array;}
 		
-		public Object allocate( int size ) { return array = size == 0 ? null : new short[size];}
+		public short[] length( int items ) { return array = items == 0 ? null : new short[items];}
 		
-		public void fit()                  {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
+		public void fit()                        {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
 		
-		public int length()                { return array == null ? 0 : array.length; }
+		public int length()                      { return array == null ? 0 : array.length; }
 		
 		public R( int length ) {
-			if (0 < length) allocate( length );
+			if (0 < length) length( length );
 		}
 		
 		public R( short... items ) {
@@ -49,29 +49,13 @@ public interface ShortList {
 			size = items.length;
 			
 			for (int i = 0; i < size; i++)
-			     array[i] = (short)items[i];
+			     array[i] = (short) items[i];
 		}
 		
 		int size = 0;
 		
-		public int size() { return size; }
+		public int size()                            { return size; }
 		
-		public int resize(int size, int index, int resize, boolean fit ) {
-			final Object src        = array();
-			final int    fix_length = length();
-			final int    fix_size   = size;
-			
-			this.size = Array.super.resize( size, index, resize, fit );
-			
-			if (fix_length < 1) return size;
-			
-			if (0 < resize &&
-			    0 < fix_size &&
-			    index < fix_size && src == array())
-				Arrays.fill( array, index, resize, (short) 0 );
-			
-			return size;
-		}
 		
 		public boolean isEmpty()                     { return size == 0; }
 		
@@ -115,7 +99,7 @@ public interface ShortList {
 			if (toIndex == fromIndex) return null;
 			
 			if (dst == null) dst = new R( toIndex - fromIndex );
-			if (dst.length() < toIndex - fromIndex) dst.allocate( toIndex - fromIndex );
+			if (dst.length() < toIndex - fromIndex) dst.length( toIndex - fromIndex );
 			
 			System.arraycopy( array, fromIndex, dst.array, 0, toIndex - fromIndex );
 			return dst;
@@ -195,28 +179,49 @@ public interface ShortList {
 			super( items );
 		}
 		
-		public void swap( int item1, int item2 ) {
-			final short tmp = array[item1];
-			array[item1] = array[item2];
-			array[item2] = tmp;
-			
-		}
 		
 		public boolean add( short value ) {
-			resize(size, size, 1, false );
+			size            = Array.resize( this, size, size, 1, false );
 			array[size - 1] = value;
 			return true;
 		}
 		
-		public boolean remove() { return 0 < size && remove( size - 1 );}
-		
-		public boolean remove( int index ) {
-			if (size < 1 || !(index < size)) return false;
+		public void add( int index, short value ) {
+			if (index < size)
+			{
+				size         = Array.resize( this, size, index, 1, false );
+				array[index] = value;
+			}
+			else set( index, value );
 			
-			resize(size, index, -1, false );
-			return true;
 		}
 		
+		public void remove() { remove( size - 1 );}
+		
+		public void remove( int index ) {
+			if (size < 1 || size <= index) return;
+			size = Array.resize( this, size, index, -1, false );
+		}
+		
+		public void set( int index, short value ) {
+			if (size <= index)
+			{
+				int    fix = size;
+				Object obj = array;
+				
+				size = Array.resize( this, size, index, 1, false );
+				if (obj == array) Arrays.fill( array, fix, size - 1, (short) 0 );
+			}
+			
+			array[index] = value;
+		}
+		
+		public void swap( int index1, int index2 ) {
+			final short tmp = array[index1];
+			array[index1] = array[index2];
+			array[index2] = tmp;
+			
+		}
 		
 		public void addAll( Producer src ) {
 			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] =  src.value( tag );
@@ -249,24 +254,7 @@ public interface ShortList {
 		public void clear() { size = 0;}
 		
 		
-		public boolean set( int index, short value ) {
-			
-			boolean resize = !(index < size);
-			if (resize) resize(size, index = size, 1, false );
-			
-			array[index] = value;
-			
-			return resize;
-		}
-		
-		public void add( int index, short value ) {
-			if (size < index) index = size;
-			
-			resize(size, index, 1, false );
-			array[index] = value;
-		}
-		
-		public RW clone() { return (RW) super.clone(); }
+		public RW clone()   { return (RW) super.clone(); }
 		
 	}
 }

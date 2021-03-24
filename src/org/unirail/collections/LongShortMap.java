@@ -76,8 +76,8 @@ public interface LongShortMap {
 			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 			mask     = size - 1;
 			
-			keys.allocate( size );
-			values.allocate( size );
+			keys.length( size );
+			values.length( size );
 		}
 		
 		public boolean isEmpty()                        { return size() == 0; }
@@ -206,10 +206,10 @@ public interface LongShortMap {
 				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 				mask     = size - 1;
 				
-				if (keys.length() < size) keys.allocate( size );
+				if (keys.length() < size) keys.length( size );
 				else keys.clear();
 				
-				if (values.length() < size) values.allocate( size );
+				if (values.length() < size) values.length( size );
 				else values.clear();
 				
 				return;
@@ -218,8 +218,8 @@ public interface LongShortMap {
 			final long[] k = keys.array;
 			final short[] v = values.array;
 			
-			keys.allocate( size + 1 );
-			values.allocate( size + 1 );
+			keys.length( size + 1 );
+			values.length( size + 1 );
 			
 			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
 			

@@ -62,7 +62,7 @@ public interface LongSet {
 			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
 			mask     = size - 1;
 			
-			keys.allocate( size );
+			keys.length( size );
 		}
 		
 		public R( long... items ) {
@@ -76,7 +76,7 @@ public interface LongSet {
 				src.resizeAt = Math.min( size - 1, (int) Math.ceil( size * src.loadFactor ) );
 				src.mask     = size - 1;
 				
-				if (src.keys.length() < size) src.keys.allocate( size );
+				if (src.keys.length() < size) src.keys.length( size );
 				else src.keys.clear();
 				
 				return;
@@ -85,7 +85,7 @@ public interface LongSet {
 			
 			final long[] k = src.keys.array;
 			
-			src.keys.allocate( size + 1 );
+			src.keys.length( size + 1 );
 			
 			src.mask     = size - 1;
 			src.resizeAt = Math.min( src.mask, (int) Math.ceil( size * src.loadFactor ) );
