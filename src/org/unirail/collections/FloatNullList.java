@@ -48,6 +48,8 @@ public interface FloatNullList {
 			nulls.length( length );
 		}
 		
+		public int length() {return values.length();}
+		
 		public R(  Float    ... values ) {
 			
 			this.values.length( values.length );

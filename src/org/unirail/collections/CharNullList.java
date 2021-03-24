@@ -48,6 +48,8 @@ public interface CharNullList {
 			nulls.length( length );
 		}
 		
+		public int length() {return values.length();}
+		
 		public R(  Character... values ) {
 			
 			this.values.length( values.length );

@@ -48,6 +48,8 @@ public interface DoubleNullList {
 			nulls.length( length );
 		}
 		
+		public int length() {return values.length();}
+		
 		public R(  Double   ... values ) {
 			
 			this.values.length( values.length );

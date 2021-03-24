@@ -48,6 +48,8 @@ public interface ShortNullList {
 			nulls.length( length );
 		}
 		
+		public int length() {return values.length();}
+		
 		public R(  Short    ... values ) {
 			
 			this.values.length( values.length );

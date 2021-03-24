@@ -250,7 +250,7 @@ public interface BitsList {
 			
 			if (size <= index)
 			{
-				add( value );
+				set( index, value );
 				return;
 			}
 			
@@ -299,8 +299,14 @@ public interface BitsList {
 			
 			value &= mask;
 			
+			final int bit = index & MASK;
+			if (size <= index)
+			{
+				if (array.length <= index) array = Arrays.copyOf( array, array.length + array.length / 2 );
+				
+				
+			}
 			final int item = (index = bits * Math.min( index, size )) >>> LEN;
-			final int bit  = index & MASK;
 			final int i    = array[item];
 			
 			final int k = BITS - bit;

@@ -48,6 +48,8 @@ public interface ByteNullList {
 			nulls.length( length );
 		}
 		
+		public int length() {return values.length();}
+		
 		public R(  Byte     ... values ) {
 			
 			this.values.length( values.length );

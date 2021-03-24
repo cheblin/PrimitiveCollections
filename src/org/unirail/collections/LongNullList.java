@@ -48,6 +48,8 @@ public interface LongNullList {
 			nulls.length( length );
 		}
 		
+		public int length() {return values.length();}
+		
 		public R(  Long     ... values ) {
 			
 			this.values.length( values.length );

@@ -48,6 +48,8 @@ public interface UIntNullList {
 			nulls.length( length );
 		}
 		
+		public int length() {return values.length();}
+		
 		public R(  Integer  ... values ) {
 			
 			this.values.length( values.length );
