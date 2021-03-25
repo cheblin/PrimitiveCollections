@@ -237,8 +237,8 @@ public interface BitSet {
 		
 		
 		public StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( used * 64 );
-			else dst.ensureCapacity( dst.length() + used * 64 );
+			if (dst == null) dst = new StringBuilder( used * 68 );
+			else dst.ensureCapacity( dst.length() + used * 68 );
 			dst.append(String.format( "%-8d%-8d%-8d%-8d%-8d%-8d%-8d%-7d%d",63,55,47,39,31,23,15,7,0 ));
 			dst.append( '\n' );
 			dst.append(String.format( "%-8c%-8c%-8c%-8c%-8c%-8c%-8c%-7c%c",'|','|','|','|','|','|','|','|','|' ));
@@ -262,6 +262,16 @@ public interface BitSet {
 	
 	
 	class RW extends R  {
+		public RW() {
+		}
+		
+		public RW( int bits ) {
+			super( bits );
+		}
+		
+		public RW( long[] array ) {
+			super( array );
+		}
 		
 		public void fit() {if (used() < array.length) array = Arrays.copyOf( array, used );}
 		
