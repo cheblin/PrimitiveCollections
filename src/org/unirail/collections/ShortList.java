@@ -28,34 +28,33 @@ public interface ShortList {
 	}
 	
 	
-	class R implements Array, Comparable<R> {
+	class R implements Comparable<R> {
+		
+		R( int length ) {
+			if (0 < length) array = new short[length];
+		}
+		
+		public static R of( short... values ) {
+			R dst = new R( 0 );
+			fill( dst, values );
+			return dst;
+		}
+		
+		
+		static void fill( R dst, short... items ) {
+			dst.array = new short[dst.size = items.length];
+			
+			for (int i = 0; i < dst.size; i++)
+			     dst.array[i] = (short) items[i];
+		}
 		
 		short[] array;
 		
-		public short[] array()             {return array;}
-		
-		public short[] length( int items ) { return array = items == 0 ? null : new short[items];}
-		
-		public void fit()                        {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
-		
-		public int length()                      { return array == null ? 0 : array.length; }
-		
-		public R( int length ) {
-			if (0 < length) length( length );
-		}
-		
-		public R( short... items ) {
-			this( items.length );
-			size = items.length;
-			
-			for (int i = 0; i < size; i++)
-			     array[i] = (short) items[i];
-		}
+		public int length() { return array == null ? 0 : array.length; }
 		
 		int size = 0;
 		
 		public int size()                            { return size; }
-		
 		
 		public boolean isEmpty()                     { return size == 0; }
 		
@@ -99,7 +98,7 @@ public interface ShortList {
 			if (toIndex == fromIndex) return null;
 			
 			if (dst == null) dst = new R( toIndex - fromIndex );
-			if (dst.length() < toIndex - fromIndex) dst.length( toIndex - fromIndex );
+			else if (dst.length() < toIndex - fromIndex) dst.array = new short[toIndex - fromIndex];
 			
 			System.arraycopy( array, fromIndex, dst.array, 0, toIndex - fromIndex );
 			return dst;
@@ -167,18 +166,24 @@ public interface ShortList {
 		
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Array, Consumer {
+		
+		
+		public RW( int length )    { super( length ); }
+		
+		public static RW of( short... values ) {
+			RW dst = new RW( 0 );
+			fill( dst, values );
+			return dst;
+		}
 		
 		public Consumer consumer() {return this; }
 		
-		public RW( int length ) {
-			super( length );
-		}
+		public short[] array()             {return array;}
 		
-		public RW( short... items ) {
-			super( items );
-		}
+		public short[] length( int items ) { return array = items == 0 ? null : new short[items];}
 		
+		public void fit()                        {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
 		
 		public boolean add( short value ) {
 			size            = Array.resize( this, size, size, 1, false );

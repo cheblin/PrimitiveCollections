@@ -6,7 +6,6 @@ import java.util.Arrays;
 public interface BitSet {
 	
 	
-	
 	class R implements Cloneable, Comparable<R> {
 		
 		static final int LEN  = 6;
@@ -170,9 +169,12 @@ public interface BitSet {
 		}
 		
 		public long[] subList( int from_bit, int to_bit ) {
-			to_bit = prev1( to_bit );
+			if (!get( from_bit )) from_bit = next1( from_bit );
+			if (to_bit <= from_bit) return null;
 			
-			if (to_bit <= from_bit) return new long[0];
+			if (!get( to_bit )) to_bit = prev1( to_bit );
+			if (to_bit <= from_bit) return null;
+			
 			
 			long[] dst = new long[(to_bit - from_bit - 1 >> LEN) + 1];
 			
@@ -239,17 +241,17 @@ public interface BitSet {
 		public StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( used * 68 );
 			else dst.ensureCapacity( dst.length() + used * 68 );
-			dst.append(String.format( "%-8d%-8d%-8d%-8d%-8d%-8d%-8d%-7d%d",63,55,47,39,31,23,15,7,0 ));
+			dst.append( String.format( "%-8d%-8d%-8d%-8d%-8d%-8d%-8d%-7d%d", 63, 55, 47, 39, 31, 23, 15, 7, 0 ) );
 			dst.append( '\n' );
-			dst.append(String.format( "%-8c%-8c%-8c%-8c%-8c%-8c%-8c%-7c%c",'|','|','|','|','|','|','|','|','|' ));
+			dst.append( String.format( "%-8c%-8c%-8c%-8c%-8c%-8c%-8c%-7c%c", '|', '|', '|', '|', '|', '|', '|', '|', '|' ) );
 			dst.append( '\n' );
 			
-			for (int i = 0, max=used(); i < max; i++)
+			for (int i = 0, max = used(); i < max; i++)
 			{
 				final long v = array[i];
 				for (int s = 64; -1 < --s; )
 				     dst.append( (v & 1L << s) == 0 ? '.' : '*' );
-				dst.append( i*64 );
+				dst.append( i * 64 );
 				dst.append( '\n' );
 			}
 			
@@ -261,7 +263,7 @@ public interface BitSet {
 	}
 	
 	
-	class RW extends R  {
+	class RW extends R {
 		public RW() {
 		}
 		
@@ -386,16 +388,12 @@ public interface BitSet {
 		}
 		
 		
-		
-		
 		public void set( int bit, boolean value ) {
 			if (value)
 				set1( bit );
 			else
 				set0( bit );
 		}
-		
-		
 		
 		
 		public void set1( int from_bit, int to_bit ) {
@@ -427,8 +425,6 @@ public interface BitSet {
 			else
 				set0( from_bit, to_bit );
 		}
-	
-		
 		
 		
 		public void set0( int bit ) {
@@ -441,10 +437,7 @@ public interface BitSet {
 		}
 		
 		
-		
-		
 		public void set0( int from_bit, int to_bit ) {
-			
 			
 			
 			if (from_bit == to_bit) return;
@@ -497,7 +490,7 @@ public interface BitSet {
 					m = v << 1 | t;
 				}
 				array[index - 1] = m;
-				used |= IO;
+				                   used |= IO;
 			}
 			else if (value) set1( key );
 			
@@ -507,7 +500,7 @@ public interface BitSet {
 		
 		public void remove( int key ) {
 			int index = key >> LEN;
-			if (used() <= index)return;
+			if (used() <= index) return;
 			
 			
 			final int last = size();
@@ -526,12 +519,13 @@ public interface BitSet {
 					v                = m >>> 1;
 				}
 				array[index - 1] = v;
-				used |= IO;
+				                   used |= IO;
 			}
 		}
 		
-		public void clear()        {for (used(); used > 0; ) array[--used] = 0;}
-		public RW clone()          { return (RW) super.clone(); }
+		public void clear() {for (used(); used > 0; ) array[--used] = 0;}
+		
+		public RW clone()   { return (RW) super.clone(); }
 	}
 }
 

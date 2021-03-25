@@ -35,35 +35,50 @@ public interface UIntNullList {
 		BitSet.RW          nulls  = new BitSet.RW();
 		UIntList.RW values = new UIntList.RW( 4 );
 		
-		public void fit() {
-			values.fit();
-			nulls.fit();
-		}
 		
-		
-		public R( int length ) {
+		R( int length ) {
 			if (length < 1) return;
 			
 			values.length( length );
 			nulls.length( length );
 		}
 		
-		public int length() {return values.length();}
+		public static R of(  Integer  ... values ) {
+			R dst = new R( 0 );
+			fill( dst, values );
+			return dst;
+		}
 		
-		public R(  Integer  ... values ) {
+		static void fill( R dst,  Integer  ... values ) {
+			dst.values.length( values.length );
+			dst.nulls.length( values.length );
 			
-			this.values.length( values.length );
-			nulls.length( values.length );
 			for ( Integer   value : values)
-				if (value == null) ++size;
+				if (value == null) ++dst.size;
 				else
 				{
-					this.values.add( (long) (value + 0) );
-					nulls.set1( size );
-					++size;
+					dst.values.add( (long) (value + 0) );
+					dst.nulls.set1( dst.size );
+					++dst.size;
 				}
 		}
 		
+		public static R of( long... values ) {
+			R dst = new R( values.length );
+			fill( dst, values );
+			return dst;
+		}
+		
+		static void fill( R dst, long... values ) {
+			for (long value : values) dst.values.add( value );
+			
+			dst.size = values.length;
+			
+			dst.nulls.length( dst.size );
+			dst.nulls.set1( 0, dst.size - 1 );
+		}
+		
+		public int length() {return values.length();}
 		
 		int size = 0;
 		
@@ -108,15 +123,19 @@ public interface UIntNullList {
 		public R subList( int fromIndex, int toIndex ) {
 			if (size <= fromIndex) return null;
 			if (size - 1 < toIndex) toIndex = size - 1;
-			if (toIndex == fromIndex) return null;
 			
-			long[] data = nulls.subList( fromIndex, toIndex );
-			R      ret  = new R( 0 );
-			ret.size = toIndex - fromIndex;
+			if (!nulls.get( fromIndex )) fromIndex = nulls.next1( fromIndex );
+			if (toIndex <= fromIndex) return null;
 			
-			if (data.length == 0) return ret;
+			if (!nulls.get( toIndex )) toIndex = nulls.prev1( toIndex );
+			if (toIndex <= fromIndex) return null;
 			
-			ret.nulls.set( data );
+			long[] n = nulls.subList( fromIndex, toIndex );
+			
+			R ret = new R( 0 );
+			ret.nulls.set( n );
+			
+			ret.size = size = toIndex - fromIndex;
 			
 			int from = nulls.rank( fromIndex );
 			int to   = nulls.rank( toIndex );
@@ -169,19 +188,32 @@ public interface UIntNullList {
 	
 	class RW extends R implements Consumer {
 		
-		public RW clone()          { return (RW) super.clone(); }
-		
-		public Consumer consumer() {return this; }
-		
 		public RW( int length ) {
 			super( length );
 		}
 		
-		public RW(  Integer  ... values ) {
-			super( values );
+		public static RW of(  Integer  ... values ) {
+			RW dst = new RW( 0 );
+			fill( dst, values );
+			return dst;
 		}
 		
-		public void remove() { remove( size - 1 ); }
+		public static RW of( long... values ) {
+			RW dst = new RW( 0 );
+			fill( dst, values );
+			return dst;
+		}
+		
+		public void fit() {
+			values.fit();
+			nulls.fit();
+		}
+		
+		public RW clone()          { return (RW) super.clone(); }
+		
+		public Consumer consumer() {return this; }
+		
+		public void remove()       { remove( size - 1 ); }
 		
 		public void remove( int index ) {
 			if (size < 1 || size <= index) return;

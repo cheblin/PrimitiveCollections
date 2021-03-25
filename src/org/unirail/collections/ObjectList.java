@@ -27,29 +27,18 @@ public interface ObjectList {
 		boolean add( V value );
 	}
 	
-	class R<V extends Comparable<? super V>> implements Array, Comparable<R<V>> {
+	class R<V extends Comparable<? super V>> implements Comparable<R<V>> {
 		
+		@SafeVarargs
+		public R( V... items ) {array = items;}
 		
 		V[] array;
 		
-		public V[] array() {return array;}
-		
-		@SuppressWarnings("unchecked")
-		public V[] length( int items ) { return array = (V[]) new Comparable[items]; }
-		
-		public void fit()   {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
-		
 		public int length() { return array == null ? 0 : array.length; }
-		
-		
-		public R( int length ) {
-			if (0 < length) length( length );
-		}
-		
 		
 		int size = 0;
 		
-		public int size()                  { return size; }
+		public int size() { return size; }
 		
 		public boolean isEmpty()           { return size == 0; }
 		
@@ -152,11 +141,25 @@ public interface ObjectList {
 		public String toString() { return toString( null ).toString();}
 	}
 	
-	class RW<V extends Comparable<? super V>> extends R<V> implements Consumer<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements Array, Consumer<V> {
+		
+		
+		@SuppressWarnings("unchecked")
 		public RW( int length ) {
-			super( length );
+			if (0 < length) array = (V[]) new Comparable[length];
 		}
 		
+		@SafeVarargs
+		public RW( V... items ) {
+			super( items );
+		}
+		
+		public V[] array() {return array;}
+		
+		@SuppressWarnings("unchecked")
+		public V[] length( int items ) { return array = (V[]) new Comparable[items]; }
+		
+		public void fit() {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
 		
 		public boolean add( V value ) {
 			size            = Array.resize( this, size, size, 1, false );
@@ -172,6 +175,7 @@ public interface ObjectList {
 			}
 			else set( index, value );
 		}
+		
 		public void remove() { remove( size - 1 );}
 		
 		public void remove( int index ) {
@@ -233,7 +237,7 @@ public interface ObjectList {
 			return s != size;
 		}
 		
-		public void clear() { Arrays.fill( array, null ); size = 0;}
+		public void clear()           { Arrays.fill( array, null ); size = 0;}
 		
 		public RW<V> clone()          { return (RW<V>) super.clone(); }
 		

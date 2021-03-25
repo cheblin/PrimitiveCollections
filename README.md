@@ -56,7 +56,7 @@ While to avoid cluttering garbage collector while iterating, [HPPC-RT](https://g
 This is an ordinary list of primitives with "nulls info" stored in BitSet which allocates a bit per item.
 Working with a nullable list is straightforward.
 ```java
-IntNullList.RW list = new IntNullList.RW( 1, 2, null, 4, 5, null, null, null, 9 );
+IntNullList.RW list = IntNullList.RW.of( 1, 2, null, 4, 5, null, null, null, 9 );
 
 System.out.println( list.toString() );
 

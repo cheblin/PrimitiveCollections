@@ -28,34 +28,33 @@ public interface FloatList {
 	}
 	
 	
-	class R implements Array, Comparable<R> {
+	class R implements Comparable<R> {
+		
+		R( int length ) {
+			if (0 < length) array = new float[length];
+		}
+		
+		public static R of( float... values ) {
+			R dst = new R( 0 );
+			fill( dst, values );
+			return dst;
+		}
+		
+		
+		static void fill( R dst, float... items ) {
+			dst.array = new float[dst.size = items.length];
+			
+			for (int i = 0; i < dst.size; i++)
+			     dst.array[i] = (float) items[i];
+		}
 		
 		float[] array;
 		
-		public float[] array()             {return array;}
-		
-		public float[] length( int items ) { return array = items == 0 ? null : new float[items];}
-		
-		public void fit()                        {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
-		
-		public int length()                      { return array == null ? 0 : array.length; }
-		
-		public R( int length ) {
-			if (0 < length) length( length );
-		}
-		
-		public R( float... items ) {
-			this( items.length );
-			size = items.length;
-			
-			for (int i = 0; i < size; i++)
-			     array[i] = (float) items[i];
-		}
+		public int length() { return array == null ? 0 : array.length; }
 		
 		int size = 0;
 		
 		public int size()                            { return size; }
-		
 		
 		public boolean isEmpty()                     { return size == 0; }
 		
@@ -99,7 +98,7 @@ public interface FloatList {
 			if (toIndex == fromIndex) return null;
 			
 			if (dst == null) dst = new R( toIndex - fromIndex );
-			if (dst.length() < toIndex - fromIndex) dst.length( toIndex - fromIndex );
+			else if (dst.length() < toIndex - fromIndex) dst.array = new float[toIndex - fromIndex];
 			
 			System.arraycopy( array, fromIndex, dst.array, 0, toIndex - fromIndex );
 			return dst;
@@ -167,18 +166,24 @@ public interface FloatList {
 		
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Array, Consumer {
+		
+		
+		public RW( int length )    { super( length ); }
+		
+		public static RW of( float... values ) {
+			RW dst = new RW( 0 );
+			fill( dst, values );
+			return dst;
+		}
 		
 		public Consumer consumer() {return this; }
 		
-		public RW( int length ) {
-			super( length );
-		}
+		public float[] array()             {return array;}
 		
-		public RW( float... items ) {
-			super( items );
-		}
+		public float[] length( int items ) { return array = items == 0 ? null : new float[items];}
 		
+		public void fit()                        {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
 		
 		public boolean add( float value ) {
 			size            = Array.resize( this, size, size, 1, false );

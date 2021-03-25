@@ -26,45 +26,47 @@ public interface BitsList {
 			array     = new int[(items >>> LEN) + ((items & MASK) == 0 ? 0 : 1)];
 		}
 		
-		public R( int bits, byte... items ) {
-			this( bits, items.length );
+		public static R of( int bits, byte... values ) {
+			R dst = new R( bits, values.length );
+			fill( dst, values );
+			return dst;
+		}
+		
+		public static void fill( R dst, byte... items ) {
 			
+			final int bits = dst.bits;
 			for (byte v : items)
 			{
-				final int index = bits * size++;
+				final int index = bits * dst.size++;
 				final int item  = index >>> LEN;
 				final int bit   = index & MASK;
 				
-				v &= mask;
-				if (bit == 0)
-				{
-					array[item] = v;
-					return;
-				}
+				v &= dst.mask;
 				
-				array[item] |= v << bit;
-				if (BITS < bit + bits) array[item + 1] = v >> BITS - bit;
+				dst.array[item] |= v << bit;
+				if (BITS < bit + bits) dst.array[item + 1] = v >> BITS - bit;
 			}
 		}
 		
-		public R( int bits, int... items ) {
-			this( bits, items.length );
+		public static R of( int bits, int... values ) {
+			R dst = new R( bits, values.length );
+			fill( dst, values );
+			return dst;
+		}
+		
+		static void fill( R dst, int... items ) {
 			
+			final int bits = dst.bits;
 			for (int v : items)
 			{
-				final int index = bits * size++;
+				final int index = bits * dst.size++;
 				final int item  = index >>> LEN;
 				final int bit   = index & MASK;
 				
-				v &= mask;
-				if (bit == 0)
-				{
-					array[item] = v;
-					return;
-				}
+				v &= dst.mask;
 				
-				array[item] |= v << bit;
-				if (BITS < bit + bits) array[item + 1] = v >> BITS - bit;
+				dst.array[item] |= v << bit;
+				if (BITS < bit + bits) dst.array[item + 1] = v >> BITS - bit;
 			}
 		}
 		
@@ -219,12 +221,16 @@ public interface BitsList {
 			super( bits, items );
 		}
 		
-		public RW( int bits, byte... items ) {
-			super( bits, items );
+		public static RW of( int bits, byte... values ) {
+			RW dst = new RW( bits, values.length );
+			fill( dst, values );
+			return dst;
 		}
 		
-		public RW( int bits, int... items ) {
-			super( bits, items );
+		public static RW of( int bits, int... values ) {
+			RW dst = new RW( bits, values.length );
+			fill( dst, values );
+			return dst;
 		}
 		
 		public boolean add( int value ) {
