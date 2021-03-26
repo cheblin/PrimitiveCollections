@@ -186,7 +186,52 @@ public interface IntNullList {
 		public String toString() { return toString( null ).toString();}
 	}
 	
-	class RW extends R implements Consumer {
+	class Rsize extends R {
+		
+		Rsize( int length ) {
+			super( length );
+		}
+		
+		public static Rsize of(  Integer  ... values ) {
+			Rsize dst = new Rsize( 0 );
+			fill( dst, values );
+			return dst;
+		}
+		
+		public static Rsize of( int... values ) {
+			Rsize dst = new Rsize( values.length );
+			fill( dst, values );
+			return dst;
+		}
+		
+		public boolean set( int index,  Integer   value ) {
+			if (values.length() <= index) return false;
+			if (value != null) return set( index, (int) (value + 0) );
+			
+			if (!nulls.get( index )) return true;
+			
+			nulls.remove( index );
+			values.remove( nulls.rank( index ) );
+			
+			return true;
+		}
+		
+		public boolean set( int index, int value ) {
+			if (values.length() <= index) return false;
+			
+			if (nulls.get( index )) values.set( nulls.rank( index ) - 1, value );
+			else
+			{
+				nulls.set1( index );
+				values.add( nulls.rank( index ) - 1, value );
+			}
+			
+			
+			return true;
+		}
+	}
+	
+	class RW extends Rsize implements Consumer {
 		
 		public RW( int length ) {
 			super( length );
@@ -262,7 +307,7 @@ public interface IntNullList {
 			
 			if (value != null) return set( index, (int) (value + 0) );
 			
-			if (!nulls.get( index )) return false;
+			if (!nulls.get( index )) return true;
 			
 			nulls.remove( index );
 			values.remove( nulls.rank( index ) );
@@ -273,11 +318,7 @@ public interface IntNullList {
 		public boolean set( int index, int value ) {
 			
 			if (index < size)
-				if (nulls.get( index ))
-				{
-					values.set( nulls.rank( index ) - 1, value );
-					return false;
-				}
+				if (nulls.get( index )) values.set( nulls.rank( index ) - 1, value );
 				else
 				{
 					nulls.set1( index );
@@ -289,10 +330,8 @@ public interface IntNullList {
 				values.add( value );
 				size = index + 1;
 			}
-			
 			return true;
 		}
-		
 		
 		public int addAll( Producer src ) {
 			int fix = size;
@@ -340,6 +379,5 @@ public interface IntNullList {
 			values.remove( exist );
 			values.add( empty, v );
 		}
-		
 	}
 }

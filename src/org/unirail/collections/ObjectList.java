@@ -30,7 +30,13 @@ public interface ObjectList {
 	class R<V extends Comparable<? super V>> implements Comparable<R<V>> {
 		
 		@SafeVarargs
-		public R( V... items ) {array = items;}
+		static <V extends Comparable<? super V>> void fill( R<V> dst, V... items ) {dst.array = items;}
+		
+		public static <V extends Comparable<? super V>> R<V> of( V... items ) {
+			R<V> dst = new R<>();
+			dst.array = items;
+			return dst;
+		}
 		
 		V[] array;
 		
@@ -38,7 +44,7 @@ public interface ObjectList {
 		
 		int size = 0;
 		
-		public int size() { return size; }
+		public int size()                  { return size; }
 		
 		public boolean isEmpty()           { return size == 0; }
 		
@@ -141,17 +147,34 @@ public interface ObjectList {
 		public String toString() { return toString( null ).toString();}
 	}
 	
-	class RW<V extends Comparable<? super V>> extends R<V> implements Array, Consumer<V> {
-		
+	class Rsize<V extends Comparable<? super V>> extends R<V> {
 		
 		@SuppressWarnings("unchecked")
-		public RW( int length ) {
+		public Rsize( int length ) {
 			if (0 < length) array = (V[]) new Comparable[length];
 		}
 		
-		@SafeVarargs
-		public RW( V... items ) {
-			super( items );
+		public static <V extends Comparable<? super V>> Rsize<V> of( V... items ) {
+			Rsize<V> dst = new Rsize<>( items.length );
+			fill( dst, items );
+			return dst;
+		}
+		
+		public boolean set( int index, V value ) {
+			if (array.length <= index) return false;
+			array[index] = value;
+			return true;
+		}
+	}
+	
+	class RW<V extends Comparable<? super V>> extends Rsize<V> implements Array, Consumer<V> {
+		
+		public RW( int length ) { super( length ); }
+		
+		public static <V extends Comparable<? super V>> RW<V> of( V... items ) {
+			RW<V> dst = new RW<>( items.length );
+			fill( dst, items );
+			return dst;
 		}
 		
 		public V[] array() {return array;}
@@ -183,7 +206,7 @@ public interface ObjectList {
 			size = Array.resize( this, size, index, -1, false );
 		}
 		
-		public void set( int index, V value ) {
+		public boolean set( int index, V value ) {
 			if (size <= index)
 			{
 				int    fix = size;
@@ -194,6 +217,7 @@ public interface ObjectList {
 			}
 			
 			array[index] = value;
+			return true;
 		}
 		
 		public boolean addAll( Producer<V> src, int count ) {

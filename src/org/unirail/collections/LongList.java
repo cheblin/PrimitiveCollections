@@ -166,10 +166,29 @@ public interface LongList {
 		
 	}
 	
-	class RW extends R implements Array, Consumer {
+	class Rsize extends R {
+		
+		Rsize( int length ) {
+			super( length );
+		}
+		
+		public static Rsize of( long... values ) {
+			Rsize dst = new Rsize( 0 );
+			fill( dst, values );
+			return dst;
+		}
+		
+		public boolean set( int index, long value ) {
+			if (array.length <= index) return false;
+			array[index] = value;
+			return true;
+		}
+	}
+	
+	class RW extends Rsize implements Array, Consumer {
 		
 		
-		public RW( int length )    { super( length ); }
+		public RW( int length ) { super( length ); }
 		
 		public static RW of( long... values ) {
 			RW dst = new RW( 0 );
@@ -177,7 +196,7 @@ public interface LongList {
 			return dst;
 		}
 		
-		public Consumer consumer() {return this; }
+		public Consumer consumer()               {return this; }
 		
 		public long[] array()             {return array;}
 		
@@ -208,7 +227,7 @@ public interface LongList {
 			size = Array.resize( this, size, index, -1, false );
 		}
 		
-		public void set( int index, long value ) {
+		public boolean set( int index, long value ) {
 			if (size <= index)
 			{
 				int    fix = size;
@@ -219,6 +238,7 @@ public interface LongList {
 			}
 			
 			array[index] = value;
+			return true;
 		}
 		
 		public void swap( int index1, int index2 ) {
