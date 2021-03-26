@@ -32,7 +32,7 @@ public interface UIntNullList {
 	
 	class R implements Comparable<R> {
 		
-		BitSet.RW          nulls  = new BitSet.RW();
+		BitList.RW         nulls  = new BitList.RW(4);
 		UIntList.RW values = new UIntList.RW( 4 );
 		
 		

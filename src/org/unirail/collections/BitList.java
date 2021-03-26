@@ -3,7 +3,7 @@ package org.unirail.collections;
 
 import java.util.Arrays;
 
-public interface BitSet {
+public interface BitList {
 	
 	
 	class R implements Cloneable, Comparable<R> {
@@ -41,7 +41,6 @@ public interface BitSet {
 			return index;
 		}
 		
-		public R()           { this( 1 ); }
 		
 		public R( int bits ) { array = new long[(bits - 1 >> LEN) + 1]; }
 		
@@ -263,16 +262,64 @@ public interface BitSet {
 	}
 	
 	
-	class RW extends R {
-		public RW() {
+	class Rsize extends R {
+		
+		int limit;
+		
+		public int limit() {return limit;}
+		
+		public Rsize( int bits ) {
+			super( bits );
+			limit = bits;
 		}
+		
+		public Rsize( long[] array ) {
+			super( array );
+			limit = array.length * BITS;
+		}
+		
+		
+		public void set1() { set1( size() ); }
+		
+		
+		public void set1( int bit ) {
+			if (limit <= bit) return;
+			
+			final int index = used( bit );
+			array[index] |= 1L << bit;
+		}
+		
+		
+		public void set( int bit, boolean value ) {
+			
+			if (value)
+				set1( bit );
+			else
+				set0( bit );
+		}
+		
+		public void set0( int bit ) {
+			if (limit <= bit) return;
+			
+			final int index = bit >> LEN;
+			
+			if (index < used())
+				if (index + 1 == used && (array[index] &= ~(1L << bit)) == 0) used |= IO;
+				else
+					array[index] &= ~(1L << bit);
+		}
+	}
+	
+	class RW extends Rsize {
 		
 		public RW( int bits ) {
 			super( bits );
+			limit = Integer.MAX_VALUE;
 		}
 		
 		public RW( long[] array ) {
 			super( array );
+			limit = Integer.MAX_VALUE;
 		}
 		
 		public void fit() {if (used() < array.length) array = Arrays.copyOf( array, used );}
