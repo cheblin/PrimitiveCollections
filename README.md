@@ -103,15 +103,18 @@ null
 similar to nullable `IntIntNullMap` 
 ```java
 IntIntNullMap.RW map = new IntIntNullMap.RW();
-		
-map.put( 1  , 11   ) ;// 1  -> 11
-map.put( 2  , 22   ) ;// 2  -> 22
-map.put( 3  , null ) ;// 3  -> null
-map.put( 4  , null ) ;// 3  -> null
-map.put( 5  , 55   ) ;// 5  -> 55
-map.put( 8  , 88   ) ;// 8  -> 88
-map.put( 9  , null ) ;// 9  -> null
-map.put( 10 , null ) ;// 10 -> null
+
+map.put( 0, 10101010 );// 0  -> 10101010
+map.put( 1, 11 );// 1  -> 11
+map.put( 2, 22 );// 2  -> 22
+map.put( 3, null );// 3  -> null
+map.put( 4, null );// 3  -> null
+map.put( 5, 55 );// 5  -> 55
+map.put( 8, 88 );// 8  -> 88
+map.put( 9, null );// 9  -> null
+map.put( 10, null );// 10 -> null
+
+map.put( null, 0xFF );// null -> 255 !!!
 
 tag = map.tag( 3 );
 assert (map.contains( tag ));
@@ -133,6 +136,8 @@ System.out.println( map );
 printout
 ```
 11
+null -> 255
+0 -> 10101010
 2 -> 22
 4 -> null
 8 -> 88
@@ -145,13 +150,13 @@ printout
 
 and
 ```java
-ObjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
+bjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
 
 oim.put( null, 777 );
 oim.put( "key -> null", null );
 oim.put( "key -> value", 11 );
 
-int tag = oim.tag( "Not exists" );
+tag = oim.tag( "Not exists" );
 assert (!oim.contains( tag ));
 assert (!oim.hasValue( tag ));
 
@@ -173,7 +178,9 @@ System.out.println( oim );
 ```
 printout
 ```
+777
 11
+null -> 777
 key -> value -> 11
 key -> null -> null
 ```
