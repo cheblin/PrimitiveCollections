@@ -177,6 +177,7 @@ public interface DoubleList {
 			fill( dst, values );
 			return dst;
 		}
+		public boolean set( double value ) {return set( size, value );}
 		
 		public boolean set( int index, double value ) {
 			if (array.length <= index) return false;

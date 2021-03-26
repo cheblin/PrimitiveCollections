@@ -177,6 +177,7 @@ public interface IntList {
 			fill( dst, values );
 			return dst;
 		}
+		public boolean set( int value ) {return set( size, value );}
 		
 		public boolean set( int index, int value ) {
 			if (array.length <= index) return false;

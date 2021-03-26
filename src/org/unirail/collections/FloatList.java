@@ -177,6 +177,7 @@ public interface FloatList {
 			fill( dst, values );
 			return dst;
 		}
+		public boolean set( float value ) {return set( size, value );}
 		
 		public boolean set( int index, float value ) {
 			if (array.length <= index) return false;

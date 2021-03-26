@@ -204,6 +204,8 @@ public interface ByteNullList {
 			return dst;
 		}
 		
+		public boolean set(  Byte      value ) {return set( size, value );}
+		
 		public boolean set( int index,  Byte      value ) {
 			if (values.length() <= index) return false;
 			if (value != null) return set( index, (byte) (value + 0) );
@@ -215,6 +217,8 @@ public interface ByteNullList {
 			
 			return true;
 		}
+		
+		public boolean set( byte value ) {return set( size, value );}
 		
 		public boolean set( int index, byte value ) {
 			if (values.length() <= index) return false;

@@ -177,6 +177,7 @@ public interface ByteList {
 			fill( dst, values );
 			return dst;
 		}
+		public boolean set( byte value ) {return set( size, value );}
 		
 		public boolean set( int index, byte value ) {
 			if (array.length <= index) return false;

@@ -160,6 +160,8 @@ public interface ObjectList {
 			return dst;
 		}
 		
+		public boolean set( V value ) {return set( size, value );}
+		
 		public boolean set( int index, V value ) {
 			if (array.length <= index) return false;
 			if (size <= index) size = index + 1;

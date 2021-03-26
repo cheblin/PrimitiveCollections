@@ -221,6 +221,8 @@ public interface BitsList {
 			super( bits_per_item, items );
 		}
 		
+		public boolean set( int value ) {return set( size, value );}
+		
 		public boolean set( int item, int value ) {
 			if (array.length <= item) return false;
 			if (size <= item) size = item + 1;

@@ -204,6 +204,8 @@ public interface DoubleNullList {
 			return dst;
 		}
 		
+		public boolean set(  Double    value ) {return set( size, value );}
+		
 		public boolean set( int index,  Double    value ) {
 			if (values.length() <= index) return false;
 			if (value != null) return set( index, (double) (value + 0) );
@@ -215,6 +217,8 @@ public interface DoubleNullList {
 			
 			return true;
 		}
+		
+		public boolean set( double value ) {return set( size, value );}
 		
 		public boolean set( int index, double value ) {
 			if (values.length() <= index) return false;

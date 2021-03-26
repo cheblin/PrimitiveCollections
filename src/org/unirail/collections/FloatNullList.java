@@ -204,6 +204,8 @@ public interface FloatNullList {
 			return dst;
 		}
 		
+		public boolean set(  Float     value ) {return set( size, value );}
+		
 		public boolean set( int index,  Float     value ) {
 			if (values.length() <= index) return false;
 			if (value != null) return set( index, (float) (value + 0) );
@@ -215,6 +217,8 @@ public interface FloatNullList {
 			
 			return true;
 		}
+		
+		public boolean set( float value ) {return set( size, value );}
 		
 		public boolean set( int index, float value ) {
 			if (values.length() <= index) return false;

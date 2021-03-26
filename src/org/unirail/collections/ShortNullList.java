@@ -204,6 +204,8 @@ public interface ShortNullList {
 			return dst;
 		}
 		
+		public boolean set(  Short     value ) {return set( size, value );}
+		
 		public boolean set( int index,  Short     value ) {
 			if (values.length() <= index) return false;
 			if (value != null) return set( index, (short) (value + 0) );
@@ -215,6 +217,8 @@ public interface ShortNullList {
 			
 			return true;
 		}
+		
+		public boolean set( short value ) {return set( size, value );}
 		
 		public boolean set( int index, short value ) {
 			if (values.length() <= index) return false;

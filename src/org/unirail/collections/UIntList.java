@@ -177,6 +177,7 @@ public interface UIntList {
 			fill( dst, values );
 			return dst;
 		}
+		public boolean set( long value ) {return set( size, value );}
 		
 		public boolean set( int index, long value ) {
 			if (array.length <= index) return false;

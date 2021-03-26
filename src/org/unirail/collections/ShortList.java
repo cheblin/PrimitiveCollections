@@ -177,6 +177,7 @@ public interface ShortList {
 			fill( dst, values );
 			return dst;
 		}
+		public boolean set( short value ) {return set( size, value );}
 		
 		public boolean set( int index, short value ) {
 			if (array.length <= index) return false;

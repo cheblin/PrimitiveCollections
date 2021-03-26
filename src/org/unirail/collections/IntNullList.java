@@ -204,6 +204,8 @@ public interface IntNullList {
 			return dst;
 		}
 		
+		public boolean set(  Integer   value ) {return set( size, value );}
+		
 		public boolean set( int index,  Integer   value ) {
 			if (values.length() <= index) return false;
 			if (value != null) return set( index, (int) (value + 0) );
@@ -215,6 +217,8 @@ public interface IntNullList {
 			
 			return true;
 		}
+		
+		public boolean set( int value ) {return set( size, value );}
 		
 		public boolean set( int index, int value ) {
 			if (values.length() <= index) return false;

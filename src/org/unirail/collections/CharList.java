@@ -177,6 +177,7 @@ public interface CharList {
 			fill( dst, values );
 			return dst;
 		}
+		public boolean set( char value ) {return set( size, value );}
 		
 		public boolean set( int index, char value ) {
 			if (array.length <= index) return false;

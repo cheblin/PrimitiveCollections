@@ -204,6 +204,8 @@ public interface LongNullList {
 			return dst;
 		}
 		
+		public boolean set(  Long      value ) {return set( size, value );}
+		
 		public boolean set( int index,  Long      value ) {
 			if (values.length() <= index) return false;
 			if (value != null) return set( index, (long) (value + 0) );
@@ -215,6 +217,8 @@ public interface LongNullList {
 			
 			return true;
 		}
+		
+		public boolean set( long value ) {return set( size, value );}
 		
 		public boolean set( int index, long value ) {
 			if (values.length() <= index) return false;
