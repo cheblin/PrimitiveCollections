@@ -188,7 +188,7 @@ public interface CharNullList {
 	
 	class Rsize extends R {
 		
-		Rsize( int length ) {
+		public Rsize( int length ) {
 			super( length );
 		}
 		

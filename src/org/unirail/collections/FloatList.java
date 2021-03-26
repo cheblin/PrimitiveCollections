@@ -168,7 +168,7 @@ public interface FloatList {
 	
 	class Rsize extends R {
 		
-		Rsize( int length ) {
+		public  Rsize( int length ) {
 			super( length );
 		}
 		
