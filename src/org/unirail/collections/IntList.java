@@ -168,7 +168,7 @@ public interface IntList {
 	
 	class Rsize extends R {
 		
-		public  Rsize( int length ) {
+		public Rsize( int length ) {
 			super( length );
 		}
 		
@@ -180,6 +180,7 @@ public interface IntList {
 		
 		public boolean set( int index, int value ) {
 			if (array.length <= index) return false;
+			if (size <= index) size = index + 1;
 			array[index] = value;
 			return true;
 		}

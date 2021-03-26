@@ -162,6 +162,7 @@ public interface ObjectList {
 		
 		public boolean set( int index, V value ) {
 			if (array.length <= index) return false;
+			if (size <= index) size = index + 1;
 			array[index] = value;
 			return true;
 		}

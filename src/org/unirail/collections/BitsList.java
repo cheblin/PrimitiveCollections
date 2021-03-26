@@ -17,13 +17,13 @@ public interface BitsList {
 		
 		public R( int bits_per_item ) {
 			bits = bits_per_item;
-			mask      = (1 << bits_per_item) - 1;
+			mask = (1 << bits_per_item) - 1;
 		}
 		
 		public R( int bits_per_item, int items ) {
-			bits = bits_per_item;
-			mask      = (1 << bits_per_item) - 1;
-			array     = new int[(items >>> LEN) + ((items & MASK) == 0 ? 0 : 1)];
+			bits  = bits_per_item;
+			mask  = (1 << bits_per_item) - 1;
+			array = new int[(items >>> LEN) + ((items & MASK) == 0 ? 0 : 1)];
 		}
 		
 		public static R of( int bits_per_item, byte... values ) {
@@ -223,7 +223,7 @@ public interface BitsList {
 		
 		public boolean set( int item, int value ) {
 			if (array.length <= item) return false;
-			
+			if (size <= item) size = item + 1;
 			value &= mask;
 			
 			int       index = item * bits >>> LEN;

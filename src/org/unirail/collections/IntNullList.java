@@ -218,7 +218,7 @@ public interface IntNullList {
 		
 		public boolean set( int index, int value ) {
 			if (values.length() <= index) return false;
-			
+			if (size <= index) size = index + 1;
 			if (nulls.get( index )) values.set( nulls.rank( index ) - 1, value );
 			else
 			{
