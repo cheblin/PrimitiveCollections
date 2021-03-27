@@ -199,7 +199,7 @@ Like a list of "nullable-boolean" enum `BoolNull`
 }
 
 
-BitsList.RW bits = new BitsList.RW( 2 );//3 bits per item
+BitsList.RW bits = new BitsList.RW( 2 );//2 bits per item
 bits.add( BoolNull.FALSE) ;
 bits.add( BoolNull.TRUE ) ;
 bits.add( BoolNull.TRUE ) ;
