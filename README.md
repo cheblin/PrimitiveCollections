@@ -150,7 +150,7 @@ null -> 255
 
 and
 ```java
-bjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
+ObjectIntNullMap.RW<String> oim = new ObjectIntNullMap.RW<>();
 
 oim.put( null              , 777 ) ;
 oim.put( "key -> null"     , null) ;
@@ -189,21 +189,24 @@ key -> null -> null
 > ### Map's and Set's keys are nullable
 
 The `BitsList` was created to store in tightly-packed form tiny-range values/enums that can be fitted in several (up to 7 bits). 
-Like a list of "nullable-boolean" enum
+Like a list of "nullable-boolean" enum `BoolNull`
 ```java
-@interface NullableBoolean {
-    int TRUE = 1, FALSE = 0, NONE = 2;
+@interface BoolNull {
+    int
+            FALSE = 0,
+            TRUE  = 1,
+            NONE  = 2;
 }
 
+
 BitsList.RW bits = new BitsList.RW( 2 );//3 bits per item
-bits.add( NullableBoolean.FALSE) ;
-bits.add( NullableBoolean.TRUE ) ;
-bits.add( NullableBoolean.TRUE ) ;
-bits.add( NullableBoolean.NONE ) ;
-bits.add( NullableBoolean.NONE ) ;
-bits.add( NullableBoolean.NONE ) ;
-bits.add( NullableBoolean.FALSE) ;
-System.out.println( bits );
+bits.add( BoolNull.FALSE) ;
+bits.add( BoolNull.TRUE ) ;
+bits.add( BoolNull.TRUE ) ;
+bits.add( BoolNull.NONE ) ;
+bits.add( BoolNull.NONE ) ;
+bits.add( BoolNull.NONE ) ;
+bits.add( BoolNull.FALSE) ;
 ```
 printout
 ```
