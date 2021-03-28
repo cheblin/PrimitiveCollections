@@ -193,9 +193,9 @@ Like a list of "nullable-boolean" enum `BoolNull`
 ```java
 @interface BoolNull {
     int
-		    NULL  = 0,
-		    FALSE = 1,
-		    TRUE  = 2;
+        NULL  = 0,
+        FALSE = 1,
+        TRUE  = 2;
 }
 
 
