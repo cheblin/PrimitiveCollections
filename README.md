@@ -203,20 +203,20 @@ BitsList.RW bits = new BitsList.RW( 2 );//2 bits per item
 bits.add( BoolNull.FALSE) ;
 bits.add( BoolNull.TRUE ) ;
 bits.add( BoolNull.TRUE ) ;
-bits.add( BoolNull.NONE ) ;
-bits.add( BoolNull.NONE ) ;
-bits.add( BoolNull.NONE ) ;
+bits.add( BoolNull.NULL ) ;
+bits.add( BoolNull.NULL ) ;
+bits.add( BoolNull.NULL ) ;
 bits.add( BoolNull.FALSE) ;
 ```
 printout
 ```
-0
-1
 1
 2
 2
-2
 0
+0
+0
+1
 ```
 
 Its value can be stored in two bits. Provided `BoolNullList` was built in this manner.  
