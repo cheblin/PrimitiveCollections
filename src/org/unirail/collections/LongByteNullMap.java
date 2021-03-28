@@ -36,6 +36,7 @@ public interface LongByteNullMap {
 			switch (hasNullKey())
 			{
 				case Nullable.VALUE: dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
+					break;
 				case Nullable.NULL: dst.append( "null -> null\n" );
 			}
 			

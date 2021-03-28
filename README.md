@@ -193,9 +193,9 @@ Like a list of "nullable-boolean" enum `BoolNull`
 ```java
 @interface BoolNull {
     int
-            FALSE = 0,
-            TRUE  = 1,
-            NONE  = 2;
+		    NULL  = 0,
+		    FALSE = 1,
+		    TRUE  = 2;
 }
 
 
@@ -219,7 +219,8 @@ printout
 0
 ```
 
-Its value can be stored in two bits. The special form "enum" - [SlimEnum](https://github.com/cheblin/SlimEnum)  was used here.
+Its value can be stored in two bits. Provided `BoolNullList` was built in this manner.  
+Mentioned special form "enum" - [SlimEnum](https://github.com/cheblin/SlimEnum)  was used here.
 
 
 All these collections are primitive-types-backed, no boxing/unboxing.
