@@ -220,7 +220,7 @@ printout
 ```
 
 Its value can be stored in two bits. Provided `BoolNullList` was built in this manner.  
-Mentioned special form "enum" - [SlimEnum](https://github.com/cheblin/SlimEnum)  was used here.
+Mentioned, used here special form "enum" is the [SlimEnum](https://github.com/cheblin/SlimEnum) .
 
 
 All these collections are primitive-types-backed, no boxing/unboxing.
