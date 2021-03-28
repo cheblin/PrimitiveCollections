@@ -207,6 +207,8 @@ bits.add( BoolNull.NULL ) ;
 bits.add( BoolNull.NULL ) ;
 bits.add( BoolNull.NULL ) ;
 bits.add( BoolNull.FALSE) ;
+		
+System.out.println( bits );
 ```
 printout
 ```
