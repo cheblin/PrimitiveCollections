@@ -164,6 +164,7 @@ public interface UByteList {
 		
 		public String toString() { return toString( null ).toString();}
 		
+		
 	}
 	
 	class Rsize extends R {
@@ -177,13 +178,24 @@ public interface UByteList {
 			fill( dst, values );
 			return dst;
 		}
-		public boolean set( char value ) {return set( size, value );}
 		
-		public boolean set( int index, char value ) {
-			if (array.length <= index) return false;
+		public void set( char value ) { set( size, value );}
+		
+		public void set( int index, char value ) {
+			if (array.length <= index) return;
+			
 			if (size <= index) size = index + 1;
 			array[index] = (byte)value;
-			return true;
+		}
+		
+		
+		public void set( int index, char... values ) {
+			int max = Math.min( values.length, array.length - index );
+			
+			if (size < index + 1 + max) size = index + 1 + max;
+			
+			for (int i = 0; i < max; i++)
+			     array[index + i] = (byte)values[i];
 		}
 	}
 	
@@ -229,7 +241,26 @@ public interface UByteList {
 			size = Array.resize( this, size, index, -1, false );
 		}
 		
-		public boolean set( int index, char value ) {
+		
+		public void set( int index, char... values ) {
+			int len = values.length;
+			
+			if (size <= index + len)
+			{
+				int    fix = size;
+				Object obj = array;
+				
+				size = Array.resize( this, size, index , len, false );
+				if (obj == array) Arrays.fill( array, fix, size - 1, (byte) 0 );
+			}
+			
+			for (int i = 0; i < len; i++)
+			     array[index + i] = (byte)values[i];
+		}
+		
+		public void set( char value ) { set( size, value );}
+		
+		public void set( int index, char value ) {
 			if (size <= index)
 			{
 				int    fix = size;
@@ -240,7 +271,6 @@ public interface UByteList {
 			}
 			
 			array[index] = (byte)value;
-			return true;
 		}
 		
 		public void swap( int index1, int index2 ) {
@@ -251,11 +281,11 @@ public interface UByteList {
 		}
 		
 		public void addAll( Producer src ) {
-			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (byte) src.value( tag );
+			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (byte) src.value( tag )/**/;
 		}
 		
 		public boolean addAll( Producer src, int index ) {
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (byte) src.value( tag );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (byte) src.value( tag )/**/;
 			return true;
 		}
 		

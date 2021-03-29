@@ -264,9 +264,7 @@ public interface BitList {
 	
 	class Rsize extends R {
 		
-		int limit;
-		
-		public int limit() {return limit;}
+		private final int limit;
 		
 		public Rsize( int bits ) {
 			super( bits );
@@ -279,34 +277,40 @@ public interface BitList {
 		}
 		
 		
-		public void set1() { set1( size() ); }
+		public void set1()             { set1( this, size() ); }
 		
+		protected void set1( int bit ) {if (bit < limit) set1( this, bit ); }
 		
-		public void set1( int bit ) {
-			if (limit <= bit) return;
-			
-			final int index = used( bit );
-			array[index] |= 1L << bit;
+		protected static void set1( Rsize dst, int bit ) {
+			final int index = dst.used( bit );
+			dst.array[index] |= 1L << bit;
 		}
 		
 		
 		public void set( int bit, boolean value ) {
-			
-			if (value)
-				set1( bit );
-			else
-				set0( bit );
+			if (bit < limit)
+				if (value)
+					set1( this, bit );
+				else
+					set0( this, bit );
 		}
 		
-		public void set0( int bit ) {
-			if (limit <= bit) return;
+		protected void set0( int bit ) {if (bit < limit) set0( this, bit ); }
+		
+		protected static void set0( Rsize dst, int bit ) {
 			
 			final int index = bit >> LEN;
 			
-			if (index < used())
-				if (index + 1 == used && (array[index] &= ~(1L << bit)) == 0) used |= IO;
+			if (index < dst.used())
+				if (index + 1 == dst.used && (dst.array[index] &= ~(1L << bit)) == 0) dst.used |= IO;
 				else
-					array[index] &= ~(1L << bit);
+					dst.array[index] &= ~(1L << bit);
+		}
+		
+		public void set( int index, boolean... values ) {
+			for (int i = 0, max = Math.min( values.length, limit - index ); i < max; i++)
+				if (values[i]) set1( this, index + i );
+				else set0( this, index + i );
 		}
 	}
 	
@@ -314,12 +318,12 @@ public interface BitList {
 		
 		public RW( int bits ) {
 			super( bits );
-			limit = Integer.MAX_VALUE;
+			
 		}
 		
 		public RW( long[] array ) {
 			super( array );
-			limit = Integer.MAX_VALUE;
+			
 		}
 		
 		public void fit() {if (used() < array.length) array = Arrays.copyOf( array, used );}
@@ -419,6 +423,11 @@ public interface BitList {
 				array[to_index] ^= to_mask;
 				                   used |= IO;
 			}
+		}
+		public void set( int index, boolean... values ) {
+			for (int i = 0, max =  values.length; i < max; i++)
+				if (values[i]) set1(  index + i );
+				else set0(  index + i );
 		}
 		
 		public void set( long[] array ) {

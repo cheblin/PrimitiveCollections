@@ -88,7 +88,7 @@ public interface DoubleList {
 		
 		public int lastIndexOf( double value ) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == value) return i;
+				if (array[i] == (double)value) return i;
 			return -1;
 		}
 		
@@ -164,6 +164,7 @@ public interface DoubleList {
 		
 		public String toString() { return toString( null ).toString();}
 		
+		
 	}
 	
 	class Rsize extends R {
@@ -177,13 +178,24 @@ public interface DoubleList {
 			fill( dst, values );
 			return dst;
 		}
-		public boolean set( double value ) {return set( size, value );}
 		
-		public boolean set( int index, double value ) {
-			if (array.length <= index) return false;
+		public void set( double value ) { set( size, value );}
+		
+		public void set( int index, double value ) {
+			if (array.length <= index) return;
+			
 			if (size <= index) size = index + 1;
-			array[index] = value;
-			return true;
+			array[index] = (double)value;
+		}
+		
+		
+		public void set( int index, double... values ) {
+			int max = Math.min( values.length, array.length - index );
+			
+			if (size < index + 1 + max) size = index + 1 + max;
+			
+			for (int i = 0; i < max; i++)
+			     array[index + i] = (double)values[i];
 		}
 	}
 	
@@ -208,7 +220,7 @@ public interface DoubleList {
 		
 		public boolean add( double value ) {
 			size            = Array.resize( this, size, size, 1, false );
-			array[size - 1] = value;
+			array[size - 1] = (double)value;
 			return true;
 		}
 		
@@ -216,7 +228,7 @@ public interface DoubleList {
 			if (index < size)
 			{
 				size         = Array.resize( this, size, index, 1, false );
-				array[index] = value;
+				array[index] = (double)value;
 			}
 			else set( index, value );
 			
@@ -229,7 +241,26 @@ public interface DoubleList {
 			size = Array.resize( this, size, index, -1, false );
 		}
 		
-		public boolean set( int index, double value ) {
+		
+		public void set( int index, double... values ) {
+			int len = values.length;
+			
+			if (size <= index + len)
+			{
+				int    fix = size;
+				Object obj = array;
+				
+				size = Array.resize( this, size, index , len, false );
+				if (obj == array) Arrays.fill( array, fix, size - 1, (double) 0 );
+			}
+			
+			for (int i = 0; i < len; i++)
+			     array[index + i] = (double)values[i];
+		}
+		
+		public void set( double value ) { set( size, value );}
+		
+		public void set( int index, double value ) {
 			if (size <= index)
 			{
 				int    fix = size;
@@ -239,8 +270,7 @@ public interface DoubleList {
 				if (obj == array) Arrays.fill( array, fix, size - 1, (double) 0 );
 			}
 			
-			array[index] = value;
-			return true;
+			array[index] = (double)value;
 		}
 		
 		public void swap( int index1, int index2 ) {
@@ -251,11 +281,11 @@ public interface DoubleList {
 		}
 		
 		public void addAll( Producer src ) {
-			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] =  src.value( tag );
+			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (double) src.value( tag )/**/;
 		}
 		
 		public boolean addAll( Producer src, int index ) {
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] =  src.value( tag );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (double) src.value( tag )/**/;
 			return true;
 		}
 		

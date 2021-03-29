@@ -32,6 +32,7 @@ public interface ObjectList {
 		@SafeVarargs
 		static <V extends Comparable<? super V>> void fill( R<V> dst, V... items ) {dst.array = items;}
 		
+		@SafeVarargs
 		public static <V extends Comparable<? super V>> R<V> of( V... items ) {
 			R<V> dst = new R<>();
 			dst.array = items;
@@ -154,6 +155,7 @@ public interface ObjectList {
 			if (0 < length) array = (V[]) new Comparable[length];
 		}
 		
+		@SafeVarargs
 		public static <V extends Comparable<? super V>> Rsize<V> of( V... items ) {
 			Rsize<V> dst = new Rsize<>( items.length );
 			fill( dst, items );
@@ -168,6 +170,16 @@ public interface ObjectList {
 			array[index] = value;
 			return true;
 		}
+		
+		
+		public void set( int index, V... values ) {
+			int max = Math.min( values.length, array.length - index );
+			
+			if (size < index + 1 + max) size = index + 1 + max;
+			
+			System.arraycopy( values, 0, array, index, max );
+		}
+		
 	}
 	
 	class RW<V extends Comparable<? super V>> extends Rsize<V> implements Array, Consumer<V> {
@@ -208,6 +220,26 @@ public interface ObjectList {
 			if (size < 1 || size <= index) return;
 			size = Array.resize( this, size, index, -1, false );
 		}
+		
+		public boolean set( V value ) {return set( size, value );}
+		
+		
+		@SafeVarargs
+		public final void set( int index, V... values ) {
+			int len = values.length;
+			
+			if (size <= index + len)
+			{
+				int    fix = size;
+				Object obj = array;
+				
+				size = Array.resize( this, size, index , len, false );
+				if (obj == array) Arrays.fill( array, fix, size - 1, null );
+			}
+			
+			System.arraycopy( values, 0, array, index, len );
+		}
+		
 		
 		public boolean set( int index, V value ) {
 			if (size <= index)

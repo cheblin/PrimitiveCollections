@@ -110,20 +110,30 @@ public interface BoolNullList {
 	
 	class Rsize extends R {
 		
-		public Rsize() { }
+		
+		private final int limit;
 		
 		public Rsize( int items ) {
 			super( items );
+			limit = items;
 		}
 		
-		public boolean set( int value ) {
-			if (array.length <= size) return false;
-			return set( this, size, value );
+		public void set( boolean value )           { if (size < limit) set( this, size, value ? 2 : 1 ); }
+		
+		public void set( Boolean value )           { if (size < limit) set( this, size, value == null ? 0 : value ? 2 : 1 ); }
+		
+		public void set( int item, boolean value ) { if (item < limit) set( this, item, value ? 2 : 1 ); }
+		
+		public void set( int item, Boolean value ) { if (item < limit) set( this, item, value == null ? 0 : value ? 2 : 1 ); }
+		
+		public void set( int index, boolean... values ) {
+			for (int i = 0, max = Math.min( values.length, limit - index ); i < max; i++)
+			     set( this, index + i, values[i] ? 2 : 1 );
 		}
 		
-		public boolean set( int item, int value ) {
-			if (array.length <= item) return false;
-			return set( this, item, value );
+		public void set( int index, Boolean... values ) {
+			for (int i = 0, max = Math.min( values.length, limit - index ); i < max; i++)
+			     set( this, index + i, values[i] == null ? 0 : values[i] ? 2 : 1 );
 		}
 		
 		public static Rsize of( boolean... values ) {
@@ -140,8 +150,7 @@ public interface BoolNullList {
 	}
 	
 	class RW extends Rsize implements Consumer {
-		public RW() {
-		}
+		public RW() {super( 1 ); }
 		
 		public RW( int items ) {
 			super( items );
@@ -173,15 +182,30 @@ public interface BoolNullList {
 			remove( this, value == null ? 0 : value ? 2 : 1 );
 		}
 		
-		public void remove( boolean value ) { remove( this, value ? 2 : 1 ); }
+		public void remove( boolean value )        { remove( this, value ? 2 : 1 ); }
 		
-		public void removeAt( int item )    { removeAt( this, item ); }
+		public void removeAt( int item )           { removeAt( this, item ); }
 		
 		
-		public boolean set( int item, int value ) {
-			return set( this, item, value );
+		public void set( boolean value )           {set( this, size, value ? 2 : 1 ); }
+		
+		public void set( Boolean value )           { set( this, size, value == null ? 0 : value ? 2 : 1 ); }
+		
+		
+		public void set( int item, boolean value ) {set( this, item, value ? 2 : 1 ); }
+		
+		public void set( int item, Boolean value ) { set( this, item, value == null ? 0 : value ? 2 : 1 ); }
+		
+		
+		public void set( int index, boolean... values ) {
+			for (int i = 0, max = values.length; i < max; i++)
+			     set( this, index + i, values[i] ? 2 : 1 );
 		}
 		
+		public void set( int index, Boolean... values ) {
+			for (int i = 0, max = values.length; i < max; i++)
+			     set( this, index + i, values[i] == null ? 0 : values[i] ? 2 : 1 );
+		}
 		
 		public void clear() {
 			clear( this );

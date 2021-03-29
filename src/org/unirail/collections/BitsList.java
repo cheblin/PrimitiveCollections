@@ -69,7 +69,7 @@ public interface BitsList {
 				
 				long v = i & dst.mask;
 				
-				dst.array[index] |= v  << bit;
+				dst.array[index] |= v << bit;
 				if (BITS < bit + bits) dst.array[index + 1] = v >> BITS - bit;
 			}
 		}
@@ -380,22 +380,20 @@ public interface BitsList {
 	
 	class Rsize extends R {
 		
-		public Rsize( int bits_per_item ) {
-			super( bits_per_item );
-		}
+		private final int limit;
 		
 		public Rsize( int bits_per_item, int items ) {
 			super( bits_per_item, items );
+			limit = items;
 		}
 		
-		public boolean set( int value ) {
-			if (array.length <= size) return false;
-			return set( this, size, value );
-		}
+		public void set( int value )           { if (size < limit) set( this, size, value ); }
 		
-		public boolean set( int item, int value ) {
-			if (array.length <= item) return false;
-			return set( this, item, value );
+		public void set( int item, int value ) { if (item < limit) set( this, item, value ); }
+		
+		public void set( int index, int... values ) {
+			for (int i = 0, max = Math.min( values.length, limit - index ); i < max; i++)
+			     set( this, index + i, values[i] );
 		}
 		
 		public static Rsize of( int bits_per_item, byte... values ) {
@@ -414,7 +412,7 @@ public interface BitsList {
 	class RW extends Rsize implements IntList.Consumer {
 		
 		public RW( int bits_per_item ) {
-			super( bits_per_item );
+			super( bits_per_item, 1 );
 		}
 		
 		public RW( int bits_per_item, int items ) {
@@ -461,8 +459,13 @@ public interface BitsList {
 			return removeAll( this, src );
 		}
 		
-		public boolean set( int item, int value ) {
-			return set( this, item, value );
+		public void set( int value )           { set( this, size, value ); }
+		
+		public void set( int item, int value ) { set( this, item, value ); }
+		
+		public void set( int index, int... values ) {
+			for (int i = 0, max = values.length; i < max; i++)
+			     set( this, index + i, values[i] );
 		}
 		
 		public boolean retainAll( IntList.Consumer chk ) {

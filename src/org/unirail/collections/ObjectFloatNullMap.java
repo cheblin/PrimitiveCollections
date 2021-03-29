@@ -258,12 +258,12 @@ public interface ObjectFloatNullMap {
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0)
 				{
-					values.set( slot,null );
+					values.set( slot,( Float    ) null );
 					return true;
 				}
 			
 			keys.array[slot] = key;
-			values.set( slot, null );
+			values.set( slot,( Float    ) null );
 			
 			if (++assigned == resizeAt) this.allocate( mask + 1 << 1 );
 			
@@ -336,7 +336,7 @@ public interface ObjectFloatNullMap {
 					
 					keys.array[slot] = kk;
 					int tag = vals.tag( slot );
-					if (tag < 0) values.set( slot,null );
+					if (tag < 0) values.set( slot,( Float    )null );
 					else values.set( slot, vals.get( tag ) );
 				}
 			
@@ -368,14 +368,14 @@ public interface ObjectFloatNullMap {
 							if (values.nulls.get( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot,null );
+								values.set( gapSlot,( Float    )null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = null;
-					values.set( gapSlot, null );
+					values.set( gapSlot, ( Float    )null );
 					assigned--;
 					return true;
 				}

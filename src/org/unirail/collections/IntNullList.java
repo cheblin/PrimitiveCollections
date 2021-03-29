@@ -32,7 +32,7 @@ public interface IntNullList {
 	
 	class R implements Comparable<R> {
 		
-		BitList.RW         nulls  = new BitList.RW(4);
+		BitList.RW         nulls  = new BitList.RW( 4 );
 		IntList.RW values = new IntList.RW( 4 );
 		
 		
@@ -184,6 +184,30 @@ public interface IntNullList {
 		}
 		
 		public String toString() { return toString( null ).toString();}
+		
+		protected static void set( R dst, int index, int value ) {
+			if (dst.size <= index) dst.size = index + 1;
+			
+			if (dst.nulls.get( index )) dst.values.set( dst.nulls.rank( index ) - 1, value );
+			else
+			{
+				dst.nulls.set1( index );
+				dst.values.add( dst.nulls.rank( index ) - 1, value );
+			}
+		}
+		
+		protected static void set( Rsize dst, int index,  Integer   value ) {
+			
+			if (value == null)
+			{
+				if (dst.size <= index || !dst.nulls.get( index )) return;
+				
+				dst.nulls.remove( index );
+				dst.values.remove( dst.nulls.rank( index ) );
+				if (index + 1 == dst.size) dst.size--;
+			}
+			else set( dst, index, (int) (value + 0) );
+		}
 	}
 	
 	class Rsize extends R {
@@ -204,34 +228,28 @@ public interface IntNullList {
 			return dst;
 		}
 		
-		public boolean set(  Integer   value ) {return set( size, value );}
+		public void set(  Integer   value ) {set( size, value );}
+		public void set( int value ) { set( size, value );}
 		
-		public boolean set( int index,  Integer   value ) {
-			if (values.length() <= index) return false;
-			if (value != null) return set( index, (int) (value + 0) );
-			
-			if (!nulls.get( index )) return true;
-			
-			nulls.remove( index );
-			values.remove( nulls.rank( index ) );
-			
-			return true;
+		public void set( int index,  Integer   value ) {
+			if (values.length() <= index) return;
+			set( this, index, value );
 		}
 		
-		public boolean set( int value ) {return set( size, value );}
-		
-		public boolean set( int index, int value ) {
-			if (values.length() <= index) return false;
+		public void set( int index, int value ) {
+			if (values.length() <= index) return;
 			if (size <= index) size = index + 1;
-			if (nulls.get( index )) values.set( nulls.rank( index ) - 1, value );
-			else
-			{
-				nulls.set1( index );
-				values.add( nulls.rank( index ) - 1, value );
-			}
-			
-			
-			return true;
+			set( this, index, value );
+		}
+		
+		public void set( int index, int... values ) {
+			for (int i = 0, max = Math.min( values.length, values.length - index ); i < max; i++)
+			     set( this, index + i, values[i] );
+		}
+		
+		public void set( int index,  Integer  ... values ) {
+			for (int i = 0, max = Math.min( values.length, values.length - index ); i < max; i++)
+			     set( this, index + i, values[i] );
 		}
 	}
 	
@@ -307,35 +325,26 @@ public interface IntNullList {
 			else set( index, value );
 		}
 		
-		public boolean set( int index,  Integer   value ) {
-			
-			if (value != null) return set( index, (int) (value + 0) );
-			
-			if (!nulls.get( index )) return true;
-			
-			nulls.remove( index );
-			values.remove( nulls.rank( index ) );
-			
-			return true;
+		public void set(  Integer   value ) { set( this, size, value ); }
+		
+		public void set( int value )     {set( this, size, value ); }
+		
+
+		public void set( int index,  Integer   value ) { set( this, index, value ); }
+		
+		public void set( int index, int value )     {set( this, index, value ); }
+		
+		
+		public void set( int index, int... values ) {
+			for (int i = 0, max =  values.length; i < max; i++)
+			     set( this, index + i, values[i] );
 		}
 		
-		public boolean set( int index, int value ) {
-			
-			if (index < size)
-				if (nulls.get( index )) values.set( nulls.rank( index ) - 1, value );
-				else
-				{
-					nulls.set1( index );
-					values.add( nulls.rank( index ) - 1, value );
-				}
-			else
-			{
-				nulls.set1( index );
-				values.add( value );
-				size = index + 1;
-			}
-			return true;
+		public void set( int index,  Integer  ... values ) {
+			for (int i = 0, max = values.length; i < max; i++)
+			     set( this, index + i, values[i] );
 		}
+		
 		
 		public int addAll( Producer src ) {
 			int fix = size;

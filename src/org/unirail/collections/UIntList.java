@@ -164,6 +164,7 @@ public interface UIntList {
 		
 		public String toString() { return toString( null ).toString();}
 		
+		
 	}
 	
 	class Rsize extends R {
@@ -177,13 +178,24 @@ public interface UIntList {
 			fill( dst, values );
 			return dst;
 		}
-		public boolean set( long value ) {return set( size, value );}
 		
-		public boolean set( int index, long value ) {
-			if (array.length <= index) return false;
+		public void set( long value ) { set( size, value );}
+		
+		public void set( int index, long value ) {
+			if (array.length <= index) return;
+			
 			if (size <= index) size = index + 1;
 			array[index] = (int)value;
-			return true;
+		}
+		
+		
+		public void set( int index, long... values ) {
+			int max = Math.min( values.length, array.length - index );
+			
+			if (size < index + 1 + max) size = index + 1 + max;
+			
+			for (int i = 0; i < max; i++)
+			     array[index + i] = (int)values[i];
 		}
 	}
 	
@@ -229,7 +241,26 @@ public interface UIntList {
 			size = Array.resize( this, size, index, -1, false );
 		}
 		
-		public boolean set( int index, long value ) {
+		
+		public void set( int index, long... values ) {
+			int len = values.length;
+			
+			if (size <= index + len)
+			{
+				int    fix = size;
+				Object obj = array;
+				
+				size = Array.resize( this, size, index , len, false );
+				if (obj == array) Arrays.fill( array, fix, size - 1, (int) 0 );
+			}
+			
+			for (int i = 0; i < len; i++)
+			     array[index + i] = (int)values[i];
+		}
+		
+		public void set( long value ) { set( size, value );}
+		
+		public void set( int index, long value ) {
 			if (size <= index)
 			{
 				int    fix = size;
@@ -240,7 +271,6 @@ public interface UIntList {
 			}
 			
 			array[index] = (int)value;
-			return true;
 		}
 		
 		public void swap( int index1, int index2 ) {
@@ -251,11 +281,11 @@ public interface UIntList {
 		}
 		
 		public void addAll( Producer src ) {
-			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (int) src.value( tag );
+			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (int) src.value( tag )/**/;
 		}
 		
 		public boolean addAll( Producer src, int index ) {
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (int) src.value( tag );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (int) src.value( tag )/**/;
 			return true;
 		}
 		

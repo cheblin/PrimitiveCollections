@@ -88,7 +88,7 @@ public interface FloatList {
 		
 		public int lastIndexOf( float value ) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == Float.floatToIntBits(value)) return i;
+				if (array[i] == (float)value) return i;
 			return -1;
 		}
 		
@@ -164,6 +164,7 @@ public interface FloatList {
 		
 		public String toString() { return toString( null ).toString();}
 		
+		
 	}
 	
 	class Rsize extends R {
@@ -177,13 +178,24 @@ public interface FloatList {
 			fill( dst, values );
 			return dst;
 		}
-		public boolean set( float value ) {return set( size, value );}
 		
-		public boolean set( int index, float value ) {
-			if (array.length <= index) return false;
+		public void set( float value ) { set( size, value );}
+		
+		public void set( int index, float value ) {
+			if (array.length <= index) return;
+			
 			if (size <= index) size = index + 1;
-			array[index] = Float.floatToIntBits(value);
-			return true;
+			array[index] = (float)value;
+		}
+		
+		
+		public void set( int index, float... values ) {
+			int max = Math.min( values.length, array.length - index );
+			
+			if (size < index + 1 + max) size = index + 1 + max;
+			
+			for (int i = 0; i < max; i++)
+			     array[index + i] = (float)values[i];
 		}
 	}
 	
@@ -208,7 +220,7 @@ public interface FloatList {
 		
 		public boolean add( float value ) {
 			size            = Array.resize( this, size, size, 1, false );
-			array[size - 1] = Float.floatToIntBits(value);
+			array[size - 1] = (float)value;
 			return true;
 		}
 		
@@ -216,7 +228,7 @@ public interface FloatList {
 			if (index < size)
 			{
 				size         = Array.resize( this, size, index, 1, false );
-				array[index] = Float.floatToIntBits(value);
+				array[index] = (float)value;
 			}
 			else set( index, value );
 			
@@ -229,7 +241,26 @@ public interface FloatList {
 			size = Array.resize( this, size, index, -1, false );
 		}
 		
-		public boolean set( int index, float value ) {
+		
+		public void set( int index, float... values ) {
+			int len = values.length;
+			
+			if (size <= index + len)
+			{
+				int    fix = size;
+				Object obj = array;
+				
+				size = Array.resize( this, size, index , len, false );
+				if (obj == array) Arrays.fill( array, fix, size - 1, (float) 0 );
+			}
+			
+			for (int i = 0; i < len; i++)
+			     array[index + i] = (float)values[i];
+		}
+		
+		public void set( float value ) { set( size, value );}
+		
+		public void set( int index, float value ) {
 			if (size <= index)
 			{
 				int    fix = size;
@@ -239,8 +270,7 @@ public interface FloatList {
 				if (obj == array) Arrays.fill( array, fix, size - 1, (float) 0 );
 			}
 			
-			array[index] = Float.floatToIntBits(value);
-			return true;
+			array[index] = (float)value;
 		}
 		
 		public void swap( int index1, int index2 ) {
@@ -251,11 +281,11 @@ public interface FloatList {
 		}
 		
 		public void addAll( Producer src ) {
-			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = Float.floatToIntBits( src.value( tag ));
+			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (float) src.value( tag )/**/;
 		}
 		
 		public boolean addAll( Producer src, int index ) {
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = Float.floatToIntBits( src.value( tag ));
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (float) src.value( tag )/**/;
 			return true;
 		}
 		

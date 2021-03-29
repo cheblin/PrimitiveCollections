@@ -32,7 +32,7 @@ public interface ShortNullList {
 	
 	class R implements Comparable<R> {
 		
-		BitList.RW         nulls  = new BitList.RW(4);
+		BitList.RW         nulls  = new BitList.RW( 4 );
 		ShortList.RW values = new ShortList.RW( 4 );
 		
 		
@@ -184,6 +184,30 @@ public interface ShortNullList {
 		}
 		
 		public String toString() { return toString( null ).toString();}
+		
+		protected static void set( R dst, int index, short value ) {
+			if (dst.size <= index) dst.size = index + 1;
+			
+			if (dst.nulls.get( index )) dst.values.set( dst.nulls.rank( index ) - 1, value );
+			else
+			{
+				dst.nulls.set1( index );
+				dst.values.add( dst.nulls.rank( index ) - 1, value );
+			}
+		}
+		
+		protected static void set( Rsize dst, int index,  Short     value ) {
+			
+			if (value == null)
+			{
+				if (dst.size <= index || !dst.nulls.get( index )) return;
+				
+				dst.nulls.remove( index );
+				dst.values.remove( dst.nulls.rank( index ) );
+				if (index + 1 == dst.size) dst.size--;
+			}
+			else set( dst, index, (short) (value + 0) );
+		}
 	}
 	
 	class Rsize extends R {
@@ -204,34 +228,28 @@ public interface ShortNullList {
 			return dst;
 		}
 		
-		public boolean set(  Short     value ) {return set( size, value );}
+		public void set(  Short     value ) {set( size, value );}
+		public void set( short value ) { set( size, value );}
 		
-		public boolean set( int index,  Short     value ) {
-			if (values.length() <= index) return false;
-			if (value != null) return set( index, (short) (value + 0) );
-			
-			if (!nulls.get( index )) return true;
-			
-			nulls.remove( index );
-			values.remove( nulls.rank( index ) );
-			
-			return true;
+		public void set( int index,  Short     value ) {
+			if (values.length() <= index) return;
+			set( this, index, value );
 		}
 		
-		public boolean set( short value ) {return set( size, value );}
-		
-		public boolean set( int index, short value ) {
-			if (values.length() <= index) return false;
+		public void set( int index, short value ) {
+			if (values.length() <= index) return;
 			if (size <= index) size = index + 1;
-			if (nulls.get( index )) values.set( nulls.rank( index ) - 1, value );
-			else
-			{
-				nulls.set1( index );
-				values.add( nulls.rank( index ) - 1, value );
-			}
-			
-			
-			return true;
+			set( this, index, value );
+		}
+		
+		public void set( int index, short... values ) {
+			for (int i = 0, max = Math.min( values.length, values.length - index ); i < max; i++)
+			     set( this, index + i, values[i] );
+		}
+		
+		public void set( int index,  Short    ... values ) {
+			for (int i = 0, max = Math.min( values.length, values.length - index ); i < max; i++)
+			     set( this, index + i, values[i] );
 		}
 	}
 	
@@ -307,35 +325,26 @@ public interface ShortNullList {
 			else set( index, value );
 		}
 		
-		public boolean set( int index,  Short     value ) {
-			
-			if (value != null) return set( index, (short) (value + 0) );
-			
-			if (!nulls.get( index )) return true;
-			
-			nulls.remove( index );
-			values.remove( nulls.rank( index ) );
-			
-			return true;
+		public void set(  Short     value ) { set( this, size, value ); }
+		
+		public void set( short value )     {set( this, size, value ); }
+		
+
+		public void set( int index,  Short     value ) { set( this, index, value ); }
+		
+		public void set( int index, short value )     {set( this, index, value ); }
+		
+		
+		public void set( int index, short... values ) {
+			for (int i = 0, max =  values.length; i < max; i++)
+			     set( this, index + i, values[i] );
 		}
 		
-		public boolean set( int index, short value ) {
-			
-			if (index < size)
-				if (nulls.get( index )) values.set( nulls.rank( index ) - 1, value );
-				else
-				{
-					nulls.set1( index );
-					values.add( nulls.rank( index ) - 1, value );
-				}
-			else
-			{
-				nulls.set1( index );
-				values.add( value );
-				size = index + 1;
-			}
-			return true;
+		public void set( int index,  Short    ... values ) {
+			for (int i = 0, max = values.length; i < max; i++)
+			     set( this, index + i, values[i] );
 		}
+		
 		
 		public int addAll( Producer src ) {
 			int fix = size;
