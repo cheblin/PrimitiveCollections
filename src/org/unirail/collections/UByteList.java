@@ -281,11 +281,11 @@ public interface UByteList {
 		}
 		
 		public void addAll( Producer src ) {
-			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (byte) src.value( tag )/**/;
+			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (byte) src.value( tag );
 		}
 		
 		public boolean addAll( Producer src, int index ) {
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (byte) src.value( tag )/**/;
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (byte) src.value( tag );
 			return true;
 		}
 		

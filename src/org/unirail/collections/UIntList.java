@@ -281,11 +281,11 @@ public interface UIntList {
 		}
 		
 		public void addAll( Producer src ) {
-			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (int) src.value( tag )/**/;
+			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (int) src.value( tag );
 		}
 		
 		public boolean addAll( Producer src, int index ) {
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (int) src.value( tag )/**/;
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (int) src.value( tag );
 			return true;
 		}
 		
