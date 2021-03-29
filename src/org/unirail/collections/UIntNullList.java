@@ -63,13 +63,13 @@ public interface UIntNullList {
 				}
 		}
 		
-		public static R of( long... values ) {
+		public static R of( long[] values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst, long... values ) {
+		static void fill( R dst, long[] values ) {
 			for (long value : values) dst.values.add( value );
 			
 			dst.size = values.length;
@@ -223,7 +223,7 @@ public interface UIntNullList {
 			return dst;
 		}
 		
-		public static Rsize of( long... values ) {
+		public static Rsize of( long[] values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -239,7 +239,7 @@ public interface UIntNullList {
 			set( this, index, value );
 		}
 		
-		public void set( int index, long... values ) {
+		public void set( int index, long[] values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
@@ -263,7 +263,7 @@ public interface UIntNullList {
 			return dst;
 		}
 		
-		public static RW of( long... values ) {
+		public static RW of( long[] values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -333,7 +333,7 @@ public interface UIntNullList {
 		public void set( int index, long value )     {set( this, index, value ); }
 		
 		
-		public void set( int index, long... values ) {
+		public void set( int index, long[] values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] );
 		}

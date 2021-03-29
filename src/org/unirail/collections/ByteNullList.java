@@ -63,13 +63,13 @@ public interface ByteNullList {
 				}
 		}
 		
-		public static R of( byte... values ) {
+		public static R of( byte[] values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst, byte... values ) {
+		static void fill( R dst, byte[] values ) {
 			for (byte value : values) dst.values.add( value );
 			
 			dst.size = values.length;
@@ -223,7 +223,7 @@ public interface ByteNullList {
 			return dst;
 		}
 		
-		public static Rsize of( byte... values ) {
+		public static Rsize of( byte[] values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -239,7 +239,7 @@ public interface ByteNullList {
 			set( this, index, value );
 		}
 		
-		public void set( int index, byte... values ) {
+		public void set( int index, byte[] values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
@@ -263,7 +263,7 @@ public interface ByteNullList {
 			return dst;
 		}
 		
-		public static RW of( byte... values ) {
+		public static RW of( byte[] values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -333,7 +333,7 @@ public interface ByteNullList {
 		public void set( int index, byte value )     {set( this, index, value ); }
 		
 		
-		public void set( int index, byte... values ) {
+		public void set( int index, byte[] values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] );
 		}

@@ -196,8 +196,6 @@ public interface ByteList {
 	}
 	
 	class RW extends Rsize implements Array, Consumer {
-		
-		
 		public RW( int items ) { super( items ); size = 0; }
 		
 		public static RW of( byte... values ) {
