@@ -43,13 +43,13 @@ public interface FloatNullList {
 			nulls.length( length );
 		}
 		
-		public static R of(  Float    ... values ) {
+		public static R oF(  Float    ... values ) {
 			R dst = new R( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst,  Float    ... values ) {
+		static void filL( R dst,  Float    ... values ) {
 			dst.values.length( values.length );
 			dst.nulls.length( values.length );
 			
@@ -63,13 +63,13 @@ public interface FloatNullList {
 				}
 		}
 		
-		public static R of( float[] values ) {
+		public static R of( float... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst, float[] values ) {
+		static void fill( R dst, float... values ) {
 			for (float value : values) dst.values.add( value );
 			
 			dst.size = values.length;
@@ -217,13 +217,13 @@ public interface FloatNullList {
 			size = items;
 		}
 		
-		public static Rsize of(  Float    ... values ) {
+		public static Rsize oF(  Float    ... values ) {
 			Rsize dst = new Rsize( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 		
-		public static Rsize of( float[] values ) {
+		public static Rsize of( float... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -239,12 +239,12 @@ public interface FloatNullList {
 			set( this, index, value );
 		}
 		
-		public void set( int index, float[] values ) {
+		public void set( int index, float... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 		
-		public void set( int index,  Float    ... values ) {
+		public void seT( int index,  Float    ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
@@ -257,13 +257,13 @@ public interface FloatNullList {
 			size = 0;
 		}
 		
-		public static RW of(  Float    ... values ) {
+		public static RW oF(  Float    ... values ) {
 			RW dst = new RW( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 		
-		public static RW of( float[] values ) {
+		public static RW of( float... values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -333,12 +333,12 @@ public interface FloatNullList {
 		public void set( int index, float value )     {set( this, index, value ); }
 		
 		
-		public void set( int index, float[] values ) {
+		public void set( int index, float... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 		
-		public void set( int index,  Float    ... values ) {
+		public void seT( int index,  Float    ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] );
 		}

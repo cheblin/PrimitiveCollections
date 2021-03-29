@@ -43,13 +43,13 @@ public interface UByteNullList {
 			nulls.length( length );
 		}
 		
-		public static R of(  Byte     ... values ) {
+		public static R oF(  Byte     ... values ) {
 			R dst = new R( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst,  Byte     ... values ) {
+		static void filL( R dst,  Byte     ... values ) {
 			dst.values.length( values.length );
 			dst.nulls.length( values.length );
 			
@@ -63,13 +63,13 @@ public interface UByteNullList {
 				}
 		}
 		
-		public static R of( char[] values ) {
+		public static R of( char... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst, char[] values ) {
+		static void fill( R dst, char... values ) {
 			for (char value : values) dst.values.add( value );
 			
 			dst.size = values.length;
@@ -217,13 +217,13 @@ public interface UByteNullList {
 			size = items;
 		}
 		
-		public static Rsize of(  Byte     ... values ) {
+		public static Rsize oF(  Byte     ... values ) {
 			Rsize dst = new Rsize( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 		
-		public static Rsize of( char[] values ) {
+		public static Rsize of( char... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -239,12 +239,12 @@ public interface UByteNullList {
 			set( this, index, value );
 		}
 		
-		public void set( int index, char[] values ) {
+		public void set( int index, char... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 		
-		public void set( int index,  Byte     ... values ) {
+		public void seT( int index,  Byte     ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
@@ -257,13 +257,13 @@ public interface UByteNullList {
 			size = 0;
 		}
 		
-		public static RW of(  Byte     ... values ) {
+		public static RW oF(  Byte     ... values ) {
 			RW dst = new RW( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 		
-		public static RW of( char[] values ) {
+		public static RW of( char... values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -333,12 +333,12 @@ public interface UByteNullList {
 		public void set( int index, char value )     {set( this, index, value ); }
 		
 		
-		public void set( int index, char[] values ) {
+		public void set( int index, char... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 		
-		public void set( int index,  Byte     ... values ) {
+		public void seT( int index,  Byte     ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] );
 		}

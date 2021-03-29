@@ -40,13 +40,13 @@ public interface BoolNullList {
 			super( 2, items );
 		}
 		
-		public static R of( boolean[] values ) {
+		public static R of( boolean... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst, boolean[] items ) {
+		static void fill( R dst, boolean... items ) {
 			
 			final int bits = dst.bits;
 			for (boolean i : items)
@@ -59,13 +59,13 @@ public interface BoolNullList {
 			}
 		}
 		
-		public static R of( Boolean... values ) {
+		public static R oF( Boolean... values ) {
 			R dst = new R( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst, Boolean... items ) {
+		static void filL( R dst, Boolean... items ) {
 			
 			final int bits = dst.bits;
 			for (Boolean b : items)
@@ -120,25 +120,25 @@ public interface BoolNullList {
 		
 		public void set( int item, Boolean value ) { if (item < size) set( this, item, value == null ? 0 : value ? 1 : 2 ); }
 		
-		public void set( int index, boolean[] values ) {
+		public void set( int index, boolean... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] ? 1 : 2 );
 		}
 		
-		public void set( int index, Boolean... values ) {
+		public void seT( int index, Boolean... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] == null ? 0 : values[i] ? 1 : 2 );
 		}
 		
-		public static Rsize of( boolean[] values ) {
+		public static Rsize of( boolean... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		public static Rsize of( Boolean... values ) {
+		public static Rsize oF( Boolean... values ) {
 			Rsize dst = new Rsize( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 	}
@@ -151,7 +151,7 @@ public interface BoolNullList {
 			size = 0;
 		}
 		
-		public static RW of( boolean[] values ) {
+		public static RW of( boolean... values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -159,7 +159,7 @@ public interface BoolNullList {
 		
 		public static RW of( Boolean... values ) {
 			RW dst = new RW( values.length );
-			fill( dst, values );
+			filL( dst, values );
 			return dst;
 		}
 		
@@ -192,12 +192,12 @@ public interface BoolNullList {
 		public void set( int item, Boolean value ) { set( this, item, value == null ? 0 : value ? 1 : 2 ); }
 		
 		
-		public void set( int index, boolean[] values ) {
+		public void set( int index, boolean... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] ? 1 : 2 );
 		}
 		
-		public void set( int index, Boolean... values ) {
+		public void seT( int index, Boolean... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] == null ? 0 : values[i] ? 1 : 2 );
 		}
