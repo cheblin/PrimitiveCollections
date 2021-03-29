@@ -31,7 +31,7 @@ public interface ObjectShortNullMap {
 			{
 				dst.append( key( tag ) ).append( " -> " );
 				
-				if (hasValue( tag ))dst.append( value( tag ) );
+				if (hasValue( tag )) dst.append( value( tag ) );
 				else dst.append( "null" );
 			}
 			
@@ -258,12 +258,12 @@ public interface ObjectShortNullMap {
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0)
 				{
-					values.set( slot,( Short    ) null );
+					values.set( slot, ( Short    ) null );
 					return true;
 				}
 			
 			keys.array[slot] = key;
-			values.set( slot,( Short    ) null );
+			values.set( slot, ( Short    ) null );
 			
 			if (++assigned == resizeAt) this.allocate( mask + 1 << 1 );
 			
@@ -336,7 +336,7 @@ public interface ObjectShortNullMap {
 					
 					keys.array[slot] = kk;
 					int tag = vals.tag( slot );
-					if (tag < 0) values.set( slot,( Short    )null );
+					if (tag < 0) values.set( slot, ( Short    ) null );
 					else values.set( slot, vals.get( tag ) );
 				}
 			
@@ -368,14 +368,14 @@ public interface ObjectShortNullMap {
 							if (values.nulls.get( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot,( Short    )null );
+								values.set( gapSlot, ( Short    ) null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = null;
-					values.set( gapSlot, ( Short    )null );
+					values.set( gapSlot, ( Short    ) null );
 					assigned--;
 					return true;
 				}

@@ -287,8 +287,6 @@ public interface BitList {
 		}
 		
 		
-		
-		
 		public void set( int bit, boolean value ) {
 			if (bit < size)
 				if (value)
@@ -320,7 +318,7 @@ public interface BitList {
 		
 		public RW( int bits ) {
 			super( bits );
-			size=0;
+			size = 0;
 		}
 		
 		public RW( long[] array ) {

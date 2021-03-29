@@ -306,12 +306,12 @@ public interface IntShortNullMap {
 			for (int k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.set( slot, ( Short    )null );
+					values.set( slot, ( Short    ) null );
 					return true;
 				}
 			
 			keys.array[slot] = key_;
-			values.set( slot,( Short    ) null );
+			values.set( slot, ( Short    ) null );
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
@@ -372,14 +372,14 @@ public interface IntShortNullMap {
 							if (values.nulls.get( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot,( Short    ) null );
+								values.set( gapSlot, ( Short    ) null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = 0;
-					values.set( gapSlot,( Short    ) null );
+					values.set( gapSlot, ( Short    ) null );
 					assigned--;
 					return true;
 				}

@@ -325,8 +325,8 @@ public interface DoubleObjectMap {
 		}
 		
 		public void clear() {
-			assigned  = 0;
-			hasO      = false;
+			assigned = 0;
+			hasO     = false;
 			
 			hasNull   = false;
 			NullValue = null;

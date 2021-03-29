@@ -116,18 +116,18 @@ public interface BoolNullList {
 			size = items;
 		}
 		
-		public void set( int item, boolean value ) { if (item < size) set( this, item, value ? 2 : 1 ); }
+		public void set( int item, boolean value ) { if (item < size) set( this, item, value ? 1 : 2 ); }
 		
-		public void set( int item, Boolean value ) { if (item < size) set( this, item, value == null ? 0 : value ? 2 : 1 ); }
+		public void set( int item, Boolean value ) { if (item < size) set( this, item, value == null ? 0 : value ? 1 : 2 ); }
 		
 		public void set( int index, boolean... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] ? 2 : 1 );
+			     set( this, index + i, values[i] ? 1 : 2 );
 		}
 		
 		public void set( int index, Boolean... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] == null ? 0 : values[i] ? 2 : 1 );
+			     set( this, index + i, values[i] == null ? 0 : values[i] ? 1 : 2 );
 		}
 		
 		public static Rsize of( boolean... values ) {
@@ -164,42 +164,42 @@ public interface BoolNullList {
 		}
 		
 		public boolean add( boolean value ) {
-			add( this, value ? 2 : 1 );
+			add( this, value ? 1 : 2 );
 			return true;
 		}
 		
 		public boolean add( Boolean value ) {
-			add( this, value == null ? 0 : value ? 2 : 1 );
+			add( this, value == null ? 0 : value ? 1 : 2 );
 			return false;
 		}
 		
 		public void remove( Boolean value ) {
-			remove( this, value == null ? 0 : value ? 2 : 1 );
+			remove( this, value == null ? 0 : value ? 1 : 2 );
 		}
 		
-		public void remove( boolean value )        { remove( this, value ? 2 : 1 ); }
+		public void remove( boolean value )        { remove( this, value ? 1 : 2 ); }
 		
 		public void removeAt( int item )           { removeAt( this, item ); }
 		
 		
-		public void set( boolean value )           {set( this, size, value ? 2 : 1 ); }
+		public void set( boolean value )           {set( this, size, value ? 1 : 2 ); }
 		
-		public void set( Boolean value )           { set( this, size, value == null ? 0 : value ? 2 : 1 ); }
+		public void set( Boolean value )           { set( this, size, value == null ? 0 : value ? 1 : 2 ); }
 		
 		
-		public void set( int item, boolean value ) {set( this, item, value ? 2 : 1 ); }
+		public void set( int item, boolean value ) {set( this, item, value ? 1 : 2 ); }
 		
-		public void set( int item, Boolean value ) { set( this, item, value == null ? 0 : value ? 2 : 1 ); }
+		public void set( int item, Boolean value ) { set( this, item, value == null ? 0 : value ? 1 : 2 ); }
 		
 		
 		public void set( int index, boolean... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] ? 2 : 1 );
+			     set( this, index + i, values[i] ? 1 : 2 );
 		}
 		
 		public void set( int index, Boolean... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] == null ? 0 : values[i] ? 2 : 1 );
+			     set( this, index + i, values[i] == null ? 0 : values[i] ? 1 : 2 );
 		}
 		
 		public void clear() {

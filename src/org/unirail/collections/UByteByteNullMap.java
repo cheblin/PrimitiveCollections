@@ -306,12 +306,12 @@ public interface UByteByteNullMap {
 			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.set( slot, ( Byte     )null );
+					values.set( slot, ( Byte     ) null );
 					return true;
 				}
 			
 			keys.array[slot] = key_;
-			values.set( slot,( Byte     ) null );
+			values.set( slot, ( Byte     ) null );
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
@@ -372,14 +372,14 @@ public interface UByteByteNullMap {
 							if (values.nulls.get( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot,( Byte     ) null );
+								values.set( gapSlot, ( Byte     ) null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = 0;
-					values.set( gapSlot,( Byte     ) null );
+					values.set( gapSlot, ( Byte     ) null );
 					assigned--;
 					return true;
 				}

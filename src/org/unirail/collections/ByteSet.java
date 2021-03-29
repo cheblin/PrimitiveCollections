@@ -7,7 +7,7 @@ public interface ByteSet {
 		
 		boolean add(  Byte      key );
 		
-		default boolean add( int value )     { return add( (byte) (value & 0xFF) ); }
+		default boolean add( int value ) { return add( (byte) (value & 0xFF) ); }
 	}
 	
 	interface Producer {
@@ -70,7 +70,7 @@ public interface ByteSet {
 		
 		public boolean isEmpty()                    { return size < 1; }
 		
-		public boolean contains(  Byte      key ) { return key == null ? hasNull : contains( (byte) (key+0) ); }
+		public boolean contains(  Byte      key ) { return key == null ? hasNull : contains( (byte) (key + 0) ); }
 		
 		public boolean contains( byte key ) {
 			if (size == 0) return false;
@@ -250,7 +250,7 @@ a:
 		
 		public boolean add(  Byte      key ) {
 			if (key == null) hasNull = true;
-			else add( key+0 );
+			else add( key + 0 );
 			return true;
 		}
 		
@@ -336,7 +336,7 @@ a:
 				}
 				else return false;
 			
-			return remove( (byte) (key+0) );
+			return remove( (byte) (key + 0) );
 		}
 		
 		public boolean remove( byte value ) {

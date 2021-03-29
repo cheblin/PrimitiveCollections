@@ -21,7 +21,7 @@ public interface ObjectObjectMap {
 		default StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( 255 );
 			
-			for (int tag = tag();ok( tag );  tag = tag( tag ))
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
 			     dst.append( key( tag ) )
 					     .append( " -> " )
 					     .append( value( tag ) )

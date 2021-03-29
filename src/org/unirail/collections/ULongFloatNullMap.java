@@ -306,12 +306,12 @@ public interface ULongFloatNullMap {
 			for (long k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.set( slot, ( Float    )null );
+					values.set( slot, ( Float    ) null );
 					return true;
 				}
 			
 			keys.array[slot] = key_;
-			values.set( slot,( Float    ) null );
+			values.set( slot, ( Float    ) null );
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
@@ -372,14 +372,14 @@ public interface ULongFloatNullMap {
 							if (values.nulls.get( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot,( Float    ) null );
+								values.set( gapSlot, ( Float    ) null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = 0;
-					values.set( gapSlot,( Float    ) null );
+					values.set( gapSlot, ( Float    ) null );
 					assigned--;
 					return true;
 				}

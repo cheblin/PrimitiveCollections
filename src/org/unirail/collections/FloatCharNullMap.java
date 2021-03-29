@@ -306,12 +306,12 @@ public interface FloatCharNullMap {
 			for (float k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.set( slot, ( Character)null );
+					values.set( slot, ( Character) null );
 					return true;
 				}
 			
 			keys.array[slot] = key_;
-			values.set( slot,( Character) null );
+			values.set( slot, ( Character) null );
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
@@ -372,14 +372,14 @@ public interface FloatCharNullMap {
 							if (values.nulls.get( s ))
 								values.set( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot,( Character) null );
+								values.set( gapSlot, ( Character) null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = 0;
-					values.set( gapSlot,( Character) null );
+					values.set( gapSlot, ( Character) null );
 					assigned--;
 					return true;
 				}
