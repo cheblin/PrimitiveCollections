@@ -190,10 +190,7 @@ public interface IntList {
 		
 		
 		public void set( int index, int... values ) {
-			int max = Math.min( values.length, size - index );
-			
-			
-			for (int i = 0; i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     array[index + i] = (int) values[i];
 		}
 	}

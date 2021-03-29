@@ -190,10 +190,7 @@ public interface LongList {
 		
 		
 		public void set( int index, long... values ) {
-			int max = Math.min( values.length, size - index );
-			
-			
-			for (int i = 0; i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     array[index + i] = (long) values[i];
 		}
 	}
