@@ -111,28 +111,22 @@ public interface BoolNullList {
 	class Rsize extends R {
 		
 		
-		private final int limit;
-		
 		public Rsize( int items ) {
 			super( items );
-			limit = items;
+			size = items;
 		}
 		
-		public void set( boolean value )           { if (size < limit) set( this, size, value ? 2 : 1 ); }
+		public void set( int item, boolean value ) { if (item < size) set( this, item, value ? 2 : 1 ); }
 		
-		public void set( Boolean value )           { if (size < limit) set( this, size, value == null ? 0 : value ? 2 : 1 ); }
-		
-		public void set( int item, boolean value ) { if (item < limit) set( this, item, value ? 2 : 1 ); }
-		
-		public void set( int item, Boolean value ) { if (item < limit) set( this, item, value == null ? 0 : value ? 2 : 1 ); }
+		public void set( int item, Boolean value ) { if (item < size) set( this, item, value == null ? 0 : value ? 2 : 1 ); }
 		
 		public void set( int index, boolean... values ) {
-			for (int i = 0, max = Math.min( values.length, limit - index ); i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] ? 2 : 1 );
 		}
 		
 		public void set( int index, Boolean... values ) {
-			for (int i = 0, max = Math.min( values.length, limit - index ); i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] == null ? 0 : values[i] ? 2 : 1 );
 		}
 		
@@ -150,10 +144,11 @@ public interface BoolNullList {
 	}
 	
 	class RW extends Rsize implements Consumer {
-		public RW() {super( 1 ); }
+		public RW() {super( 1 ); size = 0; }
 		
 		public RW( int items ) {
 			super( items );
+			size = 0;
 		}
 		
 		public static RW of( boolean... values ) {

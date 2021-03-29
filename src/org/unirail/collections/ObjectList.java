@@ -151,8 +151,9 @@ public interface ObjectList {
 	class Rsize<V extends Comparable<? super V>> extends R<V> {
 		
 		@SuppressWarnings("unchecked")
-		public Rsize( int length ) {
-			if (0 < length) array = (V[]) new Comparable[length];
+		public Rsize( int items ) {
+			if (0 < items) array = (V[]) new Comparable[items];
+			size = items;
 		}
 		
 		@SafeVarargs
@@ -165,26 +166,20 @@ public interface ObjectList {
 		public boolean set( V value ) {return set( size, value );}
 		
 		public boolean set( int index, V value ) {
-			if (array.length <= index) return false;
-			if (size <= index) size = index + 1;
+			if (size <= index) return false;
 			array[index] = value;
 			return true;
 		}
 		
-		
 		public void set( int index, V... values ) {
-			int max = Math.min( values.length, array.length - index );
-			
-			if (size < index + 1 + max) size = index + 1 + max;
-			
+			int max = Math.min( values.length, size - index );
 			System.arraycopy( values, 0, array, index, max );
 		}
-		
 	}
 	
 	class RW<V extends Comparable<? super V>> extends Rsize<V> implements Array, Consumer<V> {
 		
-		public RW( int length ) { super( length ); }
+		public RW( int items ) { super( items ); size = 0; }
 		
 		public static <V extends Comparable<? super V>> RW<V> of( V... items ) {
 			RW<V> dst = new RW<>( items.length );
@@ -233,7 +228,7 @@ public interface ObjectList {
 				int    fix = size;
 				Object obj = array;
 				
-				size = Array.resize( this, size, index , len, false );
+				size = Array.resize( this, size, index, len, false );
 				if (obj == array) Arrays.fill( array, fix, size - 1, null );
 			}
 			

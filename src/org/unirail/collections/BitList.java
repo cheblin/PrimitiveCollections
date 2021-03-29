@@ -32,21 +32,26 @@ public interface BitList {
 		}
 		
 		int used( int bit ) {
-			
+			if (size <= bit) size = bit + 1;
 			final int index = bit >> LEN;
 			if (index < used()) return index;
 			
 			if (array.length < (used = index + 1)) array = Arrays.copyOf( array, Math.max( 2 * array.length, used ) );
 			
+			
 			return index;
 		}
 		
+		int size = 0;
+		
+		public int size()    {return size;}
 		
 		public R( int bits ) { array = new long[(bits - 1 >> LEN) + 1]; }
 		
 		public R( long[] array ) {
 			this.array = array;
 			used       = array.length | IO;
+			size       = array.length << LEN;
 		}
 		
 		public boolean get( int bit ) {
@@ -107,7 +112,7 @@ public interface BitList {
 		public int prev1( int bit ) {
 			
 			int index = bit >> LEN;
-			if (used() <= index) return size() - 1;
+			if (used() <= index) return last1() - 1;
 			
 			
 			for (long i = array[index] & FFFFFFFFFFFFFFFF >>> -(bit + 1); ; i = array[index])
@@ -130,7 +135,7 @@ public interface BitList {
 		}
 		
 		
-		public int size()        { return used() == 0 ? 0 : BITS * (used - 1) + BITS - Long.numberOfLeadingZeros( array[used - 1] );}
+		public int last1()       { return used() == 0 ? 0 : BITS * (used - 1) + BITS - Long.numberOfLeadingZeros( array[used - 1] );}
 		
 		
 		public boolean isEmpty() { return used == 0; }
@@ -228,7 +233,7 @@ public interface BitList {
 		}
 		
 		public int compareTo( R other ) {
-			if (other.size() != size()) return other.size() - size();
+			if (other.last1() != last1()) return other.last1() - last1();
 			
 			for (int i = used(); -1 < --i; )
 				if (array[i] != other.array[i]) return (int) (array[i] - other.array[i]);
@@ -264,22 +269,17 @@ public interface BitList {
 	
 	class Rsize extends R {
 		
-		private final int limit;
-		
 		public Rsize( int bits ) {
 			super( bits );
-			limit = bits;
+			size = bits;
 		}
 		
 		public Rsize( long[] array ) {
 			super( array );
-			limit = array.length * BITS;
+			size = array.length * BITS;
 		}
 		
-		
-		public void set1()             { set1( this, size() ); }
-		
-		protected void set1( int bit ) {if (bit < limit) set1( this, bit ); }
+		protected void set1( int bit ) {if (bit < size) set1( this, bit ); }
 		
 		protected static void set1( Rsize dst, int bit ) {
 			final int index = dst.used( bit );
@@ -287,18 +287,20 @@ public interface BitList {
 		}
 		
 		
+		
+		
 		public void set( int bit, boolean value ) {
-			if (bit < limit)
+			if (bit < size)
 				if (value)
 					set1( this, bit );
 				else
 					set0( this, bit );
 		}
 		
-		protected void set0( int bit ) {if (bit < limit) set0( this, bit ); }
+		protected void set0( int bit ) {if (bit < size) set0( this, bit ); }
 		
 		protected static void set0( Rsize dst, int bit ) {
-			
+			if (dst.size <= bit) dst.size = bit + 1;
 			final int index = bit >> LEN;
 			
 			if (index < dst.used())
@@ -308,7 +310,7 @@ public interface BitList {
 		}
 		
 		public void set( int index, boolean... values ) {
-			for (int i = 0, max = Math.min( values.length, limit - index ); i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 				if (values[i]) set1( this, index + i );
 				else set0( this, index + i );
 		}
@@ -318,12 +320,11 @@ public interface BitList {
 		
 		public RW( int bits ) {
 			super( bits );
-			
+			size=0;
 		}
 		
 		public RW( long[] array ) {
 			super( array );
-			
 		}
 		
 		public void fit() {if (used() < array.length) array = Arrays.copyOf( array, used );}
@@ -391,7 +392,7 @@ public interface BitList {
 		}
 		
 		
-		void length( int bits ) {array = new long[(bits >> 6) + ((bits & 63) == 0 ? 0 : 1)]; }
+		void length( int bits ) {array = new long[(bits >> 6) + 1]; }
 		
 		
 		public void flip( int bit ) {
@@ -401,7 +402,7 @@ public interface BitList {
 		
 		
 		public void flip( int from_bit, int to_bit ) {
-			
+			;
 			if (from_bit == to_bit) return;
 			
 			int from_index = from_bit >> LEN;
@@ -424,10 +425,11 @@ public interface BitList {
 				                   used |= IO;
 			}
 		}
+		
 		public void set( int index, boolean... values ) {
-			for (int i = 0, max =  values.length; i < max; i++)
-				if (values[i]) set1(  index + i );
-				else set0(  index + i );
+			for (int i = 0, max = values.length; i < max; i++)
+				if (values[i]) set1( index + i );
+				else set0( index + i );
 		}
 		
 		public void set( long[] array ) {
@@ -435,7 +437,7 @@ public interface BitList {
 			used       = array.length | IO;
 		}
 		
-		public void set1() { set1( size() ); }
+		public void set1() { set1( size ); }
 		
 		
 		public void set1( int bit ) {
@@ -484,6 +486,7 @@ public interface BitList {
 		
 		
 		public void set0( int bit ) {
+			if (size <= bit) size = bit + 1;
 			final int index = bit >> LEN;
 			
 			if (index < used())
@@ -494,6 +497,7 @@ public interface BitList {
 		
 		
 		public void set0( int from_bit, int to_bit ) {
+			if (size <= to_bit) size = to_bit + 1;
 			
 			
 			if (from_bit == to_bit) return;
@@ -504,7 +508,7 @@ public interface BitList {
 			int to_index = to_bit - 1 >> LEN;
 			if (used <= to_index)
 			{
-				to_bit   = size();
+				to_bit   = last1();
 				to_index = used - 1;
 			}
 			
@@ -528,7 +532,7 @@ public interface BitList {
 		}
 		
 		public void add( int key, boolean value ) {
-			if (key < size())
+			if (key < last1())
 			{
 				int index = key >> LEN;
 				
@@ -547,6 +551,7 @@ public interface BitList {
 				}
 				array[index - 1] = m;
 				                   used |= IO;
+				size++;
 			}
 			else if (value) set1( key );
 			
@@ -554,16 +559,20 @@ public interface BitList {
 		}
 		
 		
-		public void remove( int key ) {
-			int index = key >> LEN;
+		public void remove( int bit ) {
+			if (size <= bit) return;
+			
+			size--;
+			
+			int index = bit >> LEN;
 			if (used() <= index) return;
 			
 			
-			final int last = size();
-			if (key == last) set0( key );
-			else if (key < last)
+			final int last = last1();
+			if (bit == last) set0( bit );
+			else if (bit < last)
 			{
-				long m = FFFFFFFFFFFFFFFF << key, v = array[index];
+				long m = FFFFFFFFFFFFFFFF << bit, v = array[index];
 				
 				v = v >>> 1 & m | v & ~m;
 				
@@ -579,7 +588,7 @@ public interface BitList {
 			}
 		}
 		
-		public void clear() {for (used(); used > 0; ) array[--used] = 0;}
+		public void clear() {for (used(); used > 0; ) array[--used] = 0; size = 0;}
 		
 		public RW clone()   { return (RW) super.clone(); }
 	}

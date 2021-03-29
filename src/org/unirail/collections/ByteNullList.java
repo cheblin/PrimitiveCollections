@@ -44,7 +44,7 @@ public interface ByteNullList {
 		}
 		
 		public static R of(  Byte     ... values ) {
-			R dst = new R( 0 );
+			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -212,12 +212,13 @@ public interface ByteNullList {
 	
 	class Rsize extends R {
 		
-		public Rsize( int length ) {
-			super( length );
+		public Rsize( int items ) {
+			super( items );
+			size = items;
 		}
 		
 		public static Rsize of(  Byte     ... values ) {
-			Rsize dst = new Rsize( 0 );
+			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -228,27 +229,23 @@ public interface ByteNullList {
 			return dst;
 		}
 		
-		public void set(  Byte      value ) {set( size, value );}
-		public void set( byte value ) { set( size, value );}
-		
 		public void set( int index,  Byte      value ) {
-			if (values.length() <= index) return;
+			if (size <= index) return;
 			set( this, index, value );
 		}
 		
 		public void set( int index, byte value ) {
-			if (values.length() <= index) return;
-			if (size <= index) size = index + 1;
+			if (size <= index) return;
 			set( this, index, value );
 		}
 		
 		public void set( int index, byte... values ) {
-			for (int i = 0, max = Math.min( values.length, values.length - index ); i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 		
 		public void set( int index,  Byte     ... values ) {
-			for (int i = 0, max = Math.min( values.length, values.length - index ); i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 	}
@@ -257,16 +254,17 @@ public interface ByteNullList {
 		
 		public RW( int length ) {
 			super( length );
+			size = 0;
 		}
 		
 		public static RW of(  Byte     ... values ) {
-			RW dst = new RW( 0 );
+			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
 		public static RW of( byte... values ) {
-			RW dst = new RW( 0 );
+			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -325,18 +323,18 @@ public interface ByteNullList {
 			else set( index, value );
 		}
 		
-		public void set(  Byte      value ) { set( this, size, value ); }
+		public void set(  Byte      value )            { set( this, size, value ); }
 		
-		public void set( byte value )     {set( this, size, value ); }
+		public void set( byte value )                {set( this, size, value ); }
 		
-
+		
 		public void set( int index,  Byte      value ) { set( this, index, value ); }
 		
 		public void set( int index, byte value )     {set( this, index, value ); }
 		
 		
 		public void set( int index, byte... values ) {
-			for (int i = 0, max =  values.length; i < max; i++)
+			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 		

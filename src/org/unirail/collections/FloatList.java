@@ -35,7 +35,7 @@ public interface FloatList {
 		}
 		
 		public static R of( float... values ) {
-			R dst = new R( 0 );
+			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -88,7 +88,7 @@ public interface FloatList {
 		
 		public int lastIndexOf( float value ) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == (float)value) return i;
+				if (array[i] == (float) value) return i;
 			return -1;
 		}
 		
@@ -169,12 +169,13 @@ public interface FloatList {
 	
 	class Rsize extends R {
 		
-		public Rsize( int length ) {
-			super( length );
+		public Rsize( int items ) {
+			super( items );
+			size = items;
 		}
 		
 		public static Rsize of( float... values ) {
-			Rsize dst = new Rsize( 0 );
+			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -182,30 +183,28 @@ public interface FloatList {
 		public void set( float value ) { set( size, value );}
 		
 		public void set( int index, float value ) {
-			if (array.length <= index) return;
+			if (size <= index) return;
 			
-			if (size <= index) size = index + 1;
-			array[index] = (float)value;
+			array[index] = (float) value;
 		}
 		
 		
 		public void set( int index, float... values ) {
-			int max = Math.min( values.length, array.length - index );
+			int max = Math.min( values.length, size - index );
 			
-			if (size < index + 1 + max) size = index + 1 + max;
 			
 			for (int i = 0; i < max; i++)
-			     array[index + i] = (float)values[i];
+			     array[index + i] = (float) values[i];
 		}
 	}
 	
 	class RW extends Rsize implements Array, Consumer {
 		
 		
-		public RW( int length ) { super( length ); }
+		public RW( int items ) { super( items ); size = 0; }
 		
 		public static RW of( float... values ) {
-			RW dst = new RW( 0 );
+			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -220,7 +219,7 @@ public interface FloatList {
 		
 		public boolean add( float value ) {
 			size            = Array.resize( this, size, size, 1, false );
-			array[size - 1] = (float)value;
+			array[size - 1] = (float) value;
 			return true;
 		}
 		
@@ -228,7 +227,7 @@ public interface FloatList {
 			if (index < size)
 			{
 				size         = Array.resize( this, size, index, 1, false );
-				array[index] = (float)value;
+				array[index] = (float) value;
 			}
 			else set( index, value );
 			
@@ -250,12 +249,12 @@ public interface FloatList {
 				int    fix = size;
 				Object obj = array;
 				
-				size = Array.resize( this, size, index , len, false );
+				size = Array.resize( this, size, index, len, false );
 				if (obj == array) Arrays.fill( array, fix, size - 1, (float) 0 );
 			}
 			
 			for (int i = 0; i < len; i++)
-			     array[index + i] = (float)values[i];
+			     array[index + i] = (float) values[i];
 		}
 		
 		public void set( float value ) { set( size, value );}
@@ -270,7 +269,7 @@ public interface FloatList {
 				if (obj == array) Arrays.fill( array, fix, size - 1, (float) 0 );
 			}
 			
-			array[index] = (float)value;
+			array[index] = (float) value;
 		}
 		
 		public void swap( int index1, int index2 ) {

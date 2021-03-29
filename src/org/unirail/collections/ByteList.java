@@ -35,7 +35,7 @@ public interface ByteList {
 		}
 		
 		public static R of( byte... values ) {
-			R dst = new R( 0 );
+			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -88,7 +88,7 @@ public interface ByteList {
 		
 		public int lastIndexOf( byte value ) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == (byte)value) return i;
+				if (array[i] == (byte) value) return i;
 			return -1;
 		}
 		
@@ -169,12 +169,13 @@ public interface ByteList {
 	
 	class Rsize extends R {
 		
-		public Rsize( int length ) {
-			super( length );
+		public Rsize( int items ) {
+			super( items );
+			size = items;
 		}
 		
 		public static Rsize of( byte... values ) {
-			Rsize dst = new Rsize( 0 );
+			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -182,30 +183,28 @@ public interface ByteList {
 		public void set( byte value ) { set( size, value );}
 		
 		public void set( int index, byte value ) {
-			if (array.length <= index) return;
+			if (size <= index) return;
 			
-			if (size <= index) size = index + 1;
-			array[index] = (byte)value;
+			array[index] = (byte) value;
 		}
 		
 		
 		public void set( int index, byte... values ) {
-			int max = Math.min( values.length, array.length - index );
+			int max = Math.min( values.length, size - index );
 			
-			if (size < index + 1 + max) size = index + 1 + max;
 			
 			for (int i = 0; i < max; i++)
-			     array[index + i] = (byte)values[i];
+			     array[index + i] = (byte) values[i];
 		}
 	}
 	
 	class RW extends Rsize implements Array, Consumer {
 		
 		
-		public RW( int length ) { super( length ); }
+		public RW( int items ) { super( items ); size = 0; }
 		
 		public static RW of( byte... values ) {
-			RW dst = new RW( 0 );
+			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -220,7 +219,7 @@ public interface ByteList {
 		
 		public boolean add( byte value ) {
 			size            = Array.resize( this, size, size, 1, false );
-			array[size - 1] = (byte)value;
+			array[size - 1] = (byte) value;
 			return true;
 		}
 		
@@ -228,7 +227,7 @@ public interface ByteList {
 			if (index < size)
 			{
 				size         = Array.resize( this, size, index, 1, false );
-				array[index] = (byte)value;
+				array[index] = (byte) value;
 			}
 			else set( index, value );
 			
@@ -250,12 +249,12 @@ public interface ByteList {
 				int    fix = size;
 				Object obj = array;
 				
-				size = Array.resize( this, size, index , len, false );
+				size = Array.resize( this, size, index, len, false );
 				if (obj == array) Arrays.fill( array, fix, size - 1, (byte) 0 );
 			}
 			
 			for (int i = 0; i < len; i++)
-			     array[index + i] = (byte)values[i];
+			     array[index + i] = (byte) values[i];
 		}
 		
 		public void set( byte value ) { set( size, value );}
@@ -270,7 +269,7 @@ public interface ByteList {
 				if (obj == array) Arrays.fill( array, fix, size - 1, (byte) 0 );
 			}
 			
-			array[index] = (byte)value;
+			array[index] = (byte) value;
 		}
 		
 		public void swap( int index1, int index2 ) {

@@ -44,7 +44,7 @@ public interface DoubleNullList {
 		}
 		
 		public static R of(  Double   ... values ) {
-			R dst = new R( 0 );
+			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -212,12 +212,13 @@ public interface DoubleNullList {
 	
 	class Rsize extends R {
 		
-		public Rsize( int length ) {
-			super( length );
+		public Rsize( int items ) {
+			super( items );
+			size = items;
 		}
 		
 		public static Rsize of(  Double   ... values ) {
-			Rsize dst = new Rsize( 0 );
+			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -228,27 +229,23 @@ public interface DoubleNullList {
 			return dst;
 		}
 		
-		public void set(  Double    value ) {set( size, value );}
-		public void set( double value ) { set( size, value );}
-		
 		public void set( int index,  Double    value ) {
-			if (values.length() <= index) return;
+			if (size <= index) return;
 			set( this, index, value );
 		}
 		
 		public void set( int index, double value ) {
-			if (values.length() <= index) return;
-			if (size <= index) size = index + 1;
+			if (size <= index) return;
 			set( this, index, value );
 		}
 		
 		public void set( int index, double... values ) {
-			for (int i = 0, max = Math.min( values.length, values.length - index ); i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 		
 		public void set( int index,  Double   ... values ) {
-			for (int i = 0, max = Math.min( values.length, values.length - index ); i < max; i++)
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 	}
@@ -257,16 +254,17 @@ public interface DoubleNullList {
 		
 		public RW( int length ) {
 			super( length );
+			size = 0;
 		}
 		
 		public static RW of(  Double   ... values ) {
-			RW dst = new RW( 0 );
+			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
 		public static RW of( double... values ) {
-			RW dst = new RW( 0 );
+			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -325,18 +323,18 @@ public interface DoubleNullList {
 			else set( index, value );
 		}
 		
-		public void set(  Double    value ) { set( this, size, value ); }
+		public void set(  Double    value )            { set( this, size, value ); }
 		
-		public void set( double value )     {set( this, size, value ); }
+		public void set( double value )                {set( this, size, value ); }
 		
-
+		
 		public void set( int index,  Double    value ) { set( this, index, value ); }
 		
 		public void set( int index, double value )     {set( this, index, value ); }
 		
 		
 		public void set( int index, double... values ) {
-			for (int i = 0, max =  values.length; i < max; i++)
+			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] );
 		}
 		

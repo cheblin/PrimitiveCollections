@@ -31,7 +31,7 @@ public interface ObjectByteMap {
 	
 	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
 		
-		public ObjectList.RW<K> keys;
+		public ObjectList.RW<K> keys = new ObjectList.RW<>( 0 );
 		
 		public ByteList.RW values = new ByteList.RW( 0 );
 		
@@ -48,26 +48,17 @@ public interface ObjectByteMap {
 		protected double loadFactor;
 		
 		
-		public R( ObjectList.RW<K> keys ) {
-			this( keys, 4 );
-		}
-		
-		
-		public R( ObjectList.RW<K> keys, double loadFactor ) {
-			
-			this.keys       = keys;
+		public R( double loadFactor ) {
 			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
-			
-			
 		}
 		
-		public R( ObjectList.RW<K> keys, int expectedItems ) {
-			this( keys, expectedItems, 0.75 );
+		public R( int expectedItems ) {
+			this( expectedItems, 0.75 );
 		}
 		
 		
-		public R( ObjectList.RW<K> keys, int expectedItems, double loadFactor ) {
-			this( keys, loadFactor );
+		public R( int expectedItems, double loadFactor ) {
+			this( loadFactor );
 			
 			long length = (long) Math.ceil( expectedItems / loadFactor );
 			int  size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
@@ -193,22 +184,19 @@ public interface ObjectByteMap {
 		public String toString() { return toString( null ).toString();}
 	}
 	
-	abstract class RW<K extends Comparable<? super K>> extends R<K> implements Consumer<K> {
+	class RW<K extends Comparable<? super K>> extends R<K> implements Consumer<K> {
 		
-		public RW( ObjectList.RW<K> keys ) {
-			super( keys );
+		
+		public RW( double loadFactor ) {
+			super( loadFactor );
 		}
 		
-		public RW( ObjectList.RW<K> keys, double loadFactor ) {
-			super( keys, loadFactor );
+		public RW( int expectedItems ) {
+			super( expectedItems );
 		}
 		
-		public RW( ObjectList.RW<K> keys, int expectedItems ) {
-			super( keys, expectedItems );
-		}
-		
-		public RW( ObjectList.RW<K> keys, int expectedItems, double loadFactor ) {
-			super( keys, expectedItems, loadFactor );
+		public RW( int expectedItems, double loadFactor ) {
+			super( expectedItems, loadFactor );
 		}
 		
 		public void clear() {

@@ -35,7 +35,7 @@ public interface IntList {
 		}
 		
 		public static R of( int... values ) {
-			R dst = new R( 0 );
+			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -88,7 +88,7 @@ public interface IntList {
 		
 		public int lastIndexOf( int value ) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == (int)value) return i;
+				if (array[i] == (int) value) return i;
 			return -1;
 		}
 		
@@ -169,12 +169,13 @@ public interface IntList {
 	
 	class Rsize extends R {
 		
-		public Rsize( int length ) {
-			super( length );
+		public Rsize( int items ) {
+			super( items );
+			size = items;
 		}
 		
 		public static Rsize of( int... values ) {
-			Rsize dst = new Rsize( 0 );
+			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -182,30 +183,28 @@ public interface IntList {
 		public void set( int value ) { set( size, value );}
 		
 		public void set( int index, int value ) {
-			if (array.length <= index) return;
+			if (size <= index) return;
 			
-			if (size <= index) size = index + 1;
-			array[index] = (int)value;
+			array[index] = (int) value;
 		}
 		
 		
 		public void set( int index, int... values ) {
-			int max = Math.min( values.length, array.length - index );
+			int max = Math.min( values.length, size - index );
 			
-			if (size < index + 1 + max) size = index + 1 + max;
 			
 			for (int i = 0; i < max; i++)
-			     array[index + i] = (int)values[i];
+			     array[index + i] = (int) values[i];
 		}
 	}
 	
 	class RW extends Rsize implements Array, Consumer {
 		
 		
-		public RW( int length ) { super( length ); }
+		public RW( int items ) { super( items ); size = 0; }
 		
 		public static RW of( int... values ) {
-			RW dst = new RW( 0 );
+			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
 		}
@@ -220,7 +219,7 @@ public interface IntList {
 		
 		public boolean add( int value ) {
 			size            = Array.resize( this, size, size, 1, false );
-			array[size - 1] = (int)value;
+			array[size - 1] = (int) value;
 			return true;
 		}
 		
@@ -228,7 +227,7 @@ public interface IntList {
 			if (index < size)
 			{
 				size         = Array.resize( this, size, index, 1, false );
-				array[index] = (int)value;
+				array[index] = (int) value;
 			}
 			else set( index, value );
 			
@@ -250,12 +249,12 @@ public interface IntList {
 				int    fix = size;
 				Object obj = array;
 				
-				size = Array.resize( this, size, index , len, false );
+				size = Array.resize( this, size, index, len, false );
 				if (obj == array) Arrays.fill( array, fix, size - 1, (int) 0 );
 			}
 			
 			for (int i = 0; i < len; i++)
-			     array[index + i] = (int)values[i];
+			     array[index + i] = (int) values[i];
 		}
 		
 		public void set( int value ) { set( size, value );}
@@ -270,7 +269,7 @@ public interface IntList {
 				if (obj == array) Arrays.fill( array, fix, size - 1, (int) 0 );
 			}
 			
-			array[index] = (int)value;
+			array[index] = (int) value;
 		}
 		
 		public void swap( int index1, int index2 ) {
