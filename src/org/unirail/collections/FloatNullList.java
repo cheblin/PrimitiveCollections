@@ -43,7 +43,7 @@ public interface FloatNullList {
 			nulls.length( length );
 		}
 		
-		public static R oF(  Float    ... values ) {
+		public static R of(  Float    ... values ) {
 			R dst = new R( values.length );
 			filL( dst, values );
 			return dst;
@@ -213,7 +213,7 @@ public interface FloatNullList {
 			size = items;
 		}
 		
-		public static Rsize oF(  Float    ... values ) {
+		public static Rsize of(  Float    ... values ) {
 			Rsize dst = new Rsize( values.length );
 			filL( dst, values );
 			return dst;
@@ -240,7 +240,7 @@ public interface FloatNullList {
 			     set( this, index + i, (float)values[i] );
 		}
 		
-		public void seT( int index,  Float    ... values ) {
+		public void set( int index,  Float    ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 				if (values[i]  == null) set( this, index + i, null );
 				else set( this, index + i, (float) (values[i]  + 0) );
@@ -254,7 +254,7 @@ public interface FloatNullList {
 			size = 0;
 		}
 		
-		public static RW oF(  Float    ... values ) {
+		public static RW of(  Float    ... values ) {
 			RW dst = new RW( values.length );
 			filL( dst, values );
 			return dst;
@@ -335,7 +335,7 @@ public interface FloatNullList {
 			     set( this, index + i, (float)values[i] );
 		}
 		
-		public void seT( int index,  Float    ... values ) {
+		public void set( int index,  Float    ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 				if (values[i]  == null) set( this, index + i, null );
 				else set( this, index + i, (float) (values[i]  + 0) );

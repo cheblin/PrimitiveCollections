@@ -43,7 +43,7 @@ public interface LongNullList {
 			nulls.length( length );
 		}
 		
-		public static R oF(  Long     ... values ) {
+		public static R of(  Long     ... values ) {
 			R dst = new R( values.length );
 			filL( dst, values );
 			return dst;
@@ -213,7 +213,7 @@ public interface LongNullList {
 			size = items;
 		}
 		
-		public static Rsize oF(  Long     ... values ) {
+		public static Rsize of(  Long     ... values ) {
 			Rsize dst = new Rsize( values.length );
 			filL( dst, values );
 			return dst;
@@ -240,7 +240,7 @@ public interface LongNullList {
 			     set( this, index + i, (long)values[i] );
 		}
 		
-		public void seT( int index,  Long     ... values ) {
+		public void set( int index,  Long     ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 				if (values[i]  == null) set( this, index + i, null );
 				else set( this, index + i, (long) (values[i]  + 0) );
@@ -254,7 +254,7 @@ public interface LongNullList {
 			size = 0;
 		}
 		
-		public static RW oF(  Long     ... values ) {
+		public static RW of(  Long     ... values ) {
 			RW dst = new RW( values.length );
 			filL( dst, values );
 			return dst;
@@ -335,7 +335,7 @@ public interface LongNullList {
 			     set( this, index + i, (long)values[i] );
 		}
 		
-		public void seT( int index,  Long     ... values ) {
+		public void set( int index,  Long     ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 				if (values[i]  == null) set( this, index + i, null );
 				else set( this, index + i, (long) (values[i]  + 0) );

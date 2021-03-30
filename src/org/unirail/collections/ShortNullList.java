@@ -43,7 +43,7 @@ public interface ShortNullList {
 			nulls.length( length );
 		}
 		
-		public static R oF( Integer... values ) {
+		public static R of( Integer... values ) {
 			R dst = new R( values.length );
 			filL( dst, values );
 			return dst;
@@ -213,7 +213,7 @@ public interface ShortNullList {
 			size = items;
 		}
 		
-		public static Rsize oF( Integer... values ) {
+		public static Rsize of( Integer... values ) {
 			Rsize dst = new Rsize( values.length );
 			filL( dst, values );
 			return dst;
@@ -240,7 +240,7 @@ public interface ShortNullList {
 			     set( this, index + i, (short)values[i] );
 		}
 		
-		public void seT( int index, Integer... values ) {
+		public void set( int index, Integer... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 				if (values[i]  == null) set( this, index + i, null );
 				else set( this, index + i, (short) (values[i]  + 0) );
@@ -254,7 +254,7 @@ public interface ShortNullList {
 			size = 0;
 		}
 		
-		public static RW oF( Integer... values ) {
+		public static RW of( Integer... values ) {
 			RW dst = new RW( values.length );
 			filL( dst, values );
 			return dst;
@@ -335,7 +335,7 @@ public interface ShortNullList {
 			     set( this, index + i, (short)values[i] );
 		}
 		
-		public void seT( int index, Integer... values ) {
+		public void set( int index, Integer... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 				if (values[i]  == null) set( this, index + i, null );
 				else set( this, index + i, (short) (values[i]  + 0) );
