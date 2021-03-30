@@ -60,7 +60,7 @@ public interface UByteNullList {
 				}
 		}
 		
-		public static R of( char... values ) {
+		public static R oF( char... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
@@ -219,7 +219,7 @@ public interface UByteNullList {
 			return dst;
 		}
 		
-		public static Rsize of( char... values ) {
+		public static Rsize oF( char... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -235,7 +235,7 @@ public interface UByteNullList {
 			set( this, index, value );
 		}
 		
-		public void set( int index, char... values ) {
+		public void seT( int index, char... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, (char)values[i] );
 		}
@@ -260,7 +260,7 @@ public interface UByteNullList {
 			return dst;
 		}
 		
-		public static RW of( char... values ) {
+		public static RW oF( char... values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -330,7 +330,7 @@ public interface UByteNullList {
 		public void set( int index, char value )     {set( this, index, value ); }
 		
 		
-		public void set( int index, char... values ) {
+		public void seT( int index, char... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, (char)values[i] );
 		}

@@ -60,7 +60,7 @@ public interface CharNullList {
 				}
 		}
 		
-		public static R of( int... values ) {
+		public static R oF( int... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
@@ -219,7 +219,7 @@ public interface CharNullList {
 			return dst;
 		}
 		
-		public static Rsize of( int... values ) {
+		public static Rsize oF( int... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -235,7 +235,7 @@ public interface CharNullList {
 			set( this, index, value );
 		}
 		
-		public void set( int index, int... values ) {
+		public void seT( int index, int... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, (char)values[i] );
 		}
@@ -260,7 +260,7 @@ public interface CharNullList {
 			return dst;
 		}
 		
-		public static RW of( int... values ) {
+		public static RW oF( int... values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -330,7 +330,7 @@ public interface CharNullList {
 		public void set( int index, char value )     {set( this, index, value ); }
 		
 		
-		public void set( int index, int... values ) {
+		public void seT( int index, int... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, (char)values[i] );
 		}
