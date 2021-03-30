@@ -221,12 +221,12 @@ public interface ObjectFloatMap {
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0)
 				{
-					values.array[slot] = Float.floatToIntBits( value);
+					values.array[slot] = (float)value;
 					return true;
 				}
 			
 			keys.array[slot]   =            key;
-			values.array[slot] = Float.floatToIntBits( value);
+			values.array[slot] = (float)value;
 			
 			if (assigned++ == resizeAt) allocate( mask + 1 << 1 );
 			

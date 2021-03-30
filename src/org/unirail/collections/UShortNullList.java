@@ -1,5 +1,5 @@
 
 package org.unirail.collections;
 
-public interface UShortNullList extends CharList {}
+public interface UShortNullList extends CharNullList {}
 		

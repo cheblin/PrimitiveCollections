@@ -268,12 +268,12 @@ public interface DoubleDoubleMap {
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] = value;
+					values.array[slot] =(double)value;
 					return true;
 				}
 			
 			keys.array[slot]   =            key_;
-			values.array[slot] =  value;
+			values.array[slot] = (double)value;
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			

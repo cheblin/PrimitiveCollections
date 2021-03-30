@@ -49,7 +49,7 @@ public interface DoubleNullList {
 			return dst;
 		}
 		
-		static void filL( R dst,  Double   ... values ) {
+		protected static void filL( R dst,  Double   ... values ) {
 			for ( Double    value : values)
 				if (value == null) dst.size++;
 				else
@@ -66,7 +66,7 @@ public interface DoubleNullList {
 			return dst;
 		}
 		
-		static void fill( R dst, double... values ) {
+		protected static void fill( R dst, double... values ) {
 			for (double value : values) dst.values.add( value );
 			
 			dst.size = values.length;

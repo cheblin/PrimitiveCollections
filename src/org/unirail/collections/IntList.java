@@ -40,7 +40,7 @@ public interface IntList {
 			return dst;
 		}
 		
-		static void fill( R dst, int... items ) {
+		protected static void fill( R dst, int... items ) {
 			dst.size = items.length;
 			for (int i = 0; i < dst.size; i++)
 			     dst.array[i] = (int) items[i];

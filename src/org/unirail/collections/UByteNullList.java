@@ -49,7 +49,7 @@ public interface UByteNullList {
 			return dst;
 		}
 		
-		static void filL( R dst,  Byte     ... values ) {
+		protected static void filL( R dst,  Byte     ... values ) {
 			for ( Byte      value : values)
 				if (value == null) dst.size++;
 				else
@@ -66,7 +66,7 @@ public interface UByteNullList {
 			return dst;
 		}
 		
-		static void fill( R dst, char... values ) {
+		protected static void fill( R dst, char... values ) {
 			for (char value : values) dst.values.add( value );
 			
 			dst.size = values.length;

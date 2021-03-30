@@ -151,7 +151,7 @@ public interface ByteFloatMap {
 		
 		public boolean put( byte key, float value ) {
 			keys.add( key + 0 );
-			values.array[keys.rank( (byte) key ) - 1] = Float.floatToIntBits( value);
+			values.array[keys.rank( (byte) key ) - 1] = (float)value;
 			return true;
 		}
 		

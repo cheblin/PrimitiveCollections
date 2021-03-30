@@ -40,7 +40,7 @@ public interface FloatList {
 			return dst;
 		}
 		
-		static void fill( R dst, float... items ) {
+		protected static void fill( R dst, float... items ) {
 			dst.size = items.length;
 			for (int i = 0; i < dst.size; i++)
 			     dst.array[i] = (float) items[i];

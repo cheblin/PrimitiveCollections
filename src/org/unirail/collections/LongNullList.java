@@ -49,7 +49,7 @@ public interface LongNullList {
 			return dst;
 		}
 		
-		static void filL( R dst,  Long     ... values ) {
+		protected static void filL( R dst,  Long     ... values ) {
 			for ( Long      value : values)
 				if (value == null) dst.size++;
 				else
@@ -66,7 +66,7 @@ public interface LongNullList {
 			return dst;
 		}
 		
-		static void fill( R dst, long... values ) {
+		protected static void fill( R dst, long... values ) {
 			for (long value : values) dst.values.add( value );
 			
 			dst.size = values.length;

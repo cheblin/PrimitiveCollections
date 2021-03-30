@@ -268,12 +268,12 @@ public interface UIntShortMap {
 			for (int k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] = value;
+					values.array[slot] =(short)value;
 					return true;
 				}
 			
 			keys.array[slot]   =            key_;
-			values.array[slot] =  value;
+			values.array[slot] = (short)value;
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			

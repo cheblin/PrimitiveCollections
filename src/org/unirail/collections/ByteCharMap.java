@@ -151,7 +151,7 @@ public interface ByteCharMap {
 		
 		public boolean put( byte key, char value ) {
 			keys.add( key + 0 );
-			values.array[keys.rank( (byte) key ) - 1] =  value;
+			values.array[keys.rank( (byte) key ) - 1] = (char)value;
 			return true;
 		}
 		

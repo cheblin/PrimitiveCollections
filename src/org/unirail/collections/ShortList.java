@@ -40,7 +40,7 @@ public interface ShortList {
 			return dst;
 		}
 		
-		static void fill( R dst, short... items ) {
+		protected static void fill( R dst, short... items ) {
 			dst.size = items.length;
 			for (int i = 0; i < dst.size; i++)
 			     dst.array[i] = (short) items[i];

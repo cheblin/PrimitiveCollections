@@ -49,7 +49,7 @@ public interface ShortNullList {
 			return dst;
 		}
 		
-		static void filL( R dst,  Short    ... values ) {
+		protected static void filL( R dst,  Short    ... values ) {
 			for ( Short     value : values)
 				if (value == null) dst.size++;
 				else
@@ -66,7 +66,7 @@ public interface ShortNullList {
 			return dst;
 		}
 		
-		static void fill( R dst, short... values ) {
+		protected static void fill( R dst, short... values ) {
 			for (short value : values) dst.values.add( value );
 			
 			dst.size = values.length;

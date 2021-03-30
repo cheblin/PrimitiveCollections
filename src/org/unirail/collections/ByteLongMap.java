@@ -151,7 +151,7 @@ public interface ByteLongMap {
 		
 		public boolean put( byte key, long value ) {
 			keys.add( key + 0 );
-			values.array[keys.rank( (byte) key ) - 1] =  value;
+			values.array[keys.rank( (byte) key ) - 1] = (long)value;
 			return true;
 		}
 		

@@ -268,12 +268,12 @@ public interface LongFloatMap {
 			for (long k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] =Float.floatToIntBits( value);
+					values.array[slot] =(float)value;
 					return true;
 				}
 			
 			keys.array[slot]   =            key_;
-			values.array[slot] = Float.floatToIntBits( value);
+			values.array[slot] = (float)value;
 			
 			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			

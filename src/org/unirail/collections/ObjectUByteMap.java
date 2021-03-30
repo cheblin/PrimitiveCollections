@@ -221,12 +221,12 @@ public interface ObjectUByteMap {
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0)
 				{
-					values.array[slot] = (byte) value;
+					values.array[slot] = (byte)value;
 					return true;
 				}
 			
 			keys.array[slot]   =            key;
-			values.array[slot] = (byte) value;
+			values.array[slot] = (byte)value;
 			
 			if (assigned++ == resizeAt) allocate( mask + 1 << 1 );
 			

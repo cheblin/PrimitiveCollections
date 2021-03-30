@@ -151,7 +151,7 @@ public interface UByteByteMap {
 		
 		public boolean put( char key, byte value ) {
 			keys.add( key + 0 );
-			values.array[keys.rank( (byte) key ) - 1] =  value;
+			values.array[keys.rank( (byte) key ) - 1] = (byte)value;
 			return true;
 		}
 		

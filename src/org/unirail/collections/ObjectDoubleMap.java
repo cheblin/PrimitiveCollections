@@ -221,12 +221,12 @@ public interface ObjectDoubleMap {
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0)
 				{
-					values.array[slot] =  value;
+					values.array[slot] = (double)value;
 					return true;
 				}
 			
 			keys.array[slot]   =            key;
-			values.array[slot] =  value;
+			values.array[slot] = (double)value;
 			
 			if (assigned++ == resizeAt) allocate( mask + 1 << 1 );
 			

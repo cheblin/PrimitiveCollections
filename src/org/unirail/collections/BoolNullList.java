@@ -46,7 +46,7 @@ public interface BoolNullList {
 			return dst;
 		}
 		
-		static void fill( R dst, boolean... items ) {
+		protected static void fill( R dst, boolean... items ) {
 			
 			final int bits = dst.bits;
 			for (boolean i : items)
@@ -65,7 +65,7 @@ public interface BoolNullList {
 			return dst;
 		}
 		
-		static void filL( R dst, Boolean... items ) {
+		protected static void filL( R dst, Boolean... items ) {
 			
 			final int bits = dst.bits;
 			for (Boolean b : items)

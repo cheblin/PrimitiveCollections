@@ -151,7 +151,7 @@ public interface UByteDoubleMap {
 		
 		public boolean put( char key, double value ) {
 			keys.add( key + 0 );
-			values.array[keys.rank( (byte) key ) - 1] =  value;
+			values.array[keys.rank( (byte) key ) - 1] = (double)value;
 			return true;
 		}
 		
