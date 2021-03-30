@@ -50,16 +50,13 @@ public interface CharNullList {
 		}
 		
 		static void filL( R dst,  Character... values ) {
-			dst.values.length( values.length );
-			dst.nulls.length( values.length );
-			
 			for ( Character value : values)
-				if (value == null) ++dst.size;
+				if (value == null) dst.size++;
 				else
 				{
 					dst.values.add( (char) (value + 0) );
 					dst.nulls.set1( dst.size );
-					++dst.size;
+					dst.size++;
 				}
 		}
 		
@@ -74,7 +71,6 @@ public interface CharNullList {
 			
 			dst.size = values.length;
 			
-			dst.nulls.length( dst.size );
 			dst.nulls.set1( 0, dst.size - 1 );
 		}
 		

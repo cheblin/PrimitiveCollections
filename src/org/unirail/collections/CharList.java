@@ -40,10 +40,8 @@ public interface CharList {
 			return dst;
 		}
 		
-		
 		static void fill( R dst, char... items ) {
-			dst.array = new char[dst.size = items.length];
-			
+			dst.size = items.length;
 			for (int i = 0; i < dst.size; i++)
 			     dst.array[i] = (char) items[i];
 		}

@@ -40,10 +40,8 @@ public interface ByteList {
 			return dst;
 		}
 		
-		
 		static void fill( R dst, byte... items ) {
-			dst.array = new byte[dst.size = items.length];
-			
+			dst.size = items.length;
 			for (int i = 0; i < dst.size; i++)
 			     dst.array[i] = (byte) items[i];
 		}

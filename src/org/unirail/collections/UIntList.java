@@ -40,10 +40,8 @@ public interface UIntList {
 			return dst;
 		}
 		
-		
 		static void fill( R dst, long... items ) {
-			dst.array = new int[dst.size = items.length];
-			
+			dst.size = items.length;
 			for (int i = 0; i < dst.size; i++)
 			     dst.array[i] = (int) items[i];
 		}

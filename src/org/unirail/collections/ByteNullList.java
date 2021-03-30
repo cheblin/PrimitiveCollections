@@ -50,16 +50,13 @@ public interface ByteNullList {
 		}
 		
 		static void filL( R dst,  Byte     ... values ) {
-			dst.values.length( values.length );
-			dst.nulls.length( values.length );
-			
 			for ( Byte      value : values)
-				if (value == null) ++dst.size;
+				if (value == null) dst.size++;
 				else
 				{
 					dst.values.add( (byte) (value + 0) );
 					dst.nulls.set1( dst.size );
-					++dst.size;
+					dst.size++;
 				}
 		}
 		
@@ -74,7 +71,6 @@ public interface ByteNullList {
 			
 			dst.size = values.length;
 			
-			dst.nulls.length( dst.size );
 			dst.nulls.set1( 0, dst.size - 1 );
 		}
 		
