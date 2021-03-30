@@ -67,7 +67,7 @@ public interface FloatNullList {
 		}
 		
 		protected static void fill( R dst, float... values ) {
-			for (float value : values) dst.values.add( value );
+			for (float value : values) dst.values.add( (float)value );
 			
 			dst.size = values.length;
 			
@@ -237,12 +237,13 @@ public interface FloatNullList {
 		
 		public void set( int index, float... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (float)values[i] );
 		}
 		
 		public void seT( int index,  Float    ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (float) (values[i]  + 0) );
 		}
 	}
 	
@@ -331,12 +332,14 @@ public interface FloatNullList {
 		
 		public void set( int index, float... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (float)values[i] );
 		}
 		
 		public void seT( int index,  Float    ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (float) (values[i]  + 0) );
+			 
 		}
 		
 		

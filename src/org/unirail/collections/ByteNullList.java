@@ -43,14 +43,14 @@ public interface ByteNullList {
 			nulls.length( length );
 		}
 		
-		public static R oF(  Byte     ... values ) {
+		public static R oF( Integer... values ) {
 			R dst = new R( values.length );
 			filL( dst, values );
 			return dst;
 		}
 		
-		protected static void filL( R dst,  Byte     ... values ) {
-			for ( Byte      value : values)
+		protected static void filL( R dst, Integer... values ) {
+			for (Integer value : values)
 				if (value == null) dst.size++;
 				else
 				{
@@ -60,14 +60,14 @@ public interface ByteNullList {
 				}
 		}
 		
-		public static R of( byte... values ) {
+		public static R of( int... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		protected static void fill( R dst, byte... values ) {
-			for (byte value : values) dst.values.add( value );
+		protected static void fill( R dst, int... values ) {
+			for (int value : values) dst.values.add( (byte)value );
 			
 			dst.size = values.length;
 			
@@ -213,13 +213,13 @@ public interface ByteNullList {
 			size = items;
 		}
 		
-		public static Rsize oF(  Byte     ... values ) {
+		public static Rsize oF( Integer... values ) {
 			Rsize dst = new Rsize( values.length );
 			filL( dst, values );
 			return dst;
 		}
 		
-		public static Rsize of( byte... values ) {
+		public static Rsize of( int... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -235,14 +235,15 @@ public interface ByteNullList {
 			set( this, index, value );
 		}
 		
-		public void set( int index, byte... values ) {
+		public void set( int index, int... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (byte)values[i] );
 		}
 		
-		public void seT( int index,  Byte     ... values ) {
+		public void seT( int index, Integer... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (byte) (values[i]  + 0) );
 		}
 	}
 	
@@ -253,13 +254,13 @@ public interface ByteNullList {
 			size = 0;
 		}
 		
-		public static RW oF(  Byte     ... values ) {
+		public static RW oF( Integer... values ) {
 			RW dst = new RW( values.length );
 			filL( dst, values );
 			return dst;
 		}
 		
-		public static RW of( byte... values ) {
+		public static RW of( int... values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -329,14 +330,16 @@ public interface ByteNullList {
 		public void set( int index, byte value )     {set( this, index, value ); }
 		
 		
-		public void set( int index, byte... values ) {
+		public void set( int index, int... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (byte)values[i] );
 		}
 		
-		public void seT( int index,  Byte     ... values ) {
+		public void seT( int index, Integer... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (byte) (values[i]  + 0) );
+			 
 		}
 		
 		

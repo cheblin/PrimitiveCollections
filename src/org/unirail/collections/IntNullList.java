@@ -67,7 +67,7 @@ public interface IntNullList {
 		}
 		
 		protected static void fill( R dst, int... values ) {
-			for (int value : values) dst.values.add( value );
+			for (int value : values) dst.values.add( (int)value );
 			
 			dst.size = values.length;
 			
@@ -237,12 +237,13 @@ public interface IntNullList {
 		
 		public void set( int index, int... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (int)values[i] );
 		}
 		
 		public void seT( int index,  Integer  ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (int) (values[i]  + 0) );
 		}
 	}
 	
@@ -331,12 +332,14 @@ public interface IntNullList {
 		
 		public void set( int index, int... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (int)values[i] );
 		}
 		
 		public void seT( int index,  Integer  ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (int) (values[i]  + 0) );
+			 
 		}
 		
 		

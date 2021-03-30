@@ -67,7 +67,7 @@ public interface DoubleNullList {
 		}
 		
 		protected static void fill( R dst, double... values ) {
-			for (double value : values) dst.values.add( value );
+			for (double value : values) dst.values.add( (double)value );
 			
 			dst.size = values.length;
 			
@@ -237,12 +237,13 @@ public interface DoubleNullList {
 		
 		public void set( int index, double... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (double)values[i] );
 		}
 		
 		public void seT( int index,  Double   ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (double) (values[i]  + 0) );
 		}
 	}
 	
@@ -331,12 +332,14 @@ public interface DoubleNullList {
 		
 		public void set( int index, double... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (double)values[i] );
 		}
 		
 		public void seT( int index,  Double   ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (double) (values[i]  + 0) );
+			 
 		}
 		
 		

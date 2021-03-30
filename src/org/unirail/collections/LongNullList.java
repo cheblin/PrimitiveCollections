@@ -67,7 +67,7 @@ public interface LongNullList {
 		}
 		
 		protected static void fill( R dst, long... values ) {
-			for (long value : values) dst.values.add( value );
+			for (long value : values) dst.values.add( (long)value );
 			
 			dst.size = values.length;
 			
@@ -237,12 +237,13 @@ public interface LongNullList {
 		
 		public void set( int index, long... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (long)values[i] );
 		}
 		
 		public void seT( int index,  Long     ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (long) (values[i]  + 0) );
 		}
 	}
 	
@@ -331,12 +332,14 @@ public interface LongNullList {
 		
 		public void set( int index, long... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (long)values[i] );
 		}
 		
 		public void seT( int index,  Long     ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (long) (values[i]  + 0) );
+			 
 		}
 		
 		

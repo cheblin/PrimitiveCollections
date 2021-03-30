@@ -34,13 +34,13 @@ public interface ByteList {
 			if (0 < length) array = new byte[length];
 		}
 		
-		public static R of( byte... values ) {
+		public static R of( int... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		protected static void fill( R dst, byte... items ) {
+		protected static void fill( R dst, int... items ) {
 			dst.size = items.length;
 			for (int i = 0; i < dst.size; i++)
 			     dst.array[i] = (byte) items[i];
@@ -172,7 +172,7 @@ public interface ByteList {
 			size = items;
 		}
 		
-		public static Rsize of( byte... values ) {
+		public static Rsize of( int... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -187,7 +187,7 @@ public interface ByteList {
 		}
 		
 		
-		public void set( int index, byte... values ) {
+		public void set( int index, int... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     array[index + i] = (byte) values[i];
 		}
@@ -196,7 +196,7 @@ public interface ByteList {
 	class RW extends Rsize implements Array, Consumer {
 		public RW( int items ) { super( items ); size = 0; }
 		
-		public static RW of( byte... values ) {
+		public static RW of( int... values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -234,7 +234,7 @@ public interface ByteList {
 		}
 		
 		
-		public void set( int index, byte... values ) {
+		public void set( int index, int... values ) {
 			int len = values.length;
 			
 			if (size <= index + len)

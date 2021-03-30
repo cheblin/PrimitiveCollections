@@ -43,14 +43,14 @@ public interface ShortNullList {
 			nulls.length( length );
 		}
 		
-		public static R oF(  Short    ... values ) {
+		public static R oF( Integer... values ) {
 			R dst = new R( values.length );
 			filL( dst, values );
 			return dst;
 		}
 		
-		protected static void filL( R dst,  Short    ... values ) {
-			for ( Short     value : values)
+		protected static void filL( R dst, Integer... values ) {
+			for (Integer value : values)
 				if (value == null) dst.size++;
 				else
 				{
@@ -60,14 +60,14 @@ public interface ShortNullList {
 				}
 		}
 		
-		public static R of( short... values ) {
+		public static R of( int... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		protected static void fill( R dst, short... values ) {
-			for (short value : values) dst.values.add( value );
+		protected static void fill( R dst, int... values ) {
+			for (int value : values) dst.values.add( (short)value );
 			
 			dst.size = values.length;
 			
@@ -213,13 +213,13 @@ public interface ShortNullList {
 			size = items;
 		}
 		
-		public static Rsize oF(  Short    ... values ) {
+		public static Rsize oF( Integer... values ) {
 			Rsize dst = new Rsize( values.length );
 			filL( dst, values );
 			return dst;
 		}
 		
-		public static Rsize of( short... values ) {
+		public static Rsize of( int... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
@@ -235,14 +235,15 @@ public interface ShortNullList {
 			set( this, index, value );
 		}
 		
-		public void set( int index, short... values ) {
+		public void set( int index, int... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (short)values[i] );
 		}
 		
-		public void seT( int index,  Short    ... values ) {
+		public void seT( int index, Integer... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (short) (values[i]  + 0) );
 		}
 	}
 	
@@ -253,13 +254,13 @@ public interface ShortNullList {
 			size = 0;
 		}
 		
-		public static RW oF(  Short    ... values ) {
+		public static RW oF( Integer... values ) {
 			RW dst = new RW( values.length );
 			filL( dst, values );
 			return dst;
 		}
 		
-		public static RW of( short... values ) {
+		public static RW of( int... values ) {
 			RW dst = new RW( values.length );
 			fill( dst, values );
 			return dst;
@@ -329,14 +330,16 @@ public interface ShortNullList {
 		public void set( int index, short value )     {set( this, index, value ); }
 		
 		
-		public void set( int index, short... values ) {
+		public void set( int index, int... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (short)values[i] );
 		}
 		
-		public void seT( int index,  Short    ... values ) {
+		public void seT( int index, Integer... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+				if (values[i]  == null) set( this, index + i, null );
+				else set( this, index + i, (short) (values[i]  + 0) );
+			 
 		}
 		
 		
