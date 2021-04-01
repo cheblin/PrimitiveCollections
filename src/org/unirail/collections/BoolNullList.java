@@ -4,8 +4,6 @@ package org.unirail.collections;
 public interface BoolNullList {
 	
 	interface Consumer {
-		boolean add( boolean value );
-		
 		boolean add( Boolean value );
 	}
 	
@@ -14,18 +12,16 @@ public interface BoolNullList {
 		
 		int tag( int tag );
 		
-		default boolean ok( int tag )       {return tag != -1;}
+		default boolean ok( int tag ) {return tag != -1;}
 		
-		boolean value( int tag );
-		
-		default boolean hasValue( int tag ) { return -1 < tag; }
+		Boolean value( int tag );
 		
 		default StringBuilder toString( StringBuilder dst ) {
 			if (dst == null) dst = new StringBuilder( 255 );
 			
 			for (int tag = tag(); ok( tag ); dst.append( '\n' ), tag = tag( tag ))
-				if (hasValue( tag )) dst.append( value( tag ) );
-				else dst.append( "null" );
+			     dst.append( value( tag ) );
+			
 			return dst;
 		}
 	}
@@ -84,19 +80,24 @@ public interface BoolNullList {
 			return producer == null ? producer = new Producer() {
 				public int tag() { return 0 < size ? 0 : -1; }
 				
-				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? get( ++tag ) == 0 ? Integer.MIN_VALUE | tag : tag : -1; }
+				public int tag( int tag ) { return tag != -1 && tag < size - 1 ? ++tag : -1; }
 				
-				public boolean value( int tag ) {return get( tag ) == 1;}
+				public Boolean value( int tag ) {return get_bool( tag );}
 			} : producer;
 		}
 		
-		public long tag( int item )         {return get( item ) == 0 ? Long.MIN_VALUE | item : item;}
+		public int tag( int item ) {return super.get( item ) == 0 ? Integer.MIN_VALUE | item : item;}
 		
-		public boolean hasValue( long tag ) { return -1 < tag; }
 		
-		public boolean get( long tag )      { return get( (int) tag ) == 1; }
+		public Boolean get_bool( int tag ) {
+			switch (super.get( tag ))
+			{
+				case 1: return Boolean.TRUE;
+				case 2: return Boolean.FALSE;
+			} return null;
+		}
 		
-		public R clone()                    {return (R) super.clone();}
+		public R clone() {return (R) super.clone();}
 		
 		public StringBuilder toString( StringBuilder dst ) {
 			
