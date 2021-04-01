@@ -26,7 +26,7 @@ public interface BoolNullList {
 		}
 	}
 	
-	class R extends BitsList.R {
+	class R extends BitsList.Base {
 		
 		public R() {
 			super( 2 );
@@ -76,21 +76,18 @@ public interface BoolNullList {
 		
 		private Producer producer;
 		
-		public Producer producer_bool() {
+		public Producer producer() {
 			return producer == null ? producer = new Producer() {
 				public int tag() { return 0 < size ? 0 : -1; }
 				
 				public int tag( int tag ) { return tag != -1 && tag < size - 1 ? ++tag : -1; }
 				
-				public Boolean value( int tag ) {return get_bool( tag );}
+				public Boolean value( int tag ) {return get( tag );}
 			} : producer;
 		}
 		
-		public int tag( int item ) {return super.get( item ) == 0 ? Integer.MIN_VALUE | item : item;}
-		
-		
-		public Boolean get_bool( int tag ) {
-			switch (super.get( tag ))
+		public Boolean get( int index ) {
+			switch (super.geT( index ))
 			{
 				case 1: return Boolean.TRUE;
 				case 2: return Boolean.FALSE;
@@ -103,14 +100,13 @@ public interface BoolNullList {
 			
 			if (dst == null) dst = new StringBuilder( size * 2 );
 			else dst.ensureCapacity( dst.length() + size * 2 );
-			return producer_bool().toString( dst );
+			return producer().toString( dst );
 		}
 		
 		public String toString() { return toString( null ).toString();}
 	}
 	
 	class Rsize extends R {
-		
 		
 		public Rsize( int items ) {
 			super( items );

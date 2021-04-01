@@ -4,9 +4,7 @@ package org.unirail.collections;
 import java.util.Arrays;
 
 public interface BitsList {
-	
-	
-	class R implements Cloneable, Comparable<R> {
+	class Base implements Cloneable, Comparable<Base> {
 		
 		static final int BITS = 64;
 		static final int MASK = BITS - 1;
@@ -19,24 +17,24 @@ public interface BitsList {
 		public final int bits;
 		public final int mask;
 		
-		public R( int bits_per_item ) {
+		public Base( int bits_per_item ) {
 			bits = bits_per_item;
 			mask = (1 << bits_per_item) - 1;
 		}
 		
-		public R( int bits_per_item, int items ) {
+		public Base( int bits_per_item, int items ) {
 			bits  = bits_per_item;
 			mask  = (1 << bits_per_item) - 1;
 			array = new long[(items >>> LEN) + ((items & MASK) == 0 ? 0 : 1)];
 		}
 		
-		public static R of( int bits_per_item, byte... values ) {
-			R dst = new R( bits_per_item, values.length );
+		public static Base of( int bits_per_item, byte... values ) {
+			Base dst = new Base( bits_per_item, values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst, byte... items ) {
+		static void fill( Base dst, byte... items ) {
 			
 			final int bits = dst.bits;
 			for (byte b : items)
@@ -52,13 +50,13 @@ public interface BitsList {
 			}
 		}
 		
-		public static R of( int bits_per_item, int... values ) {
-			R dst = new R( bits_per_item, values.length );
+		public static Base of( int bits_per_item, int... values ) {
+			Base dst = new Base( bits_per_item, values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		static void fill( R dst, int... items ) {
+		static void fill( Base dst, int... items ) {
 			
 			final int bits = dst.bits;
 			for (int i : items)
@@ -82,19 +80,6 @@ public interface BitsList {
 		
 		public boolean contains( int value ) { return -1 < indexOf( value ); }
 		
-		private IntList.Producer producer;
-		
-		public IntList.Producer producer() {
-			return producer == null ? producer = new IntList.Producer() {
-				public int tag() { return 0 < size ? 0 : -1; }
-				
-				public int tag( int tag ) { return ++tag < size ? tag : -1; }
-				
-				public int value( int tag ) {return get( tag );}
-				
-			} : producer;
-		}
-		
 		
 		public byte[] toArray( byte[] dst ) {
 			if (size == 0) return null;
@@ -113,7 +98,7 @@ public interface BitsList {
 		}
 		
 		
-		public int get( int item ) {
+		protected int geT( int item ) {
 			int       index = (item *= bits) >>> LEN;
 			final int bit   = item & MASK;
 			
@@ -165,7 +150,7 @@ public interface BitsList {
 		}
 		
 		
-		public int compareTo( R other ) {
+		public int compareTo( Base other ) {
 			if (other == null) return -1;
 			if (other.size != size) return other.size - size;
 			
@@ -181,11 +166,11 @@ public interface BitsList {
 		}
 		
 		
-		public R subList( int fromIndex, int toIndex ) {
+		public Base subList( int fromIndex, int toIndex ) {
 			return null;
 		}
 		
-		protected static boolean set( R dst, int item, int value ) {
+		protected static boolean set( Base dst, int item, int value ) {
 			
 			final long v = value & dst.mask;
 			
@@ -210,7 +195,7 @@ public interface BitsList {
 			return true;
 		}
 		
-		protected static boolean add( R dst, int value ) {
+		protected static boolean add( Base dst, int value ) {
 			long v = value & dst.mask;
 			
 			final int item = dst.bits * dst.size++;
@@ -229,7 +214,7 @@ public interface BitsList {
 			return true;
 		}
 		
-		protected static void add( R dst, int item, int value ) {
+		protected static void add( Base dst, int item, int value ) {
 			
 			if (dst.size <= item)
 			{
@@ -278,12 +263,12 @@ public interface BitsList {
 			}
 		}
 		
-		protected static void remove( R dst, int value ) {
+		protected static void remove( Base dst, int value ) {
 			for (int i; -1 < (i = dst.lastIndexOf( value )); )
 			     removeAt( dst, i );
 		}
 		
-		protected static void removeAt( R dst, int item ) {
+		protected static void removeAt( Base dst, int item ) {
 			
 			
 			int       index = (item *= dst.bits) >>> LEN;
@@ -318,35 +303,35 @@ public interface BitsList {
 			dst.size--;
 		}
 		
-		protected static boolean addAll( R dst, IntList.Producer src ) {
+		protected static boolean addAll( Base dst, IntList.Producer src ) {
 			int fix = dst.size;
 			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) add( dst, src.value( tag ) );
 			return dst.size != fix;
 		}
 		
-		protected static int addAll( R dst, int from, IntList.Producer src ) {
+		protected static int addAll( Base dst, int from, IntList.Producer src ) {
 			int fix = dst.size;
 			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) add( dst, from++, src.value( tag ) );
 			return dst.size - fix;
 		}
 		
-		protected static int removeAll( R dst, IntList.Producer src ) {
+		protected static int removeAll( Base dst, IntList.Producer src ) {
 			
 			int fix = dst.size;
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) R.remove( dst, src.value( tag ) );
+			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) Base.remove( dst, src.value( tag ) );
 			return fix - dst.size;
 		}
 		
-		protected static boolean retainAll( R dst, IntList.Consumer chk ) {
+		protected static boolean retainAll( Base dst, IntList.Consumer chk ) {
 			final int fix = dst.size;
 			
 			for (int item = 0, v; item < dst.size; item++)
-				if (!chk.add( v = dst.get( item ) )) R.remove( dst, v );
+				if (!chk.add( v = dst.geT( item ) )) Base.remove( dst, v );
 			
 			return fix != dst.size;
 		}
 		
-		protected static void clear( R dst ) {
+		protected static void clear( Base dst ) {
 			for (int i = ((dst.bits * dst.size) >> LEN) + 1; -1 < --i; )
 			     dst.array[i] = 0;
 			
@@ -354,10 +339,10 @@ public interface BitsList {
 		}
 		
 		
-		public R clone() {
+		public Base clone() {
 			try
 			{
-				R dst = (R) super.clone();
+				Base dst = (Base) super.clone();
 				dst.array = array.clone();
 				return dst;
 				
@@ -366,6 +351,34 @@ public interface BitsList {
 				e.printStackTrace();
 			}
 			return null;
+		}
+		
+		
+	}
+	
+	class R extends Base {
+		
+		public R( int bits_per_item ) {
+			super( bits_per_item );
+		}
+		
+		public R( int bits_per_item, int items ) {
+			super( bits_per_item, items );
+		}
+		
+		public int get( int item ) {return geT( item );}
+		
+		private IntList.Producer producer;
+		
+		public IntList.Producer producer() {
+			return producer == null ? producer = new IntList.Producer() {
+				public int tag() { return 0 < size ? 0 : -1; }
+				
+				public int tag( int tag ) { return ++tag < size ? tag : -1; }
+				
+				public int value( int tag ) {return geT( tag );}
+				
+			} : producer;
 		}
 		
 		public StringBuilder toString( StringBuilder dst ) {
