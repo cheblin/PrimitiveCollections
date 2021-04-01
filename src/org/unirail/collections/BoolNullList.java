@@ -117,12 +117,12 @@ public interface BoolNullList {
 		
 		public void set( int item, Boolean value ) { if (item < size) set( this, item, value == null ? 0 : value ? 1 : 2 ); }
 		
-		public void set( int index, boolean... values ) {
+		public void seT( int index, boolean... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] ? 1 : 2 );
 		}
 		
-		public void seT( int index, Boolean... values ) {
+		public void set( int index, Boolean... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, values[i] == null ? 0 : values[i] ? 1 : 2 );
 		}
@@ -189,12 +189,12 @@ public interface BoolNullList {
 		public void set( int item, Boolean value ) { set( this, item, value == null ? 0 : value ? 1 : 2 ); }
 		
 		
-		public void set( int index, boolean... values ) {
+		public void seT( int index, boolean... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] ? 1 : 2 );
 		}
 		
-		public void seT( int index, Boolean... values ) {
+		public void set( int index, Boolean... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, index + i, values[i] == null ? 0 : values[i] ? 1 : 2 );
 		}
