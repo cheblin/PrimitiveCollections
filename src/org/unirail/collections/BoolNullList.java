@@ -86,7 +86,7 @@ public interface BoolNullList {
 				
 				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? get( ++tag ) == 0 ? Integer.MIN_VALUE | tag : tag : -1; }
 				
-				public boolean value( int tag ) {return get( tag ) == 2;}
+				public boolean value( int tag ) {return get( tag ) == 1;}
 			} : producer;
 		}
 		
@@ -94,7 +94,7 @@ public interface BoolNullList {
 		
 		public boolean hasValue( long tag ) { return -1 < tag; }
 		
-		public boolean get( long tag )      { return get( (int) tag ) == 2; }
+		public boolean get( long tag )      { return get( (int) tag ) == 1; }
 		
 		public R clone()                    {return (R) super.clone();}
 		
