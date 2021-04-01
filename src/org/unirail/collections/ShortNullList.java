@@ -5,7 +5,7 @@ public interface ShortNullList {
 	interface Consumer {
 		boolean add( short value );
 		
-		boolean add(  Short     value );
+		boolean add( Integer value );
 	}
 	
 	interface Producer {
@@ -192,7 +192,7 @@ public interface ShortNullList {
 			}
 		}
 		
-		protected static void set( Rsize dst, int index,  Short     value ) {
+		protected static void set( Rsize dst, int index, Integer value ) {
 			
 			if (value == null)
 			{
@@ -225,7 +225,7 @@ public interface ShortNullList {
 			return dst;
 		}
 		
-		public void set( int index,  Short     value ) {
+		public void set( int index, Integer value ) {
 			if (size <= index) return;
 			set( this, index, value );
 		}
@@ -286,7 +286,7 @@ public interface ShortNullList {
 			nulls.remove( index );
 		}
 		
-		public boolean add(  Short     value ) {
+		public boolean add( Integer value ) {
 			if (value == null) size++;
 			else add( (short) (value + 0) );
 			
@@ -301,7 +301,7 @@ public interface ShortNullList {
 		}
 		
 		
-		public void add( int index,  Short     value ) {
+		public void add( int index, Integer value ) {
 			if (value == null)
 			{
 				nulls.add( index, false );
@@ -320,12 +320,12 @@ public interface ShortNullList {
 			else set( index, value );
 		}
 		
-		public void set(  Short     value )            { set( this, size, value ); }
+		public void set( Integer value )            { set( this, size, value ); }
 		
 		public void set( short value )                {set( this, size, value ); }
 		
 		
-		public void set( int index,  Short     value ) { set( this, index, value ); }
+		public void set( int index, Integer value ) { set( this, index, value ); }
 		
 		public void set( int index, short value )     {set( this, index, value ); }
 		

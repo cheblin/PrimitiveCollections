@@ -5,7 +5,7 @@ public interface ByteNullList {
 	interface Consumer {
 		boolean add( byte value );
 		
-		boolean add(  Byte      value );
+		boolean add( Integer value );
 	}
 	
 	interface Producer {
@@ -192,7 +192,7 @@ public interface ByteNullList {
 			}
 		}
 		
-		protected static void set( Rsize dst, int index,  Byte      value ) {
+		protected static void set( Rsize dst, int index, Integer value ) {
 			
 			if (value == null)
 			{
@@ -225,7 +225,7 @@ public interface ByteNullList {
 			return dst;
 		}
 		
-		public void set( int index,  Byte      value ) {
+		public void set( int index, Integer value ) {
 			if (size <= index) return;
 			set( this, index, value );
 		}
@@ -286,7 +286,7 @@ public interface ByteNullList {
 			nulls.remove( index );
 		}
 		
-		public boolean add(  Byte      value ) {
+		public boolean add( Integer value ) {
 			if (value == null) size++;
 			else add( (byte) (value + 0) );
 			
@@ -301,7 +301,7 @@ public interface ByteNullList {
 		}
 		
 		
-		public void add( int index,  Byte      value ) {
+		public void add( int index, Integer value ) {
 			if (value == null)
 			{
 				nulls.add( index, false );
@@ -320,12 +320,12 @@ public interface ByteNullList {
 			else set( index, value );
 		}
 		
-		public void set(  Byte      value )            { set( this, size, value ); }
+		public void set( Integer value )            { set( this, size, value ); }
 		
 		public void set( byte value )                {set( this, size, value ); }
 		
 		
-		public void set( int index,  Byte      value ) { set( this, index, value ); }
+		public void set( int index, Integer value ) { set( this, index, value ); }
 		
 		public void set( int index, byte value )     {set( this, index, value ); }
 		

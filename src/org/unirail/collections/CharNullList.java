@@ -5,7 +5,7 @@ public interface CharNullList {
 	interface Consumer {
 		boolean add( char value );
 		
-		boolean add(  Character value );
+		boolean add( Integer value );
 	}
 	
 	interface Producer {
@@ -192,7 +192,7 @@ public interface CharNullList {
 			}
 		}
 		
-		protected static void set( Rsize dst, int index,  Character value ) {
+		protected static void set( Rsize dst, int index, Integer value ) {
 			
 			if (value == null)
 			{
@@ -225,7 +225,7 @@ public interface CharNullList {
 			return dst;
 		}
 		
-		public void set( int index,  Character value ) {
+		public void set( int index, Integer value ) {
 			if (size <= index) return;
 			set( this, index, value );
 		}
@@ -286,7 +286,7 @@ public interface CharNullList {
 			nulls.remove( index );
 		}
 		
-		public boolean add(  Character value ) {
+		public boolean add( Integer value ) {
 			if (value == null) size++;
 			else add( (char) (value + 0) );
 			
@@ -301,7 +301,7 @@ public interface CharNullList {
 		}
 		
 		
-		public void add( int index,  Character value ) {
+		public void add( int index, Integer value ) {
 			if (value == null)
 			{
 				nulls.add( index, false );
@@ -320,12 +320,12 @@ public interface CharNullList {
 			else set( index, value );
 		}
 		
-		public void set(  Character value )            { set( this, size, value ); }
+		public void set( Integer value )            { set( this, size, value ); }
 		
 		public void set( char value )                {set( this, size, value ); }
 		
 		
-		public void set( int index,  Character value ) { set( this, index, value ); }
+		public void set( int index, Integer value ) { set( this, index, value ); }
 		
 		public void set( int index, char value )     {set( this, index, value ); }
 		
