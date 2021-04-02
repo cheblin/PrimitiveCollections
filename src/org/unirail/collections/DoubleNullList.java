@@ -67,7 +67,7 @@ public interface DoubleNullList {
 		}
 		
 		protected static void fill( R dst, double... values ) {
-			for (double value : values) dst.values.add( (double)value );
+			for (double value : values) dst.values.add( (double) value );
 			
 			dst.size = values.length;
 			
@@ -83,7 +83,7 @@ public interface DoubleNullList {
 		public boolean isEmpty()           { return size < 1; }
 		
 		
-		public int tag( int index )        {return nulls.get( index ) ? index : -1;}
+		public int tag( int index )        {return nulls.get( index ) ? index : (Integer.MIN_VALUE | index);}
 		
 		public double get( int tag ) {return  values.array[nulls.rank( tag ) - 1]; }
 		
@@ -93,9 +93,9 @@ public interface DoubleNullList {
 		
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
-				public int tag() { return 0 < size ? nulls.get( 0 ) ? 0 : Integer.MIN_VALUE : -1; }
+				public int tag() { return 0 < size ? tag( 0 ) : -1; }
 				
-				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? nulls.get( ++tag ) ? tag : Integer.MIN_VALUE | tag : -1; }
+				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? tag( tag + 1 ) : -1; }
 				
 				public double value( int tag ) {return  values.array[nulls.rank( tag ) - 1]; }
 				
@@ -237,13 +237,13 @@ public interface DoubleNullList {
 		
 		public void seT( int index, double... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, (double)values[i] );
+			     set( this, index + i, (double) values[i] );
 		}
 		
 		public void set( int index,  Double   ... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-				if (values[i]  == null) set( this, index + i, null );
-				else set( this, index + i, (double) (values[i]  + 0) );
+				if (values[i] == null) set( this, index + i, null );
+				else set( this, index + i, (double) (values[i] + 0) );
 		}
 	}
 	
@@ -332,14 +332,14 @@ public interface DoubleNullList {
 		
 		public void seT( int index, double... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, (double)values[i] );
+			     set( this, index + i, (double) values[i] );
 		}
 		
 		public void set( int index,  Double   ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-				if (values[i]  == null) set( this, index + i, null );
-				else set( this, index + i, (double) (values[i]  + 0) );
-			 
+				if (values[i] == null) set( this, index + i, null );
+				else set( this, index + i, (double) (values[i] + 0) );
+			
 		}
 		
 		

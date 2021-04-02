@@ -36,7 +36,7 @@ public interface BoolNullList {
 			super( 2, items );
 		}
 		
-		public static R of( boolean... values ) {
+		public static R oF( boolean... values ) {
 			R dst = new R( values.length );
 			fill( dst, values );
 			return dst;
@@ -51,11 +51,11 @@ public interface BoolNullList {
 				final int index = item >>> LEN;
 				final int bit   = item & MASK;
 				
-				dst.array[index] |= (i ? 2L : 1L) << bit;
+				dst.array[index] |= (i ? 1L : 2L) << bit;
 			}
 		}
 		
-		public static R oF( Boolean... values ) {
+		public static R of( Boolean... values ) {
 			R dst = new R( values.length );
 			filL( dst, values );
 			return dst;
@@ -70,7 +70,7 @@ public interface BoolNullList {
 				final int index = item >>> LEN;
 				final int bit   = item & MASK;
 				
-				dst.array[index] |= (b == null ? 0L : b ? 2L : 1L) << bit;
+				dst.array[index] |= (b == null ? 0L : b ? 1L : 2L) << bit;
 			}
 		}
 		
@@ -127,13 +127,13 @@ public interface BoolNullList {
 			     set( this, index + i, values[i] == null ? 0 : values[i] ? 1 : 2 );
 		}
 		
-		public static Rsize of( boolean... values ) {
+		public static Rsize oF( boolean... values ) {
 			Rsize dst = new Rsize( values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		public static Rsize oF( Boolean... values ) {
+		public static Rsize of( Boolean... values ) {
 			Rsize dst = new Rsize( values.length );
 			filL( dst, values );
 			return dst;
