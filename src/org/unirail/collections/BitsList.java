@@ -11,7 +11,7 @@ public interface BitsList {
 		static final int LEN  = 6;
 		
 		public long[] array = new long[4];
-		int size = 0;
+		protected int size = 0;
 		
 		
 		public final int bits;

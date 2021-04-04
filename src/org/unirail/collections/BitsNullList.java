@@ -40,15 +40,31 @@ public interface BitsNullList {
 		}
 		
 		public R( int null_val, int bits_per_item, int items ) {
-			super( bits_per_item, items );
+			super( bits_per_item, Math.abs( items ) );
 			this.null_val = null_val;
+			
+			if (0 < items && null_val != 0) nulls( this, 0, items );
 		}
 		
 		
 		public static R oF( int null_val, int bits_per_item, int... values ) {
-			R dst = new R( null_val, bits_per_item, values.length );
+			R dst = new R( null_val, bits_per_item, -values.length );
 			fill( dst, values );
 			return dst;
+		}
+		
+		protected static void nulls( R dst, int from, int upto ) {
+			
+			final long null_val = dst.null_val;
+			
+			for (int bits = dst.bits; from < upto; )
+			{
+				final int item  = bits * from++;
+				final int index = item >>> LEN;
+				final int bit   = item & MASK;
+				
+				dst.array[index] |= null_val << bit;
+			}
 		}
 		
 		protected static void fill( R dst, int... items ) {
@@ -65,7 +81,7 @@ public interface BitsNullList {
 		}
 		
 		public static R of( int null_val, int bits_per_item, Integer... values ) {
-			R dst = new R( null_val, bits_per_item, values.length );
+			R dst = new R( null_val, bits_per_item, -values.length );
 			filL( dst, values );
 			return dst;
 		}
@@ -73,13 +89,13 @@ public interface BitsNullList {
 		protected static void filL( R dst, Integer... items ) {
 			
 			final int bits = dst.bits;
-			for (Integer b : items)
+			for (Integer i : items)
 			{
 				final int item  = bits * dst.size++;
 				final int index = item >>> LEN;
 				final int bit   = item & MASK;
 				
-				dst.array[index] |= (b == null ? dst.null_val : (long) b) << bit;
+				dst.array[index] |= (long) (i == null ? dst.null_val : i) << bit;
 			}
 		}
 		
@@ -118,7 +134,7 @@ public interface BitsNullList {
 		
 		public Rsize( int null_val, int bits_per_item, int items ) {
 			super( null_val, bits_per_item, items );
-			size = items;
+			size = Math.abs( items );
 		}
 		
 		public void set( int item, int value )     { if (item < size) set( this, item, value ); }
@@ -136,13 +152,13 @@ public interface BitsNullList {
 		}
 		
 		public static Rsize oF( int null_val, int bits_per_item, int... values ) {
-			Rsize dst = new Rsize( null_val, bits_per_item, values.length );
+			Rsize dst = new Rsize( null_val, bits_per_item, -values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
 		public static Rsize of( int null_val, int bits_per_item, Integer... values ) {
-			Rsize dst = new Rsize( null_val, bits_per_item, values.length );
+			Rsize dst = new Rsize( null_val, bits_per_item, -values.length );
 			filL( dst, values );
 			return dst;
 		}
@@ -156,13 +172,13 @@ public interface BitsNullList {
 		}
 		
 		public static RW oF( int null_val, int bits_per_item, int... values ) {
-			RW dst = new RW( null_val, bits_per_item, values.length );
+			RW dst = new RW( null_val, bits_per_item, -values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
 		public static RW of( int null_val, int bits_per_item, Integer... values ) {
-			RW dst = new RW( null_val, bits_per_item, values.length );
+			RW dst = new RW( null_val, bits_per_item, -values.length );
 			filL( dst, values );
 			return dst;
 		}
@@ -181,34 +197,45 @@ public interface BitsNullList {
 			remove( this, value == null ? null_val : value );
 		}
 		
-		public void remove( int value )            { remove( this, value ); }
+		public void remove( int value )  { remove( this, value ); }
 		
-		public void removeAt( int item )           { removeAt( this, item ); }
-		
-		
-		public void set( int value )               {set( this, size, value ); }
-		
-		public void set( Integer value )           { set( this, size, value == null ? null_val : value ); }
+		public void removeAt( int item ) { removeAt( this, item ); }
 		
 		
-		public void set( int item, int value )     {set( this, item, value ); }
+		public void set( int value )     {set( this, size, value ); }
 		
-		public void set( int item, Integer value ) { set( this, item, value == null ? null_val : value ); }
+		public void set( Integer value ) { set( this, size, value == null ? null_val : value ); }
 		
 		
-		public void seT( int index, int... values ) {
+		public void set( int item, int value ) {
+			final int fix = size;
+			set( this, item, value );
+			if (fix < item && null_val != 0) nulls( this, fix, item );
+		}
+		
+		public void set( int item, Integer value ) {
+			final int fix = size;
+			set( this, item, value == null ? null_val : value );
+			if (fix < item && null_val != 0) nulls( this, fix, item );
+		}
+		
+		
+		public void seT( int item, int... values ) {
+			final int fix = size;
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, item + i, values[i] );
+			if (fix < item && null_val != 0) nulls( this, fix, item );
+			
 		}
 		
-		public void set( int index, Integer... values ) {
+		public void set( int item, Integer... values ) {
+			final int fix = size;
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] == null ? null_val : values[i] );
+			     set( this, item + i, values[i] == null ? null_val : values[i] );
+			if (fix < item && null_val != 0) nulls( this, fix, item );
 		}
 		
-		public void clear() {
-			clear( this );
-		}
+		public void clear()        { clear( this ); }
 		
 		public Consumer consumer() {return this; }
 		
