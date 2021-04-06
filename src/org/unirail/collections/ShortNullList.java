@@ -192,7 +192,7 @@ public interface ShortNullList {
 			}
 		}
 		
-		protected static void set( Rsize dst, int index, Integer value ) {
+		protected static void set( Rsize dst, int index,  Short     value ) {
 			
 			if (value == null)
 			{
@@ -225,7 +225,7 @@ public interface ShortNullList {
 			return dst;
 		}
 		
-		public void set( int index, Integer value ) {
+		public void set( int index,  Short     value ) {
 			if (size <= index) return;
 			set( this, index, value );
 		}
@@ -320,12 +320,12 @@ public interface ShortNullList {
 			else set( index, value );
 		}
 		
-		public void set( Integer value )            { set( this, size, value ); }
+		public void set(  Short     value )            { set( this, size, value ); }
 		
 		public void set( short value )                {set( this, size, value ); }
 		
 		
-		public void set( int index, Integer value ) { set( this, index, value ); }
+		public void set( int index,  Short     value ) { set( this, index, value ); }
 		
 		public void set( int index, short value )     {set( this, index, value ); }
 		

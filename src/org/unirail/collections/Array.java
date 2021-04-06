@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import java.util.Comparator;
+
 public interface Array extends Cloneable {
 	
 	
@@ -141,5 +143,5 @@ fit:
 		return v;
 	}
 	
-	
+	Comparator<String> STRING_COMPARATOR = ( s1, s2 ) -> s1 == s2 ? 0 : s1.compareTo( s2 );
 }

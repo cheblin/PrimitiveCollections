@@ -192,7 +192,7 @@ public interface ByteNullList {
 			}
 		}
 		
-		protected static void set( Rsize dst, int index, Integer value ) {
+		protected static void set( Rsize dst, int index,  Byte      value ) {
 			
 			if (value == null)
 			{
@@ -225,7 +225,7 @@ public interface ByteNullList {
 			return dst;
 		}
 		
-		public void set( int index, Integer value ) {
+		public void set( int index,  Byte      value ) {
 			if (size <= index) return;
 			set( this, index, value );
 		}
@@ -320,12 +320,12 @@ public interface ByteNullList {
 			else set( index, value );
 		}
 		
-		public void set( Integer value )            { set( this, size, value ); }
+		public void set(  Byte      value )            { set( this, size, value ); }
 		
 		public void set( byte value )                {set( this, size, value ); }
 		
 		
-		public void set( int index, Integer value ) { set( this, index, value ); }
+		public void set( int index,  Byte      value ) { set( this, index, value ); }
 		
 		public void set( int index, byte value )     {set( this, index, value ); }
 		

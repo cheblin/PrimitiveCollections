@@ -192,7 +192,7 @@ public interface CharNullList {
 			}
 		}
 		
-		protected static void set( Rsize dst, int index, Integer value ) {
+		protected static void set( Rsize dst, int index,  Character value ) {
 			
 			if (value == null)
 			{
@@ -225,7 +225,7 @@ public interface CharNullList {
 			return dst;
 		}
 		
-		public void set( int index, Integer value ) {
+		public void set( int index,  Character value ) {
 			if (size <= index) return;
 			set( this, index, value );
 		}
@@ -320,12 +320,12 @@ public interface CharNullList {
 			else set( index, value );
 		}
 		
-		public void set( Integer value )            { set( this, size, value ); }
+		public void set(  Character value )            { set( this, size, value ); }
 		
 		public void set( char value )                {set( this, size, value ); }
 		
 		
-		public void set( int index, Integer value ) { set( this, index, value ); }
+		public void set( int index,  Character value ) { set( this, index, value ); }
 		
 		public void set( int index, char value )     {set( this, index, value ); }
 		
