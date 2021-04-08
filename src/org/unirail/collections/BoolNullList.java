@@ -87,11 +87,8 @@ public interface BoolNullList {
 		}
 		
 		public Boolean get( int index ) {
-			switch (super.geT( index ))
-			{
-				case 1: return Boolean.TRUE;
-				case 2: return Boolean.FALSE;
-			} return null;
+			final int i = geT( index );
+			return i == 0 ? null : i == 1 ? Boolean.TRUE : Boolean.FALSE;
 		}
 		
 		public R clone() {return (R) super.clone();}

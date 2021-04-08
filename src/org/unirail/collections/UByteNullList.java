@@ -93,9 +93,9 @@ public interface UByteNullList {
 		
 		public Producer producer() {
 			return producer == null ? producer = new Producer() {
-				public int tag() { return 0 < size ? tag( 0 ) : -1; }
+				public int tag() { return 0 < size ? R.this.tag( 0 ) : -1; }
 				
-				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? tag( tag + 1 ) : -1; }
+				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? R.this.tag( tag + 1 ) : -1; }
 				
 				public char value( int tag ) {return (char)( 0xFFFF &  values.array[nulls.rank( tag ) - 1]); }
 				
