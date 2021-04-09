@@ -82,12 +82,12 @@ public interface BoolNullList {
 				
 				public int tag( int tag ) { return tag != -1 && tag < size - 1 ? ++tag : -1; }
 				
-				public Boolean value( int tag ) {return get( tag );}
+				public Boolean value( int tag ) {return getBoolean( tag );}
 			} : producer;
 		}
 		
-		public Boolean get( int index ) {
-			final int i = geT( index );
+		public Boolean getBoolean( int index ) {
+			final int i = get( index );
 			return i == 0 ? null : i == 1 ? Boolean.TRUE : Boolean.FALSE;
 		}
 		

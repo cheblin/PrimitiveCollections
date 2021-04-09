@@ -99,7 +99,7 @@ public interface BitsList {
 		}
 		
 		
-		protected int geT( int item ) {
+		public int get( int item ) {
 			int       index = (item *= bits) >>> LEN;
 			final int bit   = item & MASK;
 			
@@ -327,7 +327,7 @@ public interface BitsList {
 			final int fix = dst.size;
 			
 			for (int item = 0, v; item < dst.size; item++)
-				if (!chk.add( v = dst.geT( item ) )) Base.remove( dst, v );
+				if (!chk.add( v = dst.get( item ) )) Base.remove( dst, v );
 			
 			return fix != dst.size;
 		}
@@ -367,8 +367,6 @@ public interface BitsList {
 			super( bits_per_item, items );
 		}
 		
-		public int get( int item ) {return geT( item );}
-		
 		private IntList.Producer producer;
 		
 		public IntList.Producer producer() {
@@ -377,7 +375,7 @@ public interface BitsList {
 				
 				public int tag( int tag ) { return ++tag < size ? tag : -1; }
 				
-				public int value( int tag ) {return geT( tag );}
+				public int value( int tag ) {return R.this.get( tag );}
 				
 			} : producer;
 		}

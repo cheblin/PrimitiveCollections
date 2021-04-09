@@ -112,9 +112,9 @@ public interface BitsNullList {
 			} : producer;
 		}
 		
-		public int tag( int index )        {return super.geT( index ) == null_val ? (Integer.MIN_VALUE | index) : index;}
+		public int tag( int index )        {return super.get( index ) == null_val ? (Integer.MIN_VALUE | index) : index;}
 		
-		public int get( int tag )          {return super.geT( tag ); }
+		public int get( int tag )          {return super.get( tag ); }
 		
 		public boolean hasValue( int tag ) { return -1 < tag; }
 		
