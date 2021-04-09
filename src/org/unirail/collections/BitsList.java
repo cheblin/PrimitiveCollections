@@ -155,7 +155,12 @@ public interface BitsList {
 			if (other == null) return -1;
 			if (other.size != size) return other.size - size;
 			
-			for (int i = (size >>> LEN) + ((size & MASK) == 0 ? 0 : 1); -1 < i; i--)
+			int i = size >>> LEN;
+			
+			int m = (1 << (size & MASK)) - 1;
+			if ((array[i] & m) != (other.array[i] & m)) return 2;
+			
+			while (-1 < --i)
 				if (array[i] != other.array[i]) return (int) (array[i] - other.array[i]);
 			
 			return 0;
