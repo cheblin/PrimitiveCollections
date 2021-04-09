@@ -10,22 +10,23 @@ public interface BitsList {
 		static final int MASK = BITS - 1;
 		static final int LEN  = 6;
 		
-		public long[] array = new long[4];
-		protected int size = 0;
+		protected long[] array;
+		protected int    size = 0;
 		
 		
 		public final int bits;
 		public final int mask;
 		
 		public Base( int bits_per_item ) {
-			bits = bits_per_item;
-			mask = (1 << bits_per_item) - 1;
+			bits  = bits_per_item;
+			mask  = (1 << bits_per_item) - 1;
+			array = new long[1];
 		}
 		
 		public Base( int bits_per_item, int items ) {
 			bits  = bits_per_item;
 			mask  = (1 << bits_per_item) - 1;
-			array = new long[(items >>> LEN) + ((items & MASK) == 0 ? 0 : 1)];
+			array = new long[1 + (items >>> LEN)];
 		}
 		
 		public static Base of( int bits_per_item, byte... values ) {
