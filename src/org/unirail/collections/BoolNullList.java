@@ -110,6 +110,8 @@ public interface BoolNullList {
 			size = items;
 		}
 		
+		public void set( int item, int value )     { if (item < size) set( this, item, value ); }
+		
 		public void set( int item, boolean value ) { if (item < size) set( this, item, value ? 1 : 2 ); }
 		
 		public void set( int item, Boolean value ) { if (item < size) set( this, item, value == null ? 0 : value ? 1 : 2 ); }
@@ -180,6 +182,8 @@ public interface BoolNullList {
 		
 		public void set( Boolean value )           { set( this, size, value == null ? 0 : value ? 1 : 2 ); }
 		
+		
+		public void set( int item, int value )     {set( this, item, value ); }
 		
 		public void set( int item, boolean value ) {set( this, item, value ? 1 : 2 ); }
 		
