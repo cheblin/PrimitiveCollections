@@ -54,44 +54,33 @@ public interface BitsList {
 			array = new long[1 + (items >>> LEN)];
 		}
 		
-		public static Base of( int bits_per_item, byte... values ) {
-			Base dst = new Base( bits_per_item, values.length );
-			fill( dst, values );
-			return dst;
-		}
 		
-		static void fill( Base dst, byte... items ) {
+		protected static void set( Base dst, int from, char... src ) {
 			
 			final int bits = dst.bits;
-			for (byte b : items)
+			for (int i = 0, max = src.length; i < max; i++)
 			{
 				final int item  = bits * dst.size++;
-				final int index = item >>> LEN;
+				final int index = from + (item >>> LEN);
 				final int bit   = item & MASK;
 				
-				long v = b & dst.mask;
+				final long v = src[i] & dst.mask;
 				
 				dst.array[index] |= v << bit;
 				if (BITS < bit + bits) dst.array[index + 1] = v >> BITS - bit;
 			}
 		}
 		
-		public static Base of( int bits_per_item, int... values ) {
-			Base dst = new Base( bits_per_item, values.length );
-			fill( dst, values );
-			return dst;
-		}
-		
-		static void fill( Base dst, int... items ) {
+		protected static void set( Base dst, int from, int... src ) {
 			
 			final int bits = dst.bits;
-			for (int i : items)
+			for (int i = 0, max = src.length; i < max; i++)
 			{
 				final int item  = bits * dst.size++;
-				final int index = item >>> LEN;
+				final int index = from + (item >>> LEN);
 				final int bit   = item & MASK;
 				
-				long v = i & dst.mask;
+				final long v = src[i] & dst.mask;
 				
 				dst.array[index] |= v << bit;
 				if (BITS < bit + bits) dst.array[index + 1] = v >> BITS - bit;
@@ -440,20 +429,25 @@ public interface BitsList {
 			size = items;
 		}
 		
+		public void set( int index, char... values ) {
+			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
+			     set( this, index + i, (char) values[i] );
+		}
+		
 		public void set( int index, int... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
 			     set( this, index + i, (char) values[i] );
 		}
 		
-		public static Rsize of( int bits_per_item, byte... values ) {
+		public static Rsize of( int bits_per_item, char... values ) {
 			Rsize dst = new Rsize( bits_per_item, values.length );
-			fill( dst, values );
+			set( dst, 0, values );
 			return dst;
 		}
 		
 		public static Rsize of( int bits_per_item, int... values ) {
 			Rsize dst = new Rsize( bits_per_item, values.length );
-			fill( dst, values );
+			set( dst, 0, values );
 			return dst;
 		}
 	}
@@ -470,57 +464,57 @@ public interface BitsList {
 			size = 0;
 		}
 		
-		public static RW of( int bits_per_item, byte... values ) {
+		public static RW of( int bits_per_item, char... values ) {
 			RW dst = new RW( bits_per_item, values.length );
-			fill( dst, values );
+			set( dst, 0, values );
 			return dst;
 		}
 		
 		public static RW of( int bits_per_item, int... values ) {
 			RW dst = new RW( bits_per_item, values.length );
-			fill( dst, values );
+			dst.set( 0, values );
 			return dst;
 		}
 		
-		public boolean add( int value )             { return add( this, value ); }
 		
-		public boolean add( char value )            { return add( this, value ); }
+		public boolean add( int value )              { return add( this, value ); }
 		
-		public void add( int item, int value )      { add( this, item, value ); }
+		public boolean add( char value )             { return add( this, value ); }
 		
-		public void add( int item, char value )     { add( this, item, value ); }
+		public void add( int item, int value )       { add( this, item, value ); }
 		
-		public void remove( int value )             { remove( this, value ); }
+		public void add( int item, char value )      { add( this, item, value ); }
 		
-		public void remove( char value )            { remove( this, value ); }
+		public void remove( int value )              { remove( this, value ); }
 		
-		public void removeAt( int item )            { removeAt( this, item ); }
+		public void remove( char value )             { remove( this, value ); }
 		
-		public boolean addAll( Producer src )       { return addAll( this, src ); }
+		public void removeAt( int item )             { removeAt( this, item ); }
 		
-		public int addAll( int from, Producer src ) { return addAll( this, from, src ); }
+		public boolean addAll( Producer src )        { return addAll( this, src ); }
 		
-		public int removeAll( Producer src )        { return removeAll( this, src ); }
+		public int addAll( int from, Producer src )  { return addAll( this, from, src ); }
 		
-		public void set( int value )                { set( this, size, value ); }
+		public int removeAll( Producer src )         { return removeAll( this, src ); }
 		
-		public void set( char value )               { set( this, size, value ); }
+		public void set( int value )                 { set( this, size, value ); }
 		
-		public void set( int item, int value )      { set( this, item, value ); }
+		public void set( char value )                { set( this, size, value ); }
 		
-		public void set( int item, char value )     { set( this, item, value ); }
+		public void set( int item, int value )       { set( this, item, value ); }
 		
-		public void set( int index, int... values ) {
-			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, (char) values[i] );
-		}
+		public void set( int item, char value )      { set( this, item, value ); }
 		
-		public boolean retainAll( Consumer chk ) { return retainAll( this, chk ); }
+		public void set( int index, int... values )  { set( this, index, values ); }
 		
-		public void clear()                      { clear( this ); }
+		public void set( int index, char... values ) { set( this, index, values ); }
 		
-		public Consumer consumer()               {return this; }
+		public boolean retainAll( Consumer chk )     { return retainAll( this, chk ); }
 		
-		public RW clone()                        { return (RW) super.clone(); }
+		public void clear()                          { clear( this ); }
+		
+		public Consumer consumer()                   {return this; }
+		
+		public RW clone()                            { return (RW) super.clone(); }
 	}
 }
