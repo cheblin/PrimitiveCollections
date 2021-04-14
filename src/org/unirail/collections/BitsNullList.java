@@ -4,7 +4,9 @@ package org.unirail.collections;
 public interface BitsNullList {
 	
 	interface Consumer {
-		boolean add( int value );
+		default boolean add( int value ) {return add( (char) value );}
+		
+		boolean add( char value );
 		
 		boolean add( Integer value );
 	}
@@ -16,7 +18,7 @@ public interface BitsNullList {
 		
 		default boolean ok( int tag )       {return tag != -1;}
 		
-		int value( int tag );
+		char value( int tag );
 		
 		default boolean hasValue( int tag ) { return -1 < tag; }
 		
@@ -32,14 +34,14 @@ public interface BitsNullList {
 	
 	class R extends BitsList.Base {
 		
-		protected final int null_val;
+		protected final char null_val;
 		
-		public R( int null_val, int bits_per_item ) {
+		public R( char null_val, int bits_per_item ) {
 			super( bits_per_item );
 			this.null_val = null_val;
 		}
 		
-		public R( int null_val, int bits_per_item, int items ) {
+		public R( char null_val, int bits_per_item, int items ) {
 			super( bits_per_item, Math.abs( items ) );
 			this.null_val = null_val;
 			
@@ -47,7 +49,7 @@ public interface BitsNullList {
 		}
 		
 		
-		public static R oF( int null_val, int bits_per_item, int... values ) {
+		public static R oF( char null_val, int bits_per_item, int... values ) {
 			R dst = new R( null_val, bits_per_item, -values.length );
 			fill( dst, values );
 			return dst;
@@ -80,7 +82,7 @@ public interface BitsNullList {
 			}
 		}
 		
-		public static R of( int null_val, int bits_per_item, Integer... values ) {
+		public static R of( char null_val, int bits_per_item, Integer... values ) {
 			R dst = new R( null_val, bits_per_item, -values.length );
 			filL( dst, values );
 			return dst;
@@ -107,14 +109,14 @@ public interface BitsNullList {
 				
 				public int tag( int tag ) { return (tag &= Integer.MAX_VALUE) < size - 1 ? R.this.tag( tag + 1 ) : -1; }
 				
-				public int value( int tag ) {return get( tag ); }
+				public char value( int tag ) {return get( tag ); }
 				
 			} : producer;
 		}
 		
 		public int tag( int index )        {return super.get( index ) == null_val ? (Integer.MIN_VALUE | index) : index;}
 		
-		public int get( int tag )          {return super.get( tag ); }
+		public char get( int tag )         {return super.get( tag ); }
 		
 		public boolean hasValue( int tag ) { return -1 < tag; }
 		
@@ -132,32 +134,34 @@ public interface BitsNullList {
 	
 	class Rsize extends R {
 		
-		public Rsize( int null_val, int bits_per_item, int items ) {
+		public Rsize( char null_val, int bits_per_item, int items ) {
 			super( null_val, bits_per_item, items );
 			size = Math.abs( items );
 		}
 		
 		public void set( int item, int value )     { if (item < size) set( this, item, value ); }
 		
-		public void set( int item, Integer value ) { if (item < size) set( this, item, value == null ? null_val : value ); }
+		public void set( int item, char value )    { if (item < size) set( this, item, value ); }
+		
+		public void set( int item, Integer value ) { if (item < size) set( this, item, value == null ? null_val : (char) (value & 0xFFFF) ); }
 		
 		public void seT( int index, int... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (char) values[i] );
 		}
 		
 		public void set( int index, Integer... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] == null ? null_val : values[i] );
+			     set( this, index + i, values[i] == null ? null_val : (char) (values[i] & 0xFFFF) );
 		}
 		
-		public static Rsize oF( int null_val, int bits_per_item, int... values ) {
+		public static Rsize oF( char null_val, int bits_per_item, int... values ) {
 			Rsize dst = new Rsize( null_val, bits_per_item, -values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		public static Rsize of( int null_val, int bits_per_item, Integer... values ) {
+		public static Rsize of( char null_val, int bits_per_item, Integer... values ) {
 			Rsize dst = new Rsize( null_val, bits_per_item, -values.length );
 			filL( dst, values );
 			return dst;
@@ -166,46 +170,50 @@ public interface BitsNullList {
 	
 	class RW extends Rsize implements Consumer {
 		
-		public RW( int null_val, int bits_per_item, int items ) {
+		public RW( char null_val, int bits_per_item, int items ) {
 			super( null_val, bits_per_item, items );
 			size = 0;
 		}
 		
-		public static RW oF( int null_val, int bits_per_item, int... values ) {
+		public static RW oF( char null_val, int bits_per_item, int... values ) {
 			RW dst = new RW( null_val, bits_per_item, -values.length );
 			fill( dst, values );
 			return dst;
 		}
 		
-		public static RW of( int null_val, int bits_per_item, Integer... values ) {
+		public static RW of( char null_val, int bits_per_item, Integer... values ) {
 			RW dst = new RW( null_val, bits_per_item, -values.length );
 			filL( dst, values );
 			return dst;
 		}
 		
-		public boolean add( int value ) {
+		public boolean add( char value ) {
 			add( this, value );
 			return true;
 		}
 		
 		public boolean add( Integer value ) {
-			add( this, value == null ? null_val : value );
-			return false;
+			add( this, value == null ? null_val : (char) (value & 0xFFFF) );
+			return true;
 		}
 		
-		public void remove( Integer value ) {
-			remove( this, value == null ? null_val : value );
-		}
+		public void remove( Integer value )     { remove( this, value == null ? null_val : (char) (value & 0xFFFF) ); }
 		
-		public void remove( int value )  { remove( this, value ); }
+		public void remove( int value )         { remove( this, value ); }
 		
-		public void removeAt( int item ) { removeAt( this, item ); }
+		public void remove( char value )        { remove( this, value ); }
+		
+		public void removeAt( int item )        { removeAt( this, item ); }
 		
 		
-		public void set( int value )     {set( this, size, value ); }
+		public void set( int value )            {set( this, size, value ); }
 		
-		public void set( Integer value ) { set( this, size, value == null ? null_val : value ); }
+		public void set( char value )           {set( this, size, value ); }
 		
+		public void set( Integer value )        { set( this, size, value == null ? null_val : (char) (value & 0xFFFF) ); }
+		
+		
+		public void set( int item, char value ) {set( item, (int) value );}
 		
 		public void set( int item, int value ) {
 			final int fix = size;
@@ -215,7 +223,7 @@ public interface BitsNullList {
 		
 		public void set( int item, Integer value ) {
 			final int fix = size;
-			set( this, item, value == null ? null_val : value );
+			set( this, item, value == null ? null_val : (char) (value & 0xFFFF) );
 			if (fix < item && null_val != 0) nulls( this, fix, item );
 		}
 		
@@ -223,7 +231,7 @@ public interface BitsNullList {
 		public void seT( int item, int... values ) {
 			final int fix = size;
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, item + i, values[i] );
+			     set( this, item + i, (char) values[i] );
 			if (fix < item && null_val != 0) nulls( this, fix, item );
 			
 		}
@@ -231,7 +239,7 @@ public interface BitsNullList {
 		public void set( int item, Integer... values ) {
 			final int fix = size;
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, item + i, values[i] == null ? null_val : values[i] );
+			     set( this, item + i, values[i] == null ? null_val : (char) (values[i] & 0xFFFF) );
 			if (fix < item && null_val != 0) nulls( this, fix, item );
 		}
 		

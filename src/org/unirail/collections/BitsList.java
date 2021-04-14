@@ -4,6 +4,31 @@ package org.unirail.collections;
 import java.util.Arrays;
 
 public interface BitsList {
+	
+	interface Consumer {
+		default boolean add( int value ) {return add( (char) value );}
+		
+		boolean add( char value );
+	}
+	
+	interface Producer {
+		int tag();
+		
+		int tag( int tag );
+		
+		default boolean ok( int tag ) {return -1 < tag;}
+		
+		char value( int tag );
+		
+		default StringBuilder toString( StringBuilder dst ) {
+			if (dst == null) dst = new StringBuilder( 255 );
+			
+			for (int tag = tag(); ok( tag ); tag = tag( tag ))
+			     dst.append( value( tag ) ).append( '\n' );
+			return dst;
+		}
+	}
+	
 	class Base implements Cloneable, Comparable<Base> {
 		
 		static final int BITS = 64;
@@ -73,13 +98,15 @@ public interface BitsList {
 			}
 		}
 		
-		public int length()                  { return array.length * BITS / bits; }
+		public int length()                   { return array.length * BITS / bits; }
 		
-		public int size()                    { return size; }
+		public int size()                     { return size; }
 		
-		public boolean isEmpty()             { return size == 0; }
+		public boolean isEmpty()              { return size == 0; }
 		
-		public boolean contains( int value ) { return -1 < indexOf( value ); }
+		public boolean contains( int value )  { return -1 < indexOf( value ); }
+		
+		public boolean contains( char value ) { return -1 < indexOf( value ); }
 		
 		
 		public byte[] toArray( byte[] dst ) {
@@ -99,15 +126,17 @@ public interface BitsList {
 		}
 		
 		
-		public int get( int item ) {
+		public char get( int item ) {
 			int       index = (item *= bits) >>> LEN;
 			final int bit   = item & MASK;
 			
-			return (int) (BITS < bit + bits ?
-			              array[index] >>> bit | (array[index + 1] & (1L << bit + bits - BITS) - 1) << BITS - bit :
-			              array[index] >>> bit & mask);
+			return (char) (BITS < bit + bits ?
+			               array[index] >>> bit | (array[index + 1] & (1L << bit + bits - BITS) - 1) << BITS - bit :
+			               array[index] >>> bit & mask);
 		}
 		
+		
+		public int indexOf( char value ) { return indexOf( (int) value ); }
 		
 		public int indexOf( int value ) {
 			value &= mask;
@@ -124,6 +153,8 @@ public interface BitsList {
 			
 			return -1;
 		}
+		
+		public int lastIndexOf( char value ) {return lastIndexOf( (int) value ); }
 		
 		public int lastIndexOf( int value ) {
 			value &= mask;
@@ -167,7 +198,7 @@ public interface BitsList {
 		}
 		
 		
-		public boolean containsAll( IntList.Producer src ) {
+		public boolean containsAll( Producer src ) {
 			return false;
 		}
 		
@@ -175,6 +206,8 @@ public interface BitsList {
 		public Base subList( int fromIndex, int toIndex ) {
 			return null;
 		}
+		
+		protected static boolean set( Base dst, int item, char value ) {return set( dst, item, (int) value );}
 		
 		protected static boolean set( Base dst, int item, int value ) {
 			
@@ -201,6 +234,8 @@ public interface BitsList {
 			return true;
 		}
 		
+		protected static boolean add( Base dst, char value ) {return add( dst, (int) value );}
+		
 		protected static boolean add( Base dst, int value ) {
 			long v = value & dst.mask;
 			
@@ -219,6 +254,8 @@ public interface BitsList {
 			
 			return true;
 		}
+		
+		protected static void add( Base dst, int item, char value ) { add( dst, item, (int) value );}
 		
 		protected static void add( Base dst, int item, int value ) {
 			
@@ -269,6 +306,8 @@ public interface BitsList {
 			}
 		}
 		
+		protected static void remove( Base dst, char value ) {remove( dst, (int) value );}
+		
 		protected static void remove( Base dst, int value ) {
 			for (int i; -1 < (i = dst.lastIndexOf( value )); )
 			     removeAt( dst, i );
@@ -309,30 +348,30 @@ public interface BitsList {
 			dst.size--;
 		}
 		
-		protected static boolean addAll( Base dst, IntList.Producer src ) {
+		protected static boolean addAll( Base dst, Producer src ) {
 			int fix = dst.size;
 			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) add( dst, src.value( tag ) );
 			return dst.size != fix;
 		}
 		
-		protected static int addAll( Base dst, int from, IntList.Producer src ) {
+		protected static int addAll( Base dst, int from, Producer src ) {
 			int fix = dst.size;
 			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) add( dst, from++, src.value( tag ) );
 			return dst.size - fix;
 		}
 		
-		protected static int removeAll( Base dst, IntList.Producer src ) {
+		protected static int removeAll( Base dst, Producer src ) {
 			
 			int fix = dst.size;
 			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) Base.remove( dst, src.value( tag ) );
 			return fix - dst.size;
 		}
 		
-		protected static boolean retainAll( Base dst, IntList.Consumer chk ) {
+		protected static boolean retainAll( Base dst, Consumer chk ) {
 			final int fix = dst.size;
 			
 			for (int item = 0, v; item < dst.size; item++)
-				if (!chk.add( v = dst.get( item ) )) Base.remove( dst, v );
+				if (!chk.add( v = dst.get( item ) )) Base.remove( dst, (char) v );
 			
 			return fix != dst.size;
 		}
@@ -372,15 +411,15 @@ public interface BitsList {
 			super( bits_per_item, items );
 		}
 		
-		private IntList.Producer producer;
+		private Producer producer;
 		
-		public IntList.Producer producer() {
-			return producer == null ? producer = new IntList.Producer() {
+		public Producer producer() {
+			return producer == null ? producer = new Producer() {
 				public int tag() { return 0 < size ? 0 : -1; }
 				
 				public int tag( int tag ) { return ++tag < size ? tag : -1; }
 				
-				public int value( int tag ) {return R.this.get( tag );}
+				public char value( int tag ) {return R.this.get( tag );}
 				
 			} : producer;
 		}
@@ -403,7 +442,7 @@ public interface BitsList {
 		
 		public void set( int index, int... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (char) values[i] );
 		}
 		
 		public static Rsize of( int bits_per_item, byte... values ) {
@@ -419,7 +458,7 @@ public interface BitsList {
 		}
 	}
 	
-	class RW extends Rsize implements IntList.Consumer {
+	class RW extends Rsize implements Consumer {
 		
 		public RW( int bits_per_item ) {
 			super( bits_per_item, 1 );
@@ -443,53 +482,45 @@ public interface BitsList {
 			return dst;
 		}
 		
-		public boolean add( int value ) {
-			return add( this, value );
-		}
+		public boolean add( int value )             { return add( this, value ); }
 		
-		public void add( int item, int value ) {
-			add( this, item, value );
-		}
+		public boolean add( char value )            { return add( this, value ); }
 		
-		public void remove( int value ) {
-			remove( this, value );
-		}
+		public void add( int item, int value )      { add( this, item, value ); }
 		
-		public void removeAt( int item ) {
-			removeAt( this, item );
-		}
+		public void add( int item, char value )     { add( this, item, value ); }
 		
-		public boolean addAll( IntList.Producer src ) {
-			return addAll( this, src );
-		}
+		public void remove( int value )             { remove( this, value ); }
 		
-		public int addAll( int from, IntList.Producer src ) {
-			return addAll( this, from, src );
-		}
+		public void remove( char value )            { remove( this, value ); }
 		
-		public int removeAll( IntList.Producer src ) {
-			return removeAll( this, src );
-		}
+		public void removeAt( int item )            { removeAt( this, item ); }
 		
-		public void set( int value )           { set( this, size, value ); }
+		public boolean addAll( Producer src )       { return addAll( this, src ); }
 		
-		public void set( int item, int value ) { set( this, item, value ); }
+		public int addAll( int from, Producer src ) { return addAll( this, from, src ); }
+		
+		public int removeAll( Producer src )        { return removeAll( this, src ); }
+		
+		public void set( int value )                { set( this, size, value ); }
+		
+		public void set( char value )               { set( this, size, value ); }
+		
+		public void set( int item, int value )      { set( this, item, value ); }
+		
+		public void set( int item, char value )     { set( this, item, value ); }
 		
 		public void set( int index, int... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] );
+			     set( this, index + i, (char) values[i] );
 		}
 		
-		public boolean retainAll( IntList.Consumer chk ) {
-			return retainAll( this, chk );
-		}
+		public boolean retainAll( Consumer chk ) { return retainAll( this, chk ); }
 		
-		public void clear() {
-			clear( this );
-		}
+		public void clear()                      { clear( this ); }
 		
-		public IntList.Consumer consumer() {return this; }
+		public Consumer consumer()               {return this; }
 		
-		public RW clone()                  { return (RW) super.clone(); }
+		public RW clone()                        { return (RW) super.clone(); }
 	}
 }
