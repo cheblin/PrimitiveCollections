@@ -178,23 +178,16 @@ public interface ShortList {
 			return dst;
 		}
 		
-		public void set( short value ) { set( size, value );}
+		public void set( int index, short value ) { if (index < size) array[index] = (short) value;}
 		
-		public void set( int index, short value ) {
-			if (size <= index) return;
-			
-			array[index] = (short) value;
-		}
-		
-		
-		public void set( int index, int... values ) {
-			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     array[index + i] = (short) values[i];
+		public void set( int index, int... src ) {
+			for (int i = 0, max = Math.min( src.length, size - index ); i < max; i++)
+			     array[index + i] = (short) src[i];
 		}
 	}
 	
-	class RW extends Rsize implements Array, Consumer {
-		public RW( int items ) { super( items ); size = 0; }
+	class RW extends R implements Array, Consumer {
+		public RW( int items ) { super( items ); }
 		
 		public static RW of( int... values ) {
 			RW dst = new RW( values.length );

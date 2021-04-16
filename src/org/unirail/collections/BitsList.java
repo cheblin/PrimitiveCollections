@@ -439,6 +439,10 @@ public interface BitsList {
 			     set( this, index + i, (char) values[i] );
 		}
 		
+		public void set( int item, int value )  { if (item < size) set( this, item, value ); }
+		
+		public void set( int item, char value ) {if (item < size) set( this, item, value ); }
+		
 		public static Rsize of( int bits_per_item, char... values ) {
 			Rsize dst = new Rsize( bits_per_item, values.length );
 			set( dst, 0, values );
@@ -452,17 +456,11 @@ public interface BitsList {
 		}
 	}
 	
-	class RW extends Rsize implements Consumer {
+	class RW extends R implements Consumer {
 		
-		public RW( int bits_per_item ) {
-			super( bits_per_item, 1 );
-			size = 0;
-		}
+		public RW( int bits_per_item )            { super( bits_per_item, 1 ); }
 		
-		public RW( int bits_per_item, int items ) {
-			super( bits_per_item, items );
-			size = 0;
-		}
+		public RW( int bits_per_item, int items ) { super( bits_per_item, items ); }
 		
 		public static RW of( int bits_per_item, char... values ) {
 			RW dst = new RW( bits_per_item, values.length );

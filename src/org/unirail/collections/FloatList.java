@@ -178,23 +178,16 @@ public interface FloatList {
 			return dst;
 		}
 		
-		public void set( float value ) { set( size, value );}
+		public void set( int index, float value ) { if (index < size) array[index] = (float) value;}
 		
-		public void set( int index, float value ) {
-			if (size <= index) return;
-			
-			array[index] = (float) value;
-		}
-		
-		
-		public void set( int index, float... values ) {
-			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     array[index + i] = (float) values[i];
+		public void set( int index, float... src ) {
+			for (int i = 0, max = Math.min( src.length, size - index ); i < max; i++)
+			     array[index + i] = (float) src[i];
 		}
 	}
 	
-	class RW extends Rsize implements Array, Consumer {
-		public RW( int items ) { super( items ); size = 0; }
+	class RW extends R implements Array, Consumer {
+		public RW( int items ) { super( items ); }
 		
 		public static RW of( float... values ) {
 			RW dst = new RW( values.length );

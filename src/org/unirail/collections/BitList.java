@@ -314,18 +314,13 @@ public interface BitList {
 		}
 	}
 	
-	class RW extends Rsize {
+	class RW extends R {
 		
-		public RW( int bits ) {
-			super( bits );
-			size = 0;
-		}
+		public RW( int bits )     { super( bits ); }
 		
-		public RW( long[] array ) {
-			super( array );
-		}
+		public RW( long[] array ) { super( array ); }
 		
-		public void fit() {if (used() < array.length) array = Arrays.copyOf( array, used );}
+		public void fit()         {if (used() < array.length) array = Arrays.copyOf( array, used );}
 		
 		
 		public void and( R and ) {

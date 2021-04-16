@@ -151,10 +151,7 @@ public interface ObjectList {
 	class Rsize<V extends Comparable<? super V>> extends R<V> {
 		
 		@SuppressWarnings("unchecked")
-		public Rsize( int items ) {
-			if (0 < items) array = (V[]) new Comparable[items];
-			size = items;
-		}
+		public Rsize( int items ) { array = (V[]) new Comparable[size = items];}
 		
 		@SafeVarargs
 		public static <V extends Comparable<? super V>> Rsize<V> of( V... items ) {
@@ -163,23 +160,15 @@ public interface ObjectList {
 			return dst;
 		}
 		
-		public boolean set( V value ) {return set( size, value );}
+		public void set( int index, V value )     { if (index < size) array[index] = value; }
 		
-		public boolean set( int index, V value ) {
-			if (size <= index) return false;
-			array[index] = value;
-			return true;
-		}
-		
-		public void set( int index, V... values ) {
-			int max = Math.min( values.length, size - index );
-			System.arraycopy( values, 0, array, index, max );
-		}
+		public void set( int index, V... values ) { System.arraycopy( values, 0, array, index, Math.min( values.length, size - index ) ); }
 	}
 	
-	class RW<V extends Comparable<? super V>> extends Rsize<V> implements Array, Consumer<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements Array, Consumer<V> {
 		
-		public RW( int items ) { super( items ); size = 0; }
+		@SuppressWarnings("unchecked")
+		public RW( int items ) { array = (V[]) new Comparable[items]; }
 		
 		public static <V extends Comparable<? super V>> RW<V> of( V... items ) {
 			RW<V> dst = new RW<>( items.length );

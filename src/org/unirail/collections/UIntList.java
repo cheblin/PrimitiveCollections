@@ -178,23 +178,16 @@ public interface UIntList {
 			return dst;
 		}
 		
-		public void set( long value ) { set( size, value );}
+		public void set( int index, long value ) { if (index < size) array[index] = (int) value;}
 		
-		public void set( int index, long value ) {
-			if (size <= index) return;
-			
-			array[index] = (int) value;
-		}
-		
-		
-		public void set( int index, long... values ) {
-			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     array[index + i] = (int) values[i];
+		public void set( int index, long... src ) {
+			for (int i = 0, max = Math.min( src.length, size - index ); i < max; i++)
+			     array[index + i] = (int) src[i];
 		}
 	}
 	
-	class RW extends Rsize implements Array, Consumer {
-		public RW( int items ) { super( items ); size = 0; }
+	class RW extends R implements Array, Consumer {
+		public RW( int items ) { super( items ); }
 		
 		public static RW of( long... values ) {
 			RW dst = new RW( values.length );

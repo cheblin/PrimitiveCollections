@@ -37,8 +37,6 @@ public interface UByteNullList {
 		
 		
 		R( int length ) {
-			if (length < 1) return;
-			
 			values.length( length );
 			nulls.length( length );
 		}
@@ -181,6 +179,19 @@ public interface UByteNullList {
 		
 		public String toString() { return toString( null ).toString();}
 		
+		protected static void set( R dst, int index,  Byte      value ) {
+			
+			if (value == null)
+			{
+				if (dst.size <= index) dst.size = index + 1;
+				
+				if (!dst.nulls.get( index )) return;
+				dst.nulls.remove( index );
+				dst.values.remove( dst.nulls.rank( index ) );
+			}
+			else set( dst, index, (char) (value + 0) );
+		}
+		
 		protected static void set( R dst, int index, char value ) {
 			if (dst.size <= index) dst.size = index + 1;
 			
@@ -190,23 +201,6 @@ public interface UByteNullList {
 				dst.nulls.set1( index );
 				dst.values.add( dst.nulls.rank( index ) - 1, value );
 			}
-		}
-		
-		protected static void set( Rsize dst, int index,  Byte      value ) {
-			
-			if (value == null)
-			{
-				if (dst.size <= index)
-				{
-					dst.size = index + 1;
-					if (!dst.nulls.get( index )) return;
-				}
-				
-				dst.nulls.remove( index );
-				dst.values.remove( dst.nulls.rank( index ) );
-				if (index + 1 == dst.size) dst.size--;
-			}
-			else set( dst, index, (char) (value + 0) );
 		}
 	}
 	
@@ -229,15 +223,9 @@ public interface UByteNullList {
 			return dst;
 		}
 		
-		public void set( int index,  Byte      value ) {
-			if (size <= index) return;
-			set( this, index, value );
-		}
+		public void set( int index,  Byte      value ) { if (index < size) set( this, index, value ); }
 		
-		public void set( int index, char value ) {
-			if (size <= index) return;
-			set( this, index, value );
-		}
+		public void set( int index, char value )     { if (index < size) set( this, index, value ); }
 		
 		public void seT( int index, char... values ) {
 			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
@@ -251,12 +239,9 @@ public interface UByteNullList {
 		}
 	}
 	
-	class RW extends Rsize implements Consumer {
+	class RW extends R implements Consumer {
 		
-		public RW( int length ) {
-			super( length );
-			size = 0;
-		}
+		public RW( int length ) { super( length ); }
 		
 		public static RW of(  Byte     ... values ) {
 			RW dst = new RW( values.length );
@@ -300,10 +285,9 @@ public interface UByteNullList {
 		public boolean add( char value ) {
 			values.add( value );
 			nulls.add( size, true );
-			++size;
+			size++;
 			return true;
 		}
-		
 		
 		public void add( int index,  Byte      value ) {
 			if (value == null)
@@ -319,7 +303,7 @@ public interface UByteNullList {
 			{
 				nulls.add( index, true );
 				values.add( nulls.rank( index ) - 1, value );
-				++size;
+				size++;
 			}
 			else set( index, value );
 		}
@@ -328,11 +312,9 @@ public interface UByteNullList {
 		
 		public void set( char value )                {set( this, size, value ); }
 		
-		
 		public void set( int index,  Byte      value ) { set( this, index, value ); }
 		
 		public void set( int index, char value )     {set( this, index, value ); }
-		
 		
 		public void seT( int index, char... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
@@ -341,11 +323,9 @@ public interface UByteNullList {
 		
 		public void set( int index,  Byte     ... values ) {
 			for (int i = 0, max = values.length; i < max; i++)
-				if (values[i] == null) set( this, index + i, null );
+				if (values[i] == null) R.set( this, index + i, null );
 				else set( this, index + i, (char) (values[i] + 0) );
-			
 		}
-		
 		
 		public int addAll( Producer src ) {
 			int fix = size;

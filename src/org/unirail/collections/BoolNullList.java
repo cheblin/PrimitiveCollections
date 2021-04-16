@@ -110,7 +110,8 @@ public interface BoolNullList {
 			size = items;
 		}
 		
-		public void set( int item, int value )    { if (item < size) set( this, item, value ); }
+		public void set( int item, int value )     { if (item < size) set( this, item, value ); }
+		
 		public void set( int item, char value )    { if (item < size) set( this, item, value ); }
 		
 		public void set( int item, boolean value ) { if (item < size) set( this, item, value ? (char) 1 : 2 ); }
@@ -140,13 +141,10 @@ public interface BoolNullList {
 		}
 	}
 	
-	class RW extends Rsize implements Consumer {
-		public RW() {super( 1 ); size = 0; }
+	class RW extends R implements Consumer {
+		public RW()            {super( 1 ); }
 		
-		public RW( int items ) {
-			super( items );
-			size = 0;
-		}
+		public RW( int items ) { super( items ); }
 		
 		public static RW of( boolean... values ) {
 			RW dst = new RW( values.length );
@@ -184,7 +182,8 @@ public interface BoolNullList {
 		public void set( Boolean value )           { set( this, size, value == null ? 0 : value ? (char) 1 : 2 ); }
 		
 		
-		public void set( int item, int value )    {set( this, item, value ); }
+		public void set( int item, int value )     {set( this, item, value ); }
+		
 		public void set( int item, char value )    {set( this, item, value ); }
 		
 		public void set( int item, boolean value ) {set( this, item, value ? (char) 1 : 2 ); }

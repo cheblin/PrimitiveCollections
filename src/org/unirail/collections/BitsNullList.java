@@ -55,20 +55,6 @@ public interface BitsNullList {
 			return dst;
 		}
 		
-		protected static void nulls( R dst, int from, int upto ) {
-			
-			final long null_val = dst.null_val;
-			
-			for (int bits = dst.bits; from < upto; )
-			{
-				final int item  = bits * from++;
-				final int index = item >>> LEN;
-				final int bit   = item & MASK;
-				
-				dst.array[index] |= null_val << bit;
-			}
-		}
-		
 		protected static void fill( R dst, int... items ) {
 			
 			final int bits = dst.bits;
@@ -100,6 +86,21 @@ public interface BitsNullList {
 				dst.array[index] |= (long) (i == null ? dst.null_val : i) << bit;
 			}
 		}
+		
+		protected static void nulls( R dst, int from, int upto ) {
+			
+			final long null_val = dst.null_val;
+			
+			for (int bits = dst.bits; from < upto; )
+			{
+				final int item  = bits * from++;
+				final int index = item >>> LEN;
+				final int bit   = item & MASK;
+				
+				dst.array[index] |= null_val << bit;
+			}
+		}
+		
 		
 		private Producer producer;
 		
@@ -168,12 +169,9 @@ public interface BitsNullList {
 		}
 	}
 	
-	class RW extends Rsize implements Consumer {
+	class RW extends R implements Consumer {
 		
-		public RW( char null_val, int bits_per_item, int items ) {
-			super( null_val, bits_per_item, items );
-			size = 0;
-		}
+		public RW( char null_val, int bits_per_item, int items ) { super( null_val, bits_per_item, items ); }
 		
 		public static RW oF( char null_val, int bits_per_item, int... values ) {
 			RW dst = new RW( null_val, bits_per_item, -values.length );
@@ -221,19 +219,17 @@ public interface BitsNullList {
 			if (fix < item && null_val != 0) nulls( this, fix, item );
 		}
 		
-		public void set( int item, Integer value ) {
-			final int fix = size;
-			set( this, item, value == null ? null_val : (char) (value & 0xFFFF) );
-			if (fix < item && null_val != 0) nulls( this, fix, item );
-		}
-		
-		
 		public void seT( int item, int... values ) {
 			final int fix = size;
 			for (int i = 0, max = values.length; i < max; i++)
 			     set( this, item + i, (char) values[i] );
 			if (fix < item && null_val != 0) nulls( this, fix, item );
-			
+		}
+		
+		public void set( int item, Integer value ) {
+			final int fix = size;
+			set( this, item, value == null ? null_val : (char) (value & 0xFFFF) );
+			if (fix < item && null_val != 0) nulls( this, fix, item );
 		}
 		
 		public void set( int item, Integer... values ) {
