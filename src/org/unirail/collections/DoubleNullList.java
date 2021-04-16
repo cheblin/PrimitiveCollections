@@ -36,7 +36,7 @@ public interface DoubleNullList {
 		DoubleList.RW values = new DoubleList.RW( 4 );
 		
 		
-		R( int length ) {
+		protected R( int length ) {
 			values.length( length );
 			nulls.length( length );
 		}
@@ -184,7 +184,6 @@ public interface DoubleNullList {
 			if (value == null)
 			{
 				if (dst.size <= index) dst.size = index + 1;
-				
 				if (!dst.nulls.get( index )) return;
 				dst.nulls.remove( index );
 				dst.values.remove( dst.nulls.rank( index ) );
@@ -241,7 +240,7 @@ public interface DoubleNullList {
 	
 	class RW extends R implements Consumer {
 		
-		public RW( int length ) { super( length ); }
+		public RW( int items ) { super( items ); }
 		
 		public static RW of(  Double   ... values ) {
 			RW dst = new RW( values.length );

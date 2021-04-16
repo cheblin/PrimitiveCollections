@@ -36,7 +36,7 @@ public interface LongNullList {
 		LongList.RW values = new LongList.RW( 4 );
 		
 		
-		R( int length ) {
+		protected R( int length ) {
 			values.length( length );
 			nulls.length( length );
 		}
@@ -184,7 +184,6 @@ public interface LongNullList {
 			if (value == null)
 			{
 				if (dst.size <= index) dst.size = index + 1;
-				
 				if (!dst.nulls.get( index )) return;
 				dst.nulls.remove( index );
 				dst.values.remove( dst.nulls.rank( index ) );
@@ -241,7 +240,7 @@ public interface LongNullList {
 	
 	class RW extends R implements Consumer {
 		
-		public RW( int length ) { super( length ); }
+		public RW( int items ) { super( items ); }
 		
 		public static RW of(  Long     ... values ) {
 			RW dst = new RW( values.length );
