@@ -196,7 +196,11 @@ public interface UByteNullList {
 			
 			if (value == null)
 			{
-				if (dst.size <= index || !dst.nulls.get( index )) return;
+				if (dst.size <= index)
+				{
+					dst.size = index + 1;
+					if (!dst.nulls.get( index )) return;
+				}
 				
 				dst.nulls.remove( index );
 				dst.values.remove( dst.nulls.rank( index ) );
