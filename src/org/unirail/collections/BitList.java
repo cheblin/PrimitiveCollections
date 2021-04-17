@@ -75,8 +75,7 @@ public interface BitList {
 			dst[ret - 1] =
 					(to_bit - 1 & MASK) < (from_bit & MASK)
 					?
-					array[index] >>> from_bit |
-					(array[index + 1] & mask) << -from_bit
+					array[index] >>> from_bit | (array[index + 1] & mask) << -from_bit
 					:
 					(array[index] & mask) >>> from_bit;
 			
