@@ -51,7 +51,7 @@ public interface BitsList {
 		public Base( int bits_per_item, int items ) {
 			bits  = bits_per_item;
 			mask  = (1 << bits_per_item) - 1;
-			array = new long[1 + (items >>> LEN)];
+			array = new long[1 + ((items * bits_per_item) >>> LEN)];
 		}
 		
 		
