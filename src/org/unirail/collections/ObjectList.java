@@ -55,7 +55,7 @@ public interface ObjectList {
 		private Producer<V> producer;
 		
 		public Producer<V> producer() {
-			return producer == null ? producer = new Producer<>() {
+			return producer == null ? producer = new Producer<V>() {
 				
 				public int tag() { return 0 < size ? 0 : -1; }
 				

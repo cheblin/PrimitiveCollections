@@ -144,4 +144,40 @@ fit:
 	}
 	
 	Comparator<String> STRING_COMPARATOR = ( s1, s2 ) -> s1 == s2 ? 0 : s1.compareTo( s2 );
+	static <T extends Comparable<T>> boolean equals(T[] a, T[] a2, Comparator<? super T> cmp) {
+		
+		if (a==a2)
+			return true;
+		if (a==null || a2==null)
+			return false;
+		
+		int length = a.length;
+		if (a2.length != length)
+			return false;
+		
+		for (int i=0; i<length; i++) {
+			if (cmp.compare(a[i], a2[i]) != 0)
+				return false;
+		}
+		
+		return true;
+	}
+	static  boolean equals(String[] a, String[] a2) {
+		
+		if (a==a2)
+			return true;
+		if (a==null || a2==null)
+			return false;
+		
+		int length = a.length;
+		if (a2.length != length)
+			return false;
+		
+		for (int i=0; i<length; i++) {
+			if (STRING_COMPARATOR.compare(a[i], a2[i]) != 0)
+				return false;
+		}
+		
+		return true;
+	}
 }

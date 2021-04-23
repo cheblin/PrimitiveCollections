@@ -81,7 +81,7 @@ public interface ObjectSet {
 		private Producer<K> producer;
 		
 		public Producer<K> producer() {
-			return producer == null ? producer = new Producer<>() {
+			return producer == null ? producer = new Producer<K>() {
 				
 				public int tag() {
 					int len = 0 < assigned ? keys.array.length : 0;

@@ -158,7 +158,7 @@ public interface ObjectObjectMap {
 		private Producer<K, V> producer;
 		
 		public Producer<K, V> producer() {
-			return producer == null ? producer = new Producer<>() {
+			return producer == null ? producer = new Producer<K, V>() {
 				
 				public int tag() {
 					int len = 0 < assigned ? keys.array.length : 0;

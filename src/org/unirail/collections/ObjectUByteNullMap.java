@@ -104,7 +104,7 @@ public interface ObjectUByteNullMap {
 		
 		
 		public Producer<K> producer() {
-			return producer == null ? producer = new Producer<>() {
+			return producer == null ? producer = new Producer<K>() {
 				
 				public int tag() {
 					int len = keys.array.length;
