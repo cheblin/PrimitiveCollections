@@ -116,7 +116,7 @@ public interface ObjectObjectMap {
 			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		
+		public boolean equals(R<K, V>  other) { return other != null && compareTo(other) == 0; }
 		public int compareTo( R<K, V> other ) {
 			if (other == null) return -1;
 			if (size() != other.size()) return size() - other.size();

@@ -112,6 +112,7 @@ public interface ObjectShortMap {
 			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
+		public boolean equals(R<K> other) { return other != null && compareTo(other) == 0; }
 		public int compareTo( R<K> other ) {
 			if (other == null) return -1;
 			

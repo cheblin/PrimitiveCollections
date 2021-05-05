@@ -3,31 +3,31 @@ package org.unirail.collections;
 public interface UByteSet {
 	
 	interface Consumer {
-		boolean add( char value );
+		boolean add(char value);
 		
-		boolean add(  Byte      key );
+		boolean add( Byte      key);
 		
-		default boolean add( int value ) { return add( (byte) (value & 0xFF) ); }
+		default boolean add(int value) { return add((byte) (value & 0xFF)); }
 	}
 	
 	interface Producer {
 		@Nullable int tag();
 		
-		@Nullable int tag( int tag );
+		@Nullable int tag(int tag);
 		
-		default boolean ok( @Nullable int tag ) {return tag != Nullable.NONE;}
+		default boolean ok(@Nullable int tag) {return tag != Nullable.NONE;}
 		
 		boolean hasNullKey();
 		
-		char  key( @Nullable int tag );
+		char  key(@Nullable int tag);
 		
 		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
-			if (hasNullKey()) dst.append( "null\n" );
+		default StringBuilder toString(StringBuilder dst) {
+			if (dst == null) dst = new StringBuilder(255);
+			if (hasNullKey()) dst.append("null\n");
 			
-			for (int tag = tag(); ok( tag ); tag = tag( tag ))
-			     dst.append( key( tag ) ).append( '\n' );
+			for (int tag = tag(); ok(tag); tag = tag(tag))
+				dst.append(key(tag)).append('\n');
 			return dst;
 		}
 	}
@@ -42,11 +42,11 @@ public interface UByteSet {
 		int size = 0;
 		protected boolean hasNull;
 		
-		public R()                        { }
+		public R()                      { }
 		
-		public R( char... items ) { for (char i : items) add( this, i ); }
+		public R(char... items) { for (char i : items) add(this, i); }
 		
-		private static void add( UByteSet.R dst, final char value ) {
+		private static void add(UByteSet.R dst, final char value) {
 			
 			final int val = value & 0xFF;
 			
@@ -66,13 +66,13 @@ public interface UByteSet {
 		}
 		
 		
-		public int size()                           { return hasNull ? size + 1 : size; }
+		public int size()                         { return hasNull ? size + 1 : size; }
 		
-		public boolean isEmpty()                    { return size < 1; }
+		public boolean isEmpty()                  { return size < 1; }
 		
-		public boolean contains(  Byte      key ) { return key == null ? hasNull : contains( (char) (key + 0) ); }
+		public boolean contains( Byte      key) { return key == null ? hasNull : contains((char) (key + 0)); }
 		
-		public boolean contains( char key ) {
+		public boolean contains(char key) {
 			if (size == 0) return false;
 			
 			final int val = key & 0xFF;
@@ -84,11 +84,11 @@ public interface UByteSet {
 					) != 0;
 		}
 		
-		protected @Nullable int tag()          { return 0 < size ? tag( Nullable.NONE, Nullable.NONE ) : hasNull ? Nullable.VALUE : Nullable.NONE; }
+		protected @Nullable int tag()        { return 0 < size ? tag(Nullable.NONE, Nullable.NONE) : hasNull ? Nullable.VALUE : Nullable.NONE; }
 		
-		protected @Nullable int tag( int tag ) {return tag == Nullable.VALUE ? Nullable.NONE : tag( tag >> 8, tag & 0xFF );}
+		protected @Nullable int tag(int tag) {return tag == Nullable.VALUE ? Nullable.NONE : tag(tag >> 8, tag & 0xFF);}
 		
-		private @Nullable int tag( int key, int index ) {
+		private @Nullable int tag(int key, int index) {
 			index++;
 			key++;
 			
@@ -97,24 +97,24 @@ public interface UByteSet {
 			{
 				if (key < 64)
 				{
-					if ((l = _1 >>> key) != 0) return (key + Long.numberOfTrailingZeros( l )) << 8 | index;
+					if ((l = _1 >>> key) != 0) return (key + Long.numberOfTrailingZeros(l)) << 8 | index;
 					key = 0;
 				}
 				else key -= 64;
 				
-				if ((l = _2 >>> key) != 0) return ((key + Long.numberOfTrailingZeros( l ) + 64)) << 8 | index;
+				if ((l = _2 >>> key) != 0) return ((key + Long.numberOfTrailingZeros(l) + 64)) << 8 | index;
 				key = 128;
 			}
 			
 			if (key < 192)
 			{
-				if ((l = _3 >>> (key - 128)) != 0) return ((key + Long.numberOfTrailingZeros( l ) + 128)) << 8 | index;
+				if ((l = _3 >>> (key - 128)) != 0) return ((key + Long.numberOfTrailingZeros(l) + 128)) << 8 | index;
 				
 				key = 0;
 			}
 			else key -= 192;
 			
-			if ((l = _4 >>> key) != 0) return ((key + Long.numberOfTrailingZeros( l ) + 192)) << 8 | index;
+			if ((l = _4 >>> key) != 0) return ((key + Long.numberOfTrailingZeros(l) + 192)) << 8 | index;
 			
 			
 			return hasNull ? Nullable.VALUE : -1;
@@ -123,7 +123,7 @@ public interface UByteSet {
 		
 		//Rank returns the number of integers that are smaller or equal to x
 		//return inversed value if key does not exists
-		protected int rank( char key ) {
+		protected int rank(char key) {
 			final int val = key & 0xFF;
 			
 			int  ret  = 0;
@@ -132,22 +132,22 @@ public interface UByteSet {
 a:
 			{
 				if (val < 64) break a;
-				if (l != 0) ret += Long.bitCount( l );
+				if (l != 0) ret += Long.bitCount(l);
 				base = 64;
-				l    = _2;
+				l = _2;
 				if (val < 128) break a;
-				if (l != 0) ret += Long.bitCount( l );
+				if (l != 0) ret += Long.bitCount(l);
 				base = 128;
-				l    = _3;
+				l = _3;
 				if (val < 192) break a;
-				if (l != 0) ret += Long.bitCount( l );
+				if (l != 0) ret += Long.bitCount(l);
 				base = 192;
-				l    = _4;
+				l = _4;
 			}
 			
 			while (l != 0)
 			{
-				final int s = Long.numberOfTrailingZeros( l );
+				final int s = Long.numberOfTrailingZeros(l);
 				
 				if ((base += s) == val) return ret + 1;
 				if (val < base) return ~ret;
@@ -159,32 +159,32 @@ a:
 			return ~ret;
 		}
 		
-		public boolean containsAll( Consumer ask ) {
+		public boolean containsAll(Consumer ask) {
 			
-			if (hasNull && !ask.add( null )) return false;
+			if (hasNull && !ask.add(null)) return false;
 			
 			int  i;
 			long l;
 			
 			for (i = 0, l = _1; l != 0; l >>>= ++i)
-				if (!ask.add( (char) (i += Long.numberOfTrailingZeros( l )) )) return false;
+				if (!ask.add((char) (i += Long.numberOfTrailingZeros(l)))) return false;
 			
 			for (i = 0, l = _2; l != 0; l >>>= ++i)
-				if (!ask.add( (char) (i += Long.numberOfTrailingZeros( l ) + 64) )) return false;
+				if (!ask.add((char) (i += Long.numberOfTrailingZeros(l) + 64))) return false;
 			
 			for (i = 0, l = _3; l != 0; l >>>= ++i)
-				if (!ask.add( (char) (i += Long.numberOfTrailingZeros( l ) + 128) )) return false;
+				if (!ask.add((char) (i += Long.numberOfTrailingZeros(l) + 128))) return false;
 			
 			for (i = 0, l = _4; l != 0; l >>>= ++i)
-				if (!ask.add( (char) (i += Long.numberOfTrailingZeros( l ) + 192) )) return false;
+				if (!ask.add((char) (i += Long.numberOfTrailingZeros(l) + 192))) return false;
 			
 			return true;
 		}
 		
-		public boolean containsAll( Producer src ) {
+		public boolean containsAll(Producer src) {
 			if (src.hasNullKey() != hasNull) return false;
 			
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) if (!contains( src.key( tag ) )) return false;
+			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag)) if (!contains(src.key(tag))) return false;
 			return true;
 		}
 		
@@ -195,25 +195,26 @@ a:
 				
 				public int tag() { return R.this.tag(); }
 				
-				public int tag( int tag ) {return R.this.tag( tag );}
+				public int tag(int tag) {return R.this.tag(tag);}
 				
 				public boolean hasNullKey() { return hasNull; }
 				
-				public char key( int tag ) { return (char) (tag >> 8); }
+				public char key(int tag) { return (char) (tag >> 8); }
 				
 			} : producer;
 		}
 		
 		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       compareTo(getClass().cast(obj)) == 0;
 		}
 		
+		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
 		
-		public int compareTo( R other ) {
+		public int compareTo(R other) {
 			
 			return
 					size == other.size ?
@@ -236,31 +237,31 @@ a:
 			
 		}
 		
-		public StringBuilder toString( StringBuilder dst ) {
+		public StringBuilder toString(StringBuilder dst) {
 			
-			if (dst == null) dst = new StringBuilder( size * 10 );
-			else dst.ensureCapacity( dst.length() + size * 10 );
-			return producer().toString( dst );
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
+			return producer().toString(dst);
 		}
 		
-		public String toString() { return toString( null ).toString(); }
+		public String toString() { return toString(null).toString(); }
 	}
 	
 	class RW extends R implements Consumer {
 		
-		public boolean add(  Byte      key ) {
+		public boolean add( Byte      key) {
 			if (key == null) hasNull = true;
-			else add( key + 0 );
+			else add(key + 0);
 			return true;
 		}
 		
-		public boolean add( char value ) {
-			R.add( this, value );
+		public boolean add(char value) {
+			R.add(this, value);
 			return true;
 		}
 		
 		
-		public boolean retainAll( R src ) {
+		public boolean retainAll(R src) {
 			boolean ret = false;
 			
 			if (_1 != src._1)
@@ -284,50 +285,50 @@ a:
 				ret = true;
 			}
 			
-			if (ret) size = Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 ) + Long.bitCount( _4 );
+			if (ret) size = Long.bitCount(_1) + Long.bitCount(_2) + Long.bitCount(_3) + Long.bitCount(_4);
 			return ret;
 		}
 		
-		public boolean retainAll( Consumer ask ) {
+		public boolean retainAll(Consumer ask) {
 			boolean ret = false;
 			int     i;
 			long    l;
 			
 			for (i = 0, l = _1; l != 0; l >>>= ++i)
-				if (!ask.add( (char) (i += Long.numberOfTrailingZeros( l )) ))
+				if (!ask.add((char) (i += Long.numberOfTrailingZeros(l))))
 				{
 					ret = true;
 					_1 &= ~(1L << i);
 				}
 			
 			for (i = 0, l = _2; l != 0; l >>>= ++i)
-				if (!ask.add( (char) (i += Long.numberOfTrailingZeros( l ) + 64) ))
+				if (!ask.add((char) (i += Long.numberOfTrailingZeros(l) + 64)))
 				{
 					ret = true;
 					_2 &= ~(1L << i);
 				}
 			
 			for (i = 0, l = _3; l != 0; l >>>= ++i)
-				if (!ask.add( (char) (i += Long.numberOfTrailingZeros( l ) + 128) ))
+				if (!ask.add((char) (i += Long.numberOfTrailingZeros(l) + 128)))
 				{
 					ret = true;
 					_3 &= ~(1L << i);
 				}
 			
 			for (i = 0, l = _4; l != 0; l >>>= ++i)
-				if (!ask.add( (char) (i += Long.numberOfTrailingZeros( l ) + 192) ))
+				if (!ask.add((char) (i += Long.numberOfTrailingZeros(l) + 192)))
 				{
 					ret = true;
 					_4 &= ~(1L << i);
 				}
 			
 			if (ret)
-				size = (_1 == 0 ? 0 : Long.bitCount( _1 )) + (_2 == 0 ? 0 : Long.bitCount( _2 )) + (_3 == 0 ? 0 : Long.bitCount( _3 )) + (_4 == 0 ? 0 : Long.bitCount( _4 ));
+				size = (_1 == 0 ? 0 : Long.bitCount(_1)) + (_2 == 0 ? 0 : Long.bitCount(_2)) + (_3 == 0 ? 0 : Long.bitCount(_3)) + (_4 == 0 ? 0 : Long.bitCount(_4));
 			
 			return ret;
 		}
 		
-		public boolean remove(  Byte      key ) {
+		public boolean remove( Byte      key) {
 			if (key == null)
 				if (hasNull)
 				{
@@ -336,10 +337,10 @@ a:
 				}
 				else return false;
 			
-			return remove( (byte) (key + 0) );
+			return remove((byte) (key + 0));
 		}
 		
-		public boolean remove( char value ) {
+		public boolean remove(char value) {
 			if (size == 0) return false;
 			
 			final int val = value & 0xFF;
@@ -361,16 +362,16 @@ a:
 		}
 		
 		
-		public boolean retainAll( Producer src ) {
+		public boolean retainAll(Producer src) {
 			long
 					_1 = 0,
 					_2 = 0,
 					_3 = 0,
 					_4 = 0;
 			
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
+			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag))
 			{
-				final int val = src.key( tag ) & 0xFF;
+				final int val = src.key(tag) & 0xFF;
 				
 				if (val < 128)
 					if (val < 64) _1 |= 1L << val;
@@ -402,40 +403,40 @@ a:
 				ret = true;
 			}
 			
-			if (ret) size = (_1 == 0 ? 0 : Long.bitCount( _1 )) + (_2 == 0 ? 0 : Long.bitCount( _2 )) + (_3 == 0 ? 0 : Long.bitCount( _3 )) + (_4 == 0 ? 0 : Long.bitCount( _4 ));
+			if (ret) size = (_1 == 0 ? 0 : Long.bitCount(_1)) + (_2 == 0 ? 0 : Long.bitCount(_2)) + (_3 == 0 ? 0 : Long.bitCount(_3)) + (_4 == 0 ? 0 : Long.bitCount(_4));
 			return ret;
 		}
 		
-		public boolean removeAll( Producer src ) {
+		public boolean removeAll(Producer src) {
 			boolean ret = false;
 			
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
+			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag))
 			{
-				remove( src.key( tag ) );
+				remove(src.key(tag));
 				ret = true;
 			}
 			return ret;
 		}
 		
 		public void clear() {
-			size    = 0;
-			_1      = 0;
-			_2      = 0;
-			_3      = 0;
-			_4      = 0;
+			size = 0;
+			_1 = 0;
+			_2 = 0;
+			_3 = 0;
+			_4 = 0;
 			hasNull = false;
 		}
 		
 		
-		public boolean addAll( Producer src ) {
+		public boolean addAll(Producer src) {
 			boolean      ret = false;
 			char val;
 			
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
-				if (!contains( val = src.key( tag ) ))
+			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag))
+				if (!contains(val = src.key(tag)))
 				{
 					ret = true;
-					R.add( this, val );
+					R.add(this, val);
 				}
 			
 			return ret;

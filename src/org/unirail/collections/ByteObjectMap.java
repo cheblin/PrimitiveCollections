@@ -84,7 +84,7 @@ public interface ByteObjectMap {
 			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		
+		public boolean equals(R<V> other) { return other != null && compareTo(other) == 0; }
 		public int compareTo( R<V> other ) {
 			if (other == null) return -1;
 			int diff;

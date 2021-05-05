@@ -5,34 +5,34 @@ import java.util.Arrays;
 
 public interface ObjectByteNullMap {
 	interface Consumer<K extends Comparable<? super K>> {
-		boolean put( K key, byte value );
+		boolean put(K key, byte value);
 		
-		boolean put( K key,  Byte      value );
+		boolean put(K key,  Byte      value);
 	}
 	
 	
 	interface Producer<K extends Comparable<? super K>> {
 		int tag();
 		
-		int tag( int tag );
+		int tag(int tag);
 		
-		default boolean ok( int tag )       {return tag != -1;}
+		default boolean ok(int tag)       {return tag != -1;}
 		
-		K key( int tag );
+		K key(int tag);
 		
-		byte  value( int tag );
+		byte  value(int tag);
 		
-		default boolean hasValue( int tag ) { return -1 < tag; }
+		default boolean hasValue(int tag) { return -1 < tag; }
 		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
+		default StringBuilder toString(StringBuilder dst) {
+			if (dst == null) dst = new StringBuilder(255);
 			
-			for (int tag = tag(); ok( tag ); dst.append( '\n' ), tag = tag( tag ))
+			for (int tag = tag(); ok(tag); dst.append('\n'), tag = tag(tag))
 			{
-				dst.append( key( tag ) ).append( " -> " );
+				dst.append(key(tag)).append(" -> ");
 				
-				if (hasValue( tag )) dst.append( value( tag ) );
-				else dst.append( "null" );
+				if (hasValue(tag)) dst.append(value(tag));
+				else dst.append("null");
 			}
 			
 			return dst;
@@ -43,9 +43,9 @@ public interface ObjectByteNullMap {
 	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
 		
 		
-		ObjectList.RW<K> keys = new ObjectList.RW<>( 0 );
+		ObjectList.RW<K> keys = new ObjectList.RW<>(0);
 		
-		ByteNullList.RW values = new ByteNullList.RW( 0 );
+		ByteNullList.RW values = new ByteNullList.RW(0);
 		
 		
 		protected int assigned;
@@ -63,40 +63,40 @@ public interface ObjectByteNullMap {
 		protected double loadFactor;
 		
 		
-		public R()                    { this( 4 ); }
+		public R()                  { this(4); }
 		
 		
-		public R( double loadFactor ) {this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );}
+		public R(double loadFactor) {this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);}
 		
-		public R( int expectedItems ) {this( expectedItems, 0.75 );}
+		public R(int expectedItems) {this(expectedItems, 0.75);}
 		
 		
-		public R( int expectedItems, double loadFactor ) {
-			this( loadFactor );
+		public R(int expectedItems, double loadFactor) {
+			this(loadFactor);
 			
-			long length = (long) Math.ceil( expectedItems / loadFactor );
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
+			long length = (long) Math.ceil(expectedItems / loadFactor);
+			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
 			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
+			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
+			mask = size - 1;
 			
-			keys.length( size );
-			values.nulls.length( size );
-			values.values.length( size );
+			keys.length(size);
+			values.nulls.length(size);
+			values.values.length(size);
 		}
 		
-		public int size()              { return assigned + (hasNull == Nullable.NONE ? 0 : 1); }
+		public int size()            { return assigned + (hasNull == Nullable.NONE ? 0 : 1); }
 		
-		public boolean isEmpty()       { return size() == 0; }
+		public boolean isEmpty()     { return size() == 0; }
 		
-		protected int hashKey( K key ) { return Array.hashKey( key.hashCode() ); }
+		protected int hashKey(K key) { return Array.hashKey(key.hashCode()); }
 		
 		public int hashCode() {
 			int h = hasNull == Nullable.VALUE ? 0xDEADBEEF : 0;
 			K   k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((k = keys.array[i]) != null)
-					h += Array.hash( k ) + Array.hash( values.hashCode() );
+					h += Array.hash(k) + Array.hash(values.hashCode());
 			return h;
 		}
 		
@@ -110,58 +110,57 @@ public interface ObjectByteNullMap {
 					int len = keys.array.length;
 					switch (hasNull)
 					{
-						case Nullable.VALUE: return len;
-						case Nullable.NULL: return Integer.MIN_VALUE | len;
+						case Nullable.VALUE:
+							return len;
+						case Nullable.NULL:
+							return Integer.MIN_VALUE | len;
 					}
-					return 0 < assigned ? tag( len ) : -1;
+					return 0 < assigned ? tag(len) : -1;
 				}
 				
-				public int tag( int tag ) {
+				public int tag(int tag) {
 					tag &= Integer.MAX_VALUE;
 					while (-1 < --tag)
 						if (keys.array[tag] != null)
-							return values.nulls.get( tag ) ? tag : tag | Integer.MIN_VALUE;
+							return values.nulls.get(tag) ? tag : tag | Integer.MIN_VALUE;
 					return -1;
 				}
 				
-				public K key( int tag ) {return (tag &= Integer.MAX_VALUE) < keys.array.length ? keys.array[tag] : null; }
+				public K key(int tag) {return (tag &= Integer.MAX_VALUE) < keys.array.length ? keys.array[tag] : null; }
 				
-				public byte value( int tag ) {return tag < keys.array.length ? values.get( values.tag( tag ) ) : NullValue; }
+				public byte value(int tag) {return tag < keys.array.length ? values.get(values.tag(tag)) : NullValue; }
 				
 			} : producer;
 		}
 		
 		
-		public @Nullable int tag( K key ) {
+		public @Nullable int tag(K key) {
 			
 			if (key == null) return hasNull;
 			
-			int slot = hashKey( key ) & mask;
+			int slot = hashKey(key) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0) return (slot = values.tag( slot )) == -1 ? Nullable.NULL : slot;
+				if (k.compareTo(key) == 0) return (slot = values.tag(slot)) == -1 ? Nullable.NULL : slot;
 			
 			return Nullable.NONE;//the key is not present
 		}
 		
-		public boolean hasValue( @Nullable int tag ) {return -1 < tag; }
+		public boolean hasValue(@Nullable int tag) {return -1 < tag; }
 		
-		public byte get( @Nullable int tag ) { return tag == Nullable.VALUE ? NullValue : values.get( tag ); }
+		public byte get(@Nullable int tag) { return tag == Nullable.VALUE ? NullValue : values.get(tag); }
 		
 		
-		public boolean contains( int tag )           {return tag != Nullable.NONE;}
+		public boolean contains(int tag)           {return tag != Nullable.NONE;}
 		
 		@SuppressWarnings("unchecked")
-		public boolean equals( Object obj ) {
-			
-			return obj != null &&
-			       getClass() == obj.getClass() &&
-			
-			       compareTo( getClass().cast( obj ) ) == 0;
+		public boolean equals(Object obj) {
+			return obj != null && getClass() == obj.getClass() && compareTo(getClass().cast(obj)) == 0;
 		}
 		
+		public boolean equals(R<K> other) { return other != null && compareTo(other) == 0; }
 		
-		public int compareTo( R<K> other ) {
+		public int compareTo(R<K> other) {
 			if (other == null) return -1;
 			
 			if (hasNull != other.hasNull ||
@@ -174,12 +173,12 @@ public interface ObjectByteNullMap {
 			K key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key = keys.array[i]) != null)
-					if (values.nulls.get( i ))
+					if (values.nulls.get(i))
 					{
-						int tag = other.tag( key );
-						if (tag == -1 || values.get( i ) != other.get( tag )) return 1;
+						int tag = other.tag(key);
+						if (tag == -1 || values.get(i) != other.get(tag)) return 1;
 					}
-					else if (-1 < other.tag( key )) return 1;
+					else if (-1 < other.tag(key)) return 1;
 			
 			return 0;
 		}
@@ -190,7 +189,7 @@ public interface ObjectByteNullMap {
 			{
 				R<K> dst = (R<K>) super.clone();
 				
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -201,14 +200,14 @@ public interface ObjectByteNullMap {
 			return null;
 		}
 		
-		public StringBuilder toString( StringBuilder dst ) {
+		public StringBuilder toString(StringBuilder dst) {
 			
-			if (dst == null) dst = new StringBuilder( assigned * 10 );
-			else dst.ensureCapacity( dst.length() + assigned * 10 );
-			return producer().toString( dst );
+			if (dst == null) dst = new StringBuilder(assigned * 10);
+			else dst.ensureCapacity(dst.length() + assigned * 10);
+			return producer().toString(dst);
 		}
 		
-		public String toString() { return toString( null ).toString();}
+		public String toString() { return toString(null).toString();}
 		
 	}
 	
@@ -218,16 +217,16 @@ public interface ObjectByteNullMap {
 		}
 		
 		
-		public RW( double loadFactor ) {
-			super( loadFactor );
+		public RW(double loadFactor) {
+			super(loadFactor);
 		}
 		
-		public RW( int expectedItems ) {
-			super( expectedItems );
+		public RW(int expectedItems) {
+			super(expectedItems);
 		}
 		
-		public RW( int expectedItems, double loadFactor ) {
-			super( expectedItems, loadFactor );
+		public RW(int expectedItems, double loadFactor) {
+			super(expectedItems, loadFactor);
 		}
 		
 		public RW<K> clone()          { return (RW<K>) super.clone(); }
@@ -236,15 +235,15 @@ public interface ObjectByteNullMap {
 		
 		public void clear() {
 			assigned = 0;
-			hasNull  = Nullable.NONE;
+			hasNull = Nullable.NONE;
 			keys.clear();
 			values.clear();
 		}
 		
 		
 		//put key -> null
-		public boolean put( K key,  Byte      value ) {
-			if (value != null) put( key, (byte) value );
+		public boolean put(K key,  Byte      value) {
+			if (value != null) put(key, (byte) value);
 			
 			if (key == null)
 			{
@@ -252,130 +251,130 @@ public interface ObjectByteNullMap {
 				return true;
 			}
 			
-			int slot = hashKey( key ) & mask;
+			int slot = hashKey(key) & mask;
 			
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0)
+				if (k.compareTo(key) == 0)
 				{
-					values.set( slot, ( Byte     ) null );
+					values.set(slot, ( Byte     ) null);
 					return true;
 				}
 			
 			keys.array[slot] = key;
-			values.set( slot, ( Byte     ) null );
+			values.set(slot, ( Byte     ) null);
 			
-			if (++assigned == resizeAt) this.allocate( mask + 1 << 1 );
+			if (++assigned == resizeAt) this.allocate(mask + 1 << 1);
 			
 			return true;
 		}
 		
-		public boolean put( K key, byte value ) {
+		public boolean put(K key, byte value) {
 			
 			if (key == null)
 			{
 				
-				hasNull   = Nullable.VALUE;
+				hasNull = Nullable.VALUE;
 				NullValue = value;
 				return true;
 			}
 			
-			int slot = hashKey( key ) & mask;
+			int slot = hashKey(key) & mask;
 			
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0)
+				if (k.compareTo(key) == 0)
 				{
-					values.set( slot, value );
+					values.set(slot, value);
 					return true;
 				}
 			
 			keys.array[slot] = key;
-			values.set( slot, value );
+			values.set(slot, value);
 			
-			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
+			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
 			return true;
 		}
 		
-		protected void allocate( int size ) {
+		protected void allocate(int size) {
 			
 			if (assigned < 1)
 			{
-				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-				mask     = size - 1;
+				resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
+				mask = size - 1;
 				
-				if (keys.length() < size) keys.length( size );
-				else Arrays.fill( keys.array, null );
+				if (keys.length() < size) keys.length(size);
+				else Arrays.fill(keys.array, null);
 				
-				if (values.nulls.length() < size) values.nulls.length( size );
+				if (values.nulls.length() < size) values.nulls.length(size);
 				else values.nulls.clear();
 				
-				if (values.values.length() < size) values.values.length( size );
+				if (values.values.length() < size) values.values.length(size);
 				else values.values.clear();
 				
 				return;
 			}
 			
 			ByteNullList.RW vals = values;
-			values = new ByteNullList.RW( size + 1 );
+			values = new ByteNullList.RW(size + 1);
 			
 			final K[] k = keys.array;
 			
-			keys.length( size + 1 );
+			keys.length(size + 1);
 			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
+			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
+			mask = size - 1;
 			
 			K kk;
 			for (int i = k.length - 1; 0 <= --i; )
 				if ((kk = k[i]) != null)
 				{
-					int slot = hashKey( kk ) & mask;
+					int slot = hashKey(kk) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
 					keys.array[slot] = kk;
-					int tag = vals.tag( slot );
-					if (tag < 0) values.set( slot, ( Byte     ) null );
-					else values.set( slot, vals.get( tag ) );
+					int tag = vals.tag(slot);
+					if (tag < 0) values.set(slot, ( Byte     ) null);
+					else values.set(slot, vals.get(tag));
 				}
 			
 		}
 		
 		
-		public boolean remove( K key ) {
+		public boolean remove(K key) {
 			if (key == null)
 			{
 				hasNull = Nullable.NONE;
 				return true;
 			}
 			
-			int slot = hashKey( key ) & mask;
+			int slot = hashKey(key) & mask;
 			
 			final K[] array = keys.array;
 			for (K k; (k = array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0)
+				if (k.compareTo(key) == 0)
 				{
 					
 					int gapSlot = slot;
 					
 					K kk;
 					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != null; )
-						if ((s - hashKey( kk ) & mask) >= distance)
+						if ((s - hashKey(kk) & mask) >= distance)
 						{
 							array[gapSlot] = kk;
 							
-							if (values.nulls.get( s ))
-								values.set( gapSlot, values.get( s ) );
+							if (values.nulls.get(s))
+								values.set(gapSlot, values.get(s));
 							else
-								values.set( gapSlot, ( Byte     ) null );
+								values.set(gapSlot, ( Byte     ) null);
 							
-							gapSlot  = s;
+							gapSlot = s;
 							distance = 0;
 						}
 					
 					array[gapSlot] = null;
-					values.set( gapSlot, ( Byte     ) null );
+					values.set(gapSlot, ( Byte     ) null);
 					assigned--;
 					return true;
 				}

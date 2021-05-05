@@ -169,7 +169,7 @@ public interface BitsList {
 			       getClass() == other.getClass() &&
 			       compareTo( getClass().cast( other ) ) == 0;
 		}
-		
+		public boolean equals(Base other) { return other != null && compareTo(other) == 0; }
 		
 		public int compareTo( Base other ) {
 			if (other == null) return -1;

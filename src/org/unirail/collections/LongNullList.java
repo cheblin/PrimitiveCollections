@@ -145,7 +145,7 @@ public interface LongNullList {
 			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		
+		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
 		public int compareTo( R other ) {
 			if (other == null) return -1;
 			if (other.size != size) return other.size - size;
