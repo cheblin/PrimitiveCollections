@@ -6,7 +6,7 @@ public interface ByteSet {
 		
 		default boolean add(int value) { return add((byte) (value & 0xFF)); }
 		
-		boolean add(byte value);
+		boolean add(byte key);
 		
 		boolean add( Byte      key);
 		
@@ -235,7 +235,7 @@ a:
 		
 		public boolean add( Byte      key)    { return key == null ? !hasNullKey && (hasNullKey = true) : R.add(this, (byte) (key + 0));}
 		
-		public boolean add(byte value)  { return R.add(this, value); }
+		public boolean add(byte key)    { return R.add(this, key); }
 		
 		public boolean retainAll(R src) {
 			boolean ret = false;

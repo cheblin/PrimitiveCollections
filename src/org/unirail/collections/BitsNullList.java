@@ -69,11 +69,11 @@ public interface BitsNullList {
 			}
 		}
 		
-		public boolean hasValue(int index) {return super.get(index) != null_val ;}
+		public boolean hasValue(int index) {return super.value(index) != null_val ;}
 		
-		public char get(int index)       {return super.get(index); }
+		public char value(int index)       {return super.value(index); }
 		
-		@Override public R clone()     {return (R) super.clone();}
+		@Override public R clone()         {return (R) super.clone();}
 		
 	}
 	
@@ -93,15 +93,21 @@ public interface BitsNullList {
 		public RW(char null_val, int bits_per_item, Integer... values) { super(null_val, bits_per_item, values); }
 		
 		
-		public void add(char value)                                    { add(this, value); }
+		public void add(char value)                                    { this.add((int) value); }
 		
-		public void add(Integer value)                                 { add(this, value == null ? null_val : (char) (value & 0xFFFF)); }
+		public void add(Integer value)                                 {
+			                                                               char src = value == null ? null_val : (char) (value & 0xFFFF);
+			                                                               this.add((int) src);
+		                                                               }
 		
-		public void remove(Integer value)                              { remove(this, value == null ? null_val : (char) (value & 0xFFFF)); }
+		public void remove(Integer value)                              {
+			                                                               char value1 = value == null ? null_val : (char) (value & 0xFFFF);
+			                                                               this.remove((int) value1);
+		                                                               }
 		
-		public void remove(int value)                                  { remove(this, value); }
+		public void remove(int value)                                  { this.remove(value); }
 		
-		public void remove(char value)                                 { remove(this, value); }
+		public void remove(char value)                                 { this.remove((int) value); }
 		
 		public void removeAt(int item)                                 { removeAt(this, item); }
 		
@@ -141,7 +147,7 @@ public interface BitsNullList {
 			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
-		public void clear()         { clear(this); }
+		public void clear()         { this.clear(); }
 		
 		
 		@Override public RW clone() { return (RW) super.clone(); }

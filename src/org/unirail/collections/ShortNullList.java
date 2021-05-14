@@ -86,7 +86,7 @@ public interface ShortNullList {
 		
 		public boolean isEmpty()                          { return size < 1; }
 		
-		public boolean hasValue(int index)                {return nulls.get(index);}
+		public boolean hasValue(int index)                {return nulls.value(index);}
 		
 		@Positive_OK public int nextValueIndex(int index) {return nulls.next1(index);}
 		
@@ -162,7 +162,7 @@ public interface ShortNullList {
 			if (value == null)
 			{
 				if (dst.size <= index) dst.size = index + 1;
-				if (!dst.nulls.get(index)) return;
+				if (!dst.nulls.value(index)) return;
 				dst.nulls.remove(index);
 				dst.values.remove(dst.nulls.rank(index));
 			}
@@ -172,7 +172,7 @@ public interface ShortNullList {
 		protected static void set(R dst, int index, short value) {
 			if (dst.size <= index) dst.size = index + 1;
 			
-			if (dst.nulls.get(index)) dst.values.set(dst.nulls.rank(index) - 1, value);
+			if (dst.nulls.value(index)) dst.values.set(dst.nulls.rank(index) - 1, value);
 			else
 			{
 				dst.nulls.set1(index);
@@ -213,7 +213,7 @@ public interface ShortNullList {
 			
 			size--;
 			
-			if (nulls.get(index)) values.remove(nulls.rank(index) - 1);
+			if (nulls.value(index)) values.remove(nulls.rank(index) - 1);
 			nulls.remove(index);
 		}
 		
@@ -291,8 +291,8 @@ public interface ShortNullList {
 		public void swap(int index1, int index2) {
 			
 			int exist, empty;
-			if (nulls.get(index1))
-				if (nulls.get(index2))
+			if (nulls.value(index1))
+				if (nulls.value(index2))
 				{
 					values.swap(nulls.rank(index1) - 1, nulls.rank(index2) - 1);
 					return;
@@ -304,7 +304,7 @@ public interface ShortNullList {
 					nulls.set0(index1);
 					nulls.set1(index2);
 				}
-			else if (nulls.get(index2))
+			else if (nulls.value(index2))
 			{
 				exist = nulls.rank(index2) - 1;
 				empty = nulls.rank(index1);
@@ -314,7 +314,7 @@ public interface ShortNullList {
 			}
 			else return;
 			
-			short v = values.get(exist);
+			short v = values.value(exist);
 			values.remove(exist);
 			values.add(empty, v);
 		}

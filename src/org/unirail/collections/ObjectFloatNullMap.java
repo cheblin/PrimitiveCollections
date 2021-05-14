@@ -21,11 +21,11 @@ public interface ObjectFloatNullMap {
 		
 		float produce_null_key_val();
 		
-		@Positive_YES int produce_has_val(int state);
+		@Positive_YES int produce_has_val(int info);
 		
-		K produce_key(int state);
+		K produce_key(int info);
 		
-		float  produce_val(int state);
+		float  produce_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -139,7 +139,7 @@ public interface ObjectFloatNullMap {
 			K key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key = keys.array[i]) != null)
-					if (values.nulls.get(i))
+					if (values.nulls.value(i))
 					{
 						int tag = other.info(key);
 						if (tag == -1 || values.value(i) != other.value(tag)) return 1;
@@ -182,9 +182,9 @@ public interface ObjectFloatNullMap {
 			return values.hasValue(info) ? info : info | Integer.MIN_VALUE;
 		}
 		
-		@Override public K produce_key(int state) {return keys.array[state & Integer.MAX_VALUE]; }
+		@Override public K produce_key(int info) {return keys.array[info & Integer.MAX_VALUE]; }
 		
-		@Override public float produce_val(@Positive_ONLY int state) {return values.value(state); }
+		@Override public float produce_val(@Positive_ONLY int info) {return values.value(info); }
 		
 		//endregion
 		
@@ -201,7 +201,6 @@ public interface ObjectFloatNullMap {
 		
 		@Override public RW<K> clone()                  { return (RW<K>) super.clone(); }
 		
-		public Consumer<K> consumer()                   {return this; }
 		
 		
 		@Override public boolean put(K key,  Float     value) {
@@ -335,7 +334,7 @@ public interface ObjectFloatNullMap {
 						{
 							array[gapSlot] = kk;
 							
-							if (values.nulls.get(s))
+							if (values.nulls.value(s))
 								values.set(gapSlot, values.value(s));
 							else
 								values.set(gapSlot, ( Float    ) null);

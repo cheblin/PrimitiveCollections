@@ -43,12 +43,18 @@ public interface BoolNullList {
 			}
 		}
 		
-		public Boolean value(int index) {
-			final int i = get(index);
-			return i == 0 ? null : i == 1 ? Boolean.TRUE : Boolean.FALSE;
+		public Boolean asBoolean(int index) {
+			switch (value(index))
+			{
+				case 1:
+					return Boolean.TRUE;
+				case 2:
+					return Boolean.FALSE;
+			}
+			return null;
 		}
 		
-		public R clone()         {return (R) super.clone();}
+		public R clone() {return (R) super.clone();}
 		
 	}
 	
@@ -65,15 +71,21 @@ public interface BoolNullList {
 		
 		public RW(Boolean... values)                       { super(values); }
 		
-		public void add(int value)                         { add(this, (char) value);}
+		public void add(int value)                         { this.add((int) (char) value);}
 		
-		public void add(boolean value)                     { add(this, value ? (char) 1 : 2); }
+		public void add(boolean value)                     {
+			                                                   char src = value ? (char) 1 : 2;
+			                                                   this.add((int) src);
+		                                                   }
 		
-		public void add(Boolean value)                     { add(this, value == null ? 0 : value ? (char) 1 : 2); }
+		public void add(Boolean value)                     {
+			                                                   char src = value == null ? 0 : value ? (char) 1 : 2;
+			                                                   this.add((int) src);
+		                                                   }
 		
-		public void remove(Boolean value)                  { remove(this, value == null ? 0 : value ? (char) 1 : 2); }
+		public void remove(Boolean value)                  { this.remove(value == null ? 0 : value ? 1 : 2); }
 		
-		public void remove(boolean value)                  { remove(this, value ? (char) 1 : 2); }
+		public void remove(boolean value)                  { this.remove(value ? 1 : 2); }
 		
 		public void removeAt(int item)                     { removeAt(this, item); }
 		
@@ -102,7 +114,7 @@ public interface BoolNullList {
 				set(this, index + i, values[i] == null ? 0 : values[i] ? (char) 1 : 2);
 		}
 		
-		public void clear() { clear(this); }
+		public void clear() { this.clear(); }
 		
 		
 		public RW clone()   { return (RW) super.clone(); }

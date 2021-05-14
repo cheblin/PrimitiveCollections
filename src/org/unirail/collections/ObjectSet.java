@@ -14,9 +14,9 @@ public interface ObjectSet {
 		
 		boolean produce_has_null_key();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		K produce_key(int state);
+		K produce_key( int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -137,9 +137,9 @@ public interface ObjectSet {
 		
 		@Override public boolean produce_has_null_key() { return hasNullKey; }
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != null) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
 		
-		@Override public K produce_key(int state)       {return keys.array[state]; }
+		@Override public K produce_key(int info)        {return keys.array[info]; }
 		
 		//endregion
 		

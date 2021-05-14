@@ -14,7 +14,7 @@ public interface ByteList {
 	interface Producer {
 		int size();
 		
-		byte  get(int index);
+		byte  value(int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -23,7 +23,7 @@ public interface ByteList {
 			
 			for (int i = 0; i < size; i++)
 			{
-				dst.append(get(i)).append('\t');
+				dst.append(value(i)).append('\t');
 				if (i % 10 == 0) dst.append('\t').append(i).append('\n');
 			}
 			return dst;
@@ -40,9 +40,7 @@ public interface ByteList {
 		
 		public R(int... items) {
 			this(items == null ? 0 : items.length);
-			if (items == null) return;
-			fill(this, items);
-			size = items.length;
+			if (items != null) fill(this, items);
 		}
 		
 		public R(R src, int fromIndex, int toIndex) {
@@ -78,13 +76,13 @@ public interface ByteList {
 		
 		public boolean containsAll(Producer src) {
 			for (int i = src.size(); -1 < --i; )
-				if (!contains(src.get(i))) return false;
+				if (!contains(src.value(i))) return false;
 			
 			return true;
 		}
 		
 		
-		public byte get(int index) {return  (byte) array[index]; }
+		public byte value(int index) {return  (byte) array[index]; }
 		
 		
 		public int indexOf( byte value) {
@@ -120,7 +118,7 @@ public interface ByteList {
 		
 		public int hashCode() {
 			int hashCode = 1;
-			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + Array.hash(get(i));
+			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + Array.hash(value(i));
 			
 			return hashCode;
 		}
@@ -160,7 +158,7 @@ public interface ByteList {
 		public byte[] array()                 {return array;}
 		
 		@Override public void consume(int size) {
-			if (array.length < size) array = new byte[size];
+			if (array.length < size) length(-size);
 			this.size = 0;
 		}
 		
@@ -244,14 +242,14 @@ public interface ByteList {
 		public void addAll(Producer src) {
 			int s = src.size();
 			consume(s);
-			for (int i = 0; i < s; i++) array[size + i] = (byte) src.get(i);
+			for (int i = 0; i < s; i++) array[size + i] = (byte) src.value(i);
 			size += s;
 		}
 		
 		public boolean addAll(Producer src, int index) {
 			int s = src.size();
 			size = Array.resize(this, size, index, s);
-			for (int i = 0; i < s; i++) array[index + i] = (byte) src.get(i);
+			for (int i = 0; i < s; i++) array[index + i] = (byte) src.value(i);
 			return true;
 		}
 		
@@ -260,7 +258,7 @@ public interface ByteList {
 			int fix = size;
 			
 			for (int i = 0, k, src_size = src.size(); i < src_size; i++)
-				if (-1 < (k = indexOf(src.get(i)))) remove(k);
+				if (-1 < (k = indexOf(src.value(i)))) remove(k);
 			return fix - size;
 		}
 		
@@ -283,7 +281,7 @@ public interface ByteList {
 			final int   fix = size;
 			byte v;
 			for (int index = 0; index < size; index++)
-				if (!chk.contains(v = get(index)))
+				if (!chk.contains(v = value(index)))
 					remove(indexOf(v));
 			
 			return fix != size;

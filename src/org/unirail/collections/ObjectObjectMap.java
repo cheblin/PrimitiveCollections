@@ -18,11 +18,11 @@ public interface ObjectObjectMap {
 		V produce_null_key_val();
 		
 		
-		int produce(int state);
+		int produce(int info);
 		
-		K produce_key(int state);
+		K produce_key(int info);
 		
-		V produce_val(int state);
+		V produce_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -167,15 +167,15 @@ public interface ObjectObjectMap {
 		
 		//region  producer
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != null) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
 		
 		@Override public boolean produce_has_null_key() { return hasNullKey; }
 		
 		@Override public V produce_null_key_val()       { return NullKeyValue; }
 		
-		@Override public K produce_key(int state)       {return keys.array[state]; }
+		@Override public K produce_key(int info)        {return keys.array[info]; }
 		
-		@Override public V produce_val(int state)       {return values.get(state); }
+		@Override public V produce_val(int info)        {return values.value(info); }
 		
 		//endregion
 		
@@ -306,9 +306,7 @@ public interface ObjectObjectMap {
 			return false;
 		}
 		
-		public RW<K, V> clone()          { return (RW<K, V>) super.clone(); }
-		
-		public Consumer<K, V> consumer() {return this; }
+		public RW<K, V> clone() { return (RW<K, V>) super.clone(); }
 	}
 }
 	

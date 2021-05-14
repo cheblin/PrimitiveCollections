@@ -22,11 +22,11 @@ public interface CharByteMap {
 		
 		byte produce_0key_val();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		char produce_key(int state);
+		char produce_key(int info);
 		
-		byte produce_val(int state);
+		byte produce_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -117,7 +117,7 @@ public interface CharByteMap {
 			if (info == Positive_Values.VALUE) return nullKeyValue;
 			if (info == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return (byte) values.get(info);
+			return (byte) values.value(info);
 		}
 		
 		public int hashCode() {
@@ -190,11 +190,11 @@ public interface CharByteMap {
 		@Override public byte produce_0key_val() {return OkeyValue;}
 		
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public char produce_key(int state) {return  (char) keys.array[state]; }
+		@Override public char produce_key(int info) {return  (char) keys.array[info]; }
 		
-		@Override public byte produce_val(int state) {return  (byte) values.array[state]; }
+		@Override public byte produce_val(int info) {return  (byte) values.array[info]; }
 		
 		//endregion
 		

@@ -30,11 +30,11 @@ public interface BitsList {
 			for (int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++)
 			{
 				final int bit   = bit(bp);
-				short     value = (short) (Base.BITS < bit + bits ? get(src, src = produce(index(bp) + 1), bit, bits, mask) : get(src, bit, mask));
+				short     value = (short) (Base.BITS < bit + bits ? value(src, src = produce(index(bp) + 1), bit, bits, mask) : value(src, bit, mask));
 				
 				dst.append(value).append('\t');
 				
-				if (i % 10 == 0) dst.append('\t').append(i / 10 *10).append('\n');
+				if (i % 10 == 0) dst.append('\t').append(i / 10 * 10).append('\n');
 			}
 			
 			return dst;
@@ -43,17 +43,17 @@ public interface BitsList {
 	
 	static final long FFFFFFFFFFFFFFFF = ~0L;
 	
-	static long mask(int bits)                                         {return (1L << bits) - 1;}
+	static long mask(int bits)                                           {return (1L << bits) - 1;}
 	
-	static int size(int src)                                           {return src >>> 3;}
+	static int size(int src)                                             {return src >>> 3;}
 	
-	static int index(int item_X_bits)                                  {return item_X_bits >> Base.LEN;}
+	static int index(int item_X_bits)                                    {return item_X_bits >> Base.LEN;}
 	
-	static int bit(int item_X_bits)                                    {return item_X_bits & Base.MASK;}
+	static int bit(int item_X_bits)                                      {return item_X_bits & Base.MASK;}
 	
-	static long get(long src, int bit, int mask)                       {return src >>> bit & mask; }
+	static long value(long src, int bit, int mask)                       {return src >>> bit & mask; }
 	
-	static long get(long prev, long next, int bit, int bits, int mask) {return ((next & mask(bit + bits - Base.BITS)) << Base.BITS - bit | prev >>> bit) & mask; }
+	static long value(long prev, long next, int bit, int bits, int mask) {return ((next & mask(bit + bits - Base.BITS)) << Base.BITS - bit | prev >>> bit) & mask; }
 	
 	
 	static long set(int src, int item, long buff, int mask, int bits, Consumer dst) {
@@ -84,6 +84,85 @@ public interface BitsList {
 		protected int bits;
 		protected int mask;
 		
+		protected void add(int src) {
+			long v = src & mask;
+			
+			final int p = bits * ++size;
+			if (length() * BITS < p) length(Math.max(length() + length() / 2, len4bits(p)));
+			
+			final int index = index(p);
+			final int bit   = bit(p);
+			
+			if (bit == 0) array[index] = v;
+			else
+			{
+				array[index] |= v << bit;
+				if (BITS < bit + bits) array[index + 1] = v >> BITS - bit;
+			}
+			
+		}
+		
+		protected void add(int index, int value) {
+			
+			if (size <= index)
+			{
+				set(this, index, value);
+				return;
+			}
+			
+			long v = value & mask;
+			
+			int p = index * bits;
+			
+			 index = index(p);
+			
+			final long[] src  = array;
+			long[]       dst_ = array;
+			
+			if (length() * BITS < p) length(Math.max(length() + length() / 2, len4bits(p)));
+			
+			
+			final int bit = bit(p);
+			if (0 < bit)
+			{
+				final long i = src[index];
+				final int  k = BITS - bit;
+				if (bit + bits < BITS)
+				{
+					dst_[index] = i << k >>> k | v << bit | i >>> bit << bit + bits;
+					v = i >>> bit + bits | src[index + 1] << k - bits & mask;
+				}
+				else
+				{
+					dst_[index] = i << k >>> k | v << bit;
+					v = v >> k | i >> bit << bits - k;
+				}
+				index++;
+			}
+			
+			size++;
+			
+			for (final int max = len4bits(size * bits); ; )
+			{
+				final long i = src[index];
+				dst_[index] = i << bits | v;
+				if (max < ++index) break;
+				v = i >>> BITS - bits;
+			}
+		}
+		
+		protected void clear() {
+			for (int i = index(bits * size) + 1; -1 < --i; )
+				array[i] = 0;
+			
+			size = 0;
+		}
+		
+		protected void remove(int value) {
+			for (int i = size; -1 < (i = lastIndexOf(i, value)); )
+				removeAt(this, i);
+		}
+		
 		protected int bits(int bits) {
 			mask = (int) mask(bits);
 			return this.bits = bits;
@@ -95,7 +174,7 @@ public interface BitsList {
 		
 		protected Base(int bits_per_item, int items) {
 			bits(bits_per_item);
-			array = new long[index(items * bits) + 1];
+			array = new long[len4bits(items * bits)];
 		}
 		
 		protected static void set(Base dst, int from, char... src) {
@@ -131,10 +210,25 @@ public interface BitsList {
 		}
 		
 		protected static void consume(Base dst, int size, int bits) {
-			if (dst.array.length < index((dst.size = size) * dst.bits(bits)) + 1) dst.array = new long[BitsList.index(size * bits) + 1];
+			if (dst.length() < len4bits((dst.size = size) * bits)) dst.length(-size * bits);
+			else Arrays.fill(dst.array, 0);
 		}
 		
-		public int length()                 { return array.length * BITS / bits; }
+		public int length() { return array.length * BITS / bits; }
+		
+		protected void length(int items) {
+			if (0 < items)
+			{
+				if (items < size) size = items;
+				
+				array = Arrays.copyOf(array, len4bits(items * bits));
+				return;
+			}
+			
+			size = 0;
+			
+			array = items == 0 ? Array.longs0 : new long[len4bits(-items * bits)];
+		}
 		
 		public int size()                   { return size; }
 		
@@ -151,23 +245,23 @@ public interface BitsList {
 			if (dst == null || dst.length < size) dst = new byte[size];
 			
 			for (int item = 0, max = size * bits; item < max; item += bits)
-				dst[item / bits] = (byte) get(item);
+				dst[item / bits] = (byte) value(item);
 			
 			return dst;
 		}
 		
-		public char get(int item) {
+		public char value(int item) {
 			final int index = index(item *= bits);
 			final int bit   = bit(item);
 			
-			return (char) (BITS < bit + bits ? BitsList.get(array[index], array[index + 1], bit, bits, mask) : BitsList.get(array[index], bit, mask));
+			return (char) (BITS < bit + bits ? BitsList.value(array[index], array[index + 1], bit, bits, mask) : BitsList.value(array[index], bit, mask));
 		}
 		
 		public int indexOf(char value) { return indexOf((int) value); }
 		
 		public int indexOf(int value) {
 			for (int item = 0, max = size * bits; item < max; item += bits)
-				if (value == get(item)) return item / bits;
+				if (value == value(item)) return item / bits;
 			
 			return -1;
 		}
@@ -178,7 +272,7 @@ public interface BitsList {
 		
 		public int lastIndexOf(int from, int value) {
 			for (int i = size; -1 < --i; )
-				if (value == get(i)) return i;
+				if (value == value(i)) return i;
 			
 			return -1;
 		}
@@ -222,15 +316,14 @@ public interface BitsList {
 			
 			final long v = src & dst.mask;
 			final int
-					bits = item * dst.bits,
-					index = index(bits),
-					bit = bit(bits),
+					p = item * dst.bits,
+					index = index(p),
+					bit = bit(p),
 					k = BITS - bit;
 			
 			if (dst.size <= item)
 			{
-				int len4bits = len4bits(bits);
-				if (dst.array.length <= len4bits) dst.array = Arrays.copyOf(dst.array, Math.max(dst.array.length + dst.array.length / 2, len4bits));
+				if (dst.length() * BITS <= p) dst.length(Math.max(dst.length() + dst.length() / 2, len4bits(p)));
 				
 				dst.array[index] = index == index(dst.size * dst.bits) ? dst.array[index] & FFFFFFFFFFFFFFFF >> BITS - bit | v << bit : v << bit;
 				
@@ -248,84 +341,6 @@ public interface BitsList {
 			else dst.array[index] = i << k >>> k | v << bit | i >>> bit + dst.bits << bit + dst.bits;
 		}
 		
-		protected static void add(Base dst, char bits) { add(dst, (int) bits);}
-		
-		protected static void add(Base dst, int bits) {
-			long v = bits & dst.mask;
-			
-			final int item = dst.bits * dst.size++;
-			if (dst.array.length * BITS < item + dst.bits) dst.array = Arrays.copyOf(dst.array, Math.max(dst.array.length + dst.array.length / 2, dst.size / BITS + 1));
-			
-			final int index = index(item);
-			final int bit   = bit(item);
-			
-			if (bit == 0) dst.array[index] = v;
-			else
-			{
-				dst.array[index] |= v << bit;
-				if (BITS < bit + dst.bits) dst.array[index + 1] = v >> BITS - bit;
-			}
-			
-		}
-		
-		protected static void add(Base dst, int item, char value) { add(dst, item, (int) value);}
-		
-		protected static void add(Base dst, int item, int value) {
-			
-			if (dst.size <= item)
-			{
-				set(dst, item, value);
-				return;
-			}
-			
-			long v = value & dst.mask;
-			
-			int index = index(item * dst.bits);
-			dst.size++;
-			
-			final long[] src  = dst.array;
-			long[]       dst_ = dst.array;
-			
-			if (dst.array.length * BITS < dst.size * dst.bits)
-			{
-				dst_ = dst.array = new long[dst.array.length + dst.array.length / 2];
-				if (0 < index) System.arraycopy(src, 0, dst, 0, index);
-			}
-			
-			final int bit = bit(item * dst.bits);
-			if (0 < bit)
-			{
-				final long i = src[index];
-				final int  k = BITS - bit;
-				if (bit + dst.bits < BITS)
-				{
-					dst_[index] = i << k >>> k | v << bit | i >>> bit << bit + dst.bits;
-					v = i >>> bit + dst.bits | src[index + 1] << k - dst.bits & dst.mask;
-				}
-				else
-				{
-					dst_[index] = i << k >>> k | v << bit;
-					v = v >> k | i >> bit << dst.bits - k;
-				}
-				index++;
-			}
-			
-			for (final int max = len4bits(dst.size * dst.bits); ; )
-			{
-				final long i = src[index];
-				dst_[index] = i << dst.bits | v;
-				if (max < ++index) break;
-				v = i >>> BITS - dst.bits;
-			}
-		}
-		
-		protected static void remove(Base dst, char value) {remove(dst, (int) value);}
-		
-		protected static void remove(Base dst, int value) {
-			for (int i = dst.size; -1 < (i = dst.lastIndexOf(i, value)); )
-				removeAt(dst, i);
-		}
-		
 		protected static void removeAt(Base dst, int item) {
 			
 			if (item + 1 == dst.size)
@@ -340,7 +355,7 @@ public interface BitsList {
 			final int k = BITS - bit;
 			long      i = dst.array[index];
 			
-			if (index + 1 == dst.array.length)
+			if (index + 1 == dst.length())
 			{
 				if (bit == 0) dst.array[index] = i >>> dst.bits;
 				else if (k < dst.bits) dst.array[index] = i << k >>> k;
@@ -381,29 +396,17 @@ public interface BitsList {
 			final int fix = dst.size;
 			
 			for (int item = 0, v; item < dst.size; item++)
-				if (!chk.contains(v = dst.get(item))) Base.remove(dst, (char) v);
+				if (!chk.contains(v = dst.value(item))) dst.remove(v);
 			
 			return fix != dst.size;
 		}
 		
-		protected static void clear(Base dst) {
-			for (int i = index(dst.bits * dst.size) + 1; -1 < --i; )
-				dst.array[i] = 0;
-			
-			dst.size = 0;
-		}
-		
-		protected static void fit(Base dst) {
-			if (dst.size() == 0) dst.array = Array.longs0;
-			else if (dst.size() < dst.length())
-				dst.array = Arrays.copyOf(dst.array, len4bits(dst.size * dst.bits));
-		}
 		
 		@Override public Base clone() {
 			try
 			{
 				Base dst = (Base) super.clone();
-				dst.array = dst.array.length == 0 ? array : array.clone();
+				dst.array = dst.length() == 0 ? array : array.clone();
 				return dst;
 				
 			} catch (CloneNotSupportedException e) { e.printStackTrace(); }
@@ -450,17 +453,17 @@ public interface BitsList {
 		
 		@Override public void consume(int items, int bits) { Base.consume(this, items, bits);}
 		
-		public void add(int value)                         { add(this, value); }
+		public void add(int value)                         { super.add(value); }
 		
-		public void add(char bits)                         { add(this, bits); }
+		public void add(char src)                          { super.add(src); }
 		
-		public void add(int item, int value)               { add(this, item, value); }
+		public void add(int index, int src)                { super.add(index, src); }
 		
-		public void add(int item, char value)              { add(this, item, value); }
+		public void add(int index, char src)               { super.add(index, src); }
 		
-		public void remove(int value)                      { remove(this, value); }
+		public void remove(int value)                      { super.remove(value); }
 		
-		public void remove(char value)                     { remove(this, value); }
+		public void remove(char value)                     { super.remove(value); }
 		
 		public void removeAt(int item)                     { removeAt(this, item); }
 		
@@ -478,9 +481,9 @@ public interface BitsList {
 		
 		public boolean retainAll(R chk)                    { return retainAll(this, chk); }
 		
-		public void clear()                                { clear(this); }
+		public void clear()                                { super.clear(); }
 		
-		public void fit()                                  { fit(this); }
+		public void fit()                                  { length(size()); }
 		
 		@Override public RW clone()                        { return (RW) super.clone(); }
 	}

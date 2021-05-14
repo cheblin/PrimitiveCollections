@@ -6,7 +6,7 @@ public interface UByteSet {
 		
 		default boolean add(int value) { return add((byte) (value & 0xFF)); }
 		
-		boolean add(char value);
+		boolean add(char key);
 		
 		boolean add( Character key);
 		
@@ -235,7 +235,7 @@ a:
 		
 		public boolean add( Character key)    { return key == null ? !hasNullKey && (hasNullKey = true) : R.add(this, (char) (key + 0));}
 		
-		public boolean add(char value)  { return R.add(this, value); }
+		public boolean add(char key)    { return R.add(this, key); }
 		
 		public boolean retainAll(R src) {
 			boolean ret = false;

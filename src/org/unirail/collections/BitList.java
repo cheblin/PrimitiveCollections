@@ -64,7 +64,7 @@ public interface BitList {
 			if (src.size() <= from_bit) return;
 			size = Math.min(to_bit, src.size() - 1) - from_bit;
 			
-			int i2 = src.get(to_bit) ? to_bit : src.prev1(to_bit);
+			int i2 = src.value(to_bit) ? to_bit : src.prev1(to_bit);
 			
 			if (i2 == -1) return;
 			
@@ -72,7 +72,7 @@ public interface BitList {
 			used = array.length | IO;
 			
 			int
-					i1 = src.get(from_bit) ? from_bit : src.next1(from_bit),
+					i1 = src.value(from_bit) ? from_bit : src.next1(from_bit),
 					index = i1 >>> LEN,
 					max = (i2 >>> LEN) + 1,
 					i = 0;
@@ -126,12 +126,12 @@ public interface BitList {
 		}
 		
 		
-		public boolean get(int bit) {
+		public boolean value(int bit) {
 			final int index = bit >> LEN;
 			return index < used() && (array[index] & 1L << bit) != 0;
 		}
 		
-		public int get(long[] dst, int from_bit, int to_bit) {
+		public int value(long[] dst, int from_bit, int to_bit) {
 			
 			final int ret = (to_bit - from_bit - 1 >> LEN) + 1;
 			

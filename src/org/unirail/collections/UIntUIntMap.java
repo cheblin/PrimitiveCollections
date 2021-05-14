@@ -22,11 +22,11 @@ public interface UIntUIntMap {
 		
 		long produce_0key_val();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		long produce_key(int state);
+		long produce_key(int info);
 		
-		long produce_val(int state);
+		long produce_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -117,7 +117,7 @@ public interface UIntUIntMap {
 			if (info == Positive_Values.VALUE) return nullKeyValue;
 			if (info == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return (0xFFFFFFFFL &  values.get(info));
+			return (0xFFFFFFFFL &  values.value(info));
 		}
 		
 		public int hashCode() {
@@ -190,11 +190,11 @@ public interface UIntUIntMap {
 		@Override public long produce_0key_val() {return OkeyValue;}
 		
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public long produce_key(int state) {return   keys.array[state]; }
+		@Override public long produce_key(int info) {return   keys.array[info]; }
 		
-		@Override public long produce_val(int state) {return  (0xFFFFFFFFL &  values.array[state]); }
+		@Override public long produce_val(int info) {return  (0xFFFFFFFFL &  values.array[info]); }
 		
 		//endregion
 		

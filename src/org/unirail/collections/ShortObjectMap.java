@@ -23,11 +23,11 @@ public interface ShortObjectMap {
 		
 		V produce_0key_val();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		short produce_key(int state);
+		short produce_key(int info);
 		
-		V produce_val(int state);
+		V produce_val(int info);
 		
 		
 		default StringBuilder toString(StringBuilder dst) {
@@ -196,7 +196,7 @@ public interface ShortObjectMap {
 		
 		//region  producer
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
 		@Override public boolean produce_has_null_key() {return hasNullKey;}
 		
@@ -206,9 +206,9 @@ public interface ShortObjectMap {
 		
 		@Override public V produce_0key_val()           {return OkeyValue;}
 		
-		@Override public short produce_key(int state) {return  (short) keys.array[state]; }
+		@Override public short produce_key(int info) {return  (short) keys.array[info]; }
 		
-		@Override public V produce_val(int state)       {return  values.array[state]; }
+		@Override public V produce_val(int info)        {return  values.array[info]; }
 		
 		//endregion
 		
@@ -231,7 +231,6 @@ public interface ShortObjectMap {
 			super(expectedItems, loadFactor);
 		}
 		
-		public Consumer<V> consumer() {return this; }
 		
 		
 		public boolean put( Short     key, V value) {

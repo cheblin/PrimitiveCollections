@@ -22,11 +22,11 @@ public interface IntUByteMap {
 		
 		char produce_0key_val();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		int produce_key(int state);
+		int produce_key(int info);
 		
-		char produce_val(int state);
+		char produce_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -117,7 +117,7 @@ public interface IntUByteMap {
 			if (info == Positive_Values.VALUE) return nullKeyValue;
 			if (info == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return (char)( 0xFFFF &  values.get(info));
+			return (char)( 0xFFFF &  values.value(info));
 		}
 		
 		public int hashCode() {
@@ -190,11 +190,11 @@ public interface IntUByteMap {
 		@Override public char produce_0key_val() {return OkeyValue;}
 		
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public int produce_key(int state) {return   keys.array[state]; }
+		@Override public int produce_key(int info) {return   keys.array[info]; }
 		
-		@Override public char produce_val(int state) {return  (char)( 0xFFFF &  values.array[state]); }
+		@Override public char produce_val(int info) {return  (char)( 0xFFFF &  values.array[info]); }
 		
 		//endregion
 		

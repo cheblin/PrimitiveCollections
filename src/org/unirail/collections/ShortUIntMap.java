@@ -22,11 +22,11 @@ public interface ShortUIntMap {
 		
 		long produce_0key_val();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		short produce_key(int state);
+		short produce_key(int info);
 		
-		long produce_val(int state);
+		long produce_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -117,7 +117,7 @@ public interface ShortUIntMap {
 			if (info == Positive_Values.VALUE) return nullKeyValue;
 			if (info == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return (0xFFFFFFFFL &  values.get(info));
+			return (0xFFFFFFFFL &  values.value(info));
 		}
 		
 		public int hashCode() {
@@ -190,11 +190,11 @@ public interface ShortUIntMap {
 		@Override public long produce_0key_val() {return OkeyValue;}
 		
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public short produce_key(int state) {return  (short) keys.array[state]; }
+		@Override public short produce_key(int info) {return  (short) keys.array[info]; }
 		
-		@Override public long produce_val(int state) {return  (0xFFFFFFFFL &  values.array[state]); }
+		@Override public long produce_val(int info) {return  (0xFFFFFFFFL &  values.array[info]); }
 		
 		//endregion
 		

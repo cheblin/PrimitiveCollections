@@ -187,7 +187,7 @@ public interface DoubleShortNullMap {
 			double           key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key =  keys.array[i]) != 0)
-					if (values.nulls.get(i))
+					if (values.nulls.value(i))
 					{
 						int ii = other.info(key);
 						if (ii < 0 || values.value(i) != other.value(ii)) return 1;
@@ -353,7 +353,7 @@ public interface DoubleShortNullMap {
 							
 							array[gapSlot] = kk;
 							
-							if (values.nulls.get(s))
+							if (values.nulls.value(s))
 								values.set(gapSlot, values.value(s));
 							else
 								values.set(gapSlot, ( Short    ) null);
@@ -402,7 +402,7 @@ public interface DoubleShortNullMap {
 			
 			for (int i = array.length - 1; -1 < --i; )
 				if ((key = array[i]) != 0)
-					if (values.nulls.get(i)) tmp.put( key, values.value(i));
+					if (values.nulls.value(i)) tmp.put( key, values.value(i));
 					else tmp.put( key, null);
 			
 			keys = tmp.keys;

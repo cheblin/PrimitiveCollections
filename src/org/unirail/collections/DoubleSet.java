@@ -3,7 +3,7 @@ package org.unirail.collections;
 public interface DoubleSet {
 	
 	interface Consumer {
-		boolean add(double value);
+		boolean add(double key);
 		
 		boolean add( Double    key);
 		
@@ -17,9 +17,9 @@ public interface DoubleSet {
 		
 		int size();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		double  produce_key(@Positive_Values int state);
+		double  produce_key( int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -205,9 +205,9 @@ public interface DoubleSet {
 		
 		@Override public boolean produce_has_0key()     { return hasOkey; }
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public double produce_key(int state) { return   keys.array[state]; }
+		@Override public double produce_key(int info) { return   keys.array[info]; }
 		//endregion
 		
 		public String toString() { return toString(null).toString();}
@@ -226,7 +226,7 @@ public interface DoubleSet {
 		
 		@Override public boolean add( Double    key) { return key == null ? !hasNullKey && (hasNullKey = true) : add((double) key);}
 		
-		@Override public boolean add(double  value)  { return R.add(this, value); }
+		@Override public boolean add(double  key)    { return R.add(this, key); }
 		
 		@Override public void consume(int items) {
 			assigned = 0;
@@ -284,7 +284,7 @@ public interface DoubleSet {
 		public int removeAll(DoubleList.Producer src) {
 			int fix = size();
 			
-			for (int i = 0, s = src.size(); i < s; i++) remove(src.get(i));
+			for (int i = 0, s = src.size(); i < s; i++) remove(src.value(i));
 			
 			return fix - size();
 		}

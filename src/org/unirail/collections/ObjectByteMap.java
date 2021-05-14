@@ -18,11 +18,11 @@ public interface ObjectByteMap {
 		
 		byte produce_null_key_val();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		K produce_key(int state);
+		K produce_key(int info);
 		
-		byte  produce_val(int state);
+		byte  produce_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -165,11 +165,11 @@ public interface ObjectByteMap {
 		
 		@Override public byte produce_null_key_val()     { return NullKeyValue; }
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != null) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
 		
-		@Override public K produce_key(int state)       {return keys.array[state]; }
+		@Override public K produce_key(int info)        {return keys.array[info]; }
 		
-		@Override public byte produce_val(int state) {return values.get(state); }
+		@Override public byte produce_val(int info) {return values.value(info); }
 		
 		//endregion
 		

@@ -18,11 +18,11 @@ public interface UByteCharMap {
 		
 		char produce_null_key_val();
 		
-		int produce(@Positive_ONLY int state);
+		int produce( int info);
 		
-		char produce_key(@Positive_ONLY int state);
+		char produce_key( int info);
 		
-		char produce_val(@Positive_ONLY int state);
+		char produce_val( int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -105,18 +105,18 @@ public interface UByteCharMap {
 		
 		//region  producer
 		
-		@Override public int produce(int state) {
-			int i = (state & ~0xFF) + (1 << 8);
-			return i | keys.produce(state);
+		@Override public int produce(int info) {
+			int i = (info & ~0xFF) + (1 << 8);
+			return i | keys.produce(info);
 		}
 		
 		@Override public boolean produce_has_null_key() { return keys.hasNullKey; }
 		
 		@Override public char produce_null_key_val() { return NullKeyValue; }
 		
-		@Override public char produce_key(int state) {return (char) (state & 0xFF);}
+		@Override public char produce_key(int info) {return (char) (info & 0xFF);}
 		
-		@Override public char produce_val(int state) { return (char) values.array[state >> 8]; }
+		@Override public char produce_val(int info) { return (char) values.array[info >> 8]; }
 		
 		//endregion
 		public String toString() { return toString(null).toString();}

@@ -3,7 +3,7 @@ package org.unirail.collections;
 public interface CharSet {
 	
 	interface Consumer {
-		boolean add(char value);
+		boolean add(char key);
 		
 		boolean add( Character key);
 		
@@ -17,9 +17,9 @@ public interface CharSet {
 		
 		int size();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		char  produce_key(@Positive_Values int state);
+		char  produce_key( int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -205,9 +205,9 @@ public interface CharSet {
 		
 		@Override public boolean produce_has_0key()     { return hasOkey; }
 		
-		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public char produce_key(int state) { return (char)  keys.array[state]; }
+		@Override public char produce_key(int info) { return (char)  keys.array[info]; }
 		//endregion
 		
 		public String toString() { return toString(null).toString();}
@@ -226,7 +226,7 @@ public interface CharSet {
 		
 		@Override public boolean add( Character key) { return key == null ? !hasNullKey && (hasNullKey = true) : add((char) key);}
 		
-		@Override public boolean add(char  value)  { return R.add(this, value); }
+		@Override public boolean add(char  key)    { return R.add(this, key); }
 		
 		@Override public void consume(int items) {
 			assigned = 0;
@@ -284,7 +284,7 @@ public interface CharSet {
 		public int removeAll(CharList.Producer src) {
 			int fix = size();
 			
-			for (int i = 0, s = src.size(); i < s; i++) remove(src.get(i));
+			for (int i = 0, s = src.size(); i < s; i++) remove(src.value(i));
 			
 			return fix - size();
 		}

@@ -12,7 +12,7 @@ public interface ObjectList {
 	interface Producer<V extends Comparable<? super V>> {
 		int size();
 		
-		V get(int index);
+		V value(int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -20,7 +20,7 @@ public interface ObjectList {
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
 			for (int i = 0; i < size; i++)
-				dst.append(get(i)).append('\n');
+				dst.append(value(i)).append('\n');
 			
 			return dst;
 		}
@@ -47,7 +47,6 @@ public interface ObjectList {
 		
 		public int size() { return size; }
 		
-		
 		public V[] toArray(int index, int len, V[] dst) {
 			if (size == 0) return null;
 			if (dst == null || dst.length < len) return Arrays.copyOfRange(array, index, len);
@@ -58,12 +57,12 @@ public interface ObjectList {
 		public boolean containsAll(Producer<V> src) {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
-				if (-1 < indexOf(src.get(i))) return false;
+				if (-1 < indexOf(src.value(i))) return false;
 			return true;
 		}
 		
 		
-		public V get(int index) {return array[index]; }
+		public V value(int index) {return array[index]; }
 		
 		
 		public int indexOf(V value) {
@@ -220,7 +219,7 @@ public interface ObjectList {
 			size = Array.resize(this, size, size, count);
 			
 			for (int i = 0, size = src.size(); i < size; i++)
-				array[s++] = src.get(i);
+				array[s++] = src.value(i);
 			
 			return true;
 		}
@@ -228,7 +227,7 @@ public interface ObjectList {
 		public boolean addAll(Producer<V> src, int index, int count) {
 			count = Math.min(src.size(), count);
 			size = Array.resize(this, size, index, count);
-			for (int i = 0; i < count; i++) array[index + i] = src.get(i);
+			for (int i = 0; i < count; i++) array[index + i] = src.value(i);
 			return true;
 		}
 		
@@ -236,7 +235,7 @@ public interface ObjectList {
 			final int s = size;
 			
 			for (int k = 0, src_size = src.size(); k < src_size; k++)
-				for (int i = size - 1; i >= 0; i--) if (array[i] == src.get(k)) size = Array.resize(this, size, i, -1);
+				for (int i = size - 1; i >= 0; i--) if (array[i] == src.value(k)) size = Array.resize(this, size, i, -1);
 			return size != s;
 		}
 		

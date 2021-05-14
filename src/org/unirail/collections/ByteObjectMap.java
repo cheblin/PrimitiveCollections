@@ -21,11 +21,11 @@ public interface ByteObjectMap {
 		
 		V produce_null_key_val();
 		
-		int produce(int state);
+		int produce(int info);
 		
-		byte produce_key(int state);
+		byte produce_key(int info);
 		
-		V produce_val(int state);
+		V produce_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -105,18 +105,18 @@ public interface ByteObjectMap {
 		
 		//region  producer
 		
-		@Override public int produce(int state) {
-			int i = (state & ~0xFF) + (1 << 8);
-			return i | keys.produce(state);
+		@Override public int produce(int info) {
+			int i = (info & ~0xFF) + (1 << 8);
+			return i | keys.produce(info);
 		}
 		
 		@Override public boolean produce_has_null_key() { return keys.hasNullKey; }
 		
 		@Override public V produce_null_key_val()       { return NullKeyValue; }
 		
-		@Override public byte produce_key(int state) {return (byte) (state & 0xFF);}
+		@Override public byte produce_key(int info) {return (byte) (info & 0xFF);}
 		
-		@Override public V produce_val(int state)       { return values.array[state >> 8]; }
+		@Override public V produce_val(int info)        { return values.array[info >> 8]; }
 		
 		//endregion
 		
