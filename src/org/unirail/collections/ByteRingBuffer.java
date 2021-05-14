@@ -8,7 +8,7 @@ public class ByteRingBuffer {
 	private final AtomicLong    read  = new AtomicLong();
 	private final AtomicLong    write = new AtomicLong();
 	
-	public ByteRingBuffer( int power_of_2 ) { buffer = new byte[(int) ((mask = (1L << power_of_2) - 1) + 1)]; }
+	public ByteRingBuffer(int power_of_2) { buffer = new byte[(int) ((mask = (1L << power_of_2) - 1) + 1)]; }
 	
 	public int length()                 {return buffer.length;}
 	
@@ -18,18 +18,18 @@ public class ByteRingBuffer {
 	
 	public synchronized long get_sync() { return get(); }
 	
-	public boolean put( byte value ) {
+	public boolean put(byte value) {
 		if (available() < 1) return false;
-		buffer[(int) (write.getAndIncrement() & mask)] = (byte)value;
+		buffer[(int) (write.getAndIncrement() & mask)] = (byte) value;
 		return true;
 	}
 	
-	public synchronized boolean put_sync( byte value ) {return put( value );}
+	public synchronized boolean put_sync(byte value) {return put(value);}
 	
-	public int available()                                    { return (int) (mask + 1 - (write.get() - read.get()));}
+	public int available()                                  { return (int) (mask + 1 - (write.get() - read.get()));}
 	
 	public void reset() {
-		read.set( 0 );
-		write.set( 0 );
+		read.set(0);
+		write.set(0);
 	}
 }

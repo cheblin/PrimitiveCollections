@@ -8,7 +8,7 @@ public class CharRingBuffer {
 	private final AtomicLong    read  = new AtomicLong();
 	private final AtomicLong    write = new AtomicLong();
 	
-	public CharRingBuffer( int power_of_2 ) { buffer = new char[(int) ((mask = (1L << power_of_2) - 1) + 1)]; }
+	public CharRingBuffer(int power_of_2) { buffer = new char[(int) ((mask = (1L << power_of_2) - 1) + 1)]; }
 	
 	public int length()                 {return buffer.length;}
 	
@@ -18,18 +18,18 @@ public class CharRingBuffer {
 	
 	public synchronized long get_sync() { return get(); }
 	
-	public boolean put( char value ) {
+	public boolean put(char value) {
 		if (available() < 1) return false;
-		buffer[(int) (write.getAndIncrement() & mask)] = (char)value;
+		buffer[(int) (write.getAndIncrement() & mask)] = (char) value;
 		return true;
 	}
 	
-	public synchronized boolean put_sync( char value ) {return put( value );}
+	public synchronized boolean put_sync(char value) {return put(value);}
 	
-	public int available()                                    { return (int) (mask + 1 - (write.get() - read.get()));}
+	public int available()                                  { return (int) (mask + 1 - (write.get() - read.get()));}
 	
 	public void reset() {
-		read.set( 0 );
-		write.set( 0 );
+		read.set(0);
+		write.set(0);
 	}
 }

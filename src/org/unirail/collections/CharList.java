@@ -6,113 +6,110 @@ import java.util.Arrays;
 public interface CharList {
 	
 	interface Consumer {
-		boolean add( char value );
+		void add(char value);
+		
+		void consume(int size);
 	}
 	
 	interface Producer {
-		int tag();
+		int size();
 		
-		int tag( int tag );
+		char  get(int index);
 		
-		default boolean ok( int tag ) {return -1 < tag;}
-		
-		char  value( int tag );
-		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
+		default StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			for (int tag = tag(); ok( tag ); tag = tag( tag ))
-			     dst.append( value( tag ) ).append( '\n' );
+			for (int i = 0; i < size; i++)
+			{
+				dst.append(get(i)).append('\t');
+				if (i % 10 == 0) dst.append('\t').append(i).append('\n');
+			}
 			return dst;
 		}
 	}
 	
 	
-	class R implements Comparable<R> {
+	class R implements Comparable<R>, Producer {
 		
-		R( int length ) {
-			if (0 < length) array = new char[length];
+		char[] array = Array.chars0     ;
+		
+		protected R(int length) { if (0 < length) array = new char[length]; }
+		
+		
+		public R(int... items) {
+			this(items == null ? 0 : items.length);
+			if (items == null) return;
+			fill(this, items);
+			size = items.length;
 		}
 		
-		public static R of( int... values ) {
-			R dst = new R( values.length );
-			fill( dst, values );
-			return dst;
+		public R(R src, int fromIndex, int toIndex) {
+			this(toIndex - fromIndex);
+			System.arraycopy(src.array, fromIndex, array, 0, toIndex - fromIndex);
 		}
 		
-		protected static void fill( R dst, int... items ) {
+		protected static void fill(R dst, int... items) {
 			dst.size = items.length;
 			for (int i = 0; i < dst.size; i++)
-			     dst.array[i] = (char) items[i];
+				dst.array[i] = (char) items[i];
 		}
 		
-		char[] array;
 		
 		public int length() { return array == null ? 0 : array.length; }
 		
 		int size = 0;
 		
-		public int size()                            { return size; }
+		public int size()                           { return size; }
 		
-		public boolean isEmpty()                     { return size == 0; }
+		public boolean isEmpty()                    { return size == 0; }
 		
-		public boolean contains( char value ) {return -1 < indexOf( value );}
+		public boolean contains( char value) {return -1 < indexOf(value);}
 		
 		
-		public char[] toArray( char[] dst ) {
+		public char[] toArray(int index, int len, char[] dst) {
 			if (size == 0) return null;
-			if (dst == null || dst.length < size) dst = new char[size];
-			for (int i = 0; i < size; i++) dst[i] = (char) array[i];
+			if (dst == null) dst = new char[len];
+			for (int i = 0; i < len; i++) dst[index + i] = (char) array[i];
 			
 			return dst;
 		}
 		
-		public boolean containsAll( Producer src ) {
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
-				if (!contains( src.value( tag ) )) return false;
+		public boolean containsAll(Producer src) {
+			for (int i = src.size(); -1 < --i; )
+				if (!contains(src.get(i))) return false;
 			
 			return true;
 		}
 		
 		
-		public char get( int index ) {return  (char) array[index]; }
+		public char get(int index) {return  (char) array[index]; }
 		
 		
-		public int indexOf( char value ) {
+		public int indexOf( char value) {
 			for (int i = 0; i < size; i++)
 				if (array[i] == value) return i;
 			return -1;
 		}
 		
-		public int lastIndexOf( char value ) {
+		public int lastIndexOf( char value) {
 			for (int i = size - 1; -1 < i; i--)
 				if (array[i] == (char) value) return i;
 			return -1;
 		}
 		
-		public R subList( int fromIndex, int toIndex, R dst ) {
-			if (size <= fromIndex) return null;
-			if (size - 1 < toIndex) toIndex = size - 1;
-			if (toIndex == fromIndex) return null;
-			
-			if (dst == null) dst = new R( toIndex - fromIndex );
-			else if (dst.length() < toIndex - fromIndex) dst.array = new char[toIndex - fromIndex];
-			
-			System.arraycopy( array, fromIndex, dst.array, 0, toIndex - fromIndex );
-			return dst;
-		}
 		
-		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       compareTo(getClass().cast(obj)) == 0;
 		}
 		
 		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
 		
-		public int compareTo( R other ) {
+		public int compareTo(R other) {
 			if (other == null) return -1;
 			if (other.size != size) return other.size - size;
 			
@@ -121,6 +118,12 @@ public interface CharList {
 			return 0;
 		}
 		
+		public int hashCode() {
+			int hashCode = 1;
+			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + Array.hash(get(i));
+			
+			return hashCode;
+		}
 		
 		public R clone() {
 			
@@ -129,7 +132,7 @@ public interface CharList {
 				R dst = (R) super.clone();
 				
 				dst.array = array.clone();
-				dst.size  = size;
+				dst.size = size;
 				
 				return dst;
 				
@@ -141,94 +144,66 @@ public interface CharList {
 			
 		}
 		
-		private Producer producer;
 		
-		public Producer producer() {
-			return producer == null ? producer = new Producer() {
-				
-				public int tag() { return 0 < size ? 0 : -1; }
-				
-				public int tag( int tag ) { return ++tag < size ? tag : -1; }
-				
-				public char value( int tag ) {return (char) array[tag]; }
-				
-			} : producer;
-		}
-		
-		public StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( size * 10 );
-			else dst.ensureCapacity( dst.length() + size * 10 );
-			return producer().toString( dst );
-		}
-		
-		public String toString() { return toString( null ).toString();}
-		
-		
+		public String toString() { return toString(null).toString();}
 	}
 	
-	class Rsize extends R {
-		
-		public Rsize( int items ) {
-			super( items );
-			size = items;
-		}
-		
-		public static Rsize of( int... values ) {
-			Rsize dst = new Rsize( values.length );
-			fill( dst, values );
-			return dst;
-		}
-		
-		public void set( int index, char value ) { if (index < size) array[index] = (char) value;}
-		
-		public void set( int index, int... src ) {
-			for (int i = 0, max = Math.min( src.length, size - index ); i < max; i++)
-			     array[index + i] = (char) src[i];
-		}
-	}
 	
 	class RW extends R implements Array, Consumer {
-		public RW( int items ) { super( items ); }
 		
-		public static RW of( int... values ) {
-			RW dst = new RW( values.length );
-			fill( dst, values );
-			return dst;
+		public RW(int length)                        { super(length); }
+		
+		public RW(int... items)              { super(items); }
+		
+		public RW(R src, int fromIndex, int toIndex) { super(src, fromIndex, toIndex); }
+		
+		public char[] array()                 {return array;}
+		
+		@Override public void consume(int size) {
+			if (array.length < size) array = new char[size];
+			this.size = 0;
 		}
 		
-		public Consumer consumer()               {return this; }
+		public char[] length(int length) {
+			if (0 < length)
+			{
+				if (length < size) size = length;
+				return array = Arrays.copyOf(array, length);
+			}
+			size = 0;
+			return array = length == 0 ? Array.chars0      : new char[-length];
+		}
 		
-		public char[] array()             {return array;}
-		
-		public char[] length( int items ) { return array = items == 0 ? null : new char[items];}
-		
-		public void fit()                        {if (0 < length() && size < length()) array = Arrays.copyOf( array, size ); }
-		
-		public boolean add( char value ) {
-			size            = Array.resize( this, size, size, 1, false );
+		public void add(char value) {
+			size = Array.resize(this, size, size, 1);
 			array[size - 1] = (char) value;
-			return true;
 		}
 		
-		public void add( int index, char value ) {
+		public void add(int index, char value) {
 			if (index < size)
 			{
-				size         = Array.resize( this, size, index, 1, false );
+				size = Array.resize(this, size, index, 1);
 				array[index] = (char) value;
 			}
-			else set( index, value );
+			else set(index, value);
 			
 		}
 		
-		public void remove() { remove( size - 1 );}
+		public void remove() { remove(size - 1);}
 		
-		public void remove( int index ) {
+		public void remove(int index) {
 			if (size < 1 || size <= index) return;
-			size = Array.resize( this, size, index, -1, false );
+			size = Array.resize(this, size, index, -1);
+		}
+		
+		public void remove_fast(int index) {
+			if (size < 1 || size <= index) return;
+			if (index < size - 1) array[index] = array[index - 1];
+			size--;
 		}
 		
 		
-		public void set( int index, int... values ) {
+		public void set(int index, int... values) {
 			int len = values.length;
 			
 			if (size <= index + len)
@@ -236,60 +211,80 @@ public interface CharList {
 				int    fix = size;
 				Object obj = array;
 				
-				size = Array.resize( this, size, index, len, false );
-				if (obj == array) Arrays.fill( array, fix, size - 1, (char) 0 );
+				size = Array.resize(this, size, index, len);
+				if (obj == array) Arrays.fill(array, fix, size - 1, (char) 0);
 			}
 			
 			for (int i = 0; i < len; i++)
-			     array[index + i] = (char) values[i];
+				array[index + i] = (char) values[i];
 		}
 		
-		public void set( char value ) { set( size, value );}
+		public void set(char value) { set(size, value);}
 		
-		public void set( int index, char value ) {
+		public void set(int index, char value) {
 			if (size <= index)
 			{
 				int    fix = size;
 				Object obj = array;
 				
-				size = Array.resize( this, size, index, 1, false );
-				if (obj == array) Arrays.fill( array, fix, size - 1, (char) 0 );
+				size = Array.resize(this, size, index, 1);
+				if (obj == array) Arrays.fill(array, fix, size - 1, (char) 0);
 			}
 			
 			array[index] = (char) value;
 		}
 		
-		public void swap( int index1, int index2 ) {
+		public void swap(int index1, int index2) {
 			final char tmp = array[index1];
 			array[index1] = array[index2];
 			array[index2] = tmp;
 			
 		}
 		
-		public void addAll( Producer src ) {
-			for (int tag = src.tag(), i = size; src.ok( tag ); tag = src.tag( tag )) array[i++] = (char) src.value( tag );
+		public void addAll(Producer src) {
+			int s = src.size();
+			consume(s);
+			for (int i = 0; i < s; i++) array[size + i] = (char) src.get(i);
+			size += s;
 		}
 		
-		public boolean addAll( Producer src, int index ) {
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) array[index++] = (char) src.value( tag );
+		public boolean addAll(Producer src, int index) {
+			int s = src.size();
+			size = Array.resize(this, size, index, s);
+			for (int i = 0; i < s; i++) array[index + i] = (char) src.get(i);
 			return true;
 		}
 		
 		
-		public int removeAll( Producer src ) {
+		public int removeAll(Producer src) {
 			int fix = size;
-			for (int tag = src.tag(), i; src.ok( tag ); tag = src.tag( tag ))
-				if (-1 < (i = indexOf( src.value( tag ) ))) remove( i );
+			
+			for (int i = 0, k, src_size = src.size(); i < src_size; i++)
+				if (-1 < (k = indexOf(src.get(i)))) remove(k);
 			return fix - size;
 		}
 		
-		public boolean retainAll( Consumer chk ) {
+		public int removeAll(char src) {
+			int fix = size;
+			
+			for (int k; -1 < (k = indexOf(src)); ) remove(k);
+			return fix - size;
+		}
+		
+		public int removeAll_fast(char src) {
+			int fix = size;
+			
+			for (int k; -1 < (k = indexOf(src)); ) remove_fast(k);
+			return fix - size;
+		}
+		
+		public boolean retainAll(R chk) {
 			
 			final int   fix = size;
 			char v;
 			for (int index = 0; index < size; index++)
-				if (!chk.add( v = get( index ) ))
-					remove( indexOf( v ) );
+				if (!chk.contains(v = get(index)))
+					remove(indexOf(v));
 			
 			return fix != size;
 		}

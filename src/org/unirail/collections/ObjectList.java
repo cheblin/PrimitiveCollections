@@ -3,82 +3,62 @@ package org.unirail.collections;
 import java.util.Arrays;
 
 public interface ObjectList {
+	interface Consumer<V extends Comparable<? super V>> {
+		void add(V value);
+		
+		void consume(int items);
+	}
 	
 	interface Producer<V extends Comparable<? super V>> {
-		int tag();
+		int size();
 		
-		int tag(int tag);
-		
-		default boolean ok(int tag) {return -1 < tag;}
-		
-		V value(int tag);
+		V get(int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
-			if (dst == null) dst = new StringBuilder(255);
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			for (int tag = tag(); ok(tag); tag = tag(tag))
-				dst.append(value(tag)).append('\n');
+			for (int i = 0; i < size; i++)
+				dst.append(get(i)).append('\n');
 			
 			return dst;
 		}
 	}
 	
-	interface Consumer<V extends Comparable<? super V>> {
-		boolean add(V value);
-	}
 	
-	class R<V extends Comparable<? super V>> implements Comparable<R<V>> {
+	class R<V extends Comparable<? super V>> implements Comparable<R<V>>, Producer<V> {
 		
-		@SafeVarargs
-		static <V extends Comparable<? super V>> void fill(R<V> dst, V... items) {dst.array = items;}
+		@SuppressWarnings("unchecked")
+		protected R(int length) { if (0 < length) array = (V[]) new Comparable[length]; }
 		
-		@SafeVarargs
-		public static <V extends Comparable<? super V>> R<V> of(V... items) {
-			R<V> dst = new R<>();
-			dst.array = items;
-			return dst;
+		@SafeVarargs protected R(V... items) {
+			this(0);
+			if (items == null) return;
+			array = items.clone();
+			size = items.length;
 		}
 		
-		V[] array;
+		protected V[] array;
 		
 		public int length() { return array == null ? 0 : array.length; }
 		
 		int size = 0;
 		
-		public int size()                { return size; }
-		
-		public boolean isEmpty()         { return size == 0; }
-		
-		public boolean contains(V value) { return -1 < indexOf(value); }
+		public int size() { return size; }
 		
 		
-		private Producer<V> producer;
-		
-		public Producer<V> producer() {
-			return producer == null ? producer = new Producer<V>() {
-				
-				public int tag() { return 0 < size ? 0 : -1; }
-				
-				public int tag(int tag) { return ++tag < size ? tag : -1; }
-				
-				public V value(int tag) {return array[tag]; }
-				
-			} : producer;
-		}
-		
-		
-		public V[] toArray(V[] dst) {
+		public V[] toArray(int index, int len, V[] dst) {
 			if (size == 0) return null;
-			if (dst == null || dst.length < size()) return Arrays.copyOfRange(array, 0, size);
-			System.arraycopy(array, 0, dst, 0, size);
+			if (dst == null || dst.length < len) return Arrays.copyOfRange(array, index, len);
+			System.arraycopy(array, index, dst, 0, len);
 			return dst;
 		}
 		
-		
 		public boolean containsAll(Producer<V> src) {
 			
-			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag))
-				if (!contains(src.value(tag))) return false;
+			for (int i = 0, s = src.size(); i < s; i++)
+				if (-1 < indexOf(src.get(i))) return false;
 			return true;
 		}
 		
@@ -140,60 +120,49 @@ public interface ObjectList {
 		}
 		
 		
-		public StringBuilder toString(StringBuilder dst) {
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			return producer().toString(dst);
-		}
-		
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class Rsize<V extends Comparable<? super V>> extends R<V> {
-		
-		@SuppressWarnings("unchecked")
-		public Rsize(int items) { array = (V[]) new Comparable[size = items];}
-		
-		@SafeVarargs
-		public static <V extends Comparable<? super V>> Rsize<V> of(V... items) {
-			Rsize<V> dst = new Rsize<>(items.length);
-			fill(dst, items);
-			return dst;
-		}
-		
-		public void set(int index, V value)     { if (index < size) array[index] = value; }
-		
-		public void set(int index, V... values) { System.arraycopy(values, 0, array, index, Math.min(values.length, size - index)); }
-	}
 	
 	class RW<V extends Comparable<? super V>> extends R<V> implements Array, Consumer<V> {
 		
-		@SuppressWarnings("unchecked")
-		public RW(int items) { array = (V[]) new Comparable[items]; }
+		public RW(int length) { super(length); }
 		
-		public static <V extends Comparable<? super V>> RW<V> of(V... items) {
-			RW<V> dst = new RW<>(items.length);
-			fill(dst, items);
-			return dst;
+		public RW(V... items) { super(items); }
+		
+		public V[] array()    {return array;}
+		
+		@SuppressWarnings("unchecked")
+		public V[] length(int length) {
+			if (0 < length)
+			{
+				if (length < size) size = length;
+				return array = array == null ? (V[]) new Comparable[length] : Arrays.copyOf(array, length);
+			}
+			size = 0;
+			return array = length == 0 ? null : (V[]) new Comparable[-length];
 		}
 		
-		public V[] array() {return array;}
+		public void clear() {
+			Arrays.fill(array, null);
+			size = 0;
+		}
 		
-		@SuppressWarnings("unchecked")
-		public V[] length(int items) { return array = (V[]) new Comparable[items]; }
+		@Override public void consume(int items) {
+			size = 0;
+			if (array.length < items) length(-size);
+			else clear();
+		}
 		
-		public void fit() {if (0 < length() && size < length()) array = Arrays.copyOf(array, size); }
-		
-		public boolean add(V value) {
-			size = Array.resize(this, size, size, 1, false);
+		public void add(V value) {
+			size = Array.resize(this, size, size, 1);
 			array[size - 1] = value;
-			return true;
 		}
 		
 		public void add(int index, V value) {
 			if (index < size)
 			{
-				size = Array.resize(this, size, index, 1, false);
+				size = Array.resize(this, size, index, 1);
 				array[index] = value;
 			}
 			else set(index, value);
@@ -203,7 +172,13 @@ public interface ObjectList {
 		
 		public void remove(int index) {
 			if (size < 1 || size <= index) return;
-			size = Array.resize(this, size, index, -1, false);
+			size = Array.resize(this, size, index, -1);
+		}
+		
+		public void remove_fast(int index) {
+			if (size < 1 || size <= index) return;
+			if (index < size - 1) array[index] = array[index - 1];
+			size--;
 		}
 		
 		public boolean set(V value) {return set(size, value);}
@@ -218,7 +193,7 @@ public interface ObjectList {
 				int    fix = size;
 				Object obj = array;
 				
-				size = Array.resize(this, size, index, len, false);
+				size = Array.resize(this, size, index, len);
 				if (obj == array) Arrays.fill(array, fix, size - 1, null);
 			}
 			
@@ -232,7 +207,7 @@ public interface ObjectList {
 				int    fix = size;
 				Object obj = array;
 				
-				size = Array.resize(this, size, index, 1, false);
+				size = Array.resize(this, size, index, 1);
 				if (obj == array) Arrays.fill(array, fix, size - 1, null);
 			}
 			
@@ -241,54 +216,62 @@ public interface ObjectList {
 		}
 		
 		public boolean addAll(Producer<V> src, int count) {
-			int i = size;
-			size = Array.resize(this, size, size, count, false);
+			int s = size;
+			size = Array.resize(this, size, size, count);
 			
-			for (int tag = src.tag(); src.ok(tag) && i < size; tag = src.tag(tag))
-				array[i++] = src.value(tag);
+			for (int i = 0, size = src.size(); i < size; i++)
+				array[s++] = src.get(i);
 			
 			return true;
 		}
 		
 		public boolean addAll(Producer<V> src, int index, int count) {
-			
-			size = Array.resize(this, size, index, count, false);
-			for (int tag = src.tag(); src.ok(tag) && index < size; tag = src.tag(tag))
-				array[index++] = src.value(tag);
+			count = Math.min(src.size(), count);
+			size = Array.resize(this, size, index, count);
+			for (int i = 0; i < count; i++) array[index + i] = src.get(i);
 			return true;
 		}
 		
 		public boolean removeAll(Producer<V> src) {
 			final int s = size;
 			
-			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag))
-				for (int i = size - 1; i >= 0; i--) if (array[i] == src.value(tag)) size = Array.resize(this, size, i, -1, false);
+			for (int k = 0, src_size = src.size(); k < src_size; k++)
+				for (int i = size - 1; i >= 0; i--) if (array[i] == src.get(k)) size = Array.resize(this, size, i, -1);
 			return size != s;
 		}
 		
-		public boolean retainAll(Consumer<V> chk) {
+		public int removeAll(V src) {
+			int fix = size;
+			
+			for (int k; -1 < (k = indexOf(src)); ) remove(k);
+			return fix - size;
+		}
+		
+		public int removeAll_fast(V src) {
+			int fix = size;
+			
+			for (int k; -1 < (k = indexOf(src)); ) remove_fast(k);
+			return fix - size;
+		}
+		
+		public boolean retainAll(R<V> chk) {
 			
 			final int s = size;
 			
 			for (int i = 0, max = size; i < max; i++)
-				if (!chk.add(array[i]))
+				if (chk.indexOf(array[i]) == -1)
 				{
 					final V val = array[i];
-					for (int j = size; j > 0; j--) if (array[j] == val) size = Array.resize(this, size, j, -1, false);
+					for (int j = size; j > 0; j--) if (array[j] == val) size = Array.resize(this, size, j, -1);
 					max = size;
 				}
 			
 			return s != size;
 		}
 		
-		public void clear()           {
-			                              Arrays.fill(array, null);
-			                              size = 0;
-		                              }
 		
-		public RW<V> clone()          { return (RW<V>) super.clone(); }
+		public RW<V> clone() { return (RW<V>) super.clone(); }
 		
-		public Consumer<V> consumer() {return this; }
 	}
 }
 	

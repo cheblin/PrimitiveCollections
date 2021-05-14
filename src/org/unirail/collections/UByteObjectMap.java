@@ -5,91 +5,86 @@ import java.util.Arrays;
 
 public interface UByteObjectMap {
 	interface Consumer<V extends Comparable<? super V>> {
-		boolean put( char key, V value );
+		boolean put(char key, V value);
 		
-		boolean put( Byte key, V value );
+		boolean put( Character key, V value);
+		
+		void consume(int items);
 	}
 	
 	
 	interface Producer<V extends Comparable<? super V>> {
 		
-		int tag();
+		int size();
 		
-		int tag( int tag );
+		boolean produce_has_null_key();
 		
-		default boolean ok( int tag ) {return tag != -1;}
+		V produce_null_key_val();
 		
-		char key( int tag );
+		int produce(int state);
 		
-		V value( int tag );
+		char produce_key(int state);
 		
-		boolean hasNullKey();
+		V produce_val(int state);
 		
-		V nullKeyValue();
-		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
+		default StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
+			
+			if (produce_has_null_key())
+			{
+				dst.append("null -> ").append(produce_null_key_val()).append('\n');
+				size--;
+			}
+			
+			for (int p = -1, i = 0; i < size; i++)
+				dst.append(produce_key(p = produce(p)))
+						.append(" -> ")
+						.append(produce_val(p))
+						.append('\n');
 			
 			return dst;
 		}
 	}
 	
-	class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>> {
+	class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, Producer<V> {
 		
 		ByteSet.RW       keys = new ByteSet.RW();
 		ObjectList.RW<V> values;
 		
-		public R() {this( 8 );}
+		protected R(int length)                   { values = new ObjectList.RW<>(265 < length ? 256 : length); }
 		
-		public R( int length ) {
-			values = new ObjectList.RW<>( 265 < length ? 256 : length );
-		}
+		@Override public int size()               { return keys.size(); }
 		
-		boolean hasNull   = false;
-		V       NullValue = null;
+		public boolean isEmpty()                  { return keys.isEmpty();}
 		
-		public int size()                           { return keys.size(); }
 		
-		public boolean isEmpty()                    { return keys.isEmpty();}
+		public boolean contains( Character key) { return key == null ? keys.contains(null) : keys.contains((byte) (key + 0));}
 		
-		public boolean contains( char key ) { return keys.contains( (byte) key ); }
+		public boolean contains(int key)          { return keys.contains((byte) key);}
 		
-		public V get( byte key )                    {return keys.contains( (byte) key ) ? values.array[keys.rank(  (byte) key ) - 1] : null;}
+		public V value( Character key)          { return key == null ? NullKeyValue : value(key + 0);}
 		
-		private Producer<V> producer;
+		public V value(int key)                   {return values.array[keys.rank((byte) key)];}
 		
-		public Producer<V> producer() {
-			return producer == null ? producer = new Producer<V>() {
-				public int tag() { return keys.tag(); }
-				
-				public int tag( int tag ) {return keys.tag( tag );}
-				
-				public char key( int tag ) { return (char) (tag >>> 8); }
-				
-				public V value( int tag ) { return values.array[tag & 0xFF]; }
-				
-				public boolean hasNullKey() {return hasNull;}
-				
-				public V nullKeyValue() {return NullValue;}
-				
-			} : producer;
-		}
-		
+		V NullKeyValue = null;
 		
 		@SuppressWarnings("unchecked")
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       compareTo(getClass().cast(obj)) == 0;
 		}
 		
 		public boolean equals(R<V> other) { return other != null && compareTo(other) == 0; }
-		public int compareTo( R<V> other ) {
+		
+		public int compareTo(R<V> other) {
 			if (other == null) return -1;
 			int diff;
-			if ((diff = keys.compareTo( other.keys )) != 0 || (diff = values.compareTo( other.values )) != 0) return diff;
-			if (keys.hasNull && NullValue != other.NullValue) return 1;
+			if ((diff = keys.compareTo(other.keys)) != 0 || (diff = values.compareTo(other.values)) != 0) return diff;
+			if (keys.hasNullKey && NullKeyValue != other.NullKeyValue) return 1;
 			
 			return 0;
 		}
@@ -100,82 +95,84 @@ public interface UByteObjectMap {
 			try
 			{
 				R<V> dst = (R<V>) super.clone();
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
-			} catch (CloneNotSupportedException e)
-			{
-				e.printStackTrace();
-			}
+			} catch (CloneNotSupportedException e) { e.printStackTrace(); }
 			return null;
 		}
 		
-		public StringBuilder toString( StringBuilder dst ) {
-			
-			if (dst == null) dst = new StringBuilder( keys.size() * 10 );
-			else dst.ensureCapacity( dst.length() + keys.size() * 10 );
-			
-			
-			final Producer<V> src = producer();
-			if (src.hasNullKey()) dst.append( "null -> " ).append( src.nullKeyValue() ).append( '\n' );
-			
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag ))
-			     dst.append( src.key( tag ) )
-					     .append( " -> " )
-					     .append( src.value( tag ) ).append( '\n' );
-			
-			return dst;
+		//region  producer
+		
+		@Override public int produce(int state) {
+			int i = (state & ~0xFF) + (1 << 8);
+			return i | keys.produce(state);
 		}
 		
-		public String toString() { return toString( null ).toString();}
+		@Override public boolean produce_has_null_key() { return keys.hasNullKey; }
+		
+		@Override public V produce_null_key_val()       { return NullKeyValue; }
+		
+		@Override public char produce_key(int state) {return (char) (state & 0xFF);}
+		
+		@Override public V produce_val(int state)       { return values.array[state >> 8]; }
+		
+		//endregion
+		
+		public String toString() { return toString(null).toString();}
 	}
 	
 	class RW<V extends Comparable<? super V>> extends R<V> implements Consumer<V> {
 		
-		public RW() {
-		}
 		
-		public RW( int length ) {
-			super( length );
-		}
-		
-		
-		public boolean put(  Byte      key, V value ) {
-			if (key != null) return put( (char) (key + 0), value );
-			
-			keys.add( null );
-			NullValue = value;
-			return true;
-		}
-		
-		public boolean put( char key, V value ) {
-			keys.add( key );
-			values.array[keys.rank( (byte) key ) - 1] = value;
-			return true;
-		}
-		
-		public boolean remove(  Byte       key ) { return key == null ? keys.remove( null ) : remove( (char) (key + 0) ); }
-		
-		public boolean remove( char key ) {
-			final byte k = (byte) key;
-			if (!keys.contains( k )) return false;
-			
-			values.remove( keys.rank( k ) - 1 );
-			keys.remove( k );
-			
-			return true;
-		}
+		public RW(int length) { super(length); }
 		
 		
 		public void clear() {
-			if (keys.size < 1) return;
-			Arrays.fill( values.array, null );
+			if (keys.size() < 1) return;
+			NullKeyValue = null;
+			values.clear();
 			keys.clear();
 		}
 		
-		public Consumer<V> consumer() {return this; }
+		@Override public void consume(int items) {
+			NullKeyValue = null;
+			keys.consume(items);
+			values.consume(items);
+		}
 		
-		public RW<V> clone()          { return (RW<V>) super.clone(); }
+		public boolean put( Character key, V value) {
+			if (key == null)
+			{
+				NullKeyValue = value;
+				boolean ret = keys.contains(null);
+				keys.add(null);
+				return !ret;
+			}
+			
+			return put((char) (key + 0), value);
+		}
+		
+		public boolean put(char key, V value) {
+			boolean ret = keys.add((byte) key);
+			values.array[keys.rank((byte) key) - 1] = value;
+			return ret;
+		}
+		
+		public boolean remove( Character  key) { return key == null ? keys.remove(null) : remove((char) (key + 0)); }
+		
+		public boolean remove(char key) {
+			final byte k = (byte) key;
+			if (!keys.contains(k)) return false;
+			
+			values.remove(keys.rank(k) - 1);
+			keys.remove(k);
+			
+			return true;
+		}
+		
+		
+		public RW<V> clone() { return (RW<V>) super.clone(); }
 	}
 }

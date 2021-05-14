@@ -4,36 +4,48 @@ package org.unirail.collections;
 public interface ObjectObjectMap {
 	
 	interface Consumer<K extends Comparable<? super K>, V extends Comparable<? super V>> {
-		boolean put( K key, V value );//return false to interrupt
+		boolean put(K key, V value);
+		
+		void consume(int items);
 	}
 	
 	interface Producer<K extends Comparable<? super K>, V extends Comparable<? super V>> {
-		int tag();
 		
-		int tag( int tag );
+		int size();
 		
-		default boolean ok( int tag ) {return tag != -1;}
+		boolean produce_has_null_key();
 		
-		K key( int tag );
+		V produce_null_key_val();
 		
-		V value( int tag );
 		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
+		int produce(int state);
+		
+		K produce_key(int state);
+		
+		V produce_val(int state);
+		
+		default StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			for (int tag = tag(); ok( tag ); tag = tag( tag ))
-			     dst.append( key( tag ) )
-					     .append( " -> " )
-					     .append( value( tag ) )
-					     .append( '\n' );
+			if (produce_has_null_key())
+			{
+				dst.append("null -> ").append(produce_null_key_val());
+				size--;
+			}
+			
+			
+			for (int p = -1, i = 0; i < size; i++)
+				dst.append(produce_key(p = produce(p))).append(" -> ").append(produce_val(p));
 			return dst;
 		}
 	}
 	
-	class R<K extends Comparable<? super K>, V extends Comparable<? super V>> implements Cloneable, Comparable<R<K, V>> {
+	class R<K extends Comparable<? super K>, V extends Comparable<? super V>> implements Cloneable, Comparable<R<K, V>>, Producer<K, V> {
 		
-		public ObjectList.RW<K> keys   = new ObjectList.RW<>( 0 );
-		public ObjectList.RW<V> values = new ObjectList.RW<>( 0 );
+		public ObjectList.RW<K> keys   = new ObjectList.RW<>(0);
+		public ObjectList.RW<V> values = new ObjectList.RW<>(0);
 		
 		
 		protected int assigned;
@@ -45,94 +57,92 @@ public interface ObjectObjectMap {
 		protected int resizeAt;
 		
 		
-		protected boolean hasNull;
+		protected boolean hasNullKey;
 		
-		V NullValue = null;
+		V NullKeyValue = null;
 		
 		protected double loadFactor;
 		
 		
-		public R( double loadFactor ) {
-			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
+		protected R(double loadFactor) {
+			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
 		}
 		
-		public R( int expectedItems ) {
-			this( expectedItems, 0.75 );
+		protected R(int expectedItems) { this(expectedItems, 0.75); }
+		
+		
+		protected R(int expectedItems, double loadFactor) {
+			this(loadFactor);
+			
+			long length = (long) Math.ceil(expectedItems / this.loadFactor);
+			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			keys.length(size);
+			values.length(size);
 		}
 		
-		
-		public R( int expectedItems, double loadFactor ) {
-			this( loadFactor );
+		public @Positive_Values int info(K key) {
+			if (key == null) return hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE;
 			
-			long length = (long) Math.ceil( expectedItems / this.loadFactor );
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
-			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
-			
-			keys.length( size );
-			values.length( size );
-		}
-		
-		public int tag( K key ) {
-			if (key == null) return hasNull ? Integer.MAX_VALUE : -1;
-			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0) return slot;
+				if (k.compareTo(key) == 0) return slot;
 			
-			return -1;
+			return Positive_Values.NONE;
 		}
 		
-		public V get( int tag )          {return tag == Integer.MAX_VALUE ? NullValue : values.array[tag]; }
+		public boolean contains(K key)          {return -1 < info(key);}
 		
-		public boolean contains( K key ) {return -1 < tag( key );}
+		public boolean contains(int info)       {return -1 < info;}
 		
-		
-		public int size()                { return assigned + (hasNull ? 1 : 0); }
-		
-		
-		public boolean isEmpty()         { return size() == 0; }
+		public V value(@Positive_ONLY int info) {return info == Integer.MAX_VALUE ? NullKeyValue : values.array[info]; }
 		
 		
-		protected int hashKey( K key )   { return Array.hashKey( key.hashCode() ); }
+		public int size()                       { return assigned + (hasNullKey ? 1 : 0); }
+		
+		
+		public boolean isEmpty()                { return size() == 0; }
+		
 		
 		public int hashCode() {
-			int h = hasNull ? 0xDEADBEEF : 0;
+			int h = hasNullKey ? 0xDEADBEEF : 0;
 			K   k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((k = keys.array[i]) != null)
-					h += Array.hash( k ) + Array.hash( values.array[i] );
+					h += Array.hash(k) + Array.hash(values.array[i]);
 			return h;
 		}
 		
 		@SuppressWarnings("unchecked")
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       compareTo(getClass().cast(obj)) == 0;
 		}
 		
-		public boolean equals(R<K, V>  other) { return other != null && compareTo(other) == 0; }
-		public int compareTo( R<K, V> other ) {
+		public boolean equals(R<K, V> other) { return other != null && compareTo(other) == 0; }
+		
+		public int compareTo(R<K, V> other) {
 			if (other == null) return -1;
 			if (size() != other.size()) return size() - other.size();
 			
-			if (hasNull != other.hasNull) return 1;
+			if (hasNullKey != other.hasNullKey) return 1;
 			
 			int diff;
-			if (hasNull)
-				if (NullValue == null) {if (other.NullValue != null) return -1;}
-				else if ((diff = NullValue.compareTo( other.NullValue )) != 0) return diff;
+			if (hasNullKey)
+				if (NullKeyValue == null) {if (other.NullKeyValue != null) return -1;}
+				else if ((diff = NullKeyValue.compareTo(other.NullKeyValue)) != 0) return diff;
 			
 			K key;
 			
 			for (int i = keys.array.length - 1, tag; -1 < i; i--)
 				if ((key = keys.array[i]) != null)
-					if ((tag = other.tag( key )) == -1 || values.array[i] != other.get( tag )) return 1;
+					if ((tag = other.info(key)) == -1 || values.array[i] != other.value(tag)) return 1;
 			
 			return 0;
 		}
@@ -144,7 +154,7 @@ public interface ObjectObjectMap {
 			{
 				R<K, V> dst = (R<K, V>) super.clone();
 				
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -155,151 +165,145 @@ public interface ObjectObjectMap {
 			return null;
 		}
 		
-		private Producer<K, V> producer;
+		//region  producer
 		
-		public Producer<K, V> producer() {
-			return producer == null ? producer = new Producer<K, V>() {
-				
-				public int tag() {
-					int len = 0 < assigned ? keys.array.length : 0;
-					return hasNull ? len : (tag( len ));
-				}
-				
-				public int tag( int tag ) {
-					
-					while (-1 < --tag)
-						if (keys.array[tag] != null)
-							return tag;
-					return -1;
-				}
-				
-				public K key( int tag ) {return assigned == 0 || tag == keys.array.length ? null : keys.array[tag]; }
-				
-				public V value( int tag ) {return assigned == 0 || tag == keys.array.length ? (hasNull ? NullValue : null) : values.array[tag]; }
-				
-			} : producer;
-		}
+		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != null) return state; }
 		
-		public StringBuilder toString( StringBuilder dst ) {
-			
-			if (dst == null) dst = new StringBuilder( assigned * 10 );
-			else dst.ensureCapacity( dst.length() + assigned * 10 );
-			
-			return producer().toString( dst );
-		}
+		@Override public boolean produce_has_null_key() { return hasNullKey; }
 		
-		public String toString() { return toString( null ).toString();}
+		@Override public V produce_null_key_val()       { return NullKeyValue; }
+		
+		@Override public K produce_key(int state)       {return keys.array[state]; }
+		
+		@Override public V produce_val(int state)       {return values.get(state); }
+		
+		//endregion
+		
+		
+		public String toString() { return toString(null).toString();}
 	}
 	
 	class RW<K extends Comparable<? super K>, V extends Comparable<? super V>> extends R<K, V> implements Consumer<K, V> {
 		
 		
-		public RW( double loadFactor ) {
-			super( loadFactor );
-		}
+		public RW(double loadFactor)                    { super(loadFactor); }
 		
-		public RW( int expectedItems ) {
-			super( expectedItems );
-		}
+		public RW(int expectedItems)                    { super(expectedItems); }
 		
-		public RW( int expectedItems, double loadFactor ) {
-			super( expectedItems, loadFactor );
-		}
+		public RW(int expectedItems, double loadFactor) { super(expectedItems, loadFactor); }
 		
-		public void clear() {
-			assigned = 0;
-			hasNull  = false;
+		
+		public boolean put(K key, V value) {
 			
-			keys.clear();
-			values.clear();
-		}
-		
-		public boolean put( V value ) {
-			hasNull   = true;
-			NullValue = value;
-			return true;
-		}
-		
-		public boolean put( K key, V value ) {
-			
-			if (key == null) return put( value );
+			if (key == null)
+			{
+				boolean h = hasNullKey;
+				hasNullKey = true;
+				NullKeyValue = value;
+				return h != hasNullKey;
+			}
 			
 			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0)
+				if (k.compareTo(key) == 0)
 				{
 					values.array[slot] = value;
 					return true;
 				}
 			
-			keys.array[slot]   = key;
+			keys.array[slot] = key;
 			values.array[slot] = value;
 			
-			if (assigned++ == resizeAt) allocate( mask + 1 << 1 );
+			if (assigned++ == resizeAt) allocate(mask + 1 << 1);
 			
 			return true;
 		}
 		
-		protected void allocate( int arraySize ) {
+		
+		public void clear() {
+			assigned = 0;
+			hasNullKey = false;
+			
+			keys.clear();
+			values.clear();
+		}
+		
+		@Override public void consume(int items) {
+			assigned = 0;
+			hasNullKey = false;
+			allocate((int) Array.nextPowerOf2(items));
+		}
+		
+		
+		protected void allocate(int size) {
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			if (assigned < 1)
+			{
+				if (keys.length() < size) keys.length(-size);
+				else keys.clear();
+				
+				if (values.length() < size) values.length(-size);
+				else values.clear();
+				
+				return;
+			}
 			
 			final K[] k = this.keys.array;
 			final V[] v = this.values.array;
 			
-			keys.length( arraySize + 1 );
-			values.length( arraySize + 1 );
-			
-			resizeAt = Math.min( arraySize - 1, (int) Math.ceil( arraySize * loadFactor ) );
-			mask     = arraySize - 1;
-			
-			if (k == null || isEmpty()) return;
+			keys.length(-size);
+			values.length(-size);
 			
 			K kk;
 			for (int from = k.length - 1; 0 <= --from; )
 				if ((kk = k[from]) != null)
 				{
-					int slot = hashKey( kk ) & mask;
+					int slot = Array.hash(kk.hashCode()) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
-					keys.array[slot]   = kk;
+					keys.array[slot] = kk;
 					values.array[slot] = v[from];
 				}
 		}
 		
-		public V remove( K key ) {
+		public boolean remove(K key) {
 			if (key == null)
 			{
-				hasNull = false;
-				return NullValue;
+				boolean h = hasNullKey;
+				hasNullKey = false;
+				return h != hasNullKey;
 			}
 			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0)
+				if (k.compareTo(key) == 0)
 				{
 					final V v       = values.array[slot];
 					int     gapSlot = slot;
 					
 					K kk;
 					for (int distance = 0, slot1; (kk = keys.array[slot1 = gapSlot + ++distance & mask]) != null; )
-						if ((slot1 - hashKey( kk ) & mask) >= distance)
+						if ((slot1 - Array.hash(kk.hashCode()) & mask) >= distance)
 						{
 							values.array[gapSlot] = values.array[slot1];
 							keys.array[gapSlot] = kk;
-							                      gapSlot = slot1;
-							                      distance = 0;
+							gapSlot = slot1;
+							distance = 0;
 						}
 					
-					keys.array[gapSlot]   = null;
+					keys.array[gapSlot] = null;
 					values.array[gapSlot] = null;
 					assigned--;
-					return v;
+					return true;
 				}
 			
-			return null;
+			return false;
 		}
 		
 		public RW<K, V> clone()          { return (RW<K, V>) super.clone(); }

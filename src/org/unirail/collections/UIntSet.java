@@ -3,37 +3,50 @@ package org.unirail.collections;
 public interface UIntSet {
 	
 	interface Consumer {
-		boolean add( long value );
+		boolean add(long value);
 		
-		boolean add(  Integer   key );
+		boolean add( Integer   key);
+		
+		void consume(int items);
 	}
 	
 	interface Producer {
-		@Nullable int tag();
+		boolean produce_has_null_key();
 		
-		@Nullable int tag( int tag );
+		boolean produce_has_0key();
 		
-		default boolean ok( @Nullable int tag ) {return tag != Nullable.NONE;}
+		int size();
 		
-		boolean hasNullKey();
+		int produce(int state);
 		
-		long  key( @Nullable int tag );
+		long  produce_key(@Positive_Values int state);
 		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
+		default StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey()) dst.append( "null\n" );
+			if (produce_has_null_key())
+			{
+				dst.append("null\n");
+				size--;
+			}
 			
-			for (int tag = tag(); ok( tag ); tag = tag( tag ))
-			     dst.append( key( tag ) ).append( '\n' );
+			if (produce_has_0key())
+			{
+				dst.append("0\n");
+				size--;
+			}
 			
+			for (int p = -1, i = 0; i < size; i++)
+				dst.append(produce_key(p = produce(p))).append('\n');
 			return dst;
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R> {
+	class R implements Cloneable, Comparable<R>, Producer {
 		
-		public UIntList.RW keys = new UIntList.RW( 0 );
+		public UIntList.RW keys = new UIntList.RW(0);
 		
 		int assigned;
 		
@@ -41,93 +54,80 @@ public interface UIntSet {
 		
 		int resizeAt;
 		
-		boolean hasO;
-		boolean hasNull;
+		boolean hasOkey;
+		boolean hasNullKey;
 		
 		protected double loadFactor;
 		
-		public R()                    { this( 4 ); }
 		
-		public R( int expectedItems ) { this( expectedItems, 0.75 ); }
+		protected R(int expectedItems) { this(expectedItems, 0.75); }
 		
-		public R( double loadFactor ) { this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D ); }
+		protected R(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
 		
 		
-		public R( int expectedItems, double loadFactor ) {
-			this( loadFactor );
+		protected R(int expectedItems, double loadFactor) {
+			this(loadFactor);
 			
-			final long length = (long) Math.ceil( expectedItems / loadFactor );
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
 			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys.length( size );
+			keys.length(size);
 		}
 		
-		public R( long... items ) {
-			this( items.length );
-			for (long i : items) add( this, i );
+		public R(long... items) {
+			this(items.length);
+			for (long i : items) add(this, i);
 		}
 		
-		private static void allocate( R src, int size ) {
-			if (src.assigned < 1)
+		protected static boolean add(R src, long key) {
+			
+			if (key == 0) return !src.hasOkey && (src.hasOkey = true);
+			
+			int slot = Array.hash(key) & src.mask;
+			
+			for (long k; (k = src.keys.array[slot]) != 0; slot = slot + 1 & src.mask)
+				if (k == key) return false;
+			
+			src.keys.array[slot] = (int) key;
+			
+			if (src.assigned++ == src.resizeAt) src.allocate(src.mask + 1 << 1);
+			return true;
+		}
+		
+		protected void allocate(int size) {
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			if (assigned < 1)
 			{
-				src.resizeAt = Math.min( size - 1, (int) Math.ceil( size * src.loadFactor ) );
-				src.mask     = size - 1;
-				
-				if (src.keys.length() < size) src.keys.length( size );
-				else src.keys.clear();
+				if (keys.length() < size) keys.length(-size);
+				else keys.clear();
 				
 				return;
 			}
 			
+			final int[] k = keys.array;
 			
-			final int[] k = src.keys.array;
-			
-			src.keys.length( size + 1 );
-			
-			src.mask     = size - 1;
-			src.resizeAt = Math.min( src.mask, (int) Math.ceil( size * src.loadFactor ) );
-			
-			if (k == null || src.isEmpty()) return;
-			
+			keys.length(-size);
 			
 			long key;
 			for (int from = k.length - 1; 0 <= --from; )
 				if ((key = k[from]) != 0)
 				{
-					int slot = src.hashKey( key ) & src.mask;
-					while (src.keys.array[slot] != 0) slot = slot + 1 & src.mask;
-					src.keys.array[slot] =(int) key;
+					int slot = Array.hash(key) & mask;
+					while (keys.array[slot] != 0) slot = slot + 1 & mask;
+					keys.array[slot] =(int) key;
 				}
 		}
 		
-		private static void add( R src, long key ) {
-			
-			if (key == 0)
-			{
-				src.hasO = true;
-				return;
-			}
-			
-			int slot = src.hashKey( key ) & src.mask;
-			
-			
-			for (long k; (k = src.keys.array[slot]) != 0; slot = slot + 1 & src.mask)
-				if (k == key) return;
-			
-			src.keys.array[slot] = (int) key;
-			
-			if (src.assigned++ == src.resizeAt) allocate( src, src.mask + 1 << 1 );
-		}
+		public boolean contains( Integer   key) { return key == null ? hasNullKey : contains((long) (key + 0)); }
 		
-		public boolean contains(  Integer   key ) { return key == null ? hasNull : contains( (long) (key + 0) ); }
-		
-		public boolean contains( long key ) {
-			if (key == 0) return hasO;
+		public boolean contains(long key) {
+			if (key == 0) return hasOkey;
 			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (long k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return true;
@@ -135,42 +135,26 @@ public interface UIntSet {
 		}
 		
 		
-		public boolean isEmpty() { return size() == 0; }
+		public boolean isEmpty()    { return size() == 0; }
 		
 		
-		public int size()        { return assigned + (hasO ? 1 : 0); }
+		@Override public int size() { return assigned + (hasOkey ? 1 : 0) + (hasNullKey ? 1 : 0); }
 		
 		
 		public int hashCode() {
-			int         h = hasO ? 0xDEADBEEF : 0;
+			int         h = hasOkey ? 0xDEADBEEF : 0;
 			long k;
 			
 			for (int slot = mask; slot >= 0; slot--)
 				if ((k = keys.array[slot]) != 0)
-					h += Array.hash( k );
+					h += Array.hash(k);
 			
 			return h;
 		}
 		
-		protected int hashKey( long key ) {return Array.hashKey( key );}
-		
-		private Producer producer;
-		
-		public Producer producer() {
-			return producer == null ? producer = new Producer() {
-				
-				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasO ? 0 : 1); }
-				
-				public int tag( int tag ) { while (-1 < --tag) if (keys.array[tag] != 0) return tag; return -1; }
-				
-				public boolean hasNullKey() { return hasNull; }
-				
-				public long key( int tag ) {return assigned == 0 || tag == keys.array.length ? (long) 0 :   keys.array[tag]; }
-			} : producer;
-		}
 		
 		
-		public long[] toArray( long[] dst ) {
+		public long[] toArray(long[] dst) {
 			final int size = size();
 			if (dst == null || dst.length < size) dst = new long[size];
 			
@@ -181,25 +165,26 @@ public interface UIntSet {
 		}
 		
 		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       compareTo(getClass().cast(obj)) == 0;
 		}
 		
 		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
-		public int compareTo( R other ) {
+		
+		@Override public int compareTo(R other) {
 			if (other == null) return -1;
 			if (other.assigned != assigned) return other.assigned - assigned;
 			
-			for (int k : keys.array) if (k != 0 && !other.contains( k )) return 1;
+			for (int k : keys.array) if (k != 0 && !other.contains(k)) return 1;
 			
 			return 0;
 		}
 		
 		
-		public R clone() {
+		@Override public R clone() {
 			try
 			{
 				R dst = (R) super.clone();
@@ -214,68 +199,49 @@ public interface UIntSet {
 			return null;
 		}
 		
-		public StringBuilder toString( StringBuilder dst ) {
-			
-			if (dst == null) dst = new StringBuilder( assigned * 10 );
-			else dst.ensureCapacity( dst.length() + assigned * 10 );
-			return producer().toString( dst );
-		}
+		//region  producer
 		
-		public String toString() { return toString( null ).toString();}
+		@Override public boolean produce_has_null_key() { return hasNullKey; }
+		
+		@Override public boolean produce_has_0key()     { return hasOkey; }
+		
+		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		
+		@Override public long produce_key(int state) { return   keys.array[state]; }
+		//endregion
+		
+		public String toString() { return toString(null).toString();}
 	}
 	
 	
 	class RW extends R implements Consumer {
-		public RW() {
-			super();
+		
+		public RW(int expectedItems)                      { super(expectedItems); }
+		
+		public RW(double loadFactor)                      { super(loadFactor); }
+		
+		public RW(int expectedItems, double loadFactor)   { super(expectedItems, loadFactor); }
+		
+		public RW(long... items)                   { super(items); }
+		
+		@Override public boolean add( Integer   key) { return key == null ? !hasNullKey && (hasNullKey = true) : add((long) key);}
+		
+		@Override public boolean add(long  value)  { return R.add(this, value); }
+		
+		@Override public void consume(int items) {
+			assigned = 0;
+			hasOkey = false;
+			hasNullKey = false;
+			allocate((int) Array.nextPowerOf2(items));
 		}
 		
-		public RW( int expectedItems ) {
-			super( expectedItems );
-		}
+		public boolean remove( Integer   key) { return key == null ? hasNullKey && !(hasNullKey = false) : remove((long) key); }
 		
-		public RW( double loadFactor ) {
-			super( loadFactor );
-		}
-		
-		public RW( int expectedItems, double loadFactor ) {
-			super( expectedItems, loadFactor );
-		}
-		
-		public RW( long... items ) {
-			super( items );
-		}
-		
-		public boolean add(  Integer   key ) {
-			if (key == null) hasNull = true;
-			else add( (long) key );
-			return true;
-		}
-		
-		public boolean add( long  value ) {
-			R.add( this, value );
-			return true;
-		}
-		
-		
-		public boolean remove(  Integer   key ) {
-			if (key == null)
-				if (hasNull)
-				{
-					hasNull = false;
-					return true;
-				}
-				else return false;
+		public boolean remove(long key) {
 			
-			return remove( (long) key );
-		}
-		
-		
-		public boolean remove( long key ) {
+			if (key == 0) return hasOkey && !(hasOkey = false);
 			
-			if (key == 0) return hasO && !(hasO = false);
-			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (long k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -284,49 +250,45 @@ public interface UIntSet {
 					
 					long kk;
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hashKey( kk ) & mask) >= distance)
+						if ((s - Array.hash(kk) & mask) >= distance)
 						{
 							keys.array[gapSlot] = (int) kk;
-							                                 gapSlot = s;
-							                                 distance = 0;
+							gapSlot = s;
+							distance = 0;
 						}
 					
 					keys.array[gapSlot] = 0;
 					assigned--;
 					return true;
 				}
-			
 			return false;
 		}
 		
 		public void clear() {
 			assigned = 0;
-			hasO     = false;
+			hasOkey = false;
+			hasNullKey = false;
+			
 			keys.clear();
 		}
 		
-		public void retainAll( Consumer chk ) {
-			
+		public void retainAll(Consumer chk) {
 			long key;
 			
 			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((key = keys.array[i]) != 0 && !chk.add( key )) remove( key );
+				if ((key = keys.array[i]) != 0 && !chk.add(key)) remove(key);
 			
-			
-			if (hasO && !chk.add( (long) 0 )) hasO = false;
-			
+			if (hasOkey && !chk.add((long) 0)) hasOkey = false;
 		}
 		
-		public int removeAll( UIntList.Producer src ) {
+		public int removeAll(UIntList.Producer src) {
 			int fix = size();
 			
-			for (int tag = src.tag(); src.ok( tag ); tag = src.tag( tag )) remove( src.value( tag ) );
+			for (int i = 0, s = src.size(); i < s; i++) remove(src.get(i));
 			
 			return fix - size();
 		}
 		
-		public Consumer consumer() {return this; }
-		
-		public RW clone()          { return (RW) super.clone(); }
+		@Override public RW clone() { return (RW) super.clone(); }
 	}
 }

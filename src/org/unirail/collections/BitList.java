@@ -5,18 +5,101 @@ import java.util.Arrays;
 
 public interface BitList {
 	
+	interface Consumer {
+		void consume(int index, long src);
+		
+		void consume(int size);
+	}
 	
-	class R implements Cloneable, Comparable<R> {
+	interface Producer {
+		int size();
+		
+		long produce(int index);
+		
+		default StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			int max  = size / 64;
+			
+			if (dst == null) dst = new StringBuilder((max + 1) * 68);
+			else dst.ensureCapacity(dst.length() + (max + 1) * 68);
+			dst.append(String.format("%-8d%-8d%-8d%-8d%-8d%-8d%-8d%-7d%d", 0, 7, 15, 23, 31, 39, 47, 55, 63));
+			dst.append('\n');
+			dst.append(String.format("%-8c%-8c%-8c%-8c%-8c%-8c%-8c%-7c%c", '|', '|', '|', '|', '|', '|', '|', '|', '|'));
+			dst.append('\n');
+			
+			for (int i = 0; i < max; i++)
+			{
+				final long v = produce(i);
+				for (int s = 0; s < 64; s++)
+					dst.append((v & 1L << s) == 0 ? '.' : '*');
+				dst.append(i * 64);
+				dst.append('\n');
+			}
+			
+			if (0 < (size &= 63))
+			{
+				final long v = produce(max + 1);
+				for (int s = 0; s < size; s++)
+					dst.append((v & 1L << s) == 0 ? '.' : '*');
+			}
+			
+			
+			return dst;
+		}
+	}
+	
+	
+	class R implements Cloneable, Comparable<R>, Producer {
+		
+		int size;
+		
+		public int size() {return size;}
+		
+		long[] array = Array.longs0;
+		
+		protected R(int length) { if (0 < length) array = new long[(length - 1 >> LEN) + 1];}
+		
+		protected R(R src, int from_bit, int to_bit) {
+			
+			if (src.size() <= from_bit) return;
+			size = Math.min(to_bit, src.size() - 1) - from_bit;
+			
+			int i2 = src.get(to_bit) ? to_bit : src.prev1(to_bit);
+			
+			if (i2 == -1) return;
+			
+			array = new long[(i2 - 1 >> LEN) + 1];
+			used = array.length | IO;
+			
+			int
+					i1 = src.get(from_bit) ? from_bit : src.next1(from_bit),
+					index = i1 >>> LEN,
+					max = (i2 >>> LEN) + 1,
+					i = 0;
+			
+			for (long v = src.array[index] >>> i1; ; v >>>= i1, i++)
+				if (index + 1 < max)
+					array[i] = v | (v = src.array[index + i]) << BITS - i1;
+				else
+				{
+					array[i] = v;
+					return;
+				}
+		}
+		
 		
 		static final int LEN  = 6;
 		static final int BITS = 1 << LEN;
 		static final int MASK = BITS - 1;
 		
+		static int index(int item_X_bits) {return item_X_bits >> BitsList.Base.LEN;}
+		
+		static long mask(int bits)        {return (1L << bits) - 1;}
+		
 		static final long FFFFFFFFFFFFFFFF = ~0L;
 		static final int  OI               = Integer.MAX_VALUE;
 		static final int  IO               = Integer.MIN_VALUE;
 		
-		long[] array;
 		
 		int used = 0;
 		
@@ -26,33 +109,22 @@ public interface BitList {
 			used &= OI;
 			
 			int i = used - 1;
-			while (i >= 0 && array[i] == 0) i--;
+			while (-1 < i && array[i] == 0) i--;
 			
 			return used = i + 1;
 		}
 		
 		int used(int bit) {
-			if (size <= bit) size = bit + 1;
+			if (size() <= bit) size = bit + 1;
+			
 			final int index = bit >> LEN;
 			if (index < used()) return index;
 			
 			if (array.length < (used = index + 1)) array = Arrays.copyOf(array, Math.max(2 * array.length, used));
 			
-			
 			return index;
 		}
 		
-		int size = 0;
-		
-		public int size()  {return size;}
-		
-		public R(int bits) { array = new long[(bits - 1 >> LEN) + 1]; }
-		
-		public R(long[] array) {
-			this.array = array;
-			used = array.length | IO;
-			size = array.length << LEN;
-		}
 		
 		public boolean get(int bit) {
 			final int index = bit >> LEN;
@@ -170,31 +242,6 @@ public interface BitList {
 			return i * 32 + BITS - z;
 		}
 		
-		public long[] subList(int from_bit, int to_bit) {
-			if (!get(from_bit)) from_bit = next1(from_bit);
-			if (to_bit <= from_bit) return null;
-			
-			if (!get(to_bit)) to_bit = prev1(to_bit);
-			if (to_bit <= from_bit) return null;
-			
-			
-			long[] dst = new long[(to_bit - from_bit - 1 >> LEN) + 1];
-			
-			int
-					index = from_bit >>> LEN,
-					max = (to_bit >>> LEN) + 1,
-					i = 0;
-			
-			for (long v = array[index] >>> from_bit; ; v >>>= from_bit, i++)
-				if (index + 1 < max)
-					dst[i] = v | (v = array[index + i]) << BITS - from_bit;
-				else
-				{
-					dst[i] = v;
-					return dst;
-				}
-		}
-		
 		
 		public int hashCode() {
 			long h = 1234;
@@ -204,7 +251,7 @@ public interface BitList {
 			return (int) (h >> 32 ^ h);
 		}
 		
-		public int length() { return array.length * BITS; }
+		public int length() { return array == null ? 0 : array.length * BITS; }
 		
 		
 		public R clone() {
@@ -212,23 +259,16 @@ public interface BitList {
 			try
 			{
 				R dst = (R) super.clone();
-				dst.array = array.clone();
+				dst.array = array.length == 0 ? array : array.clone();
 				return dst;
-			} catch (CloneNotSupportedException e)
-			{
-				e.printStackTrace();
-			}
+			} catch (CloneNotSupportedException e) {e.printStackTrace();}
 			
 			return null;
 		}
 		
+		public boolean equals(Object obj) { return obj != null && getClass() == obj.getClass() && compareTo(getClass().cast(obj)) == 0; }
 		
-		public boolean equals(Object obj) {
-			
-			return obj != null && getClass() == obj.getClass() && compareTo(getClass().cast(obj)) == 0;
-		}
-		
-		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
+		public boolean equals(R other)    { return other != null && compareTo(other) == 0; }
 		
 		public int compareTo(R other) {
 			if (other.last1() != last1()) return other.last1() - last1();
@@ -239,86 +279,20 @@ public interface BitList {
 			return 0;
 		}
 		
+		//region  producer
+		public long produce(int index) { return index < used() ? array[index] : 0L; }
 		
-		public StringBuilder toString(StringBuilder dst) {
-			if (dst == null) dst = new StringBuilder(used * 68);
-			else dst.ensureCapacity(dst.length() + used * 68);
-			dst.append(String.format("%-8d%-8d%-8d%-8d%-8d%-8d%-8d%-7d%d", 63, 55, 47, 39, 31, 23, 15, 7, 0));
-			dst.append('\n');
-			dst.append(String.format("%-8c%-8c%-8c%-8c%-8c%-8c%-8c%-7c%c", '|', '|', '|', '|', '|', '|', '|', '|', '|'));
-			dst.append('\n');
-			
-			for (int i = 0, max = used(); i < max; i++)
-			{
-				final long v = array[i];
-				for (int s = 64; -1 < --s; )
-					dst.append((v & 1L << s) == 0 ? '.' : '*');
-				dst.append(i * 64);
-				dst.append('\n');
-			}
-			
-			return dst;
-		}
-		
-		
+		//endregion
 		public String toString() { return toString(null).toString();}
 	}
 	
 	
-	class Rsize extends R {
-		
-		public Rsize(int bits) {
-			super(bits);
-			size = bits;
-		}
-		
-		public Rsize(long[] array) {
-			super(array);
-			size = array.length * BITS;
-		}
-		
-		protected void set1(int bit) {if (bit < size) set1(this, bit); }
-		
-		protected static void set1(Rsize dst, int bit) {
-			final int index = dst.used(bit);
-			dst.array[index] |= 1L << bit;
-		}
+	class RW extends R implements Consumer {
 		
 		
-		public void set(int bit, boolean value) {
-			if (bit < size)
-				if (value)
-					set1(this, bit);
-				else
-					set0(this, bit);
-		}
+		public RW(int length)                      { super(length); }
 		
-		protected void set0(int bit) {if (bit < size) set0(this, bit); }
-		
-		protected static void set0(Rsize dst, int bit) {
-			if (dst.size <= bit) dst.size = bit + 1;
-			final int index = bit >> LEN;
-			
-			if (index < dst.used())
-				if (index + 1 == dst.used && (dst.array[index] &= ~(1L << bit)) == 0) dst.used |= IO;
-				else
-					dst.array[index] &= ~(1L << bit);
-		}
-		
-		public void set(int index, boolean... values) {
-			for (int i = 0, max = Math.min(values.length, size - index); i < max; i++)
-				if (values[i]) set1(this, index + i);
-				else set0(this, index + i);
-		}
-	}
-	
-	class RW extends R {
-		
-		public RW(int bits)     { super(bits); }
-		
-		public RW(long[] array) { super(array); }
-		
-		public void fit()       {if (used() < array.length) array = Arrays.copyOf(array, used);}
+		public RW(R src, int from_bit, int to_bit) { super(src, from_bit, to_bit); }
 		
 		
 		public void and(R and) {
@@ -334,37 +308,41 @@ public interface BitList {
 		
 		
 		public void or(R or) {
-			if (this == or) return;
+			if (or.used() < 1 || this == or) return;
 			
-			int min = Math.min(used, or.used);
-			
+			int u = used;
 			if (used() < or.used())
 			{
 				if (array.length < or.used) array = Arrays.copyOf(array, Math.max(2 * array.length, or.used));
 				used = or.used;
 			}
 			
+			int min = Math.min(u, or.used);
+			
 			for (int i = 0; i < min; i++)
 				array[i] |= or.array[i];
 			
-			if (min < or.used) System.arraycopy(or.array, min, array, min, used - min);
+			if (min < or.used) System.arraycopy(or.array, min, array, min, or.used - min);
+			else if (min < u) System.arraycopy(array, min, or.array, min, u - min);
 		}
 		
 		
 		public void xor(R xor) {
+			if (xor.used() < 1 || xor == this) return;
 			
-			final int min = Math.min(used, xor.used);
-			
+			int u = used;
 			if (used() < xor.used())
 			{
 				if (array.length < xor.used) array = Arrays.copyOf(array, Math.max(2 * array.length, xor.used));
 				used = xor.used;
 			}
 			
+			final int min = Math.min(u, xor.used);
 			for (int i = 0; i < min; i++)
 				array[i] ^= xor.array[i];
 			
 			if (min < xor.used) System.arraycopy(xor.array, min, array, min, xor.used - min);
+			else if (min < u) System.arraycopy(array, min, xor.array, min, u - min);
 			
 			used |= IO;
 		}
@@ -382,9 +360,26 @@ public interface BitList {
 			return false;
 		}
 		
+		public void fit() { length(size()); }
 		
-		void length(int bits) {array = new long[(bits >> 6) + 1]; }
-		
+		void length(int bits) {
+			if (0 < bits)
+			{
+				if (bits < size)
+				{
+					set0(bits, size + 1);
+					size = bits;
+				}
+				array = Arrays.copyOf(array, index(bits) + 1);
+				
+				used |= IO;
+				return;
+			}
+			
+			size = 0;
+			used = 0;
+			array = bits == 0 ? Array.longs0 : new long[index(-bits) + 1];
+		}
 		
 		public void flip(int bit) {
 			final int index = used(bit);
@@ -393,7 +388,6 @@ public interface BitList {
 		
 		
 		public void flip(int from_bit, int to_bit) {
-			;
 			if (from_bit == to_bit) return;
 			
 			int from_index = from_bit >> LEN;
@@ -423,12 +417,8 @@ public interface BitList {
 				else set0(index + i);
 		}
 		
-		public void set(long[] array) {
-			this.array = array;
-			used = array.length | IO;
-		}
 		
-		public void set1() { set1(size); }
+		public void set1() { set1(size()); }
 		
 		
 		public void set1(int bit) {
@@ -477,7 +467,8 @@ public interface BitList {
 		
 		
 		public void set0(int bit) {
-			if (size <= bit) size = bit + 1;
+			if (size() <= bit) size = bit + 1;
+			
 			final int index = bit >> LEN;
 			
 			if (index < used())
@@ -488,8 +479,7 @@ public interface BitList {
 		
 		
 		public void set0(int from_bit, int to_bit) {
-			if (size <= to_bit) size = to_bit + 1;
-			
+			if (size() <= to_bit) size = to_bit + 1;
 			
 			if (from_bit == to_bit) return;
 			
@@ -522,6 +512,28 @@ public interface BitList {
 			}
 		}
 		
+		public void add(long src) { add(src, 64); }
+		
+		public void add(long src, int bits) {
+			if (64 < bits) bits = 64;
+			
+			int _size = size;
+			size += bits;
+			
+			if ((src &= ~(1L << bits - 1)) == 0) return;
+			
+			used(_size + BITS - Long.numberOfLeadingZeros(src));
+			
+			int bit = _size & 63;
+			
+			if (bit == 0) array[index(size)] = src;
+			else
+			{
+				array[index(_size)] &= src << bit | mask(bit);
+				if (index(_size) < index(size)) array[index(size)] = src >> bit;
+			}
+		}
+		
 		public void add(int key, boolean value) {
 			if (key < last1())
 			{
@@ -545,10 +557,11 @@ public interface BitList {
 				size++;
 			}
 			else if (value) set1(key);
-			
-			
 		}
 		
+		@Override public void consume(int size)            {if (array.length < index(this.size = size) + 1) array = new long[index(size) + 1];}
+		
+		@Override public void consume(int index, long src) { array[index] = src; }
 		
 		public void remove(int bit) {
 			if (size <= bit) return;

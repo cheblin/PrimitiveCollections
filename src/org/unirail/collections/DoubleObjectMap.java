@@ -2,53 +2,69 @@ package org.unirail.collections;
 
 public interface DoubleObjectMap {
 	
-	public interface Consumer<V extends Comparable<? super V>> {
-		boolean put( double key, V value );//return false to interrupt
+	interface Consumer<V extends Comparable<? super V>> {
+		boolean put(double key, V value);//return false to interrupt
 		
-		boolean put(  Double    key, V value );
+		boolean put( Double    key, V value);
 		
+		int consume(int items);
 	}
 	
 	
-	public interface Producer<V extends Comparable<? super V>> {
+	interface Producer<V extends Comparable<? super V>> {
 		
-		int tag();
+		int size();
 		
-		int tag( int tag );
+		boolean produce_has_null_key();
 		
-		default boolean ok( int tag ) {return tag != -1;}
+		V produce_null_key_val();
+		
+		boolean produce_has_0key();
+		
+		V produce_0key_val();
+		
+		int produce(int state);
+		
+		double produce_key(int state);
+		
+		V produce_val(int state);
 		
 		
-		boolean hasNullKey();
-		
-		V nullKeyValue();
-		
-		double key( int tag );
-		
-		V value( int tag );
-		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
+		default StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey()) dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
 			
-			for (int tag = tag(); ok( tag ); tag = tag( tag ))
-			     dst.append( key( tag ) )
-					     .append( " -> " )
-					     .append( value( tag ) )
-					     .append( '\n' );
+			if (produce_has_null_key())
+			{
+				dst.append("null -> ").append(produce_null_key_val()).append('\n');
+				size--;
+			}
+			
+			if (produce_has_0key())
+			{
+				dst.append("0 -> ").append(produce_0key_val()).append('\n');
+				size--;
+			}
+			
+			for (int p = -1, i = 0; i < size; i++)
+				dst.append(produce_key(p = produce(p)))
+						.append(" -> ")
+						.append(produce_val(p))
+						.append('\n');
 			
 			return dst;
 		}
 	}
 	
 	
-	public static class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>> {
+	class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, Producer<V> {
 		
 		
-		public DoubleList.RW keys = new DoubleList.RW( 0 );
+		public DoubleList.RW keys = new DoubleList.RW(0);
 		
-		public ObjectList.RW<V> values = new ObjectList.RW<>( 0 );
+		public ObjectList.RW<V> values = new ObjectList.RW<>(0);
 		
 		
 		int assigned;
@@ -59,66 +75,59 @@ public interface DoubleObjectMap {
 		
 		int resizeAt;
 		
-		boolean hasNull;
-		V       NullValue;
+		boolean hasNullKey;
+		V       nullKeyValue;
 		
 		
 		boolean hasO;
-		V       OValue;
+		V       OkeyValue;
 		
 		
 		protected double loadFactor;
 		
 		
-		public R( double loadFactor ) {
-			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
-		}
+		public R(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
 		
-		public R( int expectedItems ) {
-			this( expectedItems, 0.75 );
-		}
+		public R(int expectedItems) { this(expectedItems, 0.75); }
 		
 		
-		public R( int expectedItems, double loadFactor ) {
-			this( loadFactor );
+		public R(int expectedItems, double loadFactor) {
+			this(loadFactor);
 			
-			final long length = (long) Math.ceil( expectedItems / loadFactor );
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
 			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys.length( size );
-			values.length( size );
+			keys.length(size);
+			values.length(size);
 		}
 		
 		
-		public V get( double key ) {
-			if (key == 0) return hasO ? OValue : null;
+		public @Positive_Values int info( Double    key) { return key == null ? hasNullKey ? Integer.MAX_VALUE : Positive_Values.NONE : info((double)(key + 0));}
+		
+		public @Positive_Values int info(double key) {
+			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key) return values.array[slot];
+				if (k == key) return slot;
 			
-			return null;
+			return Positive_Values.NONE;
 		}
 		
-		
-		public boolean contains( double key ) {
-			if (key == 0) return hasO;
+		public V value(@Positive_ONLY int info) {
+			if (info == Positive_Values.VALUE) return nullKeyValue;
+			if (info == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			int slot = hashKey( key ) & mask;
-			
-			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key) return true;
-			return false;
+			return values.array[info];
 		}
 		
 		
 		public boolean isEmpty() { return size() == 0; }
 		
-		public int size()        { return assigned + (hasO ? 1 : 0) + (hasNull ? 1 : 0); }
+		public int size()        { return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0); }
 		
 		
 		public int hashCode() {
@@ -127,75 +136,44 @@ public interface DoubleObjectMap {
 			
 			for (int i = mask; 0 <= i; i--)
 				if ((k = keys.array[i]) != 0)
-					h += Array.hash( k ) + Array.hash( values.array[i] );
+					h += Array.hash(k) + Array.hash(values.array[i]);
 			
 			return h;
 		}
 		
 		
-		protected int hashKey( double key ) { return Array.hash( key ); }
-		
-		
-		private Producer<V> producer;
-		
-		public Producer<V> producer() {
-			return producer == null ? producer = new Producer<V>() {
-				
-				public int tag() {
-					int i = keys.array.length;
-					if (hasO) return i;
-					
-					if (0 < assigned)
-						while (-1 < --i)
-							if (keys.array[i] != 0)
-								return i;
-					return -1;
-				}
-				
-				public int tag( int tag ) {
-					
-					while (-1 < --tag)
-						if (keys.array[tag] != 0)
-							return tag;
-					return -1;
-				}
-				
-				public boolean hasNullKey() {return hasNull;}
-				
-				public V nullKeyValue() {return NullValue;}
-				
-				public double key( int tag ) {return tag < keys.array.length ? keys.array[tag] : (double) 0; }
-				
-				public V value( int tag ) {return tag < keys.array.length ? values.array[tag] : OValue; }
-			} : producer;
-		}
-		
-		
-		@SuppressWarnings("unchecked") public boolean equals( Object obj ) {
+		@SuppressWarnings("unchecked") public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       compareTo(getClass().cast(obj)) == 0;
 		}
 		
 		public boolean equals(R<V> other) { return other != null && compareTo(other) == 0; }
-		public int compareTo( R<V> other ) {
+		
+		public int compareTo(R<V> other) {
 			
 			if (other == null) return -1;
 			if (assigned != other.assigned) return assigned - other.assigned;
-			if (other.hasO != hasO) return 1;
+			if (hasO != other.hasO || hasNullKey != other.hasNullKey) return 1;
 			
 			int diff;
-			if (hasO && (diff = OValue.compareTo( other.OValue )) != 0) return diff;
+			if (hasO && (diff = OkeyValue.compareTo(other.OkeyValue)) != 0) return diff;
+			if (hasNullKey && (diff = nullKeyValue.compareTo(other.nullKeyValue)) != 0) return diff;
 			
 			
 			V           v;
 			double k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((k = keys.array[i]) != 0)
-					if (values.array[i] == null && other.get( k ) != null || (v = other.get( k )) == null) return -1;
-					else if ((diff = v.compareTo( values.array[i] )) != 0) return diff;
 			
+			for (int i = keys.array.length - 1, c; -1 <= --i; )
+				if ((k = keys.array[i]) != 0)
+				{
+					if ((c = other.info(k)) < 0) return 3;
+					v = other.value(c);
+					
+					if (values.array[i] != null && v != null && (diff = v.compareTo(values.array[i])) != 0) return diff;
+					else if (values.array[i] != v) return 8;
+				}
 			return 0;
 		}
 		
@@ -205,7 +183,7 @@ public interface DoubleObjectMap {
 			try
 			{
 				R<V> dst = (R<V>) super.clone();
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -216,53 +194,65 @@ public interface DoubleObjectMap {
 			return null;
 		}
 		
-		public StringBuilder toString( StringBuilder dst ) {
-			
-			if (dst == null) dst = new StringBuilder( assigned * 10 );
-			else dst.ensureCapacity( dst.length() + assigned * 10 );
-			return producer().toString( dst );
-		}
+		//region  producer
 		
-		public String toString() { return toString( null ).toString();}
+		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		
+		@Override public boolean produce_has_null_key() {return hasNullKey;}
+		
+		@Override public V produce_null_key_val()       {return nullKeyValue;}
+		
+		@Override public boolean produce_has_0key()     {return hasO; }
+		
+		@Override public V produce_0key_val()           {return OkeyValue;}
+		
+		@Override public double produce_key(int state) {return   keys.array[state]; }
+		
+		@Override public V produce_val(int state)       {return  values.array[state]; }
+		
+		//endregion
+		
+		
+		public String toString() { return toString(null).toString();}
 	}
 	
-	public static class RW<V extends Comparable<? super V>> extends R<V> implements Consumer<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements Consumer<V> {
 		
 		
-		public RW( double loadFactor ) {
-			super( loadFactor );
+		public RW(double loadFactor) {
+			super(loadFactor);
 		}
 		
-		public RW( int expectedItems ) {
-			super( expectedItems );
+		public RW(int expectedItems) {
+			super(expectedItems);
 		}
 		
-		public RW( int expectedItems, double loadFactor ) {
-			super( expectedItems, loadFactor );
+		public RW(int expectedItems, double loadFactor) {
+			super(expectedItems, loadFactor);
 		}
 		
 		public Consumer<V> consumer() {return this; }
 		
 		
-		public boolean put(  Double    key, V value ) {
-			if (key != null) return put( (double) key, value );
+		public boolean put( Double    key, V value) {
+			if (key != null) return put((double) key, value);
 			
-			hasNull   = true;
-			NullValue = value;
+			hasNullKey = true;
+			nullKeyValue = value;
 			
 			return true;
 		}
 		
-		public boolean put( double key, V value ) {
+		public boolean put(double key, V value) {
 			if (key == 0)
 			{
-				hasO   = true;
-				OValue = value;
+				hasO = true;
+				OkeyValue = value;
 				return true;
 			}
 			
 			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -271,32 +261,26 @@ public interface DoubleObjectMap {
 					return true;
 				}
 			
-			keys.array[slot]   = Double.doubleToLongBits( key);
-			values.array[slot] =            value;
+			keys.array[slot] = Double.doubleToLongBits( key);
+			values.array[slot] = value;
 			
-			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
+			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
 			return true;
 		}
 		
 		
-		public boolean remove(  Double    key ) {
-			if (key == null)
-				if (hasNull)
-				{
-					hasNull = false;
-					return true;
-				}
-				else return false;
+		public boolean remove( Double    key) {
+			if (key == null) return hasNullKey && !(hasNullKey = false);
 			
-			return remove( (double) key );
+			return remove((double) key);
 		}
 		
-		public boolean remove( double key ) {
+		public boolean remove(double key) {
 			
 			if (key == 0) return hasO && !(hasO = false);
 			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -306,16 +290,16 @@ public interface DoubleObjectMap {
 					
 					double kk;
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hashKey( kk ) & mask) >= distance)
+						if ((s - Array.hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot]   = Double.doubleToLongBits( kk);
+							keys.array[gapSlot] = Double.doubleToLongBits( kk);
 							values.array[gapSlot] = values.array[s];
-							                                   gapSlot = s;
-							                                   distance = 0;
+							gapSlot = s;
+							distance = 0;
 						}
 					
-					keys.array[gapSlot]   = 0;
+					keys.array[gapSlot] = 0;
 					values.array[gapSlot] = null;
 					assigned--;
 					return true;
@@ -326,26 +310,39 @@ public interface DoubleObjectMap {
 		
 		public void clear() {
 			assigned = 0;
-			hasO     = false;
 			
-			hasNull   = false;
-			NullValue = null;
+			hasO = false;
+			OkeyValue = null;
+			
+			hasNullKey = false;
+			nullKeyValue = null;
 			
 			keys.clear();
 			values.clear();
 		}
 		
-		void allocate( int size ) {
+		@Override public int consume(int items) {
+			
+			assigned = 0;
+			hasNullKey = false;
+			hasO = false;
+			OkeyValue = null;
+			nullKeyValue = null;
+			
+			allocate((int) Array.nextPowerOf2(items));
+			return items;
+		}
+		
+		void allocate(int size) {
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
 			if (assigned < 1)
 			{
-				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-				mask     = size - 1;
-				
-				if (keys.length() < size) keys.length( size );
+				if (keys.length() < size) keys.length(-size);
 				else keys.clear();
 				
-				if (values.length() < size) values.length( size );
+				if (values.length() < size) values.length(-size);
 				else values.clear();
 				
 				return;
@@ -355,22 +352,16 @@ public interface DoubleObjectMap {
 			final double[] k = keys.array;
 			final V[]           v = values.array;
 			
-			keys.length( size + 1 );
-			values.length( size + 1 );
-			
-			mask     = size - 1;
-			resizeAt = Math.min( mask, (int) Math.ceil( size * loadFactor ) );
-			
-			if (k == null || isEmpty()) return;
-			
+			keys.length(-size);
+			values.length(-size);
 			
 			double key;
 			for (int from = k.length - 1; 0 <= --from; )
 				if ((key = k[from]) != 0)
 				{
-					int slot = hashKey( key ) & mask;
+					int slot = Array.hash(key) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot]   = Double.doubleToLongBits( key);
+					keys.array[slot] = Double.doubleToLongBits( key);
 					values.array[slot] = v[from];
 				}
 		}

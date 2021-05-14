@@ -3,46 +3,16 @@ package org.unirail.collections;
 
 public interface BoolNullList {
 	
-	interface Consumer {
-		boolean add( Boolean value );
-	}
-	
-	interface Producer {
-		int tag();
-		
-		int tag( int tag );
-		
-		default boolean ok( int tag ) {return tag != -1;}
-		
-		Boolean value( int tag );
-		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
-			
-			for (int tag = tag(); ok( tag ); dst.append( '\n' ), tag = tag( tag ))
-			     dst.append( value( tag ) );
-			
-			return dst;
-		}
-	}
-	
 	class R extends BitsList.Base {
 		
-		public R() {
-			super( 2 );
+		protected R(int items) { super(2, items); }
+		
+		public R(boolean... values) {
+			super(2, values.length);
+			fill(this, values);
 		}
 		
-		public R( int items ) {
-			super( 2, items );
-		}
-		
-		public static R oF( boolean... values ) {
-			R dst = new R( values.length );
-			fill( dst, values );
-			return dst;
-		}
-		
-		protected static void fill( R dst, boolean... items ) {
+		protected static void fill(R dst, boolean... items) {
 			
 			final int bits = dst.bits;
 			for (boolean i : items)
@@ -55,13 +25,12 @@ public interface BoolNullList {
 			}
 		}
 		
-		public static R of( Boolean... values ) {
-			R dst = new R( values.length );
-			filL( dst, values );
-			return dst;
+		public R(Boolean... values) {
+			super(2, values.length);
+			fill(this, values);
 		}
 		
-		protected static void filL( R dst, Boolean... items ) {
+		protected static void fill(R dst, Boolean... items) {
 			
 			final int bits = dst.bits;
 			for (Boolean b : items)
@@ -74,137 +43,69 @@ public interface BoolNullList {
 			}
 		}
 		
-		private Producer producer;
-		
-		public Producer producer() {
-			return producer == null ? producer = new Producer() {
-				public int tag() { return 0 < size ? 0 : -1; }
-				
-				public int tag( int tag ) { return tag != -1 && tag < size - 1 ? ++tag : -1; }
-				
-				public Boolean value( int tag ) {return getBoolean( tag );}
-			} : producer;
-		}
-		
-		public Boolean getBoolean( int index ) {
-			final int i = get( index );
+		public Boolean value(int index) {
+			final int i = get(index);
 			return i == 0 ? null : i == 1 ? Boolean.TRUE : Boolean.FALSE;
 		}
 		
-		public R clone() {return (R) super.clone();}
+		public R clone()         {return (R) super.clone();}
 		
-		public StringBuilder toString( StringBuilder dst ) {
-			
-			if (dst == null) dst = new StringBuilder( size * 2 );
-			else dst.ensureCapacity( dst.length() + size * 2 );
-			return producer().toString( dst );
-		}
-		
-		public String toString() { return toString( null ).toString();}
 	}
 	
-	class Rsize extends R {
-		
-		public Rsize( int items ) {
-			super( items );
-			size = items;
-		}
-		
-		public void set( int item, int value )     { if (item < size) set( this, item, value ); }
-		
-		public void set( int item, char value )    { if (item < size) set( this, item, value ); }
-		
-		public void set( int item, boolean value ) { if (item < size) set( this, item, value ? (char) 1 : 2 ); }
-		
-		public void set( int item, Boolean value ) { if (item < size) set( this, item, value == null ? 0 : value ? (char) 1 : 2 ); }
-		
-		public void seT( int index, boolean... values ) {
-			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] ? (char) 1 : 2 );
-		}
-		
-		public void set( int index, Boolean... values ) {
-			for (int i = 0, max = Math.min( values.length, size - index ); i < max; i++)
-			     set( this, index + i, values[i] == null ? 0 : values[i] ? (char) 1 : 2 );
-		}
-		
-		public static Rsize oF( boolean... values ) {
-			Rsize dst = new Rsize( values.length );
-			fill( dst, values );
-			return dst;
-		}
-		
-		public static Rsize of( Boolean... values ) {
-			Rsize dst = new Rsize( values.length );
-			filL( dst, values );
-			return dst;
-		}
-	}
 	
-	class RW extends R implements Consumer {
-		public RW()            {super( 1 ); }
+	class RW extends R implements BitsList.Consumer {
 		
-		public RW( int items ) { super( items ); }
+		@Override public void consume(int index, long src) { array[index] = src; }
 		
-		public static RW of( boolean... values ) {
-			RW dst = new RW( values.length );
-			fill( dst, values );
-			return dst;
-		}
+		@Override public void consume(int items, int bits) { BitsList.Base.consume(this, items, bits);}
 		
-		public static RW of( Boolean... values ) {
-			RW dst = new RW( values.length );
-			filL( dst, values );
-			return dst;
-		}
+		public RW(int items)                               { super(items); }
 		
-		public boolean add( boolean value ) {
-			add( this, value ? (char) 1 : 2 );
-			return true;
-		}
+		public RW(boolean... values)                       { super(values); }
 		
-		public boolean add( Boolean value ) {
-			add( this, value == null ? 0 : value ? (char) 1 : 2 );
-			return false;
-		}
+		public RW(Boolean... values)                       { super(values); }
 		
-		public void remove( Boolean value ) {
-			remove( this, value == null ? 0 : value ? (char) 1 : 2 );
-		}
+		public void add(int value)                         { add(this, (char) value);}
 		
-		public void remove( boolean value )        { remove( this, value ? (char) 1 : 2 ); }
+		public void add(boolean value)                     { add(this, value ? (char) 1 : 2); }
 		
-		public void removeAt( int item )           { removeAt( this, item ); }
+		public void add(Boolean value)                     { add(this, value == null ? 0 : value ? (char) 1 : 2); }
+		
+		public void remove(Boolean value)                  { remove(this, value == null ? 0 : value ? (char) 1 : 2); }
+		
+		public void remove(boolean value)                  { remove(this, value ? (char) 1 : 2); }
+		
+		public void removeAt(int item)                     { removeAt(this, item); }
 		
 		
-		public void set( boolean value )           {set( this, size, value ? (char) 1 : 2 ); }
+		public void set(boolean value)                     {set(this, size, value ? (char) 1 : 2); }
 		
-		public void set( Boolean value )           { set( this, size, value == null ? 0 : value ? (char) 1 : 2 ); }
-		
-		
-		public void set( int item, int value )     {set( this, item, value ); }
-		
-		public void set( int item, char value )    {set( this, item, value ); }
-		
-		public void set( int item, boolean value ) {set( this, item, value ? (char) 1 : 2 ); }
-		
-		public void set( int item, Boolean value ) { set( this, item, value == null ? 0 : value ? (char) 1 : 2 ); }
+		public void set(Boolean value)                     { set(this, size, value == null ? 0 : value ? (char) 1 : 2); }
 		
 		
-		public void seT( int index, boolean... values ) {
+		public void set(int item, int value)               {set(this, item, value); }
+		
+		public void set(int item, char value)              {set(this, item, value); }
+		
+		public void set(int item, boolean value)           {set(this, item, value ? (char) 1 : 2); }
+		
+		public void set(int item, Boolean value)           { set(this, item, value == null ? 0 : value ? (char) 1 : 2); }
+		
+		
+		public void set(int index, boolean... values) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] ? (char) 1 : 2 );
+				set(this, index + i, values[i] ? (char) 1 : 2);
 		}
 		
-		public void set( int index, Boolean... values ) {
+		public void set(int index, Boolean... values) {
 			for (int i = 0, max = values.length; i < max; i++)
-			     set( this, index + i, values[i] == null ? 0 : values[i] ? (char) 1 : 2 );
+				set(this, index + i, values[i] == null ? 0 : values[i] ? (char) 1 : 2);
 		}
 		
-		public void clear()        { clear( this ); }
+		public void clear() { clear(this); }
 		
-		public Consumer consumer() {return this; }
 		
-		public RW clone()          { return (RW) super.clone(); }
+		public RW clone()   { return (RW) super.clone(); }
 	}
 }
+

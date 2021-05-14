@@ -3,36 +3,44 @@ package org.unirail.collections;
 public interface ByteSet {
 	
 	interface Consumer {
+		
+		default boolean add(int value) { return add((byte) (value & 0xFF)); }
+		
 		boolean add(byte value);
 		
 		boolean add( Byte      key);
 		
-		default boolean add(int value) { return add((byte) (value & 0xFF)); }
+		void consume(int items);
 	}
 	
 	interface Producer {
-		@Nullable int tag();
+		boolean produce_has_null_key();
 		
-		@Nullable int tag(int tag);
+		int size();
 		
-		default boolean ok(@Nullable int tag) {return tag != Nullable.NONE;}
+		int produce(int info);
 		
-		boolean hasNullKey();
-		
-		byte  key(@Nullable int tag);
-		
+		byte  produce_key(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
-			if (dst == null) dst = new StringBuilder(255);
-			if (hasNullKey()) dst.append("null\n");
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			for (int tag = tag(); ok(tag); tag = tag(tag))
-				dst.append(key(tag)).append('\n');
+			if (produce_has_null_key())
+			{
+				dst.append("null\n");
+				size--;
+			}
+			
+			for (int p = -1, i = 0; i < size; i++)
+				dst.append(produce_key(p = produce(p))).append('\n');
+			
 			return dst;
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R> {
+	class R implements Cloneable, Comparable<R>, Producer {
 		long
 				_1,
 				_2,
@@ -40,40 +48,43 @@ public interface ByteSet {
 				_4;
 		
 		int size = 0;
-		protected boolean hasNull;
+		
+		
+		protected boolean hasNullKey;
 		
 		public R()                      { }
 		
 		public R(byte... items) { for (byte i : items) add(this, i); }
 		
-		private static void add(ByteSet.R dst, final byte value) {
+		protected static boolean add(ByteSet.R dst, final byte value) {
 			
 			final int val = value & 0xFF;
 			
 			if (val < 128)
 				if (val < 64)
 					if ((dst._1 & 1L << val) == 0) dst._1 |= 1L << val;
-					else return;
+					else return false;
 				else if ((dst._2 & 1L << val - 64) == 0) dst._2 |= 1L << val - 64;
-				else return;
+				else return false;
 			else if (val < 192)
 				if ((dst._3 & 1L << val - 128) == 0) dst._3 |= 1L << val - 128;
-				else return;
+				else return false;
 			else if ((dst._4 & 1L << val - 192) == 0) dst._4 |= 1L << val - 192;
-			else return;
+			else return false;
 			
 			dst.size++;
+			return true;
 		}
 		
 		
-		public int size()                         { return hasNull ? size + 1 : size; }
+		public int size()                         { return hasNullKey ? size + 1 : size; }
 		
 		public boolean isEmpty()                  { return size < 1; }
 		
-		public boolean contains( Byte      key) { return key == null ? hasNull : contains((byte) (key + 0)); }
+		public boolean contains( Byte      key) { return key == null ? hasNullKey : contains((byte) (key + 0)); }
 		
-		public boolean contains(byte key) {
-			if (size == 0) return false;
+		public boolean contains(int key) {
+			if (size() == 0) return false;
 			
 			final int val = key & 0xFF;
 			return
@@ -82,42 +93,6 @@ public interface ByteSet {
 							val < 64 ? _1 & 1L << val : _2 & 1L << val - 64 :
 							val < 192 ? _3 & 1L << val - 128 : _4 & 1L << val - 192
 					) != 0;
-		}
-		
-		protected @Nullable int tag()        { return 0 < size ? tag(Nullable.NONE, Nullable.NONE) : hasNull ? Nullable.VALUE : Nullable.NONE; }
-		
-		protected @Nullable int tag(int tag) {return tag == Nullable.VALUE ? Nullable.NONE : tag(tag >> 8, tag & 0xFF);}
-		
-		private @Nullable int tag(int key, int index) {
-			index++;
-			key++;
-			
-			long l;
-			if (key < 128)
-			{
-				if (key < 64)
-				{
-					if ((l = _1 >>> key) != 0) return (key + Long.numberOfTrailingZeros(l)) << 8 | index;
-					key = 0;
-				}
-				else key -= 64;
-				
-				if ((l = _2 >>> key) != 0) return ((key + Long.numberOfTrailingZeros(l) + 64)) << 8 | index;
-				key = 128;
-			}
-			
-			if (key < 192)
-			{
-				if ((l = _3 >>> (key - 128)) != 0) return ((key + Long.numberOfTrailingZeros(l) + 128)) << 8 | index;
-				
-				key = 0;
-			}
-			else key -= 192;
-			
-			if ((l = _4 >>> key) != 0) return ((key + Long.numberOfTrailingZeros(l) + 192)) << 8 | index;
-			
-			
-			return hasNull ? Nullable.VALUE : -1;
 		}
 		
 		
@@ -159,51 +134,35 @@ a:
 			return ~ret;
 		}
 		
-		public boolean containsAll(Consumer ask) {
+		public boolean containsAll(R ask) {
 			
-			if (hasNull && !ask.add(null)) return false;
+			if (hasNullKey != ask.hasNullKey) return false;
 			
 			int  i;
 			long l;
 			
 			for (i = 0, l = _1; l != 0; l >>>= ++i)
-				if (!ask.add((byte) (i += Long.numberOfTrailingZeros(l)))) return false;
+				if (!ask.contains((byte) (i += Long.numberOfTrailingZeros(l)))) return false;
 			
 			for (i = 0, l = _2; l != 0; l >>>= ++i)
-				if (!ask.add((byte) (i += Long.numberOfTrailingZeros(l) + 64))) return false;
+				if (!ask.contains((byte) (i += Long.numberOfTrailingZeros(l) + 64))) return false;
 			
 			for (i = 0, l = _3; l != 0; l >>>= ++i)
-				if (!ask.add((byte) (i += Long.numberOfTrailingZeros(l) + 128))) return false;
+				if (!ask.contains((byte) (i += Long.numberOfTrailingZeros(l) + 128))) return false;
 			
 			for (i = 0, l = _4; l != 0; l >>>= ++i)
-				if (!ask.add((byte) (i += Long.numberOfTrailingZeros(l) + 192))) return false;
+				if (!ask.contains((byte) (i += Long.numberOfTrailingZeros(l) + 192))) return false;
 			
 			return true;
 		}
 		
 		public boolean containsAll(Producer src) {
-			if (src.hasNullKey() != hasNull) return false;
+			if (src.produce_has_null_key() != hasNullKey || size() != src.size()) return false;
 			
-			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag)) if (!contains(src.key(tag))) return false;
+			for (int p = src.produce(-1), i = 0, size = src.size(); i < size; i++, p = src.produce(p))
+				if (!contains(src.produce_key(p))) return false;
 			return true;
 		}
-		
-		private Producer producer;
-		
-		public Producer producer() {
-			return producer == null ? producer = new Producer() {
-				
-				public int tag() { return R.this.tag(); }
-				
-				public int tag(int tag) {return R.this.tag(tag);}
-				
-				public boolean hasNullKey() { return hasNull; }
-				
-				public byte key(int tag) { return (byte) (tag >> 8); }
-				
-			} : producer;
-		}
-		
 		
 		public boolean equals(Object obj) {
 			
@@ -224,42 +183,60 @@ a:
 					       _4 == other._4 ? 0 : _4 - other._4 : _3 - other._3 : _2 - other._2 : _1 - other._1) : size - other.size;
 		}
 		
-		
 		public R clone() {
 			try
 			{
 				return (R) super.clone();
-			} catch (CloneNotSupportedException e)
-			{
-				e.printStackTrace();
-			}
+			} catch (CloneNotSupportedException e) {e.printStackTrace();}
 			return null;
-			
 		}
 		
-		public StringBuilder toString(StringBuilder dst) {
+		//region  producer
+		@Override public boolean produce_has_null_key() { return hasNullKey; }
+		
+		public byte produce_key(int info) { return (byte) (info & 0xFF); }
+		
+		public int produce(int info) {
+			info++;
+			info &= 0xFF;
+			long l;
+			if (info < 128)
+			{
+				if (info < 64)
+				{
+					if ((l = _1 >>> info) != 0) return (info + Long.numberOfTrailingZeros(l));
+					info = 0;
+				}
+				else info -= 64;
+				
+				if ((l = _2 >>> info) != 0) return ((info + Long.numberOfTrailingZeros(l) + 64));
+				info = 128;
+			}
 			
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			return producer().toString(dst);
+			if (info < 192)
+			{
+				if ((l = _3 >>> (info - 128)) != 0) return ((info + Long.numberOfTrailingZeros(l) + 128));
+				
+				info = 0;
+			}
+			else info -= 192;
+			
+			if ((l = _4 >>> info) != 0) return ((info + Long.numberOfTrailingZeros(l) + 192));
+			
+			return -1;
 		}
 		
+		//endregion
 		public String toString() { return toString(null).toString(); }
 	}
 	
 	class RW extends R implements Consumer {
 		
-		public boolean add( Byte      key) {
-			if (key == null) hasNull = true;
-			else add(key + 0);
-			return true;
-		}
+		@Override public void consume(int size) { clear(); }
 		
-		public boolean add(byte value) {
-			R.add(this, value);
-			return true;
-		}
+		public boolean add( Byte      key)    { return key == null ? !hasNullKey && (hasNullKey = true) : R.add(this, (byte) (key + 0));}
 		
+		public boolean add(byte value)  { return R.add(this, value); }
 		
 		public boolean retainAll(R src) {
 			boolean ret = false;
@@ -289,56 +266,8 @@ a:
 			return ret;
 		}
 		
-		public boolean retainAll(Consumer ask) {
-			boolean ret = false;
-			int     i;
-			long    l;
-			
-			for (i = 0, l = _1; l != 0; l >>>= ++i)
-				if (!ask.add((byte) (i += Long.numberOfTrailingZeros(l))))
-				{
-					ret = true;
-					_1 &= ~(1L << i);
-				}
-			
-			for (i = 0, l = _2; l != 0; l >>>= ++i)
-				if (!ask.add((byte) (i += Long.numberOfTrailingZeros(l) + 64)))
-				{
-					ret = true;
-					_2 &= ~(1L << i);
-				}
-			
-			for (i = 0, l = _3; l != 0; l >>>= ++i)
-				if (!ask.add((byte) (i += Long.numberOfTrailingZeros(l) + 128)))
-				{
-					ret = true;
-					_3 &= ~(1L << i);
-				}
-			
-			for (i = 0, l = _4; l != 0; l >>>= ++i)
-				if (!ask.add((byte) (i += Long.numberOfTrailingZeros(l) + 192)))
-				{
-					ret = true;
-					_4 &= ~(1L << i);
-				}
-			
-			if (ret)
-				size = (_1 == 0 ? 0 : Long.bitCount(_1)) + (_2 == 0 ? 0 : Long.bitCount(_2)) + (_3 == 0 ? 0 : Long.bitCount(_3)) + (_4 == 0 ? 0 : Long.bitCount(_4));
-			
-			return ret;
-		}
 		
-		public boolean remove( Byte      key) {
-			if (key == null)
-				if (hasNull)
-				{
-					hasNull = false;
-					return true;
-				}
-				else return false;
-			
-			return remove((byte) (key + 0));
-		}
+		public boolean remove( Byte      key) { return key == null ? hasNullKey && !(hasNullKey = false) : remove((byte) (key + 0)); }
 		
 		public boolean remove(byte value) {
 			if (size == 0) return false;
@@ -369,9 +298,9 @@ a:
 					_3 = 0,
 					_4 = 0;
 			
-			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag))
+			for (int p = src.produce(-1), i = 0, size = src.size(); i < size; i++, p = src.produce(p))
 			{
-				final int val = src.key(tag) & 0xFF;
+				final int val = src.produce_key(p) & 0xFF;
 				
 				if (val < 128)
 					if (val < 64) _1 |= 1L << val;
@@ -410,30 +339,29 @@ a:
 		public boolean removeAll(Producer src) {
 			boolean ret = false;
 			
-			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag))
+			for (int p = src.produce(-1), i = 0, size = src.size(); i < size; i++, p = src.produce(p))
 			{
-				remove(src.key(tag));
+				remove(src.produce_key(p));
 				ret = true;
 			}
 			return ret;
 		}
 		
 		public void clear() {
-			size = 0;
 			_1 = 0;
 			_2 = 0;
 			_3 = 0;
 			_4 = 0;
-			hasNull = false;
+			size = 0;
+			hasNullKey = false;
 		}
-		
 		
 		public boolean addAll(Producer src) {
 			boolean      ret = false;
 			byte val;
 			
-			for (int tag = src.tag(); src.ok(tag); tag = src.tag(tag))
-				if (!contains(val = src.key(tag)))
+			for (int p = src.produce(-1), i = 0, size = src.size(); i < size; i++, p = src.produce(p))
+				if (!contains(val = src.produce_key(p)))
 				{
 					ret = true;
 					R.add(this, val);
@@ -442,8 +370,6 @@ a:
 			return ret;
 		}
 		
-		public Consumer consumer() {return this; }
-		
-		public RW clone()          { return (RW) super.clone(); }
+		public RW clone() { return (RW) super.clone(); }
 	}
 }

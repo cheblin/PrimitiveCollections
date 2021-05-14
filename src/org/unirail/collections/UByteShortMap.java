@@ -1,117 +1,98 @@
 package org.unirail.collections;
 
+
 public interface UByteShortMap {
 	
 	interface Consumer {
-		boolean put( char key, short value );
+		boolean put(char key, short value);
 		
-		boolean put(  Byte      key, short value );
+		boolean put( Character key, short value);
+		
+		void consume(int size);
 	}
 	
-	
 	interface Producer {
-		int tag();
+		int size();
 		
-		int tag( int tag );
+		boolean produce_has_null_key();
 		
-		default boolean ok( int tag ) {return tag != -1;}
+		short produce_null_key_val();
 		
-		char key( int tag );
+		int produce(@Positive_ONLY int state);
 		
-		short value( int tag );
+		char produce_key(@Positive_ONLY int state);
 		
-		boolean hasNullKey();
+		short produce_val(@Positive_ONLY int state);
 		
-		short nullKeyValue();
-		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
+		default StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey()) dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
+			if (produce_has_null_key())
+			{
+				dst.append("null -> ").append(produce_null_key_val()).append('\n');
+				size--;
+			}
 			
-			for (int tag = tag(); ok( tag ); tag = tag( tag ))
-			     dst.append( key( tag ) )
-					     .append( " -> " )
-					     .append( value( tag ) )
-					     .append( '\n' );
+			for (int p = -1, i = 0; i < size; i++)
+				dst.append(produce_key(p = produce(p)))
+						.append(" -> ")
+						.append(produce_val(p))
+						.append('\n');
 			return dst;
 		}
 	}
 	
 	
-	class R implements Cloneable, Comparable<R> {
+	class R implements Cloneable, Comparable<R>, Producer {
 		
 		ByteSet.RW         keys = new ByteSet.RW();
 		ShortList.RW values;
 		
-		short NullValue = 0;
 		
+		protected R(int length)                   { values = new ShortList.RW(265 < length ? 256 : length); }
 		
-		public R() {this( 8 );}
+		@Override public int size()               { return keys.size(); }
 		
-		public R( int length ) {
-			values = new ShortList.RW( 265 < length ? 256 : length );
-		}
+		public boolean isEmpty()                  { return keys.isEmpty();}
 		
-		public int size()                            { return keys.size(); }
+		public boolean contains( Character key) { return key == null ? keys.contains(null) : keys.contains((byte) (key + 0));}
 		
-		public boolean isEmpty()                     { return keys.isEmpty();}
+		public boolean contains(int key) { return keys.contains((byte) key);}
 		
+		public short value( Character key) { return key == null ? NullKeyValue : value(key + 0);}
 		
-		public @Nullable int tag(  Byte      key ) {return key == null ? keys.contains( null ) ? Nullable.NULL : Nullable.NONE : tag( (char) (key + 0) );}
+		public short  value(int key) {return  (short)  values.array[keys.rank((byte) key)];}
 		
-		public @Nullable int tag( char key ) {return keys.contains( (byte) (key + 0) ) ? key : Nullable.NONE;}
+		short NullKeyValue = 0;
 		
-		public boolean contains( int tag )           { return tag != -1; }
-		
-		public short  get( int tag ) {return tag == Nullable.NULL ? NullValue :  (short)  values.array[keys.rank( (byte) tag )];}
-		
-		private Producer producer;
-		
-		public Producer producer() {
-			return producer == null ? producer = new Producer() {
-				
-				public int tag() { return keys.tag(); }
-				
-				public int tag( int tag ) {return keys.tag( tag );}
-				
-				public char key( int tag ) { return (char) (tag >>> 8); }
-				
-				public short value( int tag ) { return (short) values.array[tag & 0xFF]; }
-				
-				public boolean hasNullKey() { return keys.hasNull; }
-				
-				public short nullKeyValue() { return NullValue; }
-				
-			} : producer;
-		}
-		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       compareTo(getClass().cast(obj)) == 0;
 		}
 		
 		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
-		public int compareTo( R other ) {
+		
+		@Override public int compareTo(R other) {
 			if (other == null) return -1;
 			
 			int diff;
-			if ((diff = other.keys.compareTo( keys )) != 0 || (diff = other.values.compareTo( values )) != 0) return diff;
-			if (keys.hasNull && NullValue != other.NullValue) return 1;
+			if ((diff = other.keys.compareTo(keys)) != 0 || (diff = other.values.compareTo(values)) != 0) return diff;
+			if (keys.hasNullKey && NullKeyValue != other.NullKeyValue) return 1;
 			
 			return 0;
 		}
 		
-		public R clone() {
+		@Override public R clone() {
 			
 			try
 			{
 				R dst = (R) super.clone();
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
-				
 				return dst;
 				
 			} catch (CloneNotSupportedException e)
@@ -121,59 +102,75 @@ public interface UByteShortMap {
 			return null;
 		}
 		
-		public StringBuilder toString( StringBuilder dst ) {
-			
-			if (dst == null) dst = new StringBuilder( keys.size() * 10 );
-			else dst.ensureCapacity( dst.length() + keys.size() * 10 );
-			return producer().toString( dst );
+		
+		//region  producer
+		
+		@Override public int produce(int state) {
+			int i = (state & ~0xFF) + (1 << 8);
+			return i | keys.produce(state);
 		}
 		
-		public String toString() { return toString( null ).toString();}
+		@Override public boolean produce_has_null_key() { return keys.hasNullKey; }
+		
+		@Override public short produce_null_key_val() { return NullKeyValue; }
+		
+		@Override public char produce_key(int state) {return (char) (state & 0xFF);}
+		
+		@Override public short produce_val(int state) { return (short) values.array[state >> 8]; }
+		
+		//endregion
+		public String toString() { return toString(null).toString();}
 	}
 	
 	class RW extends R implements Consumer {
 		
-		public RW() {
-		}
+		public RW(int length) { super(length); }
 		
-		public RW( int length ) {
-			super( length );
-		}
-		
-		
-		public boolean put(  Byte      key, short value ) {
-			if (key != null) return put( (char) (key + 0), value );
-			
-			keys.add( null );
-			NullValue = value;
-			return true;
-		}
-		
-		public boolean put( char key, short value ) {
-			keys.add( key + 0 );
-			values.array[keys.rank( (byte) key ) - 1] = (short)value;
-			return true;
-		}
-		
-		public boolean remove(  Byte       key ) { return key == null ? keys.remove( null ) : remove( (char) (key + 0) ); }
-		
-		public boolean remove( char key ) {
-			if (!keys.contains( (byte) key )) return false;
-			
-			values.remove( keys.rank( (byte) key ) - 1 );
-			keys.remove( (byte) key );
-			
-			return true;
-		}
 		
 		public void clear() {
-			if (keys.size < 1) return;
+			if (keys.size() < 1) return;
+			
 			keys.clear();
 			values.clear();
 		}
 		
-		public Consumer consumer() {return this; }
+		@Override public void consume(int size) {
+			keys.consume(size);
+			values.consume(size);
+		}
 		
-		public RW clone()          { return (RW) super.clone(); }
+		
+		@Override public boolean put( Character key, short value) {
+			if (key == null)
+			{
+				NullKeyValue = value;
+				boolean ret = keys.contains(null);
+				keys.add(null);
+				return !ret;
+			}
+			
+			return put((char) (key + 0), value);
+		}
+		
+		@Override public boolean put(char key, short value) {
+			boolean ret = keys.add((byte) key);
+			values.array[keys.rank((byte) key) - 1] = (short) value;
+			return ret;
+		}
+		
+		public boolean remove( Character  key) { return key == null ? keys.remove(null) : remove((char) (key + 0)); }
+		
+		public boolean remove(char key) {
+			final byte k = (byte) key;
+			if (!keys.contains(k)) return false;
+			
+			values.remove(keys.rank(k) - 1);
+			keys.remove(k);
+			
+			return true;
+		}
+		
+		
+		@Override public RW clone() { return (RW) super.clone(); }
 	}
 }

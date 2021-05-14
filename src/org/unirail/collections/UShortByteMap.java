@@ -3,44 +3,61 @@ package org.unirail.collections;
 public interface UShortByteMap {
 	
 	interface Consumer {
-		boolean put( char key, byte value );
+		boolean put(char key, byte value);
 		
-		boolean put(  Character key, byte value );
+		boolean put( Character key, byte value);
+		
+		void consume(int size);
 	}
 	
 	interface Producer {
-		int tag();
 		
-		int tag( int tag );
+		int size();
 		
-		default boolean ok( int tag ) {return tag != -1;}
+		boolean produce_has_null_key();
 		
-		char key( int tag );
+		byte produce_null_key_val();
 		
-		byte value( int tag );
+		boolean produce_has_0key();
 		
-		boolean hasNullKey();
+		byte produce_0key_val();
 		
-		byte nullKeyValue();
+		int produce(int state);
 		
-		default StringBuilder toString( StringBuilder dst ) {
-			if (dst == null) dst = new StringBuilder( 255 );
+		char produce_key(int state);
+		
+		byte produce_val(int state);
+		
+		default StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey()) dst.append( "null -> " ).append( nullKeyValue() ).append( '\n' );
+			if (produce_has_null_key())
+			{
+				dst.append("null -> ").append(produce_null_key_val()).append('\n');
+				size--;
+			}
 			
-			for (int tag = tag(); ok( tag ); tag = tag( tag ))
-			     dst.append( key( tag ) )
-					     .append( " -> " )
-					     .append( value( tag ) )
-					     .append( '\n' );
+			if (produce_has_0key())
+			{
+				dst.append("0 -> ").append(produce_0key_val()).append('\n');
+				size--;
+			}
+			
+			for (int p = -1, i = 0; i < size; i++)
+				dst.append(produce_key(p = produce(p)))
+						.append(" -> ")
+						.append(produce_val(p))
+						.append('\n');
 			return dst;
 		}
 	}
 	
 	
-	class R implements Cloneable, Comparable<R> {
-		public UShortList.RW keys   = new UShortList.RW( 0 );
-		public ByteList.RW values = new ByteList.RW( 0 );
+	class R implements Cloneable, Comparable<R>, Producer {
+		public UShortList.RW keys   = new UShortList.RW(0);
+		public ByteList.RW values = new ByteList.RW(0);
 		
 		int assigned;
 		
@@ -49,67 +66,61 @@ public interface UShortByteMap {
 		int resizeAt;
 		
 		
-		boolean hasNull;
-		byte       NullValue;
+		boolean hasNullKey;
+		byte       nullKeyValue;
 		
 		boolean hasO;
-		byte       OValue;
+		byte       OkeyValue;
 		
 		protected double loadFactor;
 		
-		public R() {
-			this( 4 );
+		public R()                  { this(4); }
+		
+		
+		public R(int expectedItems) { this(expectedItems, 0.75); }
+		
+		
+		public R(int expectedItems, double loadFactor) {
+			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
+			
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
+			mask = size - 1;
+			
+			keys.length(size);
+			values.length(size);
 		}
 		
+		public boolean isEmpty()                              { return size() == 0; }
 		
-		public R( int expectedItems ) {
-			this( expectedItems, 0.75 );
-		}
+		@Override public int size()                           { return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0); }
 		
 		
-		public R( int expectedItems, double loadFactor ) {
-			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
+		public @Positive_Values int info( Character key) { return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : info((char) (key + 0));}
+		
+		public @Positive_Values int info(char key) {
+			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
-			final long length = (long) Math.ceil( expectedItems / loadFactor );
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
-			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
-			
-			keys.length( size );
-			values.length( size );
-		}
-		
-		public boolean isEmpty()                        { return size() == 0; }
-		
-		public int size()                               { return assigned + (hasO ? 1 : 0) + (hasNull ? 1 : 0); }
-		
-		
-		public @Nullable int tag(  Character key ) {return key == null ? hasNull ? Nullable.NULL : Nullable.NONE : tag( (char) key );}
-		
-		public int tag( char key ) {
-			if (key == 0) return hasO ? Nullable.VALUE : Nullable.NONE;
-			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (char key_ =  key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
 			
-			return -1;
+			return Positive_Values.NONE;
 		}
 		
-		public boolean contains( @Nullable int tag ) {return tag != Nullable.NONE;}
+		public boolean hasValue(int info) {return -1 < info;}
 		
+		public boolean hasNone(int info)  {return info == Positive_Values.NONE;}
 		
-		public byte get( @Nullable int tag ) {
-			if (tag == Nullable.NULL) return NullValue;
-			if (tag == Nullable.VALUE) return OValue;
-			return  (byte) values.array[tag];
+		public byte value(@Positive_ONLY int info) {
+			if (info == Positive_Values.VALUE) return nullKeyValue;
+			if (info == Positive_Values.VALUE - 1) return OkeyValue;
+			
+			return (byte) values.get(info);
 		}
-		
-		
-		protected int hashKey( char key ) {return Array.hashKey( key ); }
-		
 		
 		public int hashCode() {
 			int h = hasO ? 0xDEADBEEF : 0;
@@ -117,62 +128,49 @@ public interface UShortByteMap {
 			char k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((k = keys.array[i]) != 0)
-					h += Array.hash( k ) + Array.hash( values.array[i] );
+					h += Array.hash(k) + Array.hash(values.array[i]);
 			
 			return h;
 		}
 		
-		private Producer producer;
 		
-		public Producer producer() {
-			return producer == null ? producer = new Producer() {
-				public int tag() { return (0 < assigned ? keys.array.length : 0) - (hasO ? 0 : 1); }
-				
-				public int tag( int tag ) { while (-1 < --tag) if (keys.array[tag] != 0) return tag; return -1; }
-				
-				public char key( int tag ) {return assigned == 0 || tag == keys.array.length ? (char) 0 :  keys.array[tag]; }
-				
-				public byte value( int tag ) {return assigned == 0 || tag == keys.array.length ? OValue : (byte) values.array[tag]; }
-				
-				public boolean hasNullKey() {return hasNull;}
-				
-				public byte nullKeyValue() {return NullValue;}
-			} : producer;
-		}
-		
-		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       compareTo(getClass().cast(obj)) == 0;
 		}
 		
 		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
-		public int compareTo( R other ) {
+		
+		@Override public int compareTo(R other) {
 			if (other == null) return -1;
 			
-			if (hasO != other.hasO || hasO && OValue != other.OValue) return 1;
+			if (hasO != other.hasO || hasNullKey != other.hasNullKey) return 1;
 			
 			int diff;
+			if (hasO && (OkeyValue - other.OkeyValue) != 0) return 7;
+			if (hasNullKey && (nullKeyValue - other.nullKeyValue) != 0) return 8;
+			
 			if ((diff = size() - other.size()) != 0) return diff;
 			
-			
 			char           k;
-			for (int i = keys.array.length - 1, ii; -1 < i; i--)
+			for (int i = keys.array.length - 1, c; -1 < --i; )
 				if ((k =  keys.array[i]) != 0)
-					if ((ii = other.tag( k )) < 0 || other.values.array[ii] != values.array[i]) return 1;
+				{
+					if ((c = other.info(k)) < 0) return 3;
+					if (other.value(c) !=  (byte) values.array[i]) return 1;
+				}
 			
 			return 0;
 		}
 		
-		
-		public R clone() {
+		@Override public R clone() {
 			try
 			{
 				R dst = (R) super.clone();
 				
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -183,33 +181,50 @@ public interface UShortByteMap {
 			return null;
 		}
 		
-		public StringBuilder toString( StringBuilder dst ) {
-			
-			if (dst == null) dst = new StringBuilder( keys.size() * 10 );
-			else dst.ensureCapacity( dst.length() + keys.size() * 10 );
-			return producer().toString( dst );
-			
-		}
+		//region  producer
 		
-		public String toString() { return toString( null ).toString();}
+		@Override public boolean produce_has_null_key() {return hasNullKey;}
+		
+		@Override public byte produce_null_key_val() {return nullKeyValue;}
+		
+		@Override public boolean produce_has_0key()     {return hasO; }
+		
+		@Override public byte produce_0key_val() {return OkeyValue;}
+		
+		
+		@Override public int produce(int state)         { for (; ; ) if (keys.array[++state] != 0) return state; }
+		
+		@Override public char produce_key(int state) {return   keys.array[state]; }
+		
+		@Override public byte produce_val(int state) {return  (byte) values.array[state]; }
+		
+		//endregion
+		
+		public String toString() { return toString(null).toString();}
 	}
 	
 	
 	class RW extends R implements Consumer {
 		
-		public Consumer consumer() {return this; }
+		@Override public void consume(int size) {
+			assigned = 0;
+			hasO = false;
+			hasNullKey = false;
+			
+			allocate((int) Array.nextPowerOf2(size));
+		}
 		
-		void allocate( int size ) {
+		protected void allocate(int size) {
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
 			if (assigned < 1)
 			{
-				resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-				mask     = size - 1;
 				
-				if (keys.length() < size) keys.length( size );
+				if (keys.length() < size) keys.length(-size);
 				else keys.clear();
 				
-				if (values.length() < size) values.length( size );
+				if (values.length() < size) values.length(-size);
 				else values.clear();
 				
 				return;
@@ -218,86 +233,74 @@ public interface UShortByteMap {
 			final char[] k = keys.array;
 			final byte[] v = values.array;
 			
-			keys.length( size + 1 );
-			values.length( size + 1 );
-			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
-			
-			if (k == null || assigned < 1) return;
-			
+			keys.length(-size);
+			values.length(-size);
 			
 			char key;
 			for (int i = k.length - 1; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = hashKey(  key  ) & mask;
+					int slot = Array.hash(key) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot]   = key;
+					keys.array[slot] = key;
 					values.array[slot] = v[i];
 				}
 		}
 		
-		public boolean put(  Character key, byte value ) {
-			if (key != null) return put( (char) key, value );
+		@Override public boolean put( Character key, byte value) {
+			if (key != null) return put((char) key, value);
 			
-			hasNull   = true;
-			NullValue = value;
+			hasNullKey = true;
+			nullKeyValue = value;
 			
 			return true;
 		}
 		
-		public boolean put( char key, byte value ) {
+		@Override public boolean put(char key, byte value) {
 			
 			if (key == 0)
 			{
 				if (hasO)
 				{
-					OValue = value;
+					OkeyValue = value;
 					return true;
 				}
-				hasO   = true;
-				OValue = value;
+				hasO = true;
+				OkeyValue = value;
 				return false;
 			}
 			
 			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			final char key_ =  key;
 			
 			for (char k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] =(byte)value;
+					values.array[slot] = (byte) value;
 					return true;
 				}
 			
-			keys.array[slot]   =            key_;
-			values.array[slot] = (byte)value;
+			keys.array[slot] = key_;
+			values.array[slot] = (byte) value;
 			
-			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
+			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
 			return false;
 		}
 		
 		
-		public boolean remove(  Character key ) {
-			if (key == null)
-				if (hasNull)
-				{
-					hasNull = false;
-					return true;
-				}
-				else return false;
-			
-			return remove( (char) key );
+		public boolean remove( Character key) {
+			if (key == null) return hasNullKey && !(hasNullKey = false);
+			return remove((char) key);
 		}
 		
-		public boolean remove( char key ) {
+		public boolean remove(char key) {
 			
 			if (key == 0) return hasO && !(hasO = false);
 			
-			int slot = hashKey( key ) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			final char key_ =  key;
 			
@@ -307,17 +310,18 @@ public interface UShortByteMap {
 					int gapSlot = slot;
 					
 					char kk;
+					
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hashKey(  kk  ) & mask) >= distance)
+						if ((s - Array.hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot]   = kk;
+							keys.array[gapSlot] = kk;
 							values.array[gapSlot] = values.array[s];
-							                        gapSlot = s;
-							                        distance = 0;
+							gapSlot = s;
+							distance = 0;
 						}
 					
-					keys.array[gapSlot]   = 0;
+					keys.array[gapSlot] = 0;
 					values.array[gapSlot] = 0;
 					assigned--;
 					return true;
@@ -328,15 +332,13 @@ public interface UShortByteMap {
 		
 		public void clear() {
 			assigned = 0;
-			hasO     = false;
-			hasNull  = false;
+			hasO = false;
+			hasNullKey = false;
 			
 			keys.clear();
 			values.clear();
 		}
 		
-		public RW clone() { return (RW) super.clone(); }
-		
-		
+		@Override public RW clone() { return (RW) super.clone(); }
 	}
 }
