@@ -63,12 +63,12 @@ public interface ObjectFloatMap {
 		protected double loadFactor;
 		
 		
-		public R(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
+		protected R(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
 		
-		public R(int expectedItems) { this(expectedItems, 0.75); }
+		protected R(int expectedItems) { this(expectedItems, 0.75); }
 		
 		
-		public R(int expectedItems, double loadFactor) {
+		protected R(int expectedItems, double loadFactor) {
 			this(loadFactor);
 			
 			long length = (long) Math.ceil(expectedItems / loadFactor);

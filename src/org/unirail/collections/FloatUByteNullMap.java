@@ -99,13 +99,10 @@ public interface FloatUByteNullMap {
 		protected double loadFactor;
 		
 		
-		public R()                  { this(4); }
+		protected R(int expectedItems) { this(expectedItems, 0.75); }
 		
 		
-		public R(int expectedItems) { this(expectedItems, 0.75); }
-		
-		
-		public R(int expectedItems, double loadFactor) {
+		protected R(int expectedItems, double loadFactor) {
 			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
 			final long length = (long) Math.ceil(expectedItems / loadFactor);
@@ -245,16 +242,10 @@ public interface FloatUByteNullMap {
 	
 	class RW extends R implements Consumer {
 		
-		public RW() {
-		}
 		
-		public RW(int expectedItems) {
-			super(expectedItems);
-		}
+		public RW(int expectedItems)                    { super(expectedItems); }
 		
-		public RW(int expectedItems, double loadFactor) {
-			super(expectedItems, loadFactor);
-		}
+		public RW(int expectedItems, double loadFactor) { super(expectedItems, loadFactor); }
 		
 		
 		public boolean put( Float     key, char value) {

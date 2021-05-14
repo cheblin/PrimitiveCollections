@@ -52,7 +52,6 @@ public interface ByteSet {
 		
 		protected boolean hasNullKey;
 		
-		public R()                      { }
 		
 		public R(byte... items) { for (byte i : items) add(this, i); }
 		

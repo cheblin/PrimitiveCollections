@@ -52,7 +52,6 @@ public interface UByteSet {
 		
 		protected boolean hasNullKey;
 		
-		public R()                      { }
 		
 		public R(char... items) { for (char i : items) add(this, i); }
 		
