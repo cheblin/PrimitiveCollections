@@ -8,7 +8,7 @@ public interface UIntList {
 	interface Consumer {
 		void add(long value);
 		
-		void consume(int size);
+		void write(int size);
 	}
 	
 	interface Producer {
@@ -157,10 +157,7 @@ public interface UIntList {
 		
 		public int[] array()                 {return array;}
 		
-		@Override public void consume(int size) {
-			if (array.length < size) length(-size);
-			this.size = 0;
-		}
+	
 		
 		public int[] length(int length) {
 			if (0 < length)
@@ -241,7 +238,7 @@ public interface UIntList {
 		
 		public void addAll(Producer src) {
 			int s = src.size();
-			consume(s);
+			write(s);
 			for (int i = 0; i < s; i++) array[size + i] = (int) src.value(i);
 			size += s;
 		}
@@ -288,6 +285,13 @@ public interface UIntList {
 		}
 		
 		public void clear() { size = 0;}
+		
+		//region  consumer
+		@Override public void write(int size) {
+			if (array.length < size) length(-size);
+			this.size = 0;
+		}
+		//endregion
 		
 		
 		public RW clone()   { return (RW) super.clone(); }

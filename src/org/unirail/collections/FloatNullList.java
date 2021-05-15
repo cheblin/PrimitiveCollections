@@ -7,7 +7,7 @@ public interface FloatNullList {
 		
 		void add( Float     value);
 		
-		void consume(int items);
+		void write(int size);
 	}
 	
 	interface Producer {
@@ -228,11 +228,8 @@ public interface FloatNullList {
 			size++;
 		}
 		
-		@Override public void consume(int items) {
-			size = 0;
-			values.consume(items);
-			nulls.length(-items);
-		}
+		
+	
 		
 		public void add(int index,  Float     value) {
 			if (value == null)
@@ -287,7 +284,14 @@ public interface FloatNullList {
 			nulls.clear();
 			size = 0;
 		}
-		
+		//region  consumer
+		@Override public void write(int size) {
+			values.write(size);
+			nulls.write(size);
+			nulls.clear();//!!!
+			this.size = 0;
+		}
+		//endregion
 		public void swap(int index1, int index2) {
 			
 			int exist, empty;

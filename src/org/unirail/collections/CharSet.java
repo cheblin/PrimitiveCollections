@@ -7,39 +7,39 @@ public interface CharSet {
 		
 		boolean add( Character key);
 		
-		void consume(int items);
+		void write(int size);
 	}
 	
 	interface Producer {
-		boolean produce_has_null_key();
+		boolean read_has_null_key();
 		
-		boolean produce_has_0key();
+		boolean read_has_0key();
 		
 		int size();
 		
-		int produce(int info);
+		int read(int info);
 		
-		char  produce_key( int info);
+		char  read_key( int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (produce_has_null_key())
+			if (read_has_null_key())
 			{
 				dst.append("null\n");
 				size--;
 			}
 			
-			if (produce_has_0key())
+			if (read_has_0key())
 			{
 				dst.append("0\n");
 				size--;
 			}
 			
 			for (int p = -1, i = 0; i < size; i++)
-				dst.append(produce_key(p = produce(p))).append('\n');
+				dst.append(read_key(p = read(p))).append('\n');
 			return dst;
 		}
 	}
@@ -201,13 +201,13 @@ public interface CharSet {
 		
 		//region  producer
 		
-		@Override public boolean produce_has_null_key() { return hasNullKey; }
+		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
-		@Override public boolean produce_has_0key()     { return hasOkey; }
+		@Override public boolean read_has_0key()     { return hasOkey; }
 		
-		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
+		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public char produce_key(int info) { return (char)  keys.array[info]; }
+		@Override public char read_key(int info) { return (char)  keys.array[info]; }
 		//endregion
 		
 		public String toString() { return toString(null).toString();}
@@ -228,12 +228,8 @@ public interface CharSet {
 		
 		@Override public boolean add(char  key)    { return R.add(this, key); }
 		
-		@Override public void consume(int items) {
-			assigned = 0;
-			hasOkey = false;
-			hasNullKey = false;
-			allocate((int) Array.nextPowerOf2(items));
-		}
+		
+	
 		
 		public boolean remove( Character key) { return key == null ? hasNullKey && !(hasNullKey = false) : remove((char) key); }
 		
@@ -271,6 +267,14 @@ public interface CharSet {
 			
 			keys.clear();
 		}
+		//region  consumer
+		@Override public void write(int size) {
+			assigned = 0;
+			hasOkey = false;
+			hasNullKey = false;
+			keys.write( (int) Array.nextPowerOf2(size));
+		}
+		//endregion
 		
 		public void retainAll(Consumer chk) {
 			char key;

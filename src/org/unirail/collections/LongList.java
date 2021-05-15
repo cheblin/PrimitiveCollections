@@ -8,7 +8,7 @@ public interface LongList {
 	interface Consumer {
 		void add(long value);
 		
-		void consume(int size);
+		void write(int size);
 	}
 	
 	interface Producer {
@@ -157,10 +157,7 @@ public interface LongList {
 		
 		public long[] array()                 {return array;}
 		
-		@Override public void consume(int size) {
-			if (array.length < size) length(-size);
-			this.size = 0;
-		}
+	
 		
 		public long[] length(int length) {
 			if (0 < length)
@@ -241,7 +238,7 @@ public interface LongList {
 		
 		public void addAll(Producer src) {
 			int s = src.size();
-			consume(s);
+			write(s);
 			for (int i = 0; i < s; i++) array[size + i] = (long) src.value(i);
 			size += s;
 		}
@@ -288,6 +285,13 @@ public interface LongList {
 		}
 		
 		public void clear() { size = 0;}
+		
+		//region  consumer
+		@Override public void write(int size) {
+			if (array.length < size) length(-size);
+			this.size = 0;
+		}
+		//endregion
 		
 		
 		public RW clone()   { return (RW) super.clone(); }

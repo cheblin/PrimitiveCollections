@@ -5,32 +5,32 @@ public interface ObjectSet {
 	interface Consumer<V extends Comparable<? super V>> {
 		boolean add(V key);
 		
-		void consume(int items);
+		void write(int size);
 	}
 	
 	interface Producer<K extends Comparable<? super K>> {
 		
 		int size();
 		
-		boolean produce_has_null_key();
+		boolean read_has_null_key();
 		
-		int produce(int info);
+		int read(int info);
 		
-		K produce_key( int info);
+		K read_key(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (produce_has_null_key())
+			if (read_has_null_key())
 			{
 				dst.append("null\n");
 				size--;
 			}
 			
 			for (int p = -1, i = 0; i < size; dst.append('\n'), i++)
-				dst.append(produce_key(p = produce(p)));
+				dst.append(read_key(p = read(p)));
 			
 			return dst;
 		}
@@ -69,7 +69,6 @@ public interface ObjectSet {
 			keys.length(size);
 			keys.length(size);
 		}
-		
 		
 		
 		public boolean contains(K key) {
@@ -135,11 +134,11 @@ public interface ObjectSet {
 		
 		//region  producer
 		
-		@Override public boolean produce_has_null_key() { return hasNullKey; }
+		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
-		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
+		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
 		
-		@Override public K produce_key(int info)        {return keys.array[info]; }
+		@Override public K read_key(int info)        {return keys.array[info]; }
 		
 		//endregion
 		
@@ -183,11 +182,14 @@ public interface ObjectSet {
 			keys.clear();
 		}
 		
-		@Override public void consume(int items) {
+		//region  consumer
+		@Override public void write(int size) {
 			assigned = 0;
 			hasNullKey = false;
-			allocate((int) Array.nextPowerOf2(items));
+			keys.write((int) Array.nextPowerOf2(size));
 		}
+		//endregion
+		
 		
 		protected void allocate(int size) {
 			

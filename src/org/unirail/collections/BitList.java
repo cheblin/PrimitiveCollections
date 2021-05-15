@@ -6,15 +6,15 @@ import java.util.Arrays;
 public interface BitList {
 	
 	interface Consumer {
-		void consume(int index, long src);
+		void write(int index, long src);
 		
-		void consume(int size);
+		void write(int size);
 	}
 	
 	interface Producer {
 		int size();
 		
-		long produce(int index);
+		long read(int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -29,7 +29,7 @@ public interface BitList {
 			
 			for (int i = 0; i < max; i++)
 			{
-				final long v = produce(i);
+				final long v = read(i);
 				for (int s = 0; s < 64; s++)
 					dst.append((v & 1L << s) == 0 ? '.' : '*');
 				dst.append(i * 64);
@@ -38,7 +38,7 @@ public interface BitList {
 			
 			if (0 < (size &= 63))
 			{
-				final long v = produce(max + 1);
+				final long v = read(max + 1);
 				for (int s = 0; s < size; s++)
 					dst.append((v & 1L << s) == 0 ? '.' : '*');
 			}
@@ -87,6 +87,7 @@ public interface BitList {
 				}
 		}
 		
+		static int len4bits(int bits) {return (bits + BITS) >>> LEN;}
 		
 		static final int LEN  = 6;
 		static final int BITS = 1 << LEN;
@@ -280,7 +281,7 @@ public interface BitList {
 		}
 		
 		//region  producer
-		public long produce(int index) { return index < used() ? array[index] : 0L; }
+		public long read(int index) { return index < used() ? array[index] : 0L; }
 		
 		//endregion
 		public String toString() { return toString(null).toString();}
@@ -559,9 +560,22 @@ public interface BitList {
 			else if (value) set1(key);
 		}
 		
-		@Override public void consume(int size)            {if (array.length < index(this.size = size) + 1) array = new long[index(size) + 1];}
+		public void clear() {
+			for (used(); used > 0; ) array[--used] = 0;
+			size = 0;
+		}
 		
-		@Override public void consume(int index, long src) { array[index] = src; }
+		//region  consumer
+		@Override public void write(int size) {
+			if (array.length < len4bits(size)) length(-len4bits(size));
+			else clear();
+			
+			used = len4bits(this.size = size) | IO;
+		}
+		
+		@Override public void write(int index, long src) { array[index] = src; }
+		
+		//endregion
 		
 		public void remove(int bit) {
 			if (size <= bit) return;
@@ -592,10 +606,6 @@ public interface BitList {
 			}
 		}
 		
-		public void clear() {
-			for (used(); used > 0; ) array[--used] = 0;
-			size = 0;
-		}
 		
 		public RW clone() { return (RW) super.clone(); }
 	}

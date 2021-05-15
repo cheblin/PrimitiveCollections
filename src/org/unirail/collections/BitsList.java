@@ -6,9 +6,9 @@ import java.util.Arrays;
 public interface BitsList {
 	
 	interface Consumer {
-		void consume(int index, long src);
+		void write(int index, long src);
 		
-		void consume(int items, int bits);
+		void write(int size, int bits);
 	}
 	
 	interface Producer {
@@ -16,7 +16,7 @@ public interface BitsList {
 		
 		int bits();
 		
-		long produce(int index);
+		long read(int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -26,11 +26,11 @@ public interface BitsList {
 			if (dst == null) dst = new StringBuilder(size * 2);
 			else dst.ensureCapacity(dst.length() + size * 2);
 			
-			long src = produce(0);
+			long src = read(0);
 			for (int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++)
 			{
 				final int bit   = bit(bp);
-				short     value = (short) (Base.BITS < bit + bits ? value(src, src = produce(index(bp) + 1), bit, bits, mask) : value(src, bit, mask));
+				short     value = (short) (Base.BITS < bit + bits ? value(src, src = read(index(bp) + 1), bit, bits, mask) : value(src, bit, mask));
 				
 				dst.append(value).append('\t');
 				
@@ -65,7 +65,7 @@ public interface BitsList {
 		
 		if (bits <= k) return buff << k >>> k | v << bit | buff >>> bit + bits << bit + bits;
 		
-		dst.consume(index(item), buff << k | v << bit);
+		dst.write(index(item), buff << k | v << bit);
 		return k << bits + k | v >> k;
 	}
 	
@@ -209,7 +209,7 @@ public interface BitsList {
 			}
 		}
 		
-		protected static void consume(Base dst, int size, int bits) {
+		protected static void write(Base dst, int size, int bits) {
 			if (dst.length() < len4bits((dst.size = size) * bits)) dst.length(-size * bits);
 			else Arrays.fill(dst.array, 0);
 		}
@@ -414,7 +414,7 @@ public interface BitsList {
 		}
 		
 		//region  producer
-		@Override public long produce(int index) { return array[index];}
+		@Override public long read(int index) { return array[index];}
 		
 		//endregion
 		public String toString() { return toString(null).toString();}
@@ -449,9 +449,12 @@ public interface BitsList {
 		
 		public RW(int bits_per_item, int... values)        { super(bits_per_item, values); }
 		
-		@Override public void consume(int index, long src) { array[index] = src; }
+		//region  consumer
+		@Override public void write(int index, long src) { array[index] = src; }
 		
-		@Override public void consume(int items, int bits) { Base.consume(this, items, bits);}
+		@Override public void write(int size, int bits) { Base.write(this, size, bits);}
+		
+		//endregion
 		
 		public void add(int value)                         { super.add(value); }
 		

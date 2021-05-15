@@ -6,7 +6,7 @@ public interface ObjectList {
 	interface Consumer<V extends Comparable<? super V>> {
 		void add(V value);
 		
-		void consume(int items);
+		void write(int size);
 	}
 	
 	interface Producer<V extends Comparable<? super V>> {
@@ -146,12 +146,14 @@ public interface ObjectList {
 			Arrays.fill(array, null);
 			size = 0;
 		}
-		
-		@Override public void consume(int items) {
-			size = 0;
-			if (array.length < items) length(-size);
+		//region  consumer
+		@Override public void write(int size) {
+			this.size = 0;
+			if (array.length < size) length(-this.size);
 			else clear();
 		}
+		//endregion
+	
 		
 		public void add(V value) {
 			size = Array.resize(this, size, size, 1);

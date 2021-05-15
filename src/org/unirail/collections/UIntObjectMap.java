@@ -7,7 +7,7 @@ public interface UIntObjectMap {
 		
 		boolean put( Integer   key, V value);
 		
-		int consume(int items);
+		int write(int items);
 	}
 	
 	
@@ -15,19 +15,19 @@ public interface UIntObjectMap {
 		
 		int size();
 		
-		boolean produce_has_null_key();
+		boolean read_has_null_key();
 		
-		V produce_null_key_val();
+		V read_null_key_val();
 		
-		boolean produce_has_0key();
+		boolean read_has_0key();
 		
-		V produce_0key_val();
+		V read_0key_val();
 		
-		int produce(int info);
+		int read(int info);
 		
-		long produce_key(int info);
+		long read_key(int info);
 		
-		V produce_val(int info);
+		V read_val(int info);
 		
 		
 		default StringBuilder toString(StringBuilder dst) {
@@ -36,22 +36,22 @@ public interface UIntObjectMap {
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
 			
-			if (produce_has_null_key())
+			if (read_has_null_key())
 			{
-				dst.append("null -> ").append(produce_null_key_val()).append('\n');
+				dst.append("null -> ").append(read_null_key_val()).append('\n');
 				size--;
 			}
 			
-			if (produce_has_0key())
+			if (read_has_0key())
 			{
-				dst.append("0 -> ").append(produce_0key_val()).append('\n');
+				dst.append("0 -> ").append(read_0key_val()).append('\n');
 				size--;
 			}
 			
 			for (int p = -1, i = 0; i < size; i++)
-				dst.append(produce_key(p = produce(p)))
+				dst.append(read_key(p = read(p)))
 						.append(" -> ")
-						.append(produce_val(p))
+						.append(read_val(p))
 						.append('\n');
 			
 			return dst;
@@ -196,19 +196,19 @@ public interface UIntObjectMap {
 		
 		//region  producer
 		
-		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
+		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public boolean produce_has_null_key() {return hasNullKey;}
+		@Override public boolean read_has_null_key() {return hasNullKey;}
 		
-		@Override public V produce_null_key_val()       {return nullKeyValue;}
+		@Override public V read_null_key_val()       {return nullKeyValue;}
 		
-		@Override public boolean produce_has_0key()     {return hasO; }
+		@Override public boolean read_has_0key()     {return hasO; }
 		
-		@Override public V produce_0key_val()           {return OkeyValue;}
+		@Override public V read_0key_val()           {return OkeyValue;}
 		
-		@Override public long produce_key(int info) {return   keys.array[info]; }
+		@Override public long read_key(int info) {return   keys.array[info]; }
 		
-		@Override public V produce_val(int info)        {return  values.array[info]; }
+		@Override public V read_val(int info)        {return  values.array[info]; }
 		
 		//endregion
 		
@@ -320,7 +320,8 @@ public interface UIntObjectMap {
 			values.clear();
 		}
 		
-		@Override public int consume(int items) {
+		//region  consumer
+		@Override public int write(int items) {
 			
 			assigned = 0;
 			hasNullKey = false;
@@ -331,6 +332,8 @@ public interface UIntObjectMap {
 			allocate((int) Array.nextPowerOf2(items));
 			return items;
 		}
+		//endregion
+	
 		
 		void allocate(int size) {
 			

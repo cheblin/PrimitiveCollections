@@ -10,7 +10,7 @@ public interface IntLongNullMap {
 		
 		boolean put( Integer   key, long value);
 		
-		int consume(int items);
+		int write(int items);
 	}
 	
 	
@@ -18,20 +18,20 @@ public interface IntLongNullMap {
 		
 		int size();
 		
-		@Positive_Values int produce_has_null_key();
+		@Positive_Values int read_has_null_key();
 		
-		long produce_null_key_val();
+		long read_null_key_val();
 		
-		@Positive_Values int produce_has_0key();
+		@Positive_Values int read_has_0key();
 		
-		long produce_0key_val();
+		long read_0key_val();
 		
 		
-		int produce_key(int info);
+		int read_key(int info);
 		
-		@Positive_YES int produce_has_val(int info);
+		@Positive_YES int read_has_val(int info);
 		
-		long produce_val(@Positive_ONLY int info);
+		long read_val(@Positive_ONLY int info);
 		
 		
 		default StringBuilder toString(StringBuilder dst) {
@@ -39,10 +39,10 @@ public interface IntLongNullMap {
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			switch (produce_has_null_key())
+			switch (read_has_null_key())
 			{
 				case Positive_Values.VALUE:
-					dst.append("null -> ").append(produce_null_key_val()).append('\n');
+					dst.append("null -> ").append(read_null_key_val()).append('\n');
 					size--;
 					break;
 				case Positive_Values.NULL:
@@ -50,10 +50,10 @@ public interface IntLongNullMap {
 					size--;
 			}
 			
-			switch (produce_has_0key())
+			switch (read_has_0key())
 			{
 				case Positive_Values.VALUE:
-					dst.append("0 -> ").append(produce_0key_val()).append('\n');
+					dst.append("0 -> ").append(read_0key_val()).append('\n');
 					size--;
 					break;
 				case Positive_Values.NULL:
@@ -63,10 +63,10 @@ public interface IntLongNullMap {
 			
 			for (int p = -1, i = 0; i < size; i++, dst.append('\n'))
 			{
-				dst.append(produce_key(p = produce_has_val(p))).append(" -> ");
+				dst.append(read_key(p = read_has_val(p))).append(" -> ");
 				
 				if (p < 0) dst.append("null");
-				else dst.append(produce_val(p));
+				else dst.append(read_val(p));
 			}
 			
 			return dst;
@@ -217,22 +217,22 @@ public interface IntLongNullMap {
 		
 		//region  producer
 		
-		@Override public @Positive_Values int produce_has_null_key() {return hasNullKey;}
+		@Override public @Positive_Values int read_has_null_key() {return hasNullKey;}
 		
-		@Override public long produce_null_key_val() {return nullKeyValue;}
+		@Override public long read_null_key_val() {return nullKeyValue;}
 		
-		@Override public @Positive_Values int produce_has_0key()     {return hasOkey; }
+		@Override public @Positive_Values int read_has_0key()     {return hasOkey; }
 		
-		@Override public long produce_0key_val() {return OkeyValue;}
+		@Override public long read_0key_val() {return OkeyValue;}
 		
-		@Override public int produce_key(int info) {return   keys.array[info & Integer.MAX_VALUE]; }
+		@Override public int read_key(int info) {return   keys.array[info & Integer.MAX_VALUE]; }
 		
-		@Override public @Positive_YES int produce_has_val(int info) {
+		@Override public @Positive_YES int read_has_val(int info) {
 			for (info++, info &= Integer.MAX_VALUE; keys.array[info] == 0; info++) ;
 			return values.hasValue(info) ? info : info | Integer.MIN_VALUE;
 		}
 		
-		@Override public long produce_val(@Positive_ONLY int info) {return   values.value(info); }
+		@Override public long read_val(@Positive_ONLY int info) {return   values.value(info); }
 		
 		//endregion
 		
@@ -370,7 +370,7 @@ public interface IntLongNullMap {
 			return false;
 		}
 		
-		@Override public int consume(int items) {
+		@Override public int write(int items) {
 			items = (int) Array.nextPowerOf2(items);
 			if (keys.length() < items) allocate(items);
 			return items;

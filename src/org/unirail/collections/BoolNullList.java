@@ -61,9 +61,12 @@ public interface BoolNullList {
 	
 	class RW extends R implements BitsList.Consumer {
 		
-		@Override public void consume(int index, long src) { array[index] = src; }
+		//region  consumer
+		@Override public void write(int index, long src) { array[index] = src; }
 		
-		@Override public void consume(int items, int bits) { BitsList.Base.consume(this, items, bits);}
+		@Override public void write(int size, int bits) { BitsList.Base.write(this, size, bits);}
+		
+		//endregion
 		
 		public RW(int items)                               { super(items); }
 		

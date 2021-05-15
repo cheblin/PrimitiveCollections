@@ -6,7 +6,7 @@ public interface ObjectFloatMap {
 	interface Consumer<K extends Comparable<? super K>> {
 		boolean put(K key, float value);
 		
-		void consume(int items);
+		void write(int size);
 	}
 	
 	
@@ -14,31 +14,31 @@ public interface ObjectFloatMap {
 		
 		int size();
 		
-		boolean produce_has_null_key();
+		boolean read_has_null_key();
 		
-		float produce_null_key_val();
+		float read_null_key_val();
 		
-		int produce(int info);
+		int read(int info);
 		
-		K produce_key(int info);
+		K read_key(int info);
 		
-		float  produce_val(int info);
+		float  read_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (produce_has_null_key())
+			if (read_has_null_key())
 			{
-				dst.append("null -> ").append(produce_null_key_val()).append('\n');
+				dst.append("null -> ").append(read_null_key_val()).append('\n');
 				size--;
 			}
 			
 			for (int p = -1, i = 0; i < size; i++)
-				dst.append(produce_key(p = produce(p)))
+				dst.append(read_key(p = read(p)))
 						.append(" -> ")
-						.append(produce_val(p))
+						.append(read_val(p))
 						.append('\n');
 			return dst;
 		}
@@ -161,15 +161,15 @@ public interface ObjectFloatMap {
 		
 		//region  producer
 		
-		@Override public boolean produce_has_null_key() { return hasNullKey; }
+		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
-		@Override public float produce_null_key_val()     { return NullKeyValue; }
+		@Override public float read_null_key_val() { return NullKeyValue; }
 		
-		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
+		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
 		
-		@Override public K produce_key(int info)        {return keys.array[info]; }
+		@Override public K read_key(int info)        {return keys.array[info]; }
 		
-		@Override public float produce_val(int info) {return values.value(info); }
+		@Override public float read_val(int info) {return values.value(info); }
 		
 		//endregion
 		
@@ -191,12 +191,6 @@ public interface ObjectFloatMap {
 			super(expectedItems, loadFactor);
 		}
 		
-		public void clear() {
-			assigned = 0;
-			hasNullKey = false;
-			keys.clear();
-			values.clear();
-		}
 		
 		public boolean put(K key, float value) {
 			
@@ -224,44 +218,6 @@ public interface ObjectFloatMap {
 			return true;
 		}
 		
-		@Override public void consume(int items) {
-			assigned = 0;
-			hasNullKey = false;
-			
-			allocate((int) Array.nextPowerOf2(items));
-		}
-		
-		protected void allocate(int size) {
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			if (assigned < 1)
-			{
-				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
-				
-				if (values.length() < size) values.length(-size);
-				else values.clear();
-				return;
-			}
-			
-			final K[]           k = keys.array;
-			final float[] v = values.array;
-			
-			keys.length(-size);
-			values.length(-size);
-			
-			K kk;
-			for (int i = k.length - 1; 0 <= --i; )
-				if ((kk = k[i]) != null)
-				{
-					int slot = Array.hash(kk.hashCode()) & mask;
-					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
-					
-					keys.array[slot] = kk;
-					values.array[slot] = v[i];
-				}
-		}
 		
 		public boolean remove(K key) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
@@ -295,6 +251,56 @@ public interface ObjectFloatMap {
 				}
 			
 			return false;
+		}
+		
+		public void clear() {
+			assigned = 0;
+			hasNullKey = false;
+			keys.clear();
+			values.clear();
+		}
+		
+		//region  consumer
+		@Override public void write(int size) {
+			assigned = 0;
+			hasNullKey = false;
+			
+			keys.write(size = (int) Array.nextPowerOf2(size));
+			values.write(size);
+		}
+		
+		//endregion
+		
+		protected void allocate(int size) {
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			if (assigned < 1)
+			{
+				if (keys.length() < size) keys.length(-size);
+				else keys.clear();
+				
+				if (values.length() < size) values.length(-size);
+				else values.clear();
+				return;
+			}
+			
+			final K[]           k = keys.array;
+			final float[] v = values.array;
+			
+			keys.length(-size);
+			values.length(-size);
+			
+			K kk;
+			for (int i = k.length - 1; 0 <= --i; )
+				if ((kk = k[i]) != null)
+				{
+					int slot = Array.hash(kk.hashCode()) & mask;
+					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
+					
+					keys.array[slot] = kk;
+					values.array[slot] = v[i];
+				}
 		}
 		
 		public RW<K> clone() { return (RW<K>) super.clone(); }

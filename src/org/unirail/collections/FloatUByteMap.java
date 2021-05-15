@@ -7,48 +7,48 @@ public interface FloatUByteMap {
 		
 		boolean put( Float     key, char value);
 		
-		void consume(int size);
+		void write(int size);
 	}
 	
 	interface Producer {
 		
 		int size();
 		
-		boolean produce_has_null_key();
+		boolean read_has_null_key();
 		
-		char produce_null_key_val();
+		char read_null_key_val();
 		
-		boolean produce_has_0key();
+		boolean read_has_0key();
 		
-		char produce_0key_val();
+		char read_0key_val();
 		
-		int produce(int info);
+		int read(int info);
 		
-		float produce_key(int info);
+		float read_key(int info);
 		
-		char produce_val(int info);
+		char read_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (produce_has_null_key())
+			if (read_has_null_key())
 			{
-				dst.append("null -> ").append(produce_null_key_val()).append('\n');
+				dst.append("null -> ").append(read_null_key_val()).append('\n');
 				size--;
 			}
 			
-			if (produce_has_0key())
+			if (read_has_0key())
 			{
-				dst.append("0 -> ").append(produce_0key_val()).append('\n');
+				dst.append("0 -> ").append(read_0key_val()).append('\n');
 				size--;
 			}
 			
 			for (int p = -1, i = 0; i < size; i++)
-				dst.append(produce_key(p = produce(p)))
+				dst.append(read_key(p = read(p)))
 						.append(" -> ")
-						.append(produce_val(p))
+						.append(read_val(p))
 						.append('\n');
 			return dst;
 		}
@@ -181,20 +181,20 @@ public interface FloatUByteMap {
 		
 		//region  producer
 		
-		@Override public boolean produce_has_null_key() {return hasNullKey;}
+		@Override public boolean read_has_null_key() {return hasNullKey;}
 		
-		@Override public char produce_null_key_val() {return nullKeyValue;}
+		@Override public char read_null_key_val() {return nullKeyValue;}
 		
-		@Override public boolean produce_has_0key()     {return hasO; }
+		@Override public boolean read_has_0key()     {return hasO; }
 		
-		@Override public char produce_0key_val() {return OkeyValue;}
+		@Override public char read_0key_val() {return OkeyValue;}
 		
 		
-		@Override public int produce(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
+		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
-		@Override public float produce_key(int info) {return   keys.array[info]; }
+		@Override public float read_key(int info) {return   keys.array[info]; }
 		
-		@Override public char produce_val(int info) {return  (char)( 0xFFFF &  values.array[info]); }
+		@Override public char read_val(int info) {return  (char)( 0xFFFF &  values.array[info]); }
 		
 		//endregion
 		
@@ -208,46 +208,8 @@ public interface FloatUByteMap {
 		
 		public RW(int expectedItems, double loadFactor) { super(expectedItems, loadFactor); }
 		
-		@Override public void consume(int size) {
-			assigned = 0;
-			hasO = false;
-			hasNullKey = false;
-			
-			allocate((int) Array.nextPowerOf2(size));
-		}
 		
-		protected void allocate(int size) {
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			if (assigned < 1)
-			{
-				
-				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
-				
-				if (values.length() < size) values.length(-size);
-				else values.clear();
-				
-				return;
-			}
-			
-			final float[] k = keys.array;
-			final byte[] v = values.array;
-			
-			keys.length(-size);
-			values.length(-size);
-			
-			float key;
-			for (int i = k.length - 1; -1 < --i; )
-				if ((key = k[i]) != 0)
-				{
-					int slot = Array.hash(key) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
-					values.array[slot] = v[i];
-				}
-		}
+		
 		
 		@Override public boolean put( Float     key, char value) {
 			if (key != null) return put((float) key, value);
@@ -339,6 +301,50 @@ public interface FloatUByteMap {
 			
 			keys.clear();
 			values.clear();
+		}
+		//region  consumer
+		@Override public void write(int size) {
+			assigned = 0;
+			hasO = false;
+			hasNullKey = false;
+			
+			keys.write(size = (int) Array.nextPowerOf2(size));
+			values.write(size);
+		}
+		
+		//endregion
+		
+		protected void allocate(int size) {
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			if (assigned < 1)
+			{
+				
+				if (keys.length() < size) keys.length(-size);
+				else keys.clear();
+				
+				if (values.length() < size) values.length(-size);
+				else values.clear();
+				
+				return;
+			}
+			
+			final float[] k = keys.array;
+			final byte[] v = values.array;
+			
+			keys.length(-size);
+			values.length(-size);
+			
+			float key;
+			for (int i = k.length - 1; -1 < --i; )
+				if ((key = k[i]) != 0)
+				{
+					int slot = Array.hash(key) & mask;
+					while (keys.array[slot] != 0) slot = slot + 1 & mask;
+					keys.array[slot] = key;
+					values.array[slot] = v[i];
+				}
 		}
 		
 		@Override public RW clone() { return (RW) super.clone(); }

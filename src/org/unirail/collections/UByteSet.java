@@ -10,31 +10,31 @@ public interface UByteSet {
 		
 		boolean add( Character key);
 		
-		void consume(int items);
+		void write(int size);
 	}
 	
 	interface Producer {
-		boolean produce_has_null_key();
+		boolean read_has_null_key();
 		
 		int size();
 		
-		int produce(int info);
+		int read(int info);
 		
-		char  produce_key(int info);
+		char  read_key(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (produce_has_null_key())
+			if (read_has_null_key())
 			{
 				dst.append("null\n");
 				size--;
 			}
 			
 			for (int p = -1, i = 0; i < size; i++)
-				dst.append(produce_key(p = produce(p))).append('\n');
+				dst.append(read_key(p = read(p))).append('\n');
 			
 			return dst;
 		}
@@ -156,10 +156,10 @@ a:
 		}
 		
 		public boolean containsAll(Producer src) {
-			if (src.produce_has_null_key() != hasNullKey || size() != src.size()) return false;
+			if (src.read_has_null_key() != hasNullKey || size() != src.size()) return false;
 			
-			for (int p = src.produce(-1), i = 0, size = src.size(); i < size; i++, p = src.produce(p))
-				if (!contains(src.produce_key(p))) return false;
+			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
+				if (!contains(src.read_key(p))) return false;
 			return true;
 		}
 		
@@ -191,11 +191,11 @@ a:
 		}
 		
 		//region  producer
-		@Override public boolean produce_has_null_key() { return hasNullKey; }
+		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
-		public char produce_key(int info) { return (char) (info & 0xFF); }
+		public char read_key(int info) { return (char) (info & 0xFF); }
 		
-		public int produce(int info) {
+		public int read(int info) {
 			info++;
 			info &= 0xFF;
 			long l;
@@ -231,11 +231,10 @@ a:
 	
 	class RW extends R implements Consumer {
 		
-		@Override public void consume(int size) { clear(); }
 		
-		public boolean add( Character key)    { return key == null ? !hasNullKey && (hasNullKey = true) : R.add(this, (char) (key + 0));}
+		public boolean add( Character key) { return key == null ? !hasNullKey && (hasNullKey = true) : R.add(this, (char) (key + 0));}
 		
-		public boolean add(char key)    { return R.add(this, key); }
+		public boolean add(char key) { return R.add(this, key); }
 		
 		public boolean retainAll(R src) {
 			boolean ret = false;
@@ -297,9 +296,9 @@ a:
 					_3 = 0,
 					_4 = 0;
 			
-			for (int p = src.produce(-1), i = 0, size = src.size(); i < size; i++, p = src.produce(p))
+			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
 			{
-				final int val = src.produce_key(p) & 0xFF;
+				final int val = src.read_key(p) & 0xFF;
 				
 				if (val < 128)
 					if (val < 64) _1 |= 1L << val;
@@ -338,9 +337,9 @@ a:
 		public boolean removeAll(Producer src) {
 			boolean ret = false;
 			
-			for (int p = src.produce(-1), i = 0, size = src.size(); i < size; i++, p = src.produce(p))
+			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
 			{
-				remove(src.produce_key(p));
+				remove(src.read_key(p));
 				ret = true;
 			}
 			return ret;
@@ -355,12 +354,16 @@ a:
 			hasNullKey = false;
 		}
 		
+		//region  consumer
+		@Override public void write(int size) { clear(); }
+		
+		//endregion
 		public boolean addAll(Producer src) {
 			boolean      ret = false;
 			char val;
 			
-			for (int p = src.produce(-1), i = 0, size = src.size(); i < size; i++, p = src.produce(p))
-				if (!contains(val = src.produce_key(p)))
+			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
+				if (!contains(val = src.read_key(p)))
 				{
 					ret = true;
 					R.add(this, val);
