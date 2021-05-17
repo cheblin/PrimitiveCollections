@@ -5,13 +5,13 @@ import java.util.Arrays;
 
 public interface BitsList {
 	
-	interface Consumer {
+	interface Writer {
 		void write(int index, long src);
 		
 		void write(int size, int bits);
 	}
 	
-	interface Producer {
+	interface Reader {
 		int size();
 		
 		int bits();
@@ -56,7 +56,7 @@ public interface BitsList {
 	static long value(long prev, long next, int bit, int bits, int mask) {return ((next & mask(bit + bits - Base.BITS)) << Base.BITS - bit | prev >>> bit) & mask; }
 	
 	
-	static long set(int src, int item, long buff, int mask, int bits, Consumer dst) {
+	static long set(int src, int item, long buff, int mask, int bits, Writer dst) {
 		
 		final long v   = src & mask;
 		final int  bit = bit(item *= bits);
@@ -70,7 +70,7 @@ public interface BitsList {
 	}
 	
 	
-	abstract class Base implements Cloneable, Comparable<Base>, Producer {
+	abstract class Base implements Cloneable, Comparable<Base>, Reader {
 		
 		
 		static final int BITS = 64;
@@ -303,7 +303,7 @@ public interface BitsList {
 		}
 		
 		
-		public boolean containsAll(Producer src) {
+		public boolean containsAll(Reader src) {
 			return false;
 		}
 		
@@ -413,7 +413,7 @@ public interface BitsList {
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		@Override public long read(int index) { return array[index];}
 		
 		//endregion
@@ -439,7 +439,7 @@ public interface BitsList {
 	}
 	
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		public RW(int bits_per_item)                       { super(bits_per_item); }
 		
@@ -449,7 +449,7 @@ public interface BitsList {
 		
 		public RW(int bits_per_item, int... values)        { super(bits_per_item, values); }
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int index, long src) { array[index] = src; }
 		
 		@Override public void write(int size, int bits) { Base.write(this, size, bits);}

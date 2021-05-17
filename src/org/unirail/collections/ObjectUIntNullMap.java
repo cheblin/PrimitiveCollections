@@ -4,7 +4,7 @@ package org.unirail.collections;
 import java.util.Arrays;
 
 public interface ObjectUIntNullMap {
-	interface Consumer<K extends Comparable<? super K>> {
+	interface Writer<K extends Comparable<? super K>> {
 		boolean put(K key, long value);
 		
 		boolean put(K key,  Long      value);
@@ -13,7 +13,7 @@ public interface ObjectUIntNullMap {
 	}
 	
 	
-	interface Producer<K extends Comparable<? super K>> {
+	interface Reader<K extends Comparable<? super K>> {
 		
 		int size();
 		
@@ -56,7 +56,7 @@ public interface ObjectUIntNullMap {
 	}
 	
 	
-	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Producer<K> {
+	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Reader<K> {
 		
 		
 		ObjectList.RW<K>       keys   = new ObjectList.RW<>(0);
@@ -170,7 +170,7 @@ public interface ObjectUIntNullMap {
 		protected                  long NullKeyValue = 0;
 		
 		
-		//region  producer
+		//region  reader
 		
 		@Override public int read_has_null_key() { return hasNullKey; }
 		
@@ -191,7 +191,7 @@ public interface ObjectUIntNullMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> implements Consumer<K> {
+	class RW<K extends Comparable<? super K>> extends R<K> implements Writer<K> {
 		
 		public RW(double loadFactor)                    { super(loadFactor); }
 		
@@ -265,7 +265,7 @@ public interface ObjectUIntNullMap {
 			values.clear();
 		}
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			assigned = 0;
 			hasNullKey = Positive_Values.NONE;

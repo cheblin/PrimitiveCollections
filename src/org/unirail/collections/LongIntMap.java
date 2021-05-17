@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface LongIntMap {
 	
-	interface Consumer {
+	interface Writer {
 		boolean put(long key, int value);
 		
 		boolean put( Long      key, int value);
@@ -10,7 +10,7 @@ public interface LongIntMap {
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		
 		int size();
 		
@@ -55,7 +55,7 @@ public interface LongIntMap {
 	}
 	
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		public LongList.RW keys   = new LongList.RW(0);
 		public IntList.RW values = new IntList.RW(0);
 		
@@ -179,7 +179,7 @@ public interface LongIntMap {
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		
 		@Override public boolean read_has_null_key() {return hasNullKey;}
 		
@@ -202,7 +202,7 @@ public interface LongIntMap {
 	}
 	
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		public RW(int expectedItems)                    { super(expectedItems); }
 		
@@ -302,7 +302,7 @@ public interface LongIntMap {
 			keys.clear();
 			values.clear();
 		}
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			assigned = 0;
 			hasO = false;

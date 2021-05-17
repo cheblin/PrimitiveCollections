@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface FloatObjectMap {
 	
-	interface Consumer<V extends Comparable<? super V>> {
+	interface Writer<V extends Comparable<? super V>> {
 		boolean put(float key, V value);//return false to interrupt
 		
 		boolean put( Float     key, V value);
@@ -11,7 +11,7 @@ public interface FloatObjectMap {
 	}
 	
 	
-	interface Producer<V extends Comparable<? super V>> {
+	interface Reader<V extends Comparable<? super V>> {
 		
 		int size();
 		
@@ -59,7 +59,7 @@ public interface FloatObjectMap {
 	}
 	
 	
-	class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, Producer<V> {
+	class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, Reader<V> {
 		
 		
 		public FloatList.RW keys = new FloatList.RW(0);
@@ -194,7 +194,7 @@ public interface FloatObjectMap {
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		
 		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
@@ -216,7 +216,7 @@ public interface FloatObjectMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<V extends Comparable<? super V>> extends R<V> implements Consumer<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements Writer<V> {
 		
 		
 		public RW(double loadFactor) {
@@ -320,7 +320,7 @@ public interface FloatObjectMap {
 			values.clear();
 		}
 		
-		//region  consumer
+		//region  writer
 		@Override public int write(int items) {
 			
 			assigned = 0;

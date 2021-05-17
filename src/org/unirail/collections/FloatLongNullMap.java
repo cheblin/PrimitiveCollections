@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 public interface FloatLongNullMap {
-	interface Consumer {
+	interface Writer {
 		boolean put(float key, long value);
 		
 		boolean put(float key,  Long      value);
@@ -14,7 +14,7 @@ public interface FloatLongNullMap {
 	}
 	
 	
-	interface Producer {
+	interface Reader {
 		
 		int size();
 		
@@ -73,7 +73,7 @@ public interface FloatLongNullMap {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		
 		
 		public FloatList.RW     keys   = new FloatList.RW(0);
@@ -215,7 +215,7 @@ public interface FloatLongNullMap {
 		}
 		
 		
-		//region  producer
+		//region  reader
 		
 		@Override public @Positive_Values int read_has_null_key() {return hasNullKey;}
 		
@@ -240,7 +240,7 @@ public interface FloatLongNullMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		
 		public RW(int expectedItems)                    { super(expectedItems); }
@@ -251,9 +251,10 @@ public interface FloatLongNullMap {
 		public boolean put( Float     key, long value) {
 			if (key != null) return put((float) (key + 0), value);
 			
+			int h = hasNullKey;
 			hasNullKey = Positive_Values.VALUE;
 			nullKeyValue = value;
-			return true;
+			return h != Positive_Values.VALUE;
 		}
 		
 		public boolean put( Float     key,  Long      value) {
@@ -262,14 +263,14 @@ public interface FloatLongNullMap {
 			int h = hasNullKey;
 			
 			if (value == null)
-				hasNullKey = Positive_Values.NULL;
-			else
 			{
-				hasNullKey = Positive_Values.VALUE;
-				nullKeyValue = value;
+				hasNullKey = Positive_Values.NULL;
+				return h == Positive_Values.NULL;
 			}
 			
-			return h == Positive_Values.NONE;
+			hasNullKey = Positive_Values.VALUE;
+			nullKeyValue = value;
+			return h == Positive_Values.VALUE;
 		}
 		
 		public boolean put(float key,  Long      value) {

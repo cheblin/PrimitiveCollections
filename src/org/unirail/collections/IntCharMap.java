@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface IntCharMap {
 	
-	interface Consumer {
+	interface Writer {
 		boolean put(int key, char value);
 		
 		boolean put( Integer   key, char value);
@@ -10,7 +10,7 @@ public interface IntCharMap {
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		
 		int size();
 		
@@ -55,7 +55,7 @@ public interface IntCharMap {
 	}
 	
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		public IntList.RW keys   = new IntList.RW(0);
 		public CharList.RW values = new CharList.RW(0);
 		
@@ -179,7 +179,7 @@ public interface IntCharMap {
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		
 		@Override public boolean read_has_null_key() {return hasNullKey;}
 		
@@ -202,7 +202,7 @@ public interface IntCharMap {
 	}
 	
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		public RW(int expectedItems)                    { super(expectedItems); }
 		
@@ -302,7 +302,7 @@ public interface IntCharMap {
 			keys.clear();
 			values.clear();
 		}
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			assigned = 0;
 			hasO = false;

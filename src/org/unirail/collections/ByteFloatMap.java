@@ -3,7 +3,7 @@ package org.unirail.collections;
 
 public interface ByteFloatMap {
 	
-	interface Consumer {
+	interface Writer {
 		boolean put(byte key, float value);
 		
 		boolean put( Byte      key, float value);
@@ -11,7 +11,7 @@ public interface ByteFloatMap {
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		int size();
 		
 		boolean read_has_null_key();
@@ -45,7 +45,7 @@ public interface ByteFloatMap {
 	}
 	
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		
 		ByteSet.RW         keys = new ByteSet.RW();
 		FloatList.RW values;
@@ -103,7 +103,7 @@ public interface ByteFloatMap {
 		}
 		
 		
-		//region  producer
+		//region  reader
 		
 		@Override public int read(int info) {
 			int i = (info & ~0xFF) + (1 << 8);
@@ -122,7 +122,7 @@ public interface ByteFloatMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		public RW(int length) { super(length); }
 		
@@ -134,7 +134,7 @@ public interface ByteFloatMap {
 			values.clear();
 		}
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			keys.write(size);
 			values.write(size);

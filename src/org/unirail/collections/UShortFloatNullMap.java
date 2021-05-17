@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 public interface UShortFloatNullMap {
-	interface Consumer {
+	interface Writer {
 		boolean put(char key, float value);
 		
 		boolean put(char key,  Float     value);
@@ -14,7 +14,7 @@ public interface UShortFloatNullMap {
 	}
 	
 	
-	interface Producer {
+	interface Reader {
 		
 		int size();
 		
@@ -73,7 +73,7 @@ public interface UShortFloatNullMap {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		
 		
 		public UShortList.RW     keys   = new UShortList.RW(0);
@@ -215,7 +215,7 @@ public interface UShortFloatNullMap {
 		}
 		
 		
-		//region  producer
+		//region  reader
 		
 		@Override public @Positive_Values int read_has_null_key() {return hasNullKey;}
 		
@@ -240,7 +240,7 @@ public interface UShortFloatNullMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		
 		public RW(int expectedItems)                    { super(expectedItems); }
@@ -251,9 +251,10 @@ public interface UShortFloatNullMap {
 		public boolean put( Character key, float value) {
 			if (key != null) return put((char) (key + 0), value);
 			
+			int h = hasNullKey;
 			hasNullKey = Positive_Values.VALUE;
 			nullKeyValue = value;
-			return true;
+			return h != Positive_Values.VALUE;
 		}
 		
 		public boolean put( Character key,  Float     value) {
@@ -262,14 +263,14 @@ public interface UShortFloatNullMap {
 			int h = hasNullKey;
 			
 			if (value == null)
-				hasNullKey = Positive_Values.NULL;
-			else
 			{
-				hasNullKey = Positive_Values.VALUE;
-				nullKeyValue = value;
+				hasNullKey = Positive_Values.NULL;
+				return h == Positive_Values.NULL;
 			}
 			
-			return h == Positive_Values.NONE;
+			hasNullKey = Positive_Values.VALUE;
+			nullKeyValue = value;
+			return h == Positive_Values.VALUE;
 		}
 		
 		public boolean put(char key,  Float     value) {

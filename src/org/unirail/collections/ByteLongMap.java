@@ -3,7 +3,7 @@ package org.unirail.collections;
 
 public interface ByteLongMap {
 	
-	interface Consumer {
+	interface Writer {
 		boolean put(byte key, long value);
 		
 		boolean put( Byte      key, long value);
@@ -11,7 +11,7 @@ public interface ByteLongMap {
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		int size();
 		
 		boolean read_has_null_key();
@@ -45,7 +45,7 @@ public interface ByteLongMap {
 	}
 	
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		
 		ByteSet.RW         keys = new ByteSet.RW();
 		LongList.RW values;
@@ -103,7 +103,7 @@ public interface ByteLongMap {
 		}
 		
 		
-		//region  producer
+		//region  reader
 		
 		@Override public int read(int info) {
 			int i = (info & ~0xFF) + (1 << 8);
@@ -122,7 +122,7 @@ public interface ByteLongMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		public RW(int length) { super(length); }
 		
@@ -134,7 +134,7 @@ public interface ByteLongMap {
 			values.clear();
 		}
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			keys.write(size);
 			values.write(size);

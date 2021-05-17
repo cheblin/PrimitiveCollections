@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 public interface DoubleULongNullMap {
-	interface Consumer {
+	interface Writer {
 		boolean put(double key, long value);
 		
 		boolean put(double key,  Long      value);
@@ -14,7 +14,7 @@ public interface DoubleULongNullMap {
 	}
 	
 	
-	interface Producer {
+	interface Reader {
 		
 		int size();
 		
@@ -73,7 +73,7 @@ public interface DoubleULongNullMap {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		
 		
 		public DoubleList.RW     keys   = new DoubleList.RW(0);
@@ -215,7 +215,7 @@ public interface DoubleULongNullMap {
 		}
 		
 		
-		//region  producer
+		//region  reader
 		
 		@Override public @Positive_Values int read_has_null_key() {return hasNullKey;}
 		
@@ -240,7 +240,7 @@ public interface DoubleULongNullMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		
 		public RW(int expectedItems)                    { super(expectedItems); }
@@ -251,9 +251,10 @@ public interface DoubleULongNullMap {
 		public boolean put( Double    key, long value) {
 			if (key != null) return put((double) (key + 0), value);
 			
+			int h = hasNullKey;
 			hasNullKey = Positive_Values.VALUE;
 			nullKeyValue = value;
-			return true;
+			return h != Positive_Values.VALUE;
 		}
 		
 		public boolean put( Double    key,  Long      value) {
@@ -262,14 +263,14 @@ public interface DoubleULongNullMap {
 			int h = hasNullKey;
 			
 			if (value == null)
-				hasNullKey = Positive_Values.NULL;
-			else
 			{
-				hasNullKey = Positive_Values.VALUE;
-				nullKeyValue = value;
+				hasNullKey = Positive_Values.NULL;
+				return h == Positive_Values.NULL;
 			}
 			
-			return h == Positive_Values.NONE;
+			hasNullKey = Positive_Values.VALUE;
+			nullKeyValue = value;
+			return h == Positive_Values.VALUE;
 		}
 		
 		public boolean put(double key,  Long      value) {

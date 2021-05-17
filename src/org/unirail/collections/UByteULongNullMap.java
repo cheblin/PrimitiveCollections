@@ -1,7 +1,9 @@
 package org.unirail.collections;
 
+
 public interface UByteULongNullMap {
-	interface Consumer {
+	
+	interface Writer {
 		boolean put(char key, long value);
 		
 		boolean put(char key,  Long      value);
@@ -10,55 +12,31 @@ public interface UByteULongNullMap {
 		
 		boolean put( Character key, long value);
 		
-		int write(int items);
+		void write(int size);
 	}
 	
-	
-	interface Producer {
-		
+	interface Reader {
 		int size();
 		
-		@Positive_Values int read_has_null_key();
+		boolean read_has_null_key();
 		
 		long read_null_key_val();
 		
-		@Positive_Values int read_has_0key();
-		
-		long read_0key_val();
-		
+		@Positive_YES int read_has_val(int info);
 		
 		char read_key(int info);
 		
-		@Positive_YES int read_has_val(int info);
-		
 		long read_val(@Positive_ONLY int info);
-		
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			switch (read_has_null_key())
+			if (read_has_null_key())
 			{
-				case Positive_Values.VALUE:
-					dst.append("null -> ").append(read_null_key_val()).append('\n');
-					size--;
-					break;
-				case Positive_Values.NULL:
-					dst.append("null -> null\n");
-					size--;
-			}
-			
-			switch (read_has_0key())
-			{
-				case Positive_Values.VALUE:
-					dst.append("0 -> ").append(read_0key_val()).append('\n');
-					size--;
-					break;
-				case Positive_Values.NULL:
-					dst.append("0 -> null\n");
-					size--;
+				dst.append("null -> ").append(read_null_key_val()).append('\n');
+				size--;
 			}
 			
 			for (int p = -1, i = 0; i < size; i++, dst.append('\n'))
@@ -73,78 +51,24 @@ public interface UByteULongNullMap {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
+		
+		ByteSet.RW             keys = new ByteSet.RW();
+		ULongNullList.RW values;
 		
 		
-		public UByteList.RW     keys   = new UByteList.RW(0);
-		public ULongNullList.RW values = new ULongNullList.RW(0);
+		protected R(int length)                            { values = new ULongNullList.RW(265 < length ? 256 : length); }
 		
-		int assigned;
+		@Override public int size()                        { return keys.size(); }
 		
+		public boolean isEmpty()                           { return keys.isEmpty();}
 		
-		int mask;
-		
-		
-		int resizeAt;
-		
-		
-		@Positive_Values int hasNullKey = Positive_Values.NONE;
-		long nullKeyValue = 0;
-		
-		
-		@Positive_Values int hasOkey = Positive_Values.NONE;
-		long       OkeyValue;
-		
-		
-		protected double loadFactor;
-		
-		
-		protected R(int expectedItems) { this(expectedItems, 0.75); }
-		
-		
-		protected R(int expectedItems, double loadFactor) {
-			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
-			
-			final long length = (long) Math.ceil(expectedItems / loadFactor);
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			keys.length(size);
-			values.nulls.length(size);
-			values.values.length(size);
-		}
-		
-		public boolean isEmpty() { return size() == 0; }
-		
-		public int size()        { return assigned + (hasOkey == Positive_Values.NONE ? 0 : 1) + (hasNullKey == Positive_Values.NONE ? 0 : 1); }
-		
-		
-		public int hashCode() {
-			int h = hasOkey == Positive_Values.NONE ? 0xDEADBEEF : 0;
-			
-			byte k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((k = keys.array[i]) != 0)
-					h += Array.hash( (char)( 0xFFFF &  k )) + Array.hash(values.hashCode());
-			
-			return h;
-		}
 		
 		public @Positive_Values int info( Character key) {return key == null ? hasNullKey : info((char) (key + 0));}
 		
 		public @Positive_Values int info(char key) {
 			
-			if (key == 0) return hasOkey == Positive_Values.VALUE ? Positive_Values.VALUE - 1 : hasOkey;
-			
-			final byte key_ = (byte) key ;
-			
-			int slot = Array.hash(key) & mask;
-			
-			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
-			
-			return Positive_Values.NONE;//the key is not present
+			return keys.contains((byte) key) ? values.hasValue(key) ? key : Positive_Values.NULL : Positive_Values.NONE;
 		}
 		
 		public boolean hasValue(int info) {return -1 < info;}
@@ -153,17 +77,15 @@ public interface UByteULongNullMap {
 		
 		public boolean hasNull(int info)  {return info == Positive_Values.NULL;}
 		
+		
 		public long value(@Positive_ONLY int info) {
 			if (info == Positive_Values.VALUE) return nullKeyValue;
-			if (info == Positive_Values.VALUE - 1) return OkeyValue;
-			return values.value(info);
+			return    values.value(keys.rank((byte) info));
 		}
 		
 		
-		public @Positive_Values int hasNullKey() { return hasNullKey; }
-		
-		public long nullKeyValue() { return nullKeyValue; }
-		
+		@Positive_Values int hasNullKey = Positive_Values.NONE;
+		long nullKeyValue = 0;
 		
 		public boolean equals(Object obj) {
 			
@@ -174,35 +96,21 @@ public interface UByteULongNullMap {
 		
 		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
 		
-		public int compareTo(R other) {
+		@Override public int compareTo(R other) {
 			if (other == null) return -1;
 			
-			if (hasNullKey != other.hasNullKey || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue) return 1;
-			
-			if (hasOkey != other.hasOkey || hasOkey == Positive_Values.VALUE && OkeyValue != other.OkeyValue) return 1;
-			
-			int diff = size() - other.size();
-			if (diff != 0) return diff;
-			
-			char           key;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((key = (char)( 0xFFFF &  keys.array[i])) != 0)
-					if (values.nulls.value(i))
-					{
-						int ii = other.info(key);
-						if (ii < 0 || values.value(i) != other.value(ii)) return 1;
-					}
-					else if (-1 < other.info(key)) return 1;
+			int diff;
+			if (hasNullKey != other.nullKeyValue || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue) return 1;
+			if ((diff = other.keys.compareTo(keys)) != 0 || (diff = other.values.compareTo(values)) != 0 || (diff = other.values.compareTo(values)) != 0) return diff;
 			
 			return 0;
 		}
 		
-		
-		public R clone() {
+		@Override public R clone() {
+			
 			try
 			{
 				R dst = (R) super.clone();
-				
 				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
@@ -215,45 +123,55 @@ public interface UByteULongNullMap {
 		}
 		
 		
-		//region  producer
+		//region  reader
+		@Override public long read_null_key_val() { return nullKeyValue; }
 		
-		@Override public @Positive_Values int read_has_null_key() {return hasNullKey;}
+		@Override public boolean read_has_null_key() { return keys.hasNullKey; }
 		
-		@Override public long read_null_key_val() {return nullKeyValue;}
-		
-		@Override public @Positive_Values int read_has_0key()     {return hasOkey; }
-		
-		@Override public long read_0key_val() {return OkeyValue;}
-		
-		@Override public char read_key(int info) {return  (char)( 0xFFFF &  keys.array[info & Integer.MAX_VALUE]); }
 		
 		@Override public @Positive_YES int read_has_val(int info) {
-			for (info++, info &= Integer.MAX_VALUE; keys.array[info] == 0; info++) ;
-			return values.hasValue(info) ? info : info | Integer.MIN_VALUE;
+			int key  = keys.read(info);
+			int item = info >> 8 & 0xFF;
+			
+			return (values.hasValue(key) ? Integer.MIN_VALUE | item << 8 : (item + 1 & 0xFF) << 8) | key;
 		}
 		
-		@Override public long read_val(@Positive_ONLY int info) {return   values.value(info); }
+		@Override public char read_key(int info) {return (char) (info & 0xFF);}
+		
+		@Override public long read_val(@Positive_ONLY int info) { return  values.value(info >> 8); }
+		
+		//endregion
+		public String toString() { return toString(null).toString();}
+	}
+	
+	class RW extends R implements Writer {
+		
+		public RW(int length) { super(length); }
+		
+		
+		public void clear() {
+			if (keys.size() < 1) return;
+			
+			keys.clear();
+			values.clear();
+		}
+		
+		//region  writer
+		@Override public void write(int size) {
+			keys.write(size);
+			values.write(size);
+		}
 		
 		//endregion
 		
 		
-		public String toString() { return toString(null).toString();}
-	}
-	
-	class RW extends R implements Consumer {
-		
-		
-		public RW(int expectedItems)                    { super(expectedItems); }
-		
-		public RW(int expectedItems, double loadFactor) { super(expectedItems, loadFactor); }
-		
-		
-		public boolean put( Character key, long value) {
+		@Override public boolean put( Character key, long value) {
 			if (key != null) return put((char) (key + 0), value);
 			
+			int h = hasNullKey;
 			hasNullKey = Positive_Values.VALUE;
 			nullKeyValue = value;
-			return true;
+			return h != Positive_Values.VALUE;
 		}
 		
 		public boolean put( Character key,  Long      value) {
@@ -262,164 +180,58 @@ public interface UByteULongNullMap {
 			int h = hasNullKey;
 			
 			if (value == null)
-				hasNullKey = Positive_Values.NULL;
-			else
 			{
-				hasNullKey = Positive_Values.VALUE;
-				nullKeyValue = value;
+				hasNullKey = Positive_Values.NULL;
+				return h == Positive_Values.NULL;
 			}
 			
-			return h == Positive_Values.NONE;
+			hasNullKey = Positive_Values.VALUE;
+			nullKeyValue = value;
+			return h == Positive_Values.VALUE;
 		}
+		
 		
 		public boolean put(char key,  Long      value) {
 			if (value != null) return put(key, (long) value);
 			
-			if (key == 0)
-			{
-				int h = hasOkey;
-				hasOkey = Positive_Values.NULL;
-				return h == Positive_Values.NONE;
+			
+			
+			if (keys.add((byte) key)) {
+				values.add(keys.rank((byte) key) - 1, ( Long     ) null);
+				return true;
 			}
+			values.set(keys.rank((byte) key) - 1, ( Long     ) null);
 			
-			int               slot = Array.hash(key) & mask;
-			final byte key_ = (byte) key ;
-			
-			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_)
-				{
-					values.set(slot, ( Long     ) null);
-					return false;
-				}
-			
-			keys.array[slot] = key_;
-			values.set(slot, ( Long     ) null);
-			
-			if (++assigned == resizeAt) allocate(mask + 1 << 1);
-			
-			return true;
-		}
-		
-		
-		public boolean put(char key, long value) {
-			if (key == 0)
-			{
-				int h = hasOkey;
-				hasOkey = Positive_Values.VALUE;
-				OkeyValue = value;
-				return h == Positive_Values.NONE;
-			}
-			
-			int slot = Array.hash(key) & mask;
-			
-			final byte key_ = (byte) key ;
-			
-			for (byte k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_)
-				{
-					values.set(slot, value);
-					return true;
-				}
-			
-			keys.array[slot] = key_;
-			values.set(slot, value);
-			
-			if (++assigned == resizeAt) allocate(mask + 1 << 1);
-			
-			return true;
-		}
-		
-		
-		public boolean remove() { return hasOkey != Positive_Values.NONE && (hasOkey = Positive_Values.NONE) == Positive_Values.NONE; }
-		
-		public boolean remove(char key) {
-			if (key == 0) return remove();
-			
-			int slot = Array.hash(key) & mask;
-			
-			final byte key_ = (byte) key ;
-			
-			final byte[] array = keys.array;
-			for (byte k; (k = array[slot]) != 0; slot = slot + 1 & mask)
-				if (k == key_)
-				{
-					int gapSlot = slot;
-					
-					byte kk;
-					
-					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - Array.hash(kk) & mask) >= distance)
-						{
-							
-							array[gapSlot] = kk;
-							
-							if (values.nulls.value(s))
-								values.set(gapSlot, values.value(s));
-							else
-								values.set(gapSlot, ( Long     ) null);
-							
-							gapSlot = s;
-							distance = 0;
-						}
-					
-					array[gapSlot] = 0;
-					values.set(gapSlot, ( Long     ) null);
-					assigned--;
-					return true;
-				}
 			return false;
 		}
 		
-		@Override public int write(int items) {
-			items = (int) Array.nextPowerOf2(items);
-			if (keys.length() < items) allocate(items);
-			return items;
-		}
-		
-		void allocate(int size) {
+		@Override public boolean put(char key, long value) {
 			
-			if (assigned < 1)
+			if (keys.add((byte) key))
 			{
-				resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
-				mask = size - 1;
-				
-				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
-				
-				if (values.nulls.length() < size) values.nulls.length(-size);
-				else values.nulls.clear();
-				
-				if (values.values.length() < size) values.values.length(-size);
-				else values.values.clear();
-				
-				return;
+				values.add(keys.rank((byte) key) - 1, value);
+				return true;
 			}
 			
-			RW tmp = new RW(size - 1, loadFactor);
-			
-			byte[] array = keys.array;
-			byte   key;
-			
-			for (int i = array.length - 1; -1 < --i; )
-				if ((key = array[i]) != 0)
-					if (values.nulls.value(i)) tmp.put((char)( 0xFFFF &  key), values.value(i));
-					else tmp.put((char)( 0xFFFF &  key), null);
-			
-			keys = tmp.keys;
-			values = tmp.values;
-			
-			assigned = tmp.assigned;
-			mask = tmp.mask;
-			resizeAt = tmp.resizeAt;
+			values.set(keys.rank((byte) key) - 1, value);
+			return false;
 		}
 		
-		public void clear() {
-			assigned = 0;
-			hasOkey = Positive_Values.NONE;
-			keys.clear();
-			values.clear();
+		public boolean remove( Character  key) {
+			return key == null ?
+			       hasNullKey != Positive_Values.NONE && (hasNullKey = Positive_Values.NONE) == Positive_Values.NONE :
+			       remove((char) (key + 0));
 		}
 		
-		public RW clone() { return (RW) super.clone(); }
+		public boolean remove(char key) {
+			final byte k = (byte) key;
+			if (!keys.contains(k)) return false;
+			
+			values.remove(keys.rank(k) - 1);
+			keys.remove(k);
+			return true;
+		}
+		
+		@Override public RW clone() { return (RW) super.clone(); }
 	}
 }

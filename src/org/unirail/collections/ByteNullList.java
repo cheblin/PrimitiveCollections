@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 
 public interface ByteNullList {
-	interface Consumer {
+	interface Writer {
 		void add(byte value);
 		
 		void add(Integer value);
@@ -10,7 +10,7 @@ public interface ByteNullList {
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		
 		int size();
 		
@@ -31,7 +31,7 @@ public interface ByteNullList {
 	}
 	
 	
-	class R implements Comparable<R>, Producer {
+	class R implements Comparable<R>, Reader {
 		
 		BitList.RW         nulls;
 		ByteList.RW values;
@@ -182,7 +182,7 @@ public interface ByteNullList {
 	}
 	
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		public RW(int length)                        { super(length); }
 		
@@ -284,7 +284,7 @@ public interface ByteNullList {
 			nulls.clear();
 			size = 0;
 		}
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			values.write(size);
 			nulls.write(size);

@@ -2,13 +2,13 @@ package org.unirail.collections;
 
 public interface ObjectSet {
 	
-	interface Consumer<V extends Comparable<? super V>> {
+	interface Writer<V extends Comparable<? super V>> {
 		boolean add(V key);
 		
 		void write(int size);
 	}
 	
-	interface Producer<K extends Comparable<? super K>> {
+	interface Reader<K extends Comparable<? super K>> {
 		
 		int size();
 		
@@ -36,7 +36,7 @@ public interface ObjectSet {
 		}
 	}
 	
-	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Producer<K> {
+	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Reader<K> {
 		
 		public ObjectList.RW<K> keys = new ObjectList.RW<>(4);
 		
@@ -132,7 +132,7 @@ public interface ObjectSet {
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		
 		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
@@ -145,7 +145,7 @@ public interface ObjectSet {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> implements Consumer<K> {
+	class RW<K extends Comparable<? super K>> extends R<K> implements Writer<K> {
 		public RW() {
 			super();
 		}
@@ -182,7 +182,7 @@ public interface ObjectSet {
 			keys.clear();
 		}
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			assigned = 0;
 			hasNullKey = false;

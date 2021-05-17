@@ -3,14 +3,14 @@ package org.unirail.collections;
 
 public interface ObjectUIntMap {
 	
-	interface Consumer<K extends Comparable<? super K>> {
+	interface Writer<K extends Comparable<? super K>> {
 		boolean put(K key, long value);
 		
 		void write(int size);
 	}
 	
 	
-	interface Producer<K extends Comparable<? super K>> {
+	interface Reader<K extends Comparable<? super K>> {
 		
 		int size();
 		
@@ -44,7 +44,7 @@ public interface ObjectUIntMap {
 		}
 	}
 	
-	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Producer<K> {
+	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Reader<K> {
 		
 		public ObjectList.RW<K> keys = new ObjectList.RW<>(0);
 		
@@ -159,7 +159,7 @@ public interface ObjectUIntMap {
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		
 		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
@@ -176,7 +176,7 @@ public interface ObjectUIntMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> implements Consumer<K> {
+	class RW<K extends Comparable<? super K>> extends R<K> implements Writer<K> {
 		
 		
 		public RW(double loadFactor) {
@@ -260,7 +260,7 @@ public interface ObjectUIntMap {
 			values.clear();
 		}
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			assigned = 0;
 			hasNullKey = false;

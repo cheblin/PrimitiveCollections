@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 public interface IntByteNullMap {
-	interface Consumer {
+	interface Writer {
 		boolean put(int key, byte value);
 		
 		boolean put(int key,  Byte      value);
@@ -14,7 +14,7 @@ public interface IntByteNullMap {
 	}
 	
 	
-	interface Producer {
+	interface Reader {
 		
 		int size();
 		
@@ -73,7 +73,7 @@ public interface IntByteNullMap {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		
 		
 		public IntList.RW     keys   = new IntList.RW(0);
@@ -215,7 +215,7 @@ public interface IntByteNullMap {
 		}
 		
 		
-		//region  producer
+		//region  reader
 		
 		@Override public @Positive_Values int read_has_null_key() {return hasNullKey;}
 		
@@ -240,7 +240,7 @@ public interface IntByteNullMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		
 		public RW(int expectedItems)                    { super(expectedItems); }
@@ -251,9 +251,10 @@ public interface IntByteNullMap {
 		public boolean put( Integer   key, byte value) {
 			if (key != null) return put((int) (key + 0), value);
 			
+			int h = hasNullKey;
 			hasNullKey = Positive_Values.VALUE;
 			nullKeyValue = value;
-			return true;
+			return h != Positive_Values.VALUE;
 		}
 		
 		public boolean put( Integer   key,  Byte      value) {
@@ -262,14 +263,14 @@ public interface IntByteNullMap {
 			int h = hasNullKey;
 			
 			if (value == null)
-				hasNullKey = Positive_Values.NULL;
-			else
 			{
-				hasNullKey = Positive_Values.VALUE;
-				nullKeyValue = value;
+				hasNullKey = Positive_Values.NULL;
+				return h == Positive_Values.NULL;
 			}
 			
-			return h == Positive_Values.NONE;
+			hasNullKey = Positive_Values.VALUE;
+			nullKeyValue = value;
+			return h == Positive_Values.VALUE;
 		}
 		
 		public boolean put(int key,  Byte      value) {

@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface UIntSet {
 	
-	interface Consumer {
+	interface Writer {
 		boolean add(long key);
 		
 		boolean add( Integer   key);
@@ -10,7 +10,7 @@ public interface UIntSet {
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		boolean read_has_null_key();
 		
 		boolean read_has_0key();
@@ -44,7 +44,7 @@ public interface UIntSet {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		
 		public UIntList.RW keys = new UIntList.RW(0);
 		
@@ -199,7 +199,7 @@ public interface UIntSet {
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		
 		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
@@ -214,7 +214,7 @@ public interface UIntSet {
 	}
 	
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		public RW(int expectedItems)                      { super(expectedItems); }
 		
@@ -267,7 +267,7 @@ public interface UIntSet {
 			
 			keys.clear();
 		}
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			assigned = 0;
 			hasOkey = false;
@@ -276,7 +276,7 @@ public interface UIntSet {
 		}
 		//endregion
 		
-		public void retainAll(Consumer chk) {
+		public void retainAll(Writer chk) {
 			long key;
 			
 			for (int i = keys.array.length - 1; 0 <= i; i--)
@@ -285,7 +285,7 @@ public interface UIntSet {
 			if (hasOkey && !chk.add((long) 0)) hasOkey = false;
 		}
 		
-		public int removeAll(UIntList.Producer src) {
+		public int removeAll(UIntList.Reader src) {
 			int fix = size();
 			
 			for (int i = 0, s = src.size(); i < s; i++) remove(src.value(i));

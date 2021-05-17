@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface ByteSet {
 	
-	interface Consumer {
+	interface Writer {
 		
 		default boolean add(int value) { return add((byte) (value & 0xFF)); }
 		
@@ -13,7 +13,7 @@ public interface ByteSet {
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		boolean read_has_null_key();
 		
 		int size();
@@ -40,7 +40,7 @@ public interface ByteSet {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		long
 				_1,
 				_2,
@@ -53,25 +53,25 @@ public interface ByteSet {
 		protected boolean hasNullKey;
 		
 		
-		public R(byte... items) { for (byte i : items) add(this, i); }
+		public R(byte... items) { for (byte i : items) this.add(i); }
 		
-		protected static boolean add(ByteSet.R dst, final byte value) {
+		protected boolean add(final byte value) {
 			
 			final int val = value & 0xFF;
 			
 			if (val < 128)
 				if (val < 64)
-					if ((dst._1 & 1L << val) == 0) dst._1 |= 1L << val;
+					if ((_1 & 1L << val) == 0) _1 |= 1L << val;
 					else return false;
-				else if ((dst._2 & 1L << val - 64) == 0) dst._2 |= 1L << val - 64;
+				else if ((_2 & 1L << val - 64) == 0) _2 |= 1L << val - 64;
 				else return false;
 			else if (val < 192)
-				if ((dst._3 & 1L << val - 128) == 0) dst._3 |= 1L << val - 128;
+				if ((_3 & 1L << val - 128) == 0) _3 |= 1L << val - 128;
 				else return false;
-			else if ((dst._4 & 1L << val - 192) == 0) dst._4 |= 1L << val - 192;
+			else if ((_4 & 1L << val - 192) == 0) _4 |= 1L << val - 192;
 			else return false;
 			
-			dst.size++;
+			size++;
 			return true;
 		}
 		
@@ -155,7 +155,7 @@ a:
 			return true;
 		}
 		
-		public boolean containsAll(Producer src) {
+		public boolean containsAll(Reader src) {
 			if (src.read_has_null_key() != hasNullKey || size() != src.size()) return false;
 			
 			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
@@ -190,7 +190,7 @@ a:
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
 		public byte read_key(int info) { return (byte) (info & 0xFF); }
@@ -229,12 +229,12 @@ a:
 		public String toString() { return toString(null).toString(); }
 	}
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		
-		public boolean add( Byte      key) { return key == null ? !hasNullKey && (hasNullKey = true) : R.add(this, (byte) (key + 0));}
+		public boolean add( Byte      key) { return key == null ? !hasNullKey && (hasNullKey = true) : super.add((byte) (key + 0));}
 		
-		public boolean add(byte key) { return R.add(this, key); }
+		public boolean add(byte key) { return super.add(key); }
 		
 		public boolean retainAll(R src) {
 			boolean ret = false;
@@ -289,7 +289,7 @@ a:
 		}
 		
 		
-		public boolean retainAll(Producer src) {
+		public boolean retainAll(Reader src) {
 			long
 					_1 = 0,
 					_2 = 0,
@@ -334,7 +334,7 @@ a:
 			return ret;
 		}
 		
-		public boolean removeAll(Producer src) {
+		public boolean removeAll(Reader src) {
 			boolean ret = false;
 			
 			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
@@ -354,11 +354,11 @@ a:
 			hasNullKey = false;
 		}
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) { clear(); }
 		
 		//endregion
-		public boolean addAll(Producer src) {
+		public boolean addAll(Reader src) {
 			boolean      ret = false;
 			byte val;
 			
@@ -366,7 +366,7 @@ a:
 				if (!contains(val = src.read_key(p)))
 				{
 					ret = true;
-					R.add(this, val);
+					this.add(val);
 				}
 			
 			return ret;

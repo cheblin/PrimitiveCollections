@@ -3,13 +3,13 @@ package org.unirail.collections;
 import java.util.Arrays;
 
 public interface ObjectList {
-	interface Consumer<V extends Comparable<? super V>> {
-		void add(V value);
+	interface Writer<V extends Comparable<? super V>> {
+		V add(V value);
 		
 		void write(int size);
 	}
 	
-	interface Producer<V extends Comparable<? super V>> {
+	interface Reader<V extends Comparable<? super V>> {
 		int size();
 		
 		V value(int index);
@@ -27,7 +27,7 @@ public interface ObjectList {
 	}
 	
 	
-	class R<V extends Comparable<? super V>> implements Comparable<R<V>>, Producer<V> {
+	class R<V extends Comparable<? super V>> implements Comparable<R<V>>, Reader<V> {
 		
 		@SuppressWarnings("unchecked")
 		protected R(int length) { if (0 < length) array = (V[]) new Comparable[length]; }
@@ -54,7 +54,7 @@ public interface ObjectList {
 			return dst;
 		}
 		
-		public boolean containsAll(Producer<V> src) {
+		public boolean containsAll(Reader<V> src) {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
 				if (-1 < indexOf(src.value(i))) return false;
@@ -123,7 +123,7 @@ public interface ObjectList {
 	}
 	
 	
-	class RW<V extends Comparable<? super V>> extends R<V> implements Array, Consumer<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements Array, Writer<V> {
 		
 		public RW(int length) { super(length); }
 		
@@ -146,27 +146,28 @@ public interface ObjectList {
 			Arrays.fill(array, null);
 			size = 0;
 		}
-		//region  consumer
+		
+		//region  writer
 		@Override public void write(int size) {
 			this.size = 0;
 			if (array.length < size) length(-this.size);
 			else clear();
 		}
 		//endregion
-	
 		
-		public void add(V value) {
+		
+		public V add(V value) {
 			size = Array.resize(this, size, size, 1);
-			array[size - 1] = value;
+			return array[size - 1] = value;
 		}
 		
-		public void add(int index, V value) {
+		public V add(int index, V value) {
 			if (index < size)
 			{
 				size = Array.resize(this, size, index, 1);
-				array[index] = value;
+				return array[index] = value;
 			}
-			else set(index, value);
+			return set(index, value);
 		}
 		
 		public void remove() { remove(size - 1);}
@@ -178,11 +179,12 @@ public interface ObjectList {
 		
 		public void remove_fast(int index) {
 			if (size < 1 || size <= index) return;
-			if (index < size - 1) array[index] = array[index - 1];
 			size--;
+			if (index < size) array[index] = array[size];
+			array[size] = null;
 		}
 		
-		public boolean set(V value) {return set(size, value);}
+		public V set(V value) {return set(size, value);}
 		
 		
 		@SafeVarargs
@@ -202,7 +204,7 @@ public interface ObjectList {
 		}
 		
 		
-		public boolean set(int index, V value) {
+		public V set(int index, V value) {
 			if (size <= index)
 			{
 				int    fix = size;
@@ -212,11 +214,10 @@ public interface ObjectList {
 				if (obj == array) Arrays.fill(array, fix, size - 1, null);
 			}
 			
-			array[index] = value;
-			return true;
+			return array[index] = value;
 		}
 		
-		public boolean addAll(Producer<V> src, int count) {
+		public boolean addAll(Reader<V> src, int count) {
 			int s = size;
 			size = Array.resize(this, size, size, count);
 			
@@ -226,14 +227,14 @@ public interface ObjectList {
 			return true;
 		}
 		
-		public boolean addAll(Producer<V> src, int index, int count) {
+		public boolean addAll(Reader<V> src, int index, int count) {
 			count = Math.min(src.size(), count);
 			size = Array.resize(this, size, index, count);
 			for (int i = 0; i < count; i++) array[index + i] = src.value(i);
 			return true;
 		}
 		
-		public boolean removeAll(Producer<V> src) {
+		public boolean removeAll(Reader<V> src) {
 			final int s = size;
 			
 			for (int k = 0, src_size = src.size(); k < src_size; k++)

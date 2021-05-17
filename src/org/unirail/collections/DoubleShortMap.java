@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface DoubleShortMap {
 	
-	interface Consumer {
+	interface Writer {
 		boolean put(double key, short value);
 		
 		boolean put( Double    key, short value);
@@ -10,7 +10,7 @@ public interface DoubleShortMap {
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		
 		int size();
 		
@@ -55,7 +55,7 @@ public interface DoubleShortMap {
 	}
 	
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		public DoubleList.RW keys   = new DoubleList.RW(0);
 		public ShortList.RW values = new ShortList.RW(0);
 		
@@ -179,7 +179,7 @@ public interface DoubleShortMap {
 			return null;
 		}
 		
-		//region  producer
+		//region  reader
 		
 		@Override public boolean read_has_null_key() {return hasNullKey;}
 		
@@ -202,7 +202,7 @@ public interface DoubleShortMap {
 	}
 	
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		public RW(int expectedItems)                    { super(expectedItems); }
 		
@@ -302,7 +302,7 @@ public interface DoubleShortMap {
 			keys.clear();
 			values.clear();
 		}
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			assigned = 0;
 			hasO = false;

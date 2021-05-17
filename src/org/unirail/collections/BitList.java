@@ -5,13 +5,13 @@ import java.util.Arrays;
 
 public interface BitList {
 	
-	interface Consumer {
+	interface Writer {
 		void write(int index, long src);
 		
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		int size();
 		
 		long read(int index);
@@ -49,7 +49,7 @@ public interface BitList {
 	}
 	
 	
-	class R implements Cloneable, Comparable<R>, Producer {
+	class R implements Cloneable, Comparable<R>, Reader {
 		
 		int size;
 		
@@ -280,7 +280,7 @@ public interface BitList {
 			return 0;
 		}
 		
-		//region  producer
+		//region  reader
 		public long read(int index) { return index < used() ? array[index] : 0L; }
 		
 		//endregion
@@ -288,7 +288,7 @@ public interface BitList {
 	}
 	
 	
-	class RW extends R implements Consumer {
+	class RW extends R implements Writer {
 		
 		
 		public RW(int length)                      { super(length); }
@@ -565,7 +565,7 @@ public interface BitList {
 			size = 0;
 		}
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			if (array.length < len4bits(size)) length(-len4bits(size));
 			else clear();

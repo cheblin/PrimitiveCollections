@@ -5,13 +5,13 @@ import java.util.Arrays;
 
 public interface ByteList {
 	
-	interface Consumer {
+	interface Writer {
 		void add(byte value);
 		
 		void write(int size);
 	}
 	
-	interface Producer {
+	interface Reader {
 		int size();
 		
 		byte  value(int index);
@@ -31,7 +31,7 @@ public interface ByteList {
 	}
 	
 	
-	class R implements Comparable<R>, Producer {
+	class R implements Comparable<R>, Reader {
 		
 		byte[] array = Array.bytes0     ;
 		
@@ -74,7 +74,7 @@ public interface ByteList {
 			return dst;
 		}
 		
-		public boolean containsAll(Producer src) {
+		public boolean containsAll(Reader src) {
 			for (int i = src.size(); -1 < --i; )
 				if (!contains(src.value(i))) return false;
 			
@@ -147,7 +147,7 @@ public interface ByteList {
 	}
 	
 	
-	class RW extends R implements Array, Consumer {
+	class RW extends R implements Array, Writer {
 		
 		public RW(int length)                        { super(length); }
 		
@@ -193,8 +193,8 @@ public interface ByteList {
 		
 		public void remove_fast(int index) {
 			if (size < 1 || size <= index) return;
-			if (index < size - 1) array[index] = array[index - 1];
 			size--;
+			if (index < size ) array[index] = array[size];
 		}
 		
 		
@@ -236,14 +236,14 @@ public interface ByteList {
 			
 		}
 		
-		public void addAll(Producer src) {
+		public void addAll(Reader src) {
 			int s = src.size();
 			write(s);
 			for (int i = 0; i < s; i++) array[size + i] = (byte) src.value(i);
 			size += s;
 		}
 		
-		public boolean addAll(Producer src, int index) {
+		public boolean addAll(Reader src, int index) {
 			int s = src.size();
 			size = Array.resize(this, size, index, s);
 			for (int i = 0; i < s; i++) array[index + i] = (byte) src.value(i);
@@ -251,7 +251,7 @@ public interface ByteList {
 		}
 		
 		
-		public int removeAll(Producer src) {
+		public int removeAll(Reader src) {
 			int fix = size;
 			
 			for (int i = 0, k, src_size = src.size(); i < src_size; i++)
@@ -286,7 +286,7 @@ public interface ByteList {
 		
 		public void clear() { size = 0;}
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int size) {
 			if (array.length < size) length(-size);
 			this.size = 0;

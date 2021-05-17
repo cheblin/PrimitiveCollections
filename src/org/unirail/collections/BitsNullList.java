@@ -78,9 +78,9 @@ public interface BitsNullList {
 	}
 	
 	
-	class RW extends R implements BitsList.Consumer {
+	class RW extends R implements BitsList.Writer {
 		
-		//region  consumer
+		//region  writer
 		@Override public void write(int index, long src)             { array[index] = src; }
 		
 		@Override public void write(int size, int bits) { BitsList.Base.write(this, size, bits);}
