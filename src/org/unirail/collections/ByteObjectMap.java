@@ -48,12 +48,10 @@ public interface ByteObjectMap {
 		}
 	}
 	
-	class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, Reader<V> {
+	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, Reader<V> {
 		
 		ByteSet.RW       keys = new ByteSet.RW();
 		ObjectList.RW<V> values;
-		
-		protected R(int length)                   { values = new ObjectList.RW<>(265 < length ? 256 : length); }
 		
 		@Override public int size()               { return keys.size(); }
 		
@@ -103,7 +101,7 @@ public interface ByteObjectMap {
 			return null;
 		}
 		
-		//region  reader
+		//region  ISrc
 		
 		@Override public int read(int info) {
 			int i = (info & ~0xFF) + (1 << 8);
@@ -126,7 +124,7 @@ public interface ByteObjectMap {
 	class RW<V extends Comparable<? super V>> extends R<V> implements Writer<V> {
 		
 		
-		public RW(int length) { super(length); }
+		public RW(int length)  { values = new ObjectList.RW<>(265 < length ? 256 : length); }
 		
 		
 		public void clear() {
@@ -136,7 +134,7 @@ public interface ByteObjectMap {
 			keys.clear();
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			NullKeyValue = null;
 			keys.write(size);

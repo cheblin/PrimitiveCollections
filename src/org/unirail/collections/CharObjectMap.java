@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface CharObjectMap {
 	
-	interface Writer<V extends Comparable<? super V>> {
+	interface IDst<V extends Comparable<? super V>> {
 		boolean put(char key, V value);//return false to interrupt
 		
 		boolean put( Character key, V value);
@@ -11,7 +11,7 @@ public interface CharObjectMap {
 	}
 	
 	
-	interface Reader<V extends Comparable<? super V>> {
+	interface ISrc<V extends Comparable<? super V>> {
 		
 		int size();
 		
@@ -59,7 +59,7 @@ public interface CharObjectMap {
 	}
 	
 	
-	class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, Reader<V> {
+	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, ISrc<V> {
 		
 		
 		public CharList.RW keys = new CharList.RW(0);
@@ -86,25 +86,7 @@ public interface CharObjectMap {
 		protected double loadFactor;
 		
 		
-		protected R(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
-		
-		protected R(int expectedItems) { this(expectedItems, 0.75); }
-		
-		
-		protected R(int expectedItems, double loadFactor) {
-			this(loadFactor);
-			
-			final long length = (long) Math.ceil(expectedItems / loadFactor);
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			keys.length(size);
-			values.length(size);
-		}
-		
-		
-		public @Positive_Values int info( Character key) { return key == null ? hasNullKey ? Integer.MAX_VALUE : Positive_Values.NONE : info((char)(key + 0));}
+		public @Positive_Values int info( Character key) { return key == null ? hasNullKey ? Integer.MAX_VALUE : Positive_Values.NONE : info((char) (key + 0));}
 		
 		public @Positive_Values int info(char key) {
 			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
@@ -194,7 +176,7 @@ public interface CharObjectMap {
 			return null;
 		}
 		
-		//region  reader
+		//region  ISrc
 		
 		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
 		
@@ -208,7 +190,7 @@ public interface CharObjectMap {
 		
 		@Override public char read_key(int info) {return  (char) keys.array[info]; }
 		
-		@Override public V read_val(int info)        {return  values.array[info]; }
+		@Override public V read_val(int info)        {return values.array[info]; }
 		
 		//endregion
 		
@@ -216,21 +198,24 @@ public interface CharObjectMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<V extends Comparable<? super V>> extends R<V> implements Writer<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements IDst<V> {
 		
+		public RW(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
 		
-		public RW(double loadFactor) {
-			super(loadFactor);
-		}
+		public RW(int expectedItems) { this(expectedItems, 0.75); }
 		
-		public RW(int expectedItems) {
-			super(expectedItems);
-		}
 		
 		public RW(int expectedItems, double loadFactor) {
-			super(expectedItems, loadFactor);
+			this(loadFactor);
+			
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			keys.length(size);
+			values.length(size);
 		}
-		
 		
 		
 		public boolean put( Character key, V value) {
@@ -320,7 +305,7 @@ public interface CharObjectMap {
 			values.clear();
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public int write(int items) {
 			
 			assigned = 0;
@@ -333,7 +318,7 @@ public interface CharObjectMap {
 			return items;
 		}
 		//endregion
-	
+		
 		
 		void allocate(int size) {
 			

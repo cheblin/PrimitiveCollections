@@ -3,48 +3,12 @@ package org.unirail.collections;
 
 public interface BoolNullList {
 	
-	class R extends BitsList.Base {
+	abstract class R extends BitsList.R {
 		
 		protected R(int items) { super(2, items); }
 		
-		public R(boolean... values) {
-			super(2, values.length);
-			fill(this, values);
-		}
-		
-		protected static void fill(R dst, boolean... items) {
-			
-			final int bits = dst.bits;
-			for (boolean i : items)
-			{
-				final int item  = bits * dst.size++;
-				final int index = item >>> LEN;
-				final int bit   = item & MASK;
-				
-				dst.array[index] |= (i ? 1L : 2L) << bit;
-			}
-		}
-		
-		public R(Boolean... values) {
-			super(2, values.length);
-			fill(this, values);
-		}
-		
-		protected static void fill(R dst, Boolean... items) {
-			
-			final int bits = dst.bits;
-			for (Boolean b : items)
-			{
-				final int item  = bits * dst.size++;
-				final int index = item >>> LEN;
-				final int bit   = item & MASK;
-				
-				dst.array[index] |= (b == null ? 0L : b ? 1L : 2L) << bit;
-			}
-		}
-		
 		public Boolean asBoolean(int index) {
-			switch (value(index))
+			switch (get(index))
 			{
 				case 1:
 					return Boolean.TRUE;
@@ -55,69 +19,83 @@ public interface BoolNullList {
 		}
 		
 		public R clone() {return (R) super.clone();}
-		
 	}
 	
-	
-	class RW extends R implements BitsList.Writer {
+	class RW extends R implements BitsList.IDst {
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int index, long src) { array[index] = src; }
 		
-		@Override public void write(int size, int bits) { BitsList.Base.write(this, size, bits);}
+		@Override public void write(int size, int bits) { write(this, size, bits);}
 		
 		//endregion
 		
-		public RW(int items)                               { super(items); }
+		public RW(int items) { super(items); }
 		
-		public RW(boolean... values)                       { super(values); }
+		public RW(boolean... values) {
+			super(values.length);
+			
+			for (boolean i : values)
+			{
+				final int item  = bits * size++;
+				final int index = item >>> LEN;
+				final int bit   = item & MASK;
+				
+				array[index] |= (i ? 1L : 2L) << bit;
+			}
+		}
 		
-		public RW(Boolean... values)                       { super(values); }
+		public RW(Boolean... values) {
+			super(values.length);
+			
+			for (Boolean b : values)
+			{
+				final int item  = bits * size++;
+				final int index = item >>> LEN;
+				final int bit   = item & MASK;
+				
+				array[index] |= (b == null ? 0L : b ? 1L : 2L) << bit;
+			}
+		}
 		
-		public void add(int value)                         { this.add((int) (char) value);}
+		public void add(int value)               { add(this, value);}
 		
-		public void add(boolean value)                     {
-			                                                   char src = value ? (char) 1 : 2;
-			                                                   this.add((int) src);
-		                                                   }
+		public void add(boolean value)           { add(this, value ? 1 : 2); }
 		
-		public void add(Boolean value)                     {
-			                                                   char src = value == null ? 0 : value ? (char) 1 : 2;
-			                                                   this.add((int) src);
-		                                                   }
+		public void add(Boolean value)           { add(this, value == null ? 0 : value ? 1 : 2); }
 		
-		public void remove(Boolean value)                  { this.remove(value == null ? 0 : value ? 1 : 2); }
+		public void remove(Boolean value)        { remove(this, value == null ? 0 : value ? 1 : 2); }
 		
-		public void remove(boolean value)                  { this.remove(value ? 1 : 2); }
+		public void remove(boolean value)        { remove(this, value ? 1 : 2); }
 		
-		public void removeAt(int item)                     { removeAt(this, item); }
+		public void removeAt(int item)           { removeAt(this, item); }
 		
 		
-		public void set(boolean value)                     {set(this, size, value ? (char) 1 : 2); }
+		public void set(boolean value)           {set(this, size, value ? 1 : 2); }
 		
-		public void set(Boolean value)                     { set(this, size, value == null ? 0 : value ? (char) 1 : 2); }
+		public void set(Boolean value)           { set(this, size, value == null ? 0 : value ? 1 : 2); }
 		
 		
-		public void set(int item, int value)               {set(this, item, value); }
+		public void set(int item, int value)     {set(this, item, value); }
 		
-		public void set(int item, char value)              {set(this, item, value); }
+		public void set(int item, char value)    {set(this, item, value); }
 		
-		public void set(int item, boolean value)           {set(this, item, value ? (char) 1 : 2); }
+		public void set(int item, boolean value) {set(this, item, value ? 1 : 2); }
 		
-		public void set(int item, Boolean value)           { set(this, item, value == null ? 0 : value ? (char) 1 : 2); }
+		public void set(int item, Boolean value) { set(this, item, value == null ? 0 : value ? 1 : 2); }
 		
 		
 		public void set(int index, boolean... values) {
 			for (int i = 0, max = values.length; i < max; i++)
-				set(this, index + i, values[i] ? (char) 1 : 2);
+				set(this, index + i, values[i] ? 1 : 2);
 		}
 		
 		public void set(int index, Boolean... values) {
 			for (int i = 0, max = values.length; i < max; i++)
-				set(this, index + i, values[i] == null ? 0 : values[i] ? (char) 1 : 2);
+				set(this, index + i, values[i] == null ? 0 : values[i] ? 1 : 2);
 		}
 		
-		public void clear() { this.clear(); }
+		public void clear() { super.clear(); }
 		
 		
 		public RW clone()   { return (RW) super.clone(); }

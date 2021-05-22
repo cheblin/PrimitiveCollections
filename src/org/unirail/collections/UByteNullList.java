@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 
 public interface UByteNullList {
-	interface Writer {
+	interface IDst {
 		void add(char value);
 		
 		void add( Character value);
@@ -10,20 +10,20 @@ public interface UByteNullList {
 		void write(int size);
 	}
 	
-	interface Reader {
+	interface ISrc {
 		
 		int size();
 		
 		@Positive_OK int nextValueIndex(int index);
 		
-		char value(@Positive_ONLY int index);
+		char get(@Positive_ONLY int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
 			if (dst == null) dst = new StringBuilder(size * 4);
 			else dst.ensureCapacity(dst.length() + size * 64);
 			
-			for (int i = 0, n; i < size; dst.append(value(i)).append('\n'), i++)
+			for (int i = 0, n; i < size; dst.append(get(i)).append('\n'), i++)
 				for (n = nextValueIndex(i); i < n; i++) dst.append("null\n");
 			
 			return dst;
@@ -31,52 +31,10 @@ public interface UByteNullList {
 	}
 	
 	
-	class R implements Comparable<R>, Reader {
+	abstract class R implements Comparable<R>, ISrc {
 		
 		BitList.RW         nulls;
 		UByteList.RW values;
-		
-		protected R(int length) {
-			nulls = new BitList.RW(length);
-			values = new UByteList.RW(length);
-		}
-		
-		public R( Character... values) {
-			this(values.length);
-			fill(this, values);
-		}
-		
-		public R(char... values) {
-			this(values.length);
-			fill(this, values);
-		}
-		
-		public R(R src, int fromIndex, int toIndex) {
-			
-			nulls = new BitList.RW(src.nulls, fromIndex, toIndex);
-			values = nulls.array.length == 0 ?
-			         new UByteList.RW(0) :
-			         new UByteList.RW(src.values, src.nulls.rank(fromIndex), src.nulls.rank(toIndex));
-			
-		}
-		
-		protected static void fill(R dst,  Character... values) {
-			for ( Character value : values)
-				if (value == null) dst.size++;
-				else
-				{
-					dst.values.add((char) (value + 0));
-					dst.nulls.set1(dst.size);
-					dst.size++;
-				}
-		}
-		
-		protected static void fill(R dst, char... values) {
-			for (char value : values) dst.values.add((char) value);
-			
-			dst.size = values.length;
-			dst.nulls.set1(0, dst.size - 1);
-		}
 		
 		public int length() {return values.length();}
 		
@@ -86,7 +44,7 @@ public interface UByteNullList {
 		
 		public boolean isEmpty()                          { return size < 1; }
 		
-		public boolean hasValue(int index)                {return nulls.value(index);}
+		public boolean hasValue(int index)                {return nulls.get(index);}
 		
 		@Positive_OK public int nextValueIndex(int index) {return nulls.next1(index);}
 		
@@ -96,7 +54,7 @@ public interface UByteNullList {
 		
 		@Positive_OK public int prevNullIndex(int index)  {return nulls.prev0(index);}
 		
-		public char value( @Positive_ONLY int index) {return (char)( 0xFFFF &  values.array[nulls.rank(index) - 1]); }
+		public char get(@Positive_ONLY int index) {return (char)( 0xFFFF &  values.array[nulls.rank(index) - 1]); }
 		
 		
 		public int indexOf()                              { return nulls.next0(0); }
@@ -122,7 +80,7 @@ public interface UByteNullList {
 		
 		public int hashCode() {
 			int hashCode = 1;
-			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + (hasValue(i) ? 0 : Array.hash(value(i)));
+			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + (hasValue(i) ? 0 : Array.hash(get(i)));
 			
 			return hashCode;
 		}
@@ -162,7 +120,7 @@ public interface UByteNullList {
 			if (value == null)
 			{
 				if (dst.size <= index) dst.size = index + 1;
-				if (!dst.nulls.value(index)) return;
+				if (!dst.nulls.get(index)) return;
 				dst.nulls.remove(index);
 				dst.values.remove(dst.nulls.rank(index));
 			}
@@ -172,7 +130,7 @@ public interface UByteNullList {
 		protected static void set(R dst, int index, char value) {
 			if (dst.size <= index) dst.size = index + 1;
 			
-			if (dst.nulls.value(index)) dst.values.set(dst.nulls.rank(index) - 1, value);
+			if (dst.nulls.get(index)) dst.values.set(dst.nulls.rank(index) - 1, value);
 			else
 			{
 				dst.nulls.set1(index);
@@ -182,16 +140,41 @@ public interface UByteNullList {
 	}
 	
 	
-	class RW extends R implements Writer {
+	class RW extends R implements IDst {
 		
-		public RW(int length)                        { super(length); }
+		public RW(int length) {
+			nulls = new BitList.RW(length);
+			values = new UByteList.RW(length);
+		}
 		
-		public RW( Character... values)         { super(values); }
+		public RW( Character... values) {
+			this(values.length);
+			for ( Character value : values)
+				if (value == null) size++;
+				else
+				{
+					this.values.add((char) (value + 0));
+					nulls.set1(size);
+					size++;
+				}
+		}
 		
+		public RW(char... values) {
+			this(values.length);
+			for (char value : values) this.values.add((char) value);
+			
+			size = values.length;
+			nulls.set1(0, size - 1);
+		}
 		
-		public RW(char... values)             { super(values); }
-		
-		public RW(R src, int fromIndex, int toIndex) { super(src, fromIndex, toIndex); }
+		public RW(R src, int fromIndex, int toIndex) {
+			
+			nulls = new BitList.RW(src.nulls, fromIndex, toIndex);
+			values = nulls.array.length == 0 ?
+			         new UByteList.RW(0) :
+			         new UByteList.RW(src.values, src.nulls.rank(fromIndex), src.nulls.rank(toIndex));
+			
+		}
 		
 		public void length(int length) {
 			values.length(length);
@@ -213,7 +196,7 @@ public interface UByteNullList {
 			
 			size--;
 			
-			if (nulls.value(index)) values.remove(nulls.rank(index) - 1);
+			if (nulls.get(index)) values.remove(nulls.rank(index) - 1);
 			nulls.remove(index);
 		}
 		
@@ -265,15 +248,14 @@ public interface UByteNullList {
 		
 		public void set(int index,  Character... values) {
 			for (int i = 0, max = values.length; i < max; i++)
-				if (values[i] == null) R.set(this, index + i, null);
-				else set(this, index + i, (char) (values[i] + 0));
+				set(this, index + i, values[i]);
 		}
 		
 		public int addAll(R src) {
 			int fix = size;
 			
 			for (int i = 0, s = src.size(); i < s; i++)
-				if (src.hasValue(i)) add(src.value(i));
+				if (src.hasValue(i)) add(src.get(i));
 				else size++;
 			
 			return size - fix;
@@ -284,7 +266,7 @@ public interface UByteNullList {
 			nulls.clear();
 			size = 0;
 		}
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			values.write(size);
 			nulls.write(size);
@@ -295,8 +277,8 @@ public interface UByteNullList {
 		public void swap(int index1, int index2) {
 			
 			int exist, empty;
-			if (nulls.value(index1))
-				if (nulls.value(index2))
+			if (nulls.get(index1))
+				if (nulls.get(index2))
 				{
 					values.swap(nulls.rank(index1) - 1, nulls.rank(index2) - 1);
 					return;
@@ -308,7 +290,7 @@ public interface UByteNullList {
 					nulls.set0(index1);
 					nulls.set1(index2);
 				}
-			else if (nulls.value(index2))
+			else if (nulls.get(index2))
 			{
 				exist = nulls.rank(index2) - 1;
 				empty = nulls.rank(index1);
@@ -318,7 +300,7 @@ public interface UByteNullList {
 			}
 			else return;
 			
-			char v = values.value(exist);
+			char v = values.get(exist);
 			values.remove(exist);
 			values.add(empty, v);
 		}

@@ -5,13 +5,13 @@ import java.util.Arrays;
 
 public interface BitList {
 	
-	interface Writer {
+	interface IDst {
 		void write(int index, long src);
 		
 		void write(int size);
 	}
 	
-	interface Reader {
+	interface ISrc {
 		int size();
 		
 		long read(int index);
@@ -49,57 +49,27 @@ public interface BitList {
 	}
 	
 	
-	class R implements Cloneable, Comparable<R>, Reader {
+	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		
-		int size;
-		
-		public int size() {return size;}
-		
-		long[] array = Array.longs0;
-		
-		protected R(int length) { if (0 < length) array = new long[(length - 1 >> LEN) + 1];}
-		
-		protected R(R src, int from_bit, int to_bit) {
-			
-			if (src.size() <= from_bit) return;
-			size = Math.min(to_bit, src.size() - 1) - from_bit;
-			
-			int i2 = src.value(to_bit) ? to_bit : src.prev1(to_bit);
-			
-			if (i2 == -1) return;
-			
-			array = new long[(i2 - 1 >> LEN) + 1];
-			used = array.length | IO;
-			
-			int
-					i1 = src.value(from_bit) ? from_bit : src.next1(from_bit),
-					index = i1 >>> LEN,
-					max = (i2 >>> LEN) + 1,
-					i = 0;
-			
-			for (long v = src.array[index] >>> i1; ; v >>>= i1, i++)
-				if (index + 1 < max)
-					array[i] = v | (v = src.array[index + i]) << BITS - i1;
-				else
-				{
-					array[i] = v;
-					return;
-				}
-		}
-		
-		static int len4bits(int bits) {return (bits + BITS) >>> LEN;}
-		
-		static final int LEN  = 6;
-		static final int BITS = 1 << LEN;
-		static final int MASK = BITS - 1;
-		
-		static int index(int item_X_bits) {return item_X_bits >> BitsList.Base.LEN;}
-		
-		static long mask(int bits)        {return (1L << bits) - 1;}
-		
-		static final long FFFFFFFFFFFFFFFF = ~0L;
-		static final int  OI               = Integer.MAX_VALUE;
-		static final int  IO               = Integer.MIN_VALUE;
+		 int size;
+		 
+		 public int size() {return size;}
+		 
+		 long[] array = Array.longs0;
+		 
+		 static int len4bits(int bits) {return (bits + BITS) >>> LEN;}
+		 
+		 static final int LEN  = 6;
+		 static final int BITS = 1 << LEN;
+		 static final int MASK = BITS - 1;
+		 
+		 static int index(int item_X_bits) {return item_X_bits >> BitsList.R.LEN;}
+		 
+		 static long mask(int bits)        {return (1L << bits) - 1;}
+		 
+		 static final long FFFFFFFFFFFFFFFF = ~0L;
+		 static final int  OI               = Integer.MAX_VALUE;
+		 static final int  IO               = Integer.MIN_VALUE;
 		
 		
 		int used = 0;
@@ -127,12 +97,12 @@ public interface BitList {
 		}
 		
 		
-		public boolean value(int bit) {
+		public boolean get(int bit) {
 			final int index = bit >> LEN;
 			return index < used() && (array[index] & 1L << bit) != 0;
 		}
 		
-		public int value(long[] dst, int from_bit, int to_bit) {
+		public int get(long[] dst, int from_bit, int to_bit) {
 			
 			final int ret = (to_bit - from_bit - 1 >> LEN) + 1;
 			
@@ -280,7 +250,7 @@ public interface BitList {
 			return 0;
 		}
 		
-		//region  reader
+		//region  ISrc
 		public long read(int index) { return index < used() ? array[index] : 0L; }
 		
 		//endregion
@@ -288,12 +258,38 @@ public interface BitList {
 	}
 	
 	
-	class RW extends R implements Writer {
+	class RW extends R implements IDst {
 		
 		
-		public RW(int length)                      { super(length); }
+		public RW(int length) { if (0 < length) array = new long[(length - 1 >> LEN) + 1];}
 		
-		public RW(R src, int from_bit, int to_bit) { super(src, from_bit, to_bit); }
+		public RW(R src, int from_bit, int to_bit) {
+			
+			if (src.size() <= from_bit) return;
+			size = Math.min(to_bit, src.size() - 1) - from_bit;
+			
+			int i2 = src.get(to_bit) ? to_bit : src.prev1(to_bit);
+			
+			if (i2 == -1) return;
+			
+			array = new long[(i2 - 1 >> LEN) + 1];
+			used = array.length | IO;
+			
+			int
+					i1 = src.get(from_bit) ? from_bit : src.next1(from_bit),
+					index = i1 >>> LEN,
+					max = (i2 >>> LEN) + 1,
+					i = 0;
+			
+			for (long v = src.array[index] >>> i1; ; v >>>= i1, i++)
+				if (index + 1 < max)
+					array[i] = v | (v = src.array[index + i]) << BITS - i1;
+				else
+				{
+					array[i] = v;
+					return;
+				}
+		}
 		
 		
 		public void and(R and) {
@@ -565,7 +561,7 @@ public interface BitList {
 			size = 0;
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			if (array.length < len4bits(size)) length(-len4bits(size));
 			else clear();

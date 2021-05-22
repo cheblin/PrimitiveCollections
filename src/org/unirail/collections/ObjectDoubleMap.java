@@ -3,14 +3,14 @@ package org.unirail.collections;
 
 public interface ObjectDoubleMap {
 	
-	interface Writer<K extends Comparable<? super K>> {
+	interface IDst<K extends Comparable<? super K>> {
 		boolean put(K key, double value);
 		
 		void write(int size);
 	}
 	
 	
-	interface Reader<K extends Comparable<? super K>> {
+	interface ISrc<K extends Comparable<? super K>> {
 		
 		int size();
 		
@@ -44,7 +44,7 @@ public interface ObjectDoubleMap {
 		}
 	}
 	
-	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Reader<K> {
+	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, ISrc<K> {
 		
 		public ObjectList.RW<K> keys = new ObjectList.RW<>(0);
 		
@@ -62,25 +62,7 @@ public interface ObjectDoubleMap {
 		
 		protected double loadFactor;
 		
-		
-		protected R(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
-		
-		protected R(int expectedItems) { this(expectedItems, 0.75); }
-		
-		
-		protected R(int expectedItems, double loadFactor) {
-			this(loadFactor);
-			
-			long length = (long) Math.ceil(expectedItems / loadFactor);
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			keys.length(size);
-			values.length(size);
-		}
-		
-		
+	
 		public @Positive_Values int info(K key) {
 			if (key == null) return hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE;
 			
@@ -159,7 +141,7 @@ public interface ObjectDoubleMap {
 			return null;
 		}
 		
-		//region  reader
+		//region  ISrc
 		
 		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
@@ -169,28 +151,32 @@ public interface ObjectDoubleMap {
 		
 		@Override public K read_key(int info)        {return keys.array[info]; }
 		
-		@Override public double read_val(int info) {return values.value(info); }
+		@Override public double read_val(int info) {return values.get(info); }
 		
 		//endregion
 		
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> implements Writer<K> {
+	class RW<K extends Comparable<? super K>> extends R<K> implements IDst<K> {
 		
 		
-		public RW(double loadFactor) {
-			super(loadFactor);
-		}
+		public RW(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
 		
-		public RW(int expectedItems) {
-			super(expectedItems);
-		}
+		public RW(int expectedItems) { this(expectedItems, 0.75); }
+		
 		
 		public RW(int expectedItems, double loadFactor) {
-			super(expectedItems, loadFactor);
+			this(loadFactor);
+			
+			long length = (long) Math.ceil(expectedItems / loadFactor);
+			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			keys.length(size);
+			values.length(size);
 		}
-		
 		
 		public boolean put(K key, double value) {
 			
@@ -260,7 +246,7 @@ public interface ObjectDoubleMap {
 			values.clear();
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			assigned = 0;
 			hasNullKey = false;

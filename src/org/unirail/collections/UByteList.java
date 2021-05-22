@@ -5,16 +5,16 @@ import java.util.Arrays;
 
 public interface UByteList {
 	
-	interface Writer {
+	interface IDst {
 		void add(char value);
 		
 		void write(int size);
 	}
 	
-	interface Reader {
+	interface ISrc {
 		int size();
 		
-		char  value(int index);
+		char  get(int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -23,7 +23,7 @@ public interface UByteList {
 			
 			for (int i = 0; i < size; i++)
 			{
-				dst.append(value(i)).append('\t');
+				dst.append(get(i)).append('\t');
 				if (i % 10 == 0) dst.append('\t').append(i).append('\n');
 			}
 			return dst;
@@ -31,28 +31,10 @@ public interface UByteList {
 	}
 	
 	
-	class R implements Comparable<R>, Reader {
+	abstract class R implements Comparable<R>, ISrc {
 		
 		byte[] array = Array.bytes0     ;
 		
-		protected R(int length) { if (0 < length) array = new byte[length]; }
-		
-		
-		public R(char... items) {
-			this(items == null ? 0 : items.length);
-			if (items != null) fill(this, items);
-		}
-		
-		public R(R src, int fromIndex, int toIndex) {
-			this(toIndex - fromIndex);
-			System.arraycopy(src.array, fromIndex, array, 0, toIndex - fromIndex);
-		}
-		
-		protected static void fill(R dst, char... items) {
-			dst.size = items.length;
-			for (int i = 0; i < dst.size; i++)
-				dst.array[i] = (byte) items[i];
-		}
 		
 		
 		public int length() { return array == null ? 0 : array.length; }
@@ -74,15 +56,15 @@ public interface UByteList {
 			return dst;
 		}
 		
-		public boolean containsAll(Reader src) {
+		public boolean containsAll(ISrc src) {
 			for (int i = src.size(); -1 < --i; )
-				if (!contains(src.value(i))) return false;
+				if (!contains(src.get(i))) return false;
 			
 			return true;
 		}
 		
 		
-		public char value(int index) {return  (char)( 0xFFFF &  array[index]); }
+		public char get(int index) {return  (char)( 0xFFFF &  array[index]); }
 		
 		
 		public int indexOf( char value) {
@@ -118,7 +100,7 @@ public interface UByteList {
 		
 		public int hashCode() {
 			int hashCode = 1;
-			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + Array.hash(value(i));
+			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + Array.hash(get(i));
 			
 			return hashCode;
 		}
@@ -147,17 +129,27 @@ public interface UByteList {
 	}
 	
 	
-	class RW extends R implements Array, Writer {
+	class RW extends R implements Array, IDst {
 		
-		public RW(int length)                        { super(length); }
+		public RW(int length) { if (0 < length) array = new byte[length]; }
 		
-		public RW(char... items)              { super(items); }
+		public RW(char... items) {
+			this(items == null ? 0 : items.length);
+			if (items != null)
+			{
+				size = items.length;
+				for (int i = 0; i < size; i++)
+					array[i] = (byte) items[i];
+			}
+		}
 		
-		public RW(R src, int fromIndex, int toIndex) { super(src, fromIndex, toIndex); }
+		public RW(R src, int fromIndex, int toIndex) {
+			this(toIndex - fromIndex);
+			System.arraycopy(src.array, fromIndex, array, 0, toIndex - fromIndex);
+		}
 		
 		public byte[] array()                 {return array;}
 		
-	
 		
 		public byte[] length(int length) {
 			if (0 < length)
@@ -236,26 +228,26 @@ public interface UByteList {
 			
 		}
 		
-		public void addAll(Reader src) {
+		public void addAll(ISrc src) {
 			int s = src.size();
 			write(s);
-			for (int i = 0; i < s; i++) array[size + i] = (byte) src.value(i);
+			for (int i = 0; i < s; i++) array[size + i] = (byte) src.get(i);
 			size += s;
 		}
 		
-		public boolean addAll(Reader src, int index) {
+		public boolean addAll(ISrc src, int index) {
 			int s = src.size();
 			size = Array.resize(this, size, index, s);
-			for (int i = 0; i < s; i++) array[index + i] = (byte) src.value(i);
+			for (int i = 0; i < s; i++) array[index + i] = (byte) src.get(i);
 			return true;
 		}
 		
 		
-		public int removeAll(Reader src) {
+		public int removeAll(ISrc src) {
 			int fix = size;
 			
 			for (int i = 0, k, src_size = src.size(); i < src_size; i++)
-				if (-1 < (k = indexOf(src.value(i)))) remove(k);
+				if (-1 < (k = indexOf(src.get(i)))) remove(k);
 			return fix - size;
 		}
 		
@@ -278,7 +270,7 @@ public interface UByteList {
 			final int   fix = size;
 			char v;
 			for (int index = 0; index < size; index++)
-				if (!chk.contains(v = value(index)))
+				if (!chk.contains(v = get(index)))
 					remove(indexOf(v));
 			
 			return fix != size;
@@ -286,7 +278,7 @@ public interface UByteList {
 		
 		public void clear() { size = 0;}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			if (array.length < size) length(-size);
 			this.size = 0;

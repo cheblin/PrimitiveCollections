@@ -2,13 +2,13 @@ package org.unirail.collections;
 
 public interface ObjectSet {
 	
-	interface Writer<V extends Comparable<? super V>> {
+	interface IDst<V extends Comparable<? super V>> {
 		boolean add(V key);
 		
 		void write(int size);
 	}
 	
-	interface Reader<K extends Comparable<? super K>> {
+	interface ISrc<K extends Comparable<? super K>> {
 		
 		int size();
 		
@@ -36,7 +36,7 @@ public interface ObjectSet {
 		}
 	}
 	
-	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Reader<K> {
+	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, ISrc<K> {
 		
 		public ObjectList.RW<K> keys = new ObjectList.RW<>(4);
 		
@@ -49,26 +49,6 @@ public interface ObjectSet {
 		protected boolean hasNullKey;
 		
 		protected double loadFactor;
-		
-		protected R()                  { this(4, 0.75f); }
-		
-		
-		protected R(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
-		
-		
-		protected R(int expectedItems) { this(expectedItems, 0.75f); }
-		
-		protected R(int expectedItems, double loadFactor) {
-			this(loadFactor);
-			
-			long length = (long) Math.ceil(expectedItems / loadFactor);
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			keys.length(size);
-			keys.length(size);
-		}
 		
 		
 		public boolean contains(K key) {
@@ -132,7 +112,7 @@ public interface ObjectSet {
 			return null;
 		}
 		
-		//region  reader
+		//region  ISrc
 		
 		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
@@ -145,22 +125,27 @@ public interface ObjectSet {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> implements Writer<K> {
-		public RW() {
-			super();
-		}
+	class RW<K extends Comparable<? super K>> extends R<K> implements IDst<K> {
+		public RW()                  { this(4, 0.75f); }
 		
-		public RW(double loadFactor) {
-			super(loadFactor);
-		}
 		
-		public RW(int expectedItems) {
-			super(expectedItems);
-		}
+		public RW(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
+		
+		
+		public RW(int expectedItems) { this(expectedItems, 0.75f); }
 		
 		public RW(int expectedItems, double loadFactor) {
-			super(expectedItems, loadFactor);
+			this(loadFactor);
+			
+			long length = (long) Math.ceil(expectedItems / loadFactor);
+			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			keys.length(size);
+			keys.length(size);
 		}
+		
 		
 		public boolean add(K key) {
 			if (key == null) return !hasNullKey && (hasNullKey = true);
@@ -182,7 +167,7 @@ public interface ObjectSet {
 			keys.clear();
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			assigned = 0;
 			hasNullKey = false;

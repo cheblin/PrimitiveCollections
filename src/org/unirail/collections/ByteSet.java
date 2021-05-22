@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface ByteSet {
 	
-	interface Writer {
+	interface IDst {
 		
 		default boolean add(int value) { return add((byte) (value & 0xFF)); }
 		
@@ -13,7 +13,7 @@ public interface ByteSet {
 		void write(int size);
 	}
 	
-	interface Reader {
+	interface ISrc {
 		boolean read_has_null_key();
 		
 		int size();
@@ -40,7 +40,7 @@ public interface ByteSet {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Reader {
+	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		long
 				_1,
 				_2,
@@ -49,11 +49,7 @@ public interface ByteSet {
 		
 		int size = 0;
 		
-		
 		protected boolean hasNullKey;
-		
-		
-		public R(byte... items) { for (byte i : items) this.add(i); }
 		
 		protected boolean add(final byte value) {
 			
@@ -155,7 +151,7 @@ a:
 			return true;
 		}
 		
-		public boolean containsAll(Reader src) {
+		public boolean containsAll(ISrc src) {
 			if (src.read_has_null_key() != hasNullKey || size() != src.size()) return false;
 			
 			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
@@ -190,7 +186,7 @@ a:
 			return null;
 		}
 		
-		//region  reader
+		//region  ISrc
 		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
 		public byte read_key(int info) { return (byte) (info & 0xFF); }
@@ -229,8 +225,9 @@ a:
 		public String toString() { return toString(null).toString(); }
 	}
 	
-	class RW extends R implements Writer {
+	class RW extends R implements IDst {
 		
+		public RW(byte... items) { for (byte i : items) this.add(i); }
 		
 		public boolean add( Byte      key) { return key == null ? !hasNullKey && (hasNullKey = true) : super.add((byte) (key + 0));}
 		
@@ -289,7 +286,7 @@ a:
 		}
 		
 		
-		public boolean retainAll(Reader src) {
+		public boolean retainAll(ISrc src) {
 			long
 					_1 = 0,
 					_2 = 0,
@@ -334,7 +331,7 @@ a:
 			return ret;
 		}
 		
-		public boolean removeAll(Reader src) {
+		public boolean removeAll(ISrc src) {
 			boolean ret = false;
 			
 			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
@@ -354,11 +351,11 @@ a:
 			hasNullKey = false;
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) { clear(); }
 		
 		//endregion
-		public boolean addAll(Reader src) {
+		public boolean addAll(ISrc src) {
 			boolean      ret = false;
 			byte val;
 			

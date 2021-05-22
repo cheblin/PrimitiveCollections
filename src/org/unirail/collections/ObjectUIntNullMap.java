@@ -4,7 +4,7 @@ package org.unirail.collections;
 import java.util.Arrays;
 
 public interface ObjectUIntNullMap {
-	interface Writer<K extends Comparable<? super K>> {
+	interface IDst<K extends Comparable<? super K>> {
 		boolean put(K key, long value);
 		
 		boolean put(K key,  Long      value);
@@ -13,7 +13,7 @@ public interface ObjectUIntNullMap {
 	}
 	
 	
-	interface Reader<K extends Comparable<? super K>> {
+	interface ISrc<K extends Comparable<? super K>> {
 		
 		int size();
 		
@@ -56,7 +56,7 @@ public interface ObjectUIntNullMap {
 	}
 	
 	
-	class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, Reader<K> {
+	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, ISrc<K> {
 		
 		
 		ObjectList.RW<K>       keys   = new ObjectList.RW<>(0);
@@ -67,22 +67,6 @@ public interface ObjectUIntNullMap {
 		protected int    resizeAt;
 		protected double loadFactor;
 		
-		protected R(double loadFactor) {this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);}
-		
-		protected R(int expectedItems) {this(expectedItems, 0.75);}
-		
-		protected R(int expectedItems, double loadFactor) {
-			this(loadFactor);
-			
-			long length = (long) Math.ceil(expectedItems / loadFactor);
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			keys.length(size);
-			values.nulls.length(size);
-			values.values.length(size);
-		}
 		
 		public int size()        { return assigned + (hasNullKey == Positive_Values.NONE ? 0 : 1); }
 		
@@ -116,7 +100,7 @@ public interface ObjectUIntNullMap {
 		
 		public boolean hasNull(int info)  {return info == Positive_Values.NULL;}
 		
-		public long value(@Positive_ONLY int contains) { return contains == Positive_Values.VALUE ? NullKeyValue : values.value(contains); }
+		public long value(@Positive_ONLY int contains) { return contains == Positive_Values.VALUE ? NullKeyValue : values.get(contains); }
 		
 		
 		@SuppressWarnings("unchecked")
@@ -139,10 +123,10 @@ public interface ObjectUIntNullMap {
 			K key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key = keys.array[i]) != null)
-					if (values.nulls.value(i))
+					if (values.nulls.get(i))
 					{
 						int tag = other.info(key);
-						if (tag == -1 || values.value(i) != other.value(tag)) return 1;
+						if (tag == -1 || values.get(i) != other.value(tag)) return 1;
 					}
 					else if (-1 < other.info(key)) return 1;
 			
@@ -170,7 +154,7 @@ public interface ObjectUIntNullMap {
 		protected                  long NullKeyValue = 0;
 		
 		
-		//region  reader
+		//region  ISrc
 		
 		@Override public int read_has_null_key() { return hasNullKey; }
 		
@@ -184,20 +168,31 @@ public interface ObjectUIntNullMap {
 		
 		@Override public K read_key(int info) {return keys.array[info & Integer.MAX_VALUE]; }
 		
-		@Override public long read_val(@Positive_ONLY int info) {return values.value(info); }
+		@Override public long read_val(@Positive_ONLY int info) {return values.get(info); }
 		
 		//endregion
 		
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> implements Writer<K> {
+	class RW<K extends Comparable<? super K>> extends R<K> implements IDst<K> {
 		
-		public RW(double loadFactor)                    { super(loadFactor); }
+		public RW(double loadFactor) {this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);}
 		
-		public RW(int expectedItems)                    { super(expectedItems); }
+		public RW(int expectedItems) {this(expectedItems, 0.75);}
 		
-		public RW(int expectedItems, double loadFactor) { super(expectedItems, loadFactor); }
+		public RW(int expectedItems, double loadFactor) {
+			this(loadFactor);
+			
+			long length = (long) Math.ceil(expectedItems / loadFactor);
+			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			keys.length(size);
+			values.nulls.length(size);
+			values.values.length(size);
+		}
 		
 		@Override public RW<K> clone()                  { return (RW<K>) super.clone(); }
 		
@@ -265,7 +260,7 @@ public interface ObjectUIntNullMap {
 			values.clear();
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			assigned = 0;
 			hasNullKey = Positive_Values.NONE;
@@ -308,7 +303,7 @@ public interface ObjectUIntNullMap {
 					
 					keys.array[slot] = kk;
 					
-					if (vals.hasValue(i)) values.set(slot, vals.value(i));
+					if (vals.hasValue(i)) values.set(slot, vals.get(i));
 					else values.set(slot, ( Long     ) null);
 				}
 			
@@ -338,8 +333,8 @@ public interface ObjectUIntNullMap {
 						{
 							array[gapSlot] = kk;
 							
-							if (values.nulls.value(s))
-								values.set(gapSlot, values.value(s));
+							if (values.nulls.get(s))
+								values.set(gapSlot, values.get(s));
 							else
 								values.set(gapSlot, ( Long     ) null);
 							

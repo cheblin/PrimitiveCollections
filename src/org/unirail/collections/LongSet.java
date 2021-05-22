@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface LongSet {
 	
-	interface Writer {
+	interface IDst {
 		boolean add(long key);
 		
 		boolean add( Long      key);
@@ -10,7 +10,7 @@ public interface LongSet {
 		void write(int size);
 	}
 	
-	interface Reader {
+	interface ISrc {
 		boolean read_has_null_key();
 		
 		boolean read_has_0key();
@@ -19,7 +19,7 @@ public interface LongSet {
 		
 		int read(int info);
 		
-		long  read_key( int info);
+		long  read_key(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -44,7 +44,7 @@ public interface LongSet {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Reader {
+	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		
 		public LongList.RW keys = new LongList.RW(0);
 		
@@ -59,68 +59,6 @@ public interface LongSet {
 		
 		protected double loadFactor;
 		
-		
-		protected R(int expectedItems) { this(expectedItems, 0.75); }
-		
-		protected R(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
-		
-		
-		protected R(int expectedItems, double loadFactor) {
-			this(loadFactor);
-			
-			final long length = (long) Math.ceil(expectedItems / loadFactor);
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			keys.length(size);
-		}
-		
-		public R(long... items) {
-			this(items.length);
-			for (long i : items) add(this, i);
-		}
-		
-		protected static boolean add(R src, long key) {
-			
-			if (key == 0) return !src.hasOkey && (src.hasOkey = true);
-			
-			int slot = Array.hash(key) & src.mask;
-			
-			for (long k; (k = src.keys.array[slot]) != 0; slot = slot + 1 & src.mask)
-				if (k == key) return false;
-			
-			src.keys.array[slot] =  key;
-			
-			if (src.assigned++ == src.resizeAt) src.allocate(src.mask + 1 << 1);
-			return true;
-		}
-		
-		protected void allocate(int size) {
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			if (assigned < 1)
-			{
-				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
-				
-				return;
-			}
-			
-			final long[] k = keys.array;
-			
-			keys.length(-size);
-			
-			long key;
-			for (int from = k.length - 1; 0 <= --from; )
-				if ((key = k[from]) != 0)
-				{
-					int slot = Array.hash(key) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
-				}
-		}
 		
 		public boolean contains( Long      key) { return key == null ? hasNullKey : contains((long) (key + 0)); }
 		
@@ -151,7 +89,6 @@ public interface LongSet {
 			
 			return h;
 		}
-		
 		
 		
 		public long[] toArray(long[] dst) {
@@ -199,7 +136,7 @@ public interface LongSet {
 			return null;
 		}
 		
-		//region  reader
+		//region  ISrc
 		
 		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
@@ -214,22 +151,72 @@ public interface LongSet {
 	}
 	
 	
-	class RW extends R implements Writer {
+	class RW extends R implements IDst {
 		
-		public RW(int expectedItems)                      { super(expectedItems); }
+		public RW(int expectedItems) { this(expectedItems, 0.75); }
 		
-		public RW(double loadFactor)                      { super(loadFactor); }
+		public RW(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
 		
-		public RW(int expectedItems, double loadFactor)   { super(expectedItems, loadFactor); }
 		
-		public RW(long... items)                   { super(items); }
+		public RW(int expectedItems, double loadFactor) {
+			this(loadFactor);
+			
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			keys.length(size);
+		}
+		
+		public RW(long... items) {
+			this(items.length);
+			for (long i : items) add(i);
+		}
 		
 		@Override public boolean add( Long      key) { return key == null ? !hasNullKey && (hasNullKey = true) : add((long) key);}
 		
-		@Override public boolean add(long  key)    { return R.add(this, key); }
+		@Override public boolean add(long  key) {
+			
+			if (key == 0) return !hasOkey && (hasOkey = true);
+			
+			int slot = Array.hash(key) & mask;
+			
+			for (long k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+				if (k == key) return false;
+			
+			keys.array[slot] =  key;
+			
+			if (assigned++ == resizeAt) allocate(mask + 1 << 1);
+			return true;
+		}
 		
+		protected void allocate(int size) {
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			if (assigned < 1)
+			{
+				if (keys.length() < size) keys.length(-size);
+				else keys.clear();
+				
+				return;
+			}
+			
+			final long[] k = keys.array;
+			
+			keys.length(-size);
+			
+			long key;
+			for (int from = k.length - 1; 0 <= --from; )
+				if ((key = k[from]) != 0)
+				{
+					int slot = Array.hash(key) & mask;
+					while (keys.array[slot] != 0) slot = slot + 1 & mask;
+					keys.array[slot] = key;
+				}
+		}
 		
-	
 		
 		public boolean remove( Long      key) { return key == null ? hasNullKey && !(hasNullKey = false) : remove((long) key); }
 		
@@ -267,16 +254,17 @@ public interface LongSet {
 			
 			keys.clear();
 		}
-		//region  writer
+		
+		//region  IDst
 		@Override public void write(int size) {
 			assigned = 0;
 			hasOkey = false;
 			hasNullKey = false;
-			keys.write( (int) Array.nextPowerOf2(size));
+			keys.write((int) Array.nextPowerOf2(size));
 		}
 		//endregion
 		
-		public void retainAll(Writer chk) {
+		public void retainAll(IDst chk) {
 			long key;
 			
 			for (int i = keys.array.length - 1; 0 <= i; i--)
@@ -285,10 +273,10 @@ public interface LongSet {
 			if (hasOkey && !chk.add((long) 0)) hasOkey = false;
 		}
 		
-		public int removeAll(LongList.Reader src) {
+		public int removeAll(ISrc src) {
 			int fix = size();
 			
-			for (int i = 0, s = src.size(); i < s; i++) remove(src.value(i));
+			for (int i = 0, s = src.size(), p = -1; i < s; i++) remove(src.read_key(p = src.read(p)));
 			
 			return fix - size();
 		}

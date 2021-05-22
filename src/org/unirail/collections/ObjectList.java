@@ -3,16 +3,16 @@ package org.unirail.collections;
 import java.util.Arrays;
 
 public interface ObjectList {
-	interface Writer<V extends Comparable<? super V>> {
+	interface IDst<V extends Comparable<? super V>> {
 		V add(V value);
 		
 		void write(int size);
 	}
 	
-	interface Reader<V extends Comparable<? super V>> {
+	interface ISrc<V extends Comparable<? super V>> {
 		int size();
 		
-		V value(int index);
+		V get(int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -20,24 +20,15 @@ public interface ObjectList {
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
 			for (int i = 0; i < size; i++)
-				dst.append(value(i)).append('\n');
+				dst.append(get(i)).append('\n');
 			
 			return dst;
 		}
 	}
 	
 	
-	class R<V extends Comparable<? super V>> implements Comparable<R<V>>, Reader<V> {
+	abstract class R<V extends Comparable<? super V>> implements Comparable<R<V>>, ISrc<V> {
 		
-		@SuppressWarnings("unchecked")
-		protected R(int length) { if (0 < length) array = (V[]) new Comparable[length]; }
-		
-		@SafeVarargs protected R(V... items) {
-			this(0);
-			if (items == null) return;
-			array = items.clone();
-			size = items.length;
-		}
 		
 		protected V[] array;
 		
@@ -54,15 +45,15 @@ public interface ObjectList {
 			return dst;
 		}
 		
-		public boolean containsAll(Reader<V> src) {
+		public boolean containsAll(ISrc<V> src) {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
-				if (-1 < indexOf(src.value(i))) return false;
+				if (-1 < indexOf(src.get(i))) return false;
 			return true;
 		}
 		
 		
-		public V value(int index) {return array[index]; }
+		public V get(int index) {return array[index]; }
 		
 		
 		public int indexOf(V value) {
@@ -123,12 +114,17 @@ public interface ObjectList {
 	}
 	
 	
-	class RW<V extends Comparable<? super V>> extends R<V> implements Array, Writer<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements Array, IDst<V> {
+		@SuppressWarnings("unchecked")
+		public RW(int length) { if (0 < length) array = (V[]) new Comparable[length]; }
 		
-		public RW(int length) { super(length); }
-		
-		public RW(V... items) { super(items); }
-		
+		@SafeVarargs public RW(V... items) {
+			this(0);
+			if (items == null) return;
+			array = items.clone();
+			size = items.length;
+		}
+	
 		public V[] array()    {return array;}
 		
 		@SuppressWarnings("unchecked")
@@ -147,7 +143,7 @@ public interface ObjectList {
 			size = 0;
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			this.size = 0;
 			if (array.length < size) length(-this.size);
@@ -217,28 +213,28 @@ public interface ObjectList {
 			return array[index] = value;
 		}
 		
-		public boolean addAll(Reader<V> src, int count) {
+		public boolean addAll(ISrc<V> src, int count) {
 			int s = size;
 			size = Array.resize(this, size, size, count);
 			
 			for (int i = 0, size = src.size(); i < size; i++)
-				array[s++] = src.value(i);
+				array[s++] = src.get(i);
 			
 			return true;
 		}
 		
-		public boolean addAll(Reader<V> src, int index, int count) {
+		public boolean addAll(ISrc<V> src, int index, int count) {
 			count = Math.min(src.size(), count);
 			size = Array.resize(this, size, index, count);
-			for (int i = 0; i < count; i++) array[index + i] = src.value(i);
+			for (int i = 0; i < count; i++) array[index + i] = src.get(i);
 			return true;
 		}
 		
-		public boolean removeAll(Reader<V> src) {
+		public boolean removeAll(ISrc<V> src) {
 			final int s = size;
 			
 			for (int k = 0, src_size = src.size(); k < src_size; k++)
-				for (int i = size - 1; i >= 0; i--) if (array[i] == src.value(k)) size = Array.resize(this, size, i, -1);
+				for (int i = size - 1; i >= 0; i--) if (array[i] == src.get(k)) size = Array.resize(this, size, i, -1);
 			return size != s;
 		}
 		

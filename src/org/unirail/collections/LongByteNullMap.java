@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 public interface LongByteNullMap {
-	interface Writer {
+	interface Dst {
 		boolean put(long key, byte value);
 		
 		boolean put(long key,  Byte      value);
@@ -14,7 +14,7 @@ public interface LongByteNullMap {
 	}
 	
 	
-	interface Reader {
+	interface ISrc {
 		
 		int size();
 		
@@ -73,18 +73,14 @@ public interface LongByteNullMap {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Reader {
+	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		
 		
 		public LongList.RW     keys   = new LongList.RW(0);
 		public ByteNullList.RW values = new ByteNullList.RW(0);
 		
 		int assigned;
-		
-		
 		int mask;
-		
-		
 		int resizeAt;
 		
 		
@@ -97,23 +93,6 @@ public interface LongByteNullMap {
 		
 		
 		protected double loadFactor;
-		
-		
-		protected R(int expectedItems) { this(expectedItems, 0.75); }
-		
-		
-		protected R(int expectedItems, double loadFactor) {
-			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
-			
-			final long length = (long) Math.ceil(expectedItems / loadFactor);
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
-			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
-			
-			keys.length(size);
-			values.nulls.length(size);
-			values.values.length(size);
-		}
 		
 		public boolean isEmpty() { return size() == 0; }
 		
@@ -156,7 +135,7 @@ public interface LongByteNullMap {
 		public byte value(@Positive_ONLY int info) {
 			if (info == Positive_Values.VALUE) return nullKeyValue;
 			if (info == Positive_Values.VALUE - 1) return OkeyValue;
-			return values.value(info);
+			return values.get(info);
 		}
 		
 		
@@ -187,10 +166,10 @@ public interface LongByteNullMap {
 			long           key;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((key =  keys.array[i]) != 0)
-					if (values.nulls.value(i))
+					if (values.nulls.get(i))
 					{
 						int ii = other.info(key);
-						if (ii < 0 || values.value(i) != other.value(ii)) return 1;
+						if (ii < 0 || values.get(i) != other.value(ii)) return 1;
 					}
 					else if (-1 < other.info(key)) return 1;
 			
@@ -215,7 +194,7 @@ public interface LongByteNullMap {
 		}
 		
 		
-		//region  reader
+		//region  ISrc
 		
 		@Override public @Positive_Values int read_has_null_key() {return hasNullKey;}
 		
@@ -232,7 +211,7 @@ public interface LongByteNullMap {
 			return values.hasValue(info) ? info : info | Integer.MIN_VALUE;
 		}
 		
-		@Override public byte read_val(@Positive_ONLY int info) {return   values.value(info); }
+		@Override public byte read_val(@Positive_ONLY int info) {return   values.get(info); }
 		
 		//endregion
 		
@@ -240,12 +219,24 @@ public interface LongByteNullMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW extends R implements Writer {
+	class RW extends R implements Dst {
 		
 		
-		public RW(int expectedItems)                    { super(expectedItems); }
+		public RW(int expectedItems) { this(expectedItems, 0.75); }
 		
-		public RW(int expectedItems, double loadFactor) { super(expectedItems, loadFactor); }
+		
+		public RW(int expectedItems, double loadFactor) {
+			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
+			
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			keys.length(size);
+			values.nulls.length(size);
+			values.values.length(size);
+		}
 		
 		
 		public boolean put( Long      key, byte value) {
@@ -354,8 +345,8 @@ public interface LongByteNullMap {
 							
 							array[gapSlot] = kk;
 							
-							if (values.nulls.value(s))
-								values.set(gapSlot, values.value(s));
+							if (values.nulls.get(s))
+								values.set(gapSlot, values.get(s));
 							else
 								values.set(gapSlot, ( Byte     ) null);
 							
@@ -403,7 +394,7 @@ public interface LongByteNullMap {
 			
 			for (int i = array.length - 1; -1 < --i; )
 				if ((key = array[i]) != 0)
-					if (values.nulls.value(i)) tmp.put( key, values.value(i));
+					if (values.nulls.get(i)) tmp.put( key, values.get(i));
 					else tmp.put( key, null);
 			
 			keys = tmp.keys;

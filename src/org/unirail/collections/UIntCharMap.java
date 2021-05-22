@@ -2,7 +2,7 @@ package org.unirail.collections;
 
 public interface UIntCharMap {
 	
-	interface Writer {
+	interface IDst {
 		boolean put(long key, char value);
 		
 		boolean put( Integer   key, char value);
@@ -10,7 +10,7 @@ public interface UIntCharMap {
 		void write(int size);
 	}
 	
-	interface Reader {
+	interface ISrc {
 		
 		int size();
 		
@@ -55,7 +55,7 @@ public interface UIntCharMap {
 	}
 	
 	
-	class R implements Cloneable, Comparable<R>, Reader {
+	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		public UIntList.RW keys   = new UIntList.RW(0);
 		public CharList.RW values = new CharList.RW(0);
 		
@@ -75,22 +75,7 @@ public interface UIntCharMap {
 		protected double loadFactor;
 		
 		
-		protected R(int expectedItems) { this(expectedItems, 0.75); }
-		
-		
-		protected R(int expectedItems, double loadFactor) {
-			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
-			
-			final long length = (long) Math.ceil(expectedItems / loadFactor);
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
-			
-			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
-			mask = size - 1;
-			
-			keys.length(size);
-			values.length(size);
-		}
-		
+	
 		public boolean isEmpty()                              { return size() == 0; }
 		
 		@Override public int size()                           { return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0); }
@@ -117,7 +102,7 @@ public interface UIntCharMap {
 			if (info == Positive_Values.VALUE) return nullKeyValue;
 			if (info == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return (char) values.value(info);
+			return (char) values.get(info);
 		}
 		
 		public int hashCode() {
@@ -179,7 +164,7 @@ public interface UIntCharMap {
 			return null;
 		}
 		
-		//region  reader
+		//region  ISrc
 		
 		@Override public boolean read_has_null_key() {return hasNullKey;}
 		
@@ -202,13 +187,23 @@ public interface UIntCharMap {
 	}
 	
 	
-	class RW extends R implements Writer {
+	class RW extends R implements IDst {
 		
-		public RW(int expectedItems)                    { super(expectedItems); }
-		
-		public RW(int expectedItems, double loadFactor) { super(expectedItems, loadFactor); }
+		public RW(int expectedItems) { this(expectedItems, 0.75); }
 		
 		
+		public RW(int expectedItems, double loadFactor) {
+			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
+			
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
+			mask = size - 1;
+			
+			keys.length(size);
+			values.length(size);
+		}
 		
 		
 		@Override public boolean put( Integer   key, char value) {
@@ -302,7 +297,7 @@ public interface UIntCharMap {
 			keys.clear();
 			values.clear();
 		}
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			assigned = 0;
 			hasO = false;

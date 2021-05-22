@@ -3,7 +3,7 @@ package org.unirail.collections;
 
 public interface UByteFloatNullMap {
 	
-	interface Writer {
+	interface IDst {
 		boolean put(char key, float value);
 		
 		boolean put(char key,  Float     value);
@@ -15,7 +15,7 @@ public interface UByteFloatNullMap {
 		void write(int size);
 	}
 	
-	interface Reader {
+	interface ISrc {
 		int size();
 		
 		boolean read_has_null_key();
@@ -51,13 +51,11 @@ public interface UByteFloatNullMap {
 		}
 	}
 	
-	class R implements Cloneable, Comparable<R>, Reader {
+	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		
 		ByteSet.RW             keys = new ByteSet.RW();
 		FloatNullList.RW values;
 		
-		
-		protected R(int length)                            { values = new FloatNullList.RW(265 < length ? 256 : length); }
 		
 		@Override public int size()                        { return keys.size(); }
 		
@@ -80,7 +78,7 @@ public interface UByteFloatNullMap {
 		
 		public float value(@Positive_ONLY int info) {
 			if (info == Positive_Values.VALUE) return nullKeyValue;
-			return    values.value(keys.rank((byte) info));
+			return    values.get(keys.rank((byte) info));
 		}
 		
 		
@@ -123,7 +121,7 @@ public interface UByteFloatNullMap {
 		}
 		
 		
-		//region  reader
+		//region  ISrc
 		@Override public float read_null_key_val() { return nullKeyValue; }
 		
 		@Override public boolean read_has_null_key() { return keys.hasNullKey; }
@@ -138,15 +136,15 @@ public interface UByteFloatNullMap {
 		
 		@Override public char read_key(int info) {return (char) (info & 0xFF);}
 		
-		@Override public float read_val(@Positive_ONLY int info) { return  values.value(info >> 8); }
+		@Override public float read_val(@Positive_ONLY int info) { return  values.get(info >> 8); }
 		
 		//endregion
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW extends R implements Writer {
+	class RW extends R implements IDst {
 		
-		public RW(int length) { super(length); }
+		public RW(int length) { values = new FloatNullList.RW(265 < length ? 256 : length); }
 		
 		
 		public void clear() {
@@ -156,7 +154,7 @@ public interface UByteFloatNullMap {
 			values.clear();
 		}
 		
-		//region  writer
+		//region  IDst
 		@Override public void write(int size) {
 			keys.write(size);
 			values.write(size);
@@ -195,8 +193,8 @@ public interface UByteFloatNullMap {
 			if (value != null) return put(key, (float) value);
 			
 			
-			
-			if (keys.add((byte) key)) {
+			if (keys.add((byte) key))
+			{
 				values.add(keys.rank((byte) key) - 1, ( Float    ) null);
 				return true;
 			}
