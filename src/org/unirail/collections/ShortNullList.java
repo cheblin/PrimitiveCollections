@@ -36,6 +36,7 @@ public interface ShortNullList {
 		BitList.RW         nulls;
 		ShortList.RW values;
 		
+		
 		public int length() {return values.length();}
 		
 		int size = 0;

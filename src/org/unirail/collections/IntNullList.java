@@ -36,6 +36,7 @@ public interface IntNullList {
 		BitList.RW         nulls;
 		IntList.RW values;
 		
+		
 		public int length() {return values.length();}
 		
 		int size = 0;

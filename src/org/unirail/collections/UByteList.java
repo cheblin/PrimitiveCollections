@@ -75,7 +75,7 @@ public interface UByteList {
 		
 		public int lastIndexOf( char value) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == (byte) value) return i;
+				if (array[i] == value) return i;
 			return -1;
 		}
 		

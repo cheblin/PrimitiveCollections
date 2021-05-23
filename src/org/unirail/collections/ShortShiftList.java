@@ -3,21 +3,24 @@ package org.unirail.collections;
 
 import java.util.Arrays;
 
-public interface DoubleList {
+public interface ShortShiftList {
 	
 	interface IDst {
-		void add(double value);
+		void add(long value);
 		
-		void write(int size);
+		void write(long shift, int size);
 	}
 	
 	interface ISrc {
 		int size();
 		
-		double  get(int index);
+		long shift();
+		
+		long get(int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
+			int  size  = size();
+			long shift = shift();
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
@@ -33,25 +36,28 @@ public interface DoubleList {
 	
 	abstract class R implements Comparable<R>, ISrc {
 		
-		double[] array = Array.doubles0     ;
+		short[] array = Array.shorts0     ;
+		
+		public final long shift;
+		@Override public long shift() { return shift; }
+		protected R(long shift)       {this.shift = shift;}
+		
+		public int length()           { return array == null ? 0 : array.length; }
+		
+		protected int size = 0;
+		
+		public int size()                   { return size; }
+		
+		public boolean isEmpty()            { return size == 0; }
+		
+		public boolean contains(long value) {return -1 < indexOf(value);}
 		
 		
-		
-		public int length() { return array == null ? 0 : array.length; }
-		
-		int size = 0;
-		
-		public int size()                           { return size; }
-		
-		public boolean isEmpty()                    { return size == 0; }
-		
-		public boolean contains( double value) {return -1 < indexOf(value);}
-		
-		
-		public double[] toArray(int index, int len, double[] dst) {
+		public long[] toArray(int index, int len, long[] dst) {
 			if (size == 0) return null;
-			if (dst == null) dst = new double[len];
-			for (int i = 0; i < len; i++) dst[index + i] =  array[i];
+			if (dst == null) dst = new long[len];
+			
+			for (int i = 0; i < len; i++) dst[index + i] = array[i] + shift;
 			
 			return dst;
 		}
@@ -64,16 +70,18 @@ public interface DoubleList {
 		}
 		
 		
-		public double get(int index) {return   array[index]; }
+		public long get(int index) {return array[index] + shift; }
 		
 		
-		public int indexOf( double value) {
+		public int indexOf(long value) {
+			value -= shift;
 			for (int i = 0; i < size; i++)
 				if (array[i] == value) return i;
 			return -1;
 		}
 		
-		public int lastIndexOf( double value) {
+		public int lastIndexOf(long value) {
+			value -= shift;
 			for (int i = size - 1; -1 < i; i--)
 				if (array[i] == value) return i;
 			return -1;
@@ -91,7 +99,7 @@ public interface DoubleList {
 		
 		public int compareTo(R other) {
 			if (other == null) return -1;
-			if (other.size != size) return other.size - size;
+			if (other.size != size || other.shift != shift) return other.size - size;
 			
 			for (int i = 0; i < size; i++)
 				if (array[i] != other.array[i]) return 1;
@@ -124,22 +132,24 @@ public interface DoubleList {
 			
 		}
 		
-		
 		public String toString() { return toString(null).toString();}
 	}
 	
 	
 	class RW extends R implements Array, IDst {
 		
-		public RW(int length) { if (0 < length) array = new double[length]; }
+		public RW(long shift, int length) {
+			super(shift);
+			if (0 < length) array = new short[length];
+		}
 		
-		public RW(double... items) {
-			this(items == null ? 0 : items.length);
+		public RW(long shift, long... items) {
+			super(shift);
 			if (items != null)
 			{
 				size = items.length;
 				for (int i = 0; i < size; i++)
-					array[i] = (double) items[i];
+					array[i] = (short) (items[i] - shift);
 			}
 		}
 		
@@ -148,29 +158,30 @@ public interface DoubleList {
 			System.arraycopy(src.array, fromIndex, array, 0, toIndex - fromIndex);
 		}
 		
-		public double[] array()                 {return array;}
+		
+		public short[] array() {return array;}
 		
 		
-		public double[] length(int length) {
+		public short[] length(int length) {
 			if (0 < length)
 			{
 				if (length < size) size = length;
 				return array = Arrays.copyOf(array, length);
 			}
 			size = 0;
-			return array = length == 0 ? Array.doubles0      : new double[-length];
+			return array = length == 0 ? Array.shorts0      : new short[-length];
 		}
 		
-		public void add(double value) {
+		public void add(long value) {
 			size = Array.resize(this, size, size, 1);
-			array[size - 1] = (double) value;
+			array[size - 1] = (short) (value - shift);
 		}
 		
-		public void add(int index, double value) {
+		public void add(int index, long value) {
 			if (index < size)
 			{
 				size = Array.resize(this, size, index, 1);
-				array[index] = (double) value;
+				array[index] = (short) (value - shift);
 			}
 			else set(index, value);
 			
@@ -186,11 +197,11 @@ public interface DoubleList {
 		public void remove_fast(int index) {
 			if (size < 1 || size <= index) return;
 			size--;
-			if (index < size ) array[index] = array[size];
+			if (index < size) array[index] = array[size];
 		}
 		
 		
-		public void set(int index, double... values) {
+		public void set(int index, long... values) {
 			int len = values.length;
 			
 			if (size <= index + len)
@@ -199,47 +210,41 @@ public interface DoubleList {
 				Object obj = array;
 				
 				size = Array.resize(this, size, index, len);
-				if (obj == array) Arrays.fill(array, fix, size - 1, (double) 0);
+				if (obj == array) Arrays.fill(array, fix, size - 1, (short) 0);
 			}
 			
 			for (int i = 0; i < len; i++)
-				array[index + i] = (double) values[i];
+				array[index + i] = (short) (values[i] - shift);
 		}
 		
-		public void set(double value) { set(size, value);}
+		public void set(long value) { set(size, value);}
 		
-		public void set(int index, double value) {
+		public void set(int index, long value) {
 			if (size <= index)
 			{
 				int    fix = size;
 				Object obj = array;
 				
 				size = Array.resize(this, size, index, 1);
-				if (obj == array) Arrays.fill(array, fix, size - 1, (double) 0);
+				if (obj == array) Arrays.fill(array, fix, size - 1, (short) 0);
 			}
 			
-			array[index] = (double) value;
+			array[index] = (short) (value - shift);
 		}
 		
 		public void swap(int index1, int index2) {
-			final double tmp = array[index1];
+			final short tmp = array[index1];
 			array[index1] = array[index2];
 			array[index2] = tmp;
 			
 		}
 		
-		public void addAll(ISrc src) {
-			int s = src.size();
-			write(s);
-			for (int i = 0; i < s; i++) array[size + i] = (double) src.get(i);
-			size += s;
-		}
+		public void addAll(ISrc src) { addAll(src, 0); }
 		
-		public boolean addAll(ISrc src, int index) {
+		public void addAll(ISrc src, int index) {
 			int s = src.size();
 			size = Array.resize(this, size, index, s);
-			for (int i = 0; i < s; i++) array[index + i] = (double) src.get(i);
-			return true;
+			for (int i = 0; i < s; i++) array[index + i] = (short) (src.get(i) - shift);
 		}
 		
 		
@@ -251,14 +256,14 @@ public interface DoubleList {
 			return fix - size;
 		}
 		
-		public int removeAll(double src) {
+		public int removeAll(short src) {
 			int fix = size;
 			
 			for (int k; -1 < (k = indexOf(src)); ) remove(k);
 			return fix - size;
 		}
 		
-		public int removeAll_fast(double src) {
+		public int removeAll_fast(short src) {
 			int fix = size;
 			
 			for (int k; -1 < (k = indexOf(src)); ) remove_fast(k);
@@ -268,7 +273,7 @@ public interface DoubleList {
 		public boolean retainAll(R chk) {
 			
 			final int   fix = size;
-			double v;
+			long v;
 			for (int index = 0; index < size; index++)
 				if (!chk.contains(v = get(index)))
 					remove(indexOf(v));
@@ -279,14 +284,15 @@ public interface DoubleList {
 		public void clear() { size = 0;}
 		
 		//region  IDst
-		@Override public void write(int size) {
+		
+		
+		@Override public void write(long shift, int size) {
 			if (array.length < size) length(-size);
 			this.size = 0;
 		}
+		
 		//endregion
 		
-		
-		public RW clone()   { return (RW) super.clone(); }
-		
+		public RW clone() { return (RW) super.clone(); }
 	}
 }

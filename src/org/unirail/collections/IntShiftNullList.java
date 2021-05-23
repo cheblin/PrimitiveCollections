@@ -1,11 +1,11 @@
 package org.unirail.collections;
 
 
-public interface DoubleNullList {
+public interface IntShiftNullList {
 	interface IDst {
-		void add(double value);
+		void add(long value);
 		
-		void add( Double    value);
+		void add(Long value);
 		
 		void write(int size);
 	}
@@ -14,12 +14,16 @@ public interface DoubleNullList {
 		
 		int size();
 		
+		long shift();
+		
 		@Positive_OK int nextValueIndex(int index);
 		
-		double get(@Positive_ONLY int index);
+		long get(@Positive_ONLY int index);
 		
 		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
+			int  size  = size();
+			long shift = shift();
+			
 			if (dst == null) dst = new StringBuilder(size * 4);
 			else dst.ensureCapacity(dst.length() + size * 64);
 			
@@ -33,13 +37,14 @@ public interface DoubleNullList {
 	
 	abstract class R implements Comparable<R>, ISrc {
 		
-		BitList.RW         nulls;
-		DoubleList.RW values;
+		BitList.RW              nulls;
+		IntShiftList.RW values;
 		
+		@Override public long shift() { return values.shift; }
 		
-		public int length() {return values.length();}
+		public int length()           {return values.length();}
 		
-		int size = 0;
+		protected int size = 0;
 		
 		public int size()                                 { return size; }
 		
@@ -55,19 +60,19 @@ public interface DoubleNullList {
 		
 		@Positive_OK public int prevNullIndex(int index)  {return nulls.prev0(index);}
 		
-		public double get(@Positive_ONLY int index) {return  values.array[nulls.rank(index) - 1]; }
+		public long get(@Positive_ONLY int index)         {return  values.array[nulls.rank(index) - 1]; }
 		
 		
 		public int indexOf()                              { return nulls.next0(0); }
 		
-		public int indexOf(double value) {
+		public int indexOf(long value) {
 			int i = values.indexOf(value);
 			return i < 0 ? i : nulls.bit(i);
 		}
 		
 		public int lastIndexOf() { return nulls.prev0(size);}
 		
-		public int lastIndexOf(double value) {
+		public int lastIndexOf(long value) {
 			int i = values.lastIndexOf(value);
 			return i < 0 ? i : nulls.bit(i);
 		}
@@ -116,7 +121,7 @@ public interface DoubleNullList {
 		
 		public String toString() { return toString(null).toString();}
 		
-		protected static void set(R dst, int index,  Double    value) {
+		protected static void set(R dst, int index, Long value) {
 			
 			if (value == null)
 			{
@@ -125,10 +130,10 @@ public interface DoubleNullList {
 				dst.nulls.remove(index);
 				dst.values.remove(dst.nulls.rank(index));
 			}
-			else set(dst, index, (double) (value + 0));
+			else set(dst, index, (long) (value + 0));
 		}
 		
-		protected static void set(R dst, int index, double value) {
+		protected static void set(R dst, int index, long value) {
 			if (dst.size <= index) dst.size = index + 1;
 			
 			if (dst.nulls.get(index)) dst.values.set(dst.nulls.rank(index) - 1, value);
@@ -143,26 +148,27 @@ public interface DoubleNullList {
 	
 	class RW extends R implements IDst {
 		
-		public RW(int length) {
-			nulls = new BitList.RW(length);
-			values = new DoubleList.RW(length);
+		public RW(long shift, int length) {
+			
+			nulls = new BitList.RW(length / 2);
+			values = new IntShiftList.RW(shift, length);
 		}
 		
-		public RW( Double   ... values) {
-			this(values.length);
-			for ( Double    value : values)
+		public RW(long shift, Long... values) {
+			this(shift, values.length);
+			for (Long value : values)
 				if (value == null) size++;
 				else
 				{
-					this.values.add((double) (value + 0));
+					this.values.add(value);
 					nulls.set1(size);
 					size++;
 				}
 		}
 		
-		public RW(double... values) {
-			this(values.length);
-			for (double value : values) this.values.add((double) value);
+		public RW(long shift, long... values) {
+			this(shift, values.length);
+			for (long value : values) this.values.add(value);
 			
 			size = values.length;
 			nulls.set1(0, size - 1);
@@ -170,10 +176,11 @@ public interface DoubleNullList {
 		
 		public RW(R src, int fromIndex, int toIndex) {
 			
+			this(src.shift(), toIndex - fromIndex);
 			nulls = new BitList.RW(src.nulls, fromIndex, toIndex);
 			values = nulls.array.length == 0 ?
-			         new DoubleList.RW(0) :
-			         new DoubleList.RW(src.values, src.nulls.rank(fromIndex), src.nulls.rank(toIndex));
+			         new IntShiftList.RW(0) :
+			         new IntShiftList.RW(src.values, src.nulls.rank(fromIndex), src.nulls.rank(toIndex));
 			
 		}
 		
@@ -201,30 +208,28 @@ public interface DoubleNullList {
 			nulls.remove(index);
 		}
 		
-		public void add( Double    value) {
+		public void add(Long value) {
 			if (value == null) size++;
-			else add((double) (value + 0));
+			else add(value);
 		}
 		
-		public void add(double value) {
+		public void add(long value) {
 			values.add(value);
 			nulls.add(size, true);
 			size++;
 		}
 		
 		
-	
-		
-		public void add(int index,  Double    value) {
+		public void add(int index, Long value) {
 			if (value == null)
 			{
 				nulls.add(index, false);
 				size++;
 			}
-			else add(index, (double) (value + 0));
+			else add(index, value);
 		}
 		
-		public void add(int index, double value) {
+		public void add(int index, long value) {
 			if (index < size)
 			{
 				nulls.add(index, true);
@@ -234,20 +239,20 @@ public interface DoubleNullList {
 			else set(index, value);
 		}
 		
-		public void set( Double    value)            { set(this, size, value); }
+		public void set(Long value)            { set(this, size, value); }
 		
-		public void set(double value)                {set(this, size, value); }
+		public void set(long value)            {set(this, size, value); }
 		
-		public void set(int index,  Double    value) { set(this, index, value); }
+		public void set(int index, Long value) { set(this, index, value); }
 		
-		public void set(int index, double value)     {set(this, index, value); }
+		public void set(int index, long value) {set(this, index, value); }
 		
-		public void set(int index, double... values) {
+		public void set(int index, long... values) {
 			for (int i = 0, max = values.length; i < max; i++)
-				set(this, index + i, (double) values[i]);
+				set(this, index + i, values[i]);
 		}
 		
-		public void set(int index,  Double   ... values) {
+		public void set(int index, Long... values) {
 			for (int i = 0, max = values.length; i < max; i++)
 				set(this, index + i, values[i]);
 		}
@@ -269,7 +274,7 @@ public interface DoubleNullList {
 		}
 		//region  IDst
 		@Override public void write(int size) {
-			values.write(size);
+			values.write(values.shift, size);
 			nulls.write(size);
 			nulls.clear();//!!!
 			this.size = 0;
@@ -301,7 +306,7 @@ public interface DoubleNullList {
 			}
 			else return;
 			
-			double v = values.get(exist);
+			long v = values.get(exist);
 			values.remove(exist);
 			values.add(empty, v);
 		}

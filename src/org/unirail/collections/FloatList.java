@@ -75,7 +75,7 @@ public interface FloatList {
 		
 		public int lastIndexOf( float value) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == (float) value) return i;
+				if (array[i] == value) return i;
 			return -1;
 		}
 		

@@ -36,6 +36,7 @@ public interface LongNullList {
 		BitList.RW         nulls;
 		LongList.RW values;
 		
+		
 		public int length() {return values.length();}
 		
 		int size = 0;

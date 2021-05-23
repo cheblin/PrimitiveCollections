@@ -75,7 +75,7 @@ public interface CharList {
 		
 		public int lastIndexOf( char value) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == (char) value) return i;
+				if (array[i] == value) return i;
 			return -1;
 		}
 		

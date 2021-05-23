@@ -75,7 +75,7 @@ public interface UIntList {
 		
 		public int lastIndexOf( long value) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == (int) value) return i;
+				if (array[i] == value) return i;
 			return -1;
 		}
 		

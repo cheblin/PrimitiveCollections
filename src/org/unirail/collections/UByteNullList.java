@@ -36,6 +36,7 @@ public interface UByteNullList {
 		BitList.RW         nulls;
 		UByteList.RW values;
 		
+		
 		public int length() {return values.length();}
 		
 		int size = 0;

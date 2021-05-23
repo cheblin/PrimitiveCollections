@@ -75,7 +75,7 @@ public interface LongList {
 		
 		public int lastIndexOf( long value) {
 			for (int i = size - 1; -1 < i; i--)
-				if (array[i] == (long) value) return i;
+				if (array[i] == value) return i;
 			return -1;
 		}
 		

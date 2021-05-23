@@ -63,7 +63,7 @@ public interface BitList {
 		 static final int BITS = 1 << LEN;
 		 static final int MASK = BITS - 1;
 		 
-		 static int index(int item_X_bits) {return item_X_bits >> BitsList.R.LEN;}
+		 static int index(int item_X_bits) {return item_X_bits >> LEN;}
 		 
 		 static long mask(int bits)        {return (1L << bits) - 1;}
 		 
