@@ -327,11 +327,8 @@ public interface CharObjectMap {
 			if (assigned < 1)
 			{
 				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
 				
 				if (values.length() < size) values.length(-size);
-				else values.clear();
-				
 				return;
 			}
 			

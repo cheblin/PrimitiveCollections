@@ -265,7 +265,8 @@ public interface ObjectCharNullMap {
 			assigned = 0;
 			hasNullKey = Positive_Values.NONE;
 			keys.write(size = (int) Array.nextPowerOf2(size));
-			values.write(size);
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		//endregion
 	
@@ -277,13 +278,10 @@ public interface ObjectCharNullMap {
 			if (assigned < 1)
 			{
 				if (keys.length() < size) keys.length(-size);
-				else Arrays.fill(keys.array, null);
 				
 				if (values.nulls.length() < size) values.nulls.length(-size);
-				else values.nulls.clear();
 				
 				if (values.values.length() < size) values.values.length(-size);
-				else values.values.clear();
 				
 				return;
 			}

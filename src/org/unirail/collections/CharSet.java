@@ -198,8 +198,6 @@ public interface CharSet {
 			if (assigned < 1)
 			{
 				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
-				
 				return;
 			}
 			

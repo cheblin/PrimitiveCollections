@@ -148,16 +148,15 @@ public interface UByteUByteNullMap {
 		
 		
 		public void clear() {
-			if (keys.size() < 1) return;
-			
 			keys.clear();
 			values.clear();
 		}
 		
 		//region  IDst
 		@Override public void write(int size) {
-			keys.write(size);
-			values.write(size);
+			keys.clear();
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		
 		//endregion

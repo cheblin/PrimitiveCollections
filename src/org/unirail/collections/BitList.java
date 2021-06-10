@@ -46,30 +46,37 @@ public interface BitList {
 			
 			return dst;
 		}
+		
+		default boolean equals(ISrc other) {
+			int i = size();
+			if (i != other.size()) return false;
+			for (i--, i >>>= 6; -1 < i; i--) if (read(i) != other.read(i)) return false;
+			return true;
+		}
 	}
 	
 	
 	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		
-		 int size;
-		 
-		 public int size() {return size;}
-		 
-		 long[] array = Array.longs0;
-		 
-		 static int len4bits(int bits) {return (bits + BITS) >>> LEN;}
-		 
-		 static final int LEN  = 6;
-		 static final int BITS = 1 << LEN;
-		 static final int MASK = BITS - 1;
-		 
-		 static int index(int item_X_bits) {return item_X_bits >> LEN;}
-		 
-		 static long mask(int bits)        {return (1L << bits) - 1;}
-		 
-		 static final long FFFFFFFFFFFFFFFF = ~0L;
-		 static final int  OI               = Integer.MAX_VALUE;
-		 static final int  IO               = Integer.MIN_VALUE;
+		protected int size;
+		
+		public int size() { return size;}
+		
+		long[] array = Array.longs0;
+		
+		static int len4bits(int bits) {return (bits + BITS) >>> LEN;}
+		
+		static final int LEN  = 6;
+		static final int BITS = 1 << LEN;
+		static final int MASK = BITS - 1;
+		
+		static int index(int item_X_bits) {return item_X_bits >> LEN;}
+		
+		static long mask(int bits)        {return (1L << bits) - 1;}
+		
+		static final long FFFFFFFFFFFFFFFF = ~0L;
+		static final int  OI               = Integer.MAX_VALUE;
+		static final int  IO               = Integer.MIN_VALUE;
 		
 		
 		int used = 0;
@@ -222,7 +229,7 @@ public interface BitList {
 			return (int) (h >> 32 ^ h);
 		}
 		
-		public int length() { return array == null ? 0 : array.length * BITS; }
+		public int length() { return array.length * BITS; }
 		
 		
 		public R clone() {
@@ -237,18 +244,11 @@ public interface BitList {
 			return null;
 		}
 		
-		public boolean equals(Object obj) { return obj != null && getClass() == obj.getClass() && compareTo(getClass().cast(obj)) == 0; }
+		public boolean equals(Object obj) { return obj != null && getClass() == obj.getClass() && ISrc.super.equals(getClass().cast(obj)); }
 		
-		public boolean equals(R other)    { return other != null && compareTo(other) == 0; }
+		public boolean equals(R other)    { return other != null && ISrc.super.equals(other); }
 		
-		public int compareTo(R other) {
-			if (other.last1() != last1()) return other.last1() - last1();
-			
-			for (int i = used(); -1 < --i; )
-				if (array[i] != other.array[i]) return (int) (array[i] - other.array[i]);
-			
-			return 0;
-		}
+		public int compareTo(R other)     {return ISrc.super.equals(other) ? 0 : 1; }
 		
 		//region  ISrc
 		public long read(int index) { return index < used() ? array[index] : 0L; }
@@ -424,6 +424,7 @@ public interface BitList {
 		}
 		
 		
+		public void set(boolean value) {set(size, value);}
 		public void set(int bit, boolean value) {
 			if (value)
 				set1(bit);

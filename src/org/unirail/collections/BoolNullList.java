@@ -5,7 +5,9 @@ public interface BoolNullList {
 	
 	abstract class R extends BitsList.R {
 		
-		protected R(int items) { super(2, 0, items); }
+		protected R(int items) { super(0, 2, items); }
+		
+		public boolean hasValue(int index){ return get(1)!=0;}
 		
 		public Boolean asBoolean(int index) {
 			switch ((int) get(index))
@@ -21,13 +23,11 @@ public interface BoolNullList {
 		public R clone() {return (R) super.clone();}
 	}
 	
-	class RW extends R implements BitsList.IDst {
+	class RW extends R implements BitList.IDst {
 		
 		//region  IDst
+		@Override public void write(int size) {write(this, size);}
 		@Override public void write(int index, long src) { array[index] = src; }
-		
-		@Override public void write(int size, int bits) { write(this, size, bits);}
-		
 		//endregion
 		
 		public RW(int items) { super(items); }

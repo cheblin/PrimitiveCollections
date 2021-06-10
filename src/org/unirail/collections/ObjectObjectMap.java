@@ -230,7 +230,8 @@ public interface ObjectObjectMap {
 			assigned = 0;
 			hasNullKey = false;
 			keys.write(size = (int) Array.nextPowerOf2(size));
-			values.write(size);
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		//endregion
 	
@@ -243,11 +244,7 @@ public interface ObjectObjectMap {
 			if (assigned < 1)
 			{
 				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
-				
 				if (values.length() < size) values.length(-size);
-				else values.clear();
-				
 				return;
 			}
 			

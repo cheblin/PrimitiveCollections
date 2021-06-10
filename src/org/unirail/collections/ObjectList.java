@@ -52,8 +52,8 @@ public interface ObjectList {
 			return true;
 		}
 		
-		
-		public V get(int index) {return array[index]; }
+		public boolean hasValue(int index) {return index < size && array[index] != null;}
+		public V get(int index)            {return array[index]; }
 		
 		
 		public int indexOf(V value) {
@@ -99,7 +99,7 @@ public interface ObjectList {
 			try
 			{
 				R<V> dst = (R<V>) super.clone();
-				dst.array = array.clone();
+				if (dst.array != null) dst.array = array.clone();
 				
 			} catch (CloneNotSupportedException e)
 			{
@@ -124,8 +124,8 @@ public interface ObjectList {
 			array = items.clone();
 			size = items.length;
 		}
-	
-		public V[] array()    {return array;}
+		
+		public V[] array() {return array;}
 		
 		@SuppressWarnings("unchecked")
 		public V[] length(int length) {
@@ -139,15 +139,16 @@ public interface ObjectList {
 		}
 		
 		public void clear() {
-			Arrays.fill(array, null);
+			if (size < 1) return;
+			Arrays.fill(array, 0, size - 1, null);
 			size = 0;
 		}
 		
 		//region  IDst
 		@Override public void write(int size) {
-			this.size = 0;
-			if (array.length < size) length(-this.size);
+			if (array == null || array.length < size) length(-this.size);
 			else clear();
+			this.size = size;
 		}
 		//endregion
 		
@@ -166,17 +167,14 @@ public interface ObjectList {
 			return set(index, value);
 		}
 		
-		public void remove() { remove(size - 1);}
+		public void remove()          { remove(size - 1);}
 		
-		public void remove(int index) {
-			if (size < 1 || size <= index) return;
-			size = Array.resize(this, size, index, -1);
-		}
+		public void remove(int index) {size = Array.resize(this, size, index, -1);}
 		
 		public void remove_fast(int index) {
 			if (size < 1 || size <= index) return;
 			size--;
-			if (index < size) array[index] = array[size];
+			array[index] = array[size];
 			array[size] = null;
 		}
 		
@@ -187,84 +185,44 @@ public interface ObjectList {
 		public final void set(int index, V... values) {
 			int len = values.length;
 			
-			if (size <= index + len)
-			{
-				int    fix = size;
-				Object obj = array;
-				
-				size = Array.resize(this, size, index, len);
-				if (obj == array) Arrays.fill(array, fix, size - 1, null);
-			}
+			if (size <= index + len) size = Array.resize(this, size, size, index + len - size);
 			
 			System.arraycopy(values, 0, array, index, len);
 		}
 		
 		
 		public V set(int index, V value) {
-			if (size <= index)
-			{
-				int    fix = size;
-				Object obj = array;
-				
-				size = Array.resize(this, size, index, 1);
-				if (obj == array) Arrays.fill(array, fix, size - 1, null);
-			}
-			
+			if (size <= index) size = Array.resize(this, size, index, 1);
 			return array[index] = value;
 		}
 		
-		public boolean addAll(ISrc<V> src, int count) {
-			int s = size;
+		public void addAll(ISrc<V> src, int count) {
+			final int s = size;
 			size = Array.resize(this, size, size, count);
 			
-			for (int i = 0, size = src.size(); i < size; i++)
-				array[s++] = src.get(i);
-			
-			return true;
+			for (int i = 0, max = src.size(); i < max; i++)
+				array[s + i] = src.get(i);
 		}
 		
-		public boolean addAll(ISrc<V> src, int index, int count) {
+		public void addAll(ISrc<V> src, int index, int count) {
 			count = Math.min(src.size(), count);
 			size = Array.resize(this, size, index, count);
 			for (int i = 0; i < count; i++) array[index + i] = src.get(i);
-			return true;
 		}
 		
-		public boolean removeAll(ISrc<V> src) {
-			final int s = size;
-			
-			for (int k = 0, src_size = src.size(); k < src_size; k++)
-				for (int i = size - 1; i >= 0; i--) if (array[i] == src.get(k)) size = Array.resize(this, size, i, -1);
-			return size != s;
-		}
+		public void removeAll(ISrc<V> src) {for (int i = 0, max = src.size(), p; i < max; i++) removeAll(src.get(i)); }
 		
-		public int removeAll(V src) {
-			int fix = size;
-			
-			for (int k; -1 < (k = indexOf(src)); ) remove(k);
-			return fix - size;
-		}
+		public void removeAll(V src)       {for (int k; -1 < (k = indexOf(src)); ) remove(k); }
 		
-		public int removeAll_fast(V src) {
-			int fix = size;
-			
-			for (int k; -1 < (k = indexOf(src)); ) remove_fast(k);
-			return fix - size;
-		}
+		public void removeAll_fast(V src)  {for (int k; -1 < (k = indexOf(src)); ) remove_fast(k);}
 		
-		public boolean retainAll(R<V> chk) {
+		public void retainAll(R<V> chk) {
+			for (int i = 0; i < size; i++)
+			{
+				final V val = array[i];
+				if (chk.indexOf(val) == -1) removeAll(val);
+			}
 			
-			final int s = size;
-			
-			for (int i = 0, max = size; i < max; i++)
-				if (chk.indexOf(array[i]) == -1)
-				{
-					final V val = array[i];
-					for (int j = size; j > 0; j--) if (array[j] == val) size = Array.resize(this, size, j, -1);
-					max = size;
-				}
-			
-			return s != size;
 		}
 		
 		

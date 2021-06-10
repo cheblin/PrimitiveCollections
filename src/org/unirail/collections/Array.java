@@ -43,7 +43,7 @@ public interface Array extends Cloneable {
 			return size;
 		}
 		
-		final int new_size = index <= size ? size + resize : index + 1 + resize;
+		final int new_size = Math.max(index, size) + resize;
 		
 		final int length = array.length();
 		

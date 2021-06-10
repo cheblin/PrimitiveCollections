@@ -1,10 +1,8 @@
 package org.unirail.collections;
 
 
-import java.util.Arrays;
-
 public interface UByteObjectMap {
-	interface Writer<V extends Comparable<? super V>> {
+	interface IDst<V extends Comparable<? super V>> {
 		boolean put(char key, V value);
 		
 		boolean put( Character key, V value);
@@ -13,7 +11,7 @@ public interface UByteObjectMap {
 	}
 	
 	
-	interface Reader<V extends Comparable<? super V>> {
+	interface ISrc<V extends Comparable<? super V>> {
 		
 		int size();
 		
@@ -48,7 +46,7 @@ public interface UByteObjectMap {
 		}
 	}
 	
-	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, Reader<V> {
+	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>, ISrc<V> {
 		
 		ByteSet.RW       keys = new ByteSet.RW();
 		ObjectList.RW<V> values;
@@ -121,14 +119,13 @@ public interface UByteObjectMap {
 		public String toString() { return toString(null).toString();}
 	}
 	
-	class RW<V extends Comparable<? super V>> extends R<V> implements Writer<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements IDst<V> {
 		
 		
 		public RW(int length)  { values = new ObjectList.RW<>(265 < length ? 256 : length); }
 		
 		
 		public void clear() {
-			if (keys.size() < 1) return;
 			NullKeyValue = null;
 			values.clear();
 			keys.clear();
@@ -137,8 +134,9 @@ public interface UByteObjectMap {
 		//region  IDst
 		@Override public void write(int size) {
 			NullKeyValue = null;
-			keys.write(size);
-			values.write(size);
+			keys.clear();
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		//endregion
 		

@@ -252,7 +252,8 @@ public interface ObjectDoubleMap {
 			hasNullKey = false;
 			
 			keys.write(size = (int) Array.nextPowerOf2(size));
-			values.write(size);
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		
 		//endregion
@@ -264,10 +265,7 @@ public interface ObjectDoubleMap {
 			if (assigned < 1)
 			{
 				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
-				
 				if (values.length() < size) values.length(-size);
-				else values.clear();
 				return;
 			}
 			

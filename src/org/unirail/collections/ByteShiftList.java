@@ -42,7 +42,7 @@ public interface ByteShiftList {
 		@Override public long shift() { return shift; }
 		protected R(long shift)       {this.shift = shift;}
 		
-		public int length()           { return array == null ? 0 : array.length; }
+		public int length()           { return array.length; }
 		
 		protected int size = 0;
 		
@@ -189,29 +189,18 @@ public interface ByteShiftList {
 		
 		public void remove() { remove(size - 1);}
 		
-		public void remove(int index) {
-			if (size < 1 || size <= index) return;
-			size = Array.resize(this, size, index, -1);
-		}
+		public void remove(int index) {size = Array.resize(this, size, index, -1);}
 		
 		public void remove_fast(int index) {
 			if (size < 1 || size <= index) return;
-			size--;
-			if (index < size) array[index] = array[size];
+			array[index] = array[--size];
 		}
 		
 		
 		public void set(int index, long... values) {
 			int len = values.length;
 			
-			if (size <= index + len)
-			{
-				int    fix = size;
-				Object obj = array;
-				
-				size = Array.resize(this, size, index, len);
-				if (obj == array) Arrays.fill(array, fix, size - 1, (byte) 0);
-			}
+			if (size <= index + len) size = Array.resize(this, size, size, index + len - size);
 			
 			for (int i = 0; i < len; i++)
 				array[index + i] = (byte) (values[i] - shift);
@@ -220,15 +209,7 @@ public interface ByteShiftList {
 		public void set(long value) { set(size, value);}
 		
 		public void set(int index, long value) {
-			if (size <= index)
-			{
-				int    fix = size;
-				Object obj = array;
-				
-				size = Array.resize(this, size, index, 1);
-				if (obj == array) Arrays.fill(array, fix, size - 1, (byte) 0);
-			}
-			
+			if (size <= index) size = Array.resize(this, size, index, 1);
 			array[index] = (byte) (value - shift);
 		}
 		
@@ -236,7 +217,6 @@ public interface ByteShiftList {
 			final byte tmp = array[index1];
 			array[index1] = array[index2];
 			array[index2] = tmp;
-			
 		}
 		
 		public void addAll(ISrc src) { addAll(src, 0); }
@@ -272,8 +252,8 @@ public interface ByteShiftList {
 		
 		public boolean retainAll(R chk) {
 			
-			final int   fix = size;
-			long v;
+			final int fix = size;
+			long      v;
 			for (int index = 0; index < size; index++)
 				if (!chk.contains(v = get(index)))
 					remove(indexOf(v));
@@ -281,14 +261,19 @@ public interface ByteShiftList {
 			return fix != size;
 		}
 		
-		public void clear() { size = 0;}
+		public void clear() {
+			if (size < 1) return;
+			Arrays.fill(array, 0, size - 1, (byte) 0);
+			size = 0;
+		}
 		
 		//region  IDst
 		
 		
 		@Override public void write(long shift, int size) {
 			if (array.length < size) length(-size);
-			this.size = 0;
+			else clear();
+			this.size = size;
 		}
 		
 		//endregion

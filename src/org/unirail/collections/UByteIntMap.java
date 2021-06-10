@@ -18,11 +18,11 @@ public interface UByteIntMap {
 		
 		int read_null_key_val();
 		
-		int read( int info);
+		int read(int info);
 		
-		char read_key( int info);
+		char read_key(int info);
 		
-		int read_val( int info);
+		int read_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -45,12 +45,10 @@ public interface UByteIntMap {
 	}
 	
 	
-	 abstract class R implements Cloneable, Comparable<R>, ISrc {
+	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		
 		ByteSet.RW         keys = new ByteSet.RW();
 		IntList.RW values;
-		
-		
 		
 		
 		@Override public int size()               { return keys.size(); }
@@ -59,7 +57,7 @@ public interface UByteIntMap {
 		
 		public boolean contains( Character key) { return key == null ? keys.contains(null) : keys.contains((byte) (key + 0));}
 		
-		public boolean contains(int key) { return keys.contains((byte) key);}
+		public boolean contains(int key)          { return keys.contains((byte) key);}
 		
 		public int value( Character key) { return key == null ? NullKeyValue : value(key + 0);}
 		
@@ -124,19 +122,18 @@ public interface UByteIntMap {
 	
 	class RW extends R implements IDst {
 		
-		public RW(int length)                   { values = new IntList.RW(265 < length ? 256 : length); }
+		public RW(int length) { values = new IntList.RW(265 < length ? 256 : length); }
 		
 		public void clear() {
-			if (keys.size() < 1) return;
-			
 			keys.clear();
 			values.clear();
 		}
 		
 		//region  IDst
 		@Override public void write(int size) {
-			keys.write(size);
-			values.write(size);
+			keys.clear();
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		
 		//endregion

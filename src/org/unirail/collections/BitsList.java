@@ -8,7 +8,7 @@ public interface BitsList {
 	interface IDst {
 		void write(int index, long src);
 		
-		void write(int size, int bits);
+		void write(long shift, int size, int bits);
 	}
 	
 	interface ISrc {
@@ -26,8 +26,8 @@ public interface BitsList {
 			long shift = shift();
 			int  mask  = (int) mask(bits);
 			
-			if (dst == null) dst = new StringBuilder(size * 2);
-			else dst.ensureCapacity(dst.length() + size * 2);
+			if (dst == null) dst = new StringBuilder(size * 4);
+			else dst.ensureCapacity(dst.length() + size * 4);
 			
 			long src = read(0);
 			for (int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++)
@@ -35,12 +35,20 @@ public interface BitsList {
 				final int bit   = bit(bp);
 				long      value = (BITS < bit + bits ? value(src, src = read(index(bp) + 1), bit, bits, mask) : value(src, bit, mask)) + shift;
 				
-				dst.append((byte) value).append('\t');
+				dst.append(value).append('\t');
 				
 				if (i % 10 == 0) dst.append('\t').append(i / 10 * 10).append('\n');
 			}
 			
 			return dst;
+		}
+		
+		default boolean equals(ISrc other) {
+			int i = size();
+			if (i != other.size() || bits() != other.bits() || shift() != other.shift()) return false;
+			if (i != other.size()) return false;
+			for (i--, i >>>= 6; -1 < i; i--) if (read(i) != other.read(i)) return false;
+			return true;
 		}
 	}
 	
@@ -95,13 +103,13 @@ public interface BitsList {
 		
 		public long shift() { return shift; }
 		
-		protected R(int bits_per_item, long shift) {
+		protected R(long shift, int bits_per_item) {
 			mask = mask(bits_per_item);
 			bits = bits_per_item;
 			this.shift = shift;
 		}
 		
-		protected R(int bits_per_item, long shift, int items) {
+		protected R(long shift, int bits_per_item, int items) {
 			mask = mask(bits_per_item);
 			bits = bits_per_item;
 			this.shift = shift;
@@ -109,17 +117,14 @@ public interface BitsList {
 		}
 		
 		protected void clear() {
-			for (int i = index(bits * size) + 1; -1 < --i; )
-				array[i] = 0;
-			
+			for (int i = index(bits * size) + 1; -1 < --i; ) array[i] = 0;
 			size = 0;
 		}
 		
 		public boolean equals(Object other) {
-			
 			return other != null &&
 			       getClass() == other.getClass() &&
-			       compareTo(getClass().cast(other)) == 0;
+			       ISrc.super.equals(getClass().cast(other));
 		}
 		
 		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
@@ -139,12 +144,9 @@ public interface BitsList {
 			return 0;
 		}
 		
-		public int length() { return array.length * BITS / bits; }
+		public int length()                          { return array.length * BITS / bits; }
 		
-		protected static void write(R dst, int size, int bits) {
-			if (dst.length() < len4bits((dst.size = size) * bits)) R.length(dst, -size * bits);
-			else Arrays.fill(dst.array, 0);
-		}
+		protected static void write(R dst, int size) { if (dst.length() < len4bits((dst.size = size) * dst.bits)) R.length(dst, -size * dst.bits); }
 		
 		protected static void length(R dst, int items) {
 			if (0 < items)
@@ -207,41 +209,33 @@ public interface BitsList {
 			}
 		}
 		
+		protected static void set(R dst, int from, byte... src)  { for (int i = src.length; -1 < --i; ) set(dst, from + i, src[i]);}
 		protected static void set(R dst, int from, char... src)  { for (int i = src.length; -1 < --i; ) set(dst, from + i, src[i]);}
-		
 		protected static void set(R dst, int from, short... src) { for (int i = src.length; -1 < --i; ) set(dst, from + i, src[i]);}
-		
 		protected static void set(R dst, int from, int... src)   { for (int i = src.length; -1 < --i; ) set(dst, from + i, src[i]);}
-		
 		protected static void set(R dst, int from, long... src)  { for (int i = src.length; -1 < --i; ) set(dst, from + i, src[i]);}
 		
 		protected static void set(R dst, int item, long src) {
-			
 			final long v = (src - dst.shift) & dst.mask;
 			final int
 					p = item * dst.bits,
 					index = index(p),
-					bit = bit(p),
-					k = BITS - bit;
-			
+					bit = bit(p);
 			if (dst.size <= item)
 			{
 				if (dst.length() <= item) R.length(dst, Math.max(dst.length() + dst.length() / 2, len4bits(p)));
-				
 				dst.array[index] = index == index(dst.size * dst.bits) ? dst.array[index] & FFFFFFFFFFFFFFFF >> BITS - bit | v << bit : v << bit;
-				
 				dst.size = item + 1;
 				return;
 			}
-			
 			final long i = dst.array[index];
-			
+			final int  k = BITS - 1 - bit;
 			if (k < dst.bits)
 			{
 				dst.array[index] = i << k | v << bit;
 				dst.array[index + 1] = dst.array[index + 1] >>> dst.bits + k << dst.bits + k | v >> k;
 			}
-			else dst.array[index] = i << k >>> k | v << bit | i >>> bit + dst.bits << bit + dst.bits;
+			else dst.array[index] = i >>> bit + dst.bits << bit + dst.bits | v << bit | i << k >>> k;
 		}
 		protected static void add(R dst, long src) {set(dst, dst.size, src);}
 		
@@ -367,27 +361,55 @@ public interface BitsList {
 	
 	class RW extends R implements IDst {
 		
-		public RW(int bits_per_item, long shift)            { super(bits_per_item, shift); }
+		public RW(int bits_per_item)                        { super(0, bits_per_item); }
+		public RW(long shift, int bits_per_item)            { super(shift, bits_per_item); }
 		
-		public RW(int bits_per_item, long shift, int items) { super(bits_per_item, shift, items); }
+		public RW(int bits_per_item, int items)             { super(0, bits_per_item, items); }
+		public RW(int bits_per_item, long shift, int items) { super(shift, bits_per_item, items); }
 		
-		public RW(int bits_per_item, long shift, char... values) {
-			super(bits_per_item, shift, values.length);
+		public RW(int bits_per_item, byte... values) {
+			super(0, bits_per_item, values.length);
+			set(this, 0, values);
+		}
+		public RW(long shift, int bits_per_item, byte... values) {
+			super(shift, bits_per_item, values.length);
 			set(this, 0, values);
 		}
 		
-		public RW(int bits_per_item, long shift, short... values) {
-			super(bits_per_item, shift, values.length);
+		public RW(int bits_per_item, char... values) {
+			super(0, bits_per_item, values.length);
+			set(this, 0, values);
+		}
+		public RW(long shift, int bits_per_item, char... values) {
+			super(shift, bits_per_item, values.length);
 			set(this, 0, values);
 		}
 		
-		public RW(int bits_per_item, long shift, int... values) {
-			super(bits_per_item, shift, values.length);
+		public RW(int bits_per_item, short... values) {
+			super(0, bits_per_item, values.length);
+			set(this, 0, values);
+		}
+		public RW(long shift, int bits_per_item, short... values) {
+			super(shift, bits_per_item, values.length);
 			set(this, 0, values);
 		}
 		
-		public RW(int bits_per_item, long shift, long... values) {
-			super(bits_per_item, shift, values.length);
+		public RW(int bits_per_item, int... values) {
+			super(0, bits_per_item, values.length);
+			set(this, 0, values);
+		}
+		public RW(long shift, int bits_per_item, int... values) {
+			super(shift, bits_per_item, values.length);
+			set(this, 0, values);
+		}
+		
+		public RW(int bits_per_item, long... values) {
+			super(0, bits_per_item, values.length);
+			set(this, 0, values);
+		}
+		
+		public RW(long shift, int bits_per_item, long... values) {
+			super(shift, bits_per_item, values.length);
 			set(this, 0, values);
 		}
 		
@@ -395,7 +417,7 @@ public interface BitsList {
 		//region  IDst
 		@Override public void write(int index, long src) { array[index] = src; }
 		
-		@Override public void write(int size, int bits) { R.write(this, size, bits);}
+		@Override public void write(long shift, int size, int bits) { R.write(this, size);}
 		
 		//endregion
 		

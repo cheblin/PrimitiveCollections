@@ -32,12 +32,9 @@ public interface FloatList {
 	
 	
 	abstract class R implements Comparable<R>, ISrc {
-		
 		float[] array = Array.floats0     ;
 		
-		
-		
-		public int length() { return array == null ? 0 : array.length; }
+		public int length() { return array.length; }
 		
 		int size = 0;
 		
@@ -63,9 +60,7 @@ public interface FloatList {
 			return true;
 		}
 		
-		
 		public float get(int index) {return   array[index]; }
-		
 		
 		public int indexOf( float value) {
 			for (int i = 0; i < size; i++)
@@ -78,7 +73,6 @@ public interface FloatList {
 				if (array[i] == value) return i;
 			return -1;
 		}
-		
 		
 		public boolean equals(Object obj) {
 			
@@ -106,7 +100,6 @@ public interface FloatList {
 		}
 		
 		public R clone() {
-			
 			try
 			{
 				R dst = (R) super.clone();
@@ -123,8 +116,6 @@ public interface FloatList {
 			return null;
 			
 		}
-		
-		
 		public String toString() { return toString(null).toString();}
 	}
 	
@@ -148,7 +139,7 @@ public interface FloatList {
 			System.arraycopy(src.array, fromIndex, array, 0, toIndex - fromIndex);
 		}
 		
-		public float[] array()                 {return array;}
+		public float[] array() {return array;}
 		
 		
 		public float[] length(int length) {
@@ -179,28 +170,21 @@ public interface FloatList {
 		public void remove() { remove(size - 1);}
 		
 		public void remove(int index) {
-			if (size < 1 || size <= index) return;
-			size = Array.resize(this, size, index, -1);
+			if (size < 1 || size < index) return;
+			if (index == size - 1) array[--size] = (float) 0;
+			else size = Array.resize(this, size, index, -1);
 		}
 		
 		public void remove_fast(int index) {
 			if (size < 1 || size <= index) return;
-			size--;
-			if (index < size ) array[index] = array[size];
+			array[index] = array[--size];
 		}
 		
 		
 		public void set(int index, float... values) {
 			int len = values.length;
 			
-			if (size <= index + len)
-			{
-				int    fix = size;
-				Object obj = array;
-				
-				size = Array.resize(this, size, index, len);
-				if (obj == array) Arrays.fill(array, fix, size - 1, (float) 0);
-			}
+			if (size <= index + len) size = Array.resize(this, size, size, index + len - size);
 			
 			for (int i = 0; i < len; i++)
 				array[index + i] = (float) values[i];
@@ -209,15 +193,8 @@ public interface FloatList {
 		public void set(float value) { set(size, value);}
 		
 		public void set(int index, float value) {
-			if (size <= index)
-			{
-				int    fix = size;
-				Object obj = array;
-				
-				size = Array.resize(this, size, index, 1);
-				if (obj == array) Arrays.fill(array, fix, size - 1, (float) 0);
-			}
 			
+			if (size <= index) size = Array.resize(this, size, index, 1);
 			array[index] = (float) value;
 		}
 		
@@ -276,17 +253,23 @@ public interface FloatList {
 			return fix != size;
 		}
 		
-		public void clear() { size = 0;}
+		public void clear() {
+			if (size < 1) return;
+			Arrays.fill(array, 0, size - 1, (float) 0);
+			size = 0;
+		}
 		
 		//region  IDst
 		@Override public void write(int size) {
 			if (array.length < size) length(-size);
-			this.size = 0;
+			else clear();
+			
+			this.size = size;
 		}
 		//endregion
 		
 		
-		public RW clone()   { return (RW) super.clone(); }
+		public RW clone() { return (RW) super.clone(); }
 		
 	}
 }

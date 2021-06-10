@@ -7,7 +7,7 @@ public interface IntShiftNullList {
 		
 		void add(Long value);
 		
-		void write(int size);
+		void write(long shift, int size);
 	}
 	
 	interface ISrc {
@@ -27,9 +27,14 @@ public interface IntShiftNullList {
 			if (dst == null) dst = new StringBuilder(size * 4);
 			else dst.ensureCapacity(dst.length() + size * 64);
 			
-			for (int i = 0, n; i < size; dst.append(get(i)).append('\n'), i++)
-				for (n = nextValueIndex(i); i < n; i++) dst.append("null\n");
-			
+			for (int i = 0, ii; i < size; )
+				if ((ii = nextValueIndex(i)) == i) dst.append(get(i++)).append('\n');
+				else if (ii == -1 || size <= ii)
+				{
+					while (i++ < size) dst.append("null\n");
+					break;
+				}
+				else for (; i < ii; i++) dst.append("null\n");
 			return dst;
 		}
 	}
@@ -40,15 +45,14 @@ public interface IntShiftNullList {
 		BitList.RW              nulls;
 		IntShiftList.RW values;
 		
-		@Override public long shift() { return values.shift; }
+		@Override public long shift()                     { return values.shift; }
 		
-		public int length()           {return values.length();}
+		public int length()                               {return values.length();}
 		
-		protected int size = 0;
 		
-		public int size()                                 { return size; }
+		public int size()                                 { return nulls.size; }
 		
-		public boolean isEmpty()                          { return size < 1; }
+		public boolean isEmpty()                          { return size() < 1; }
 		
 		public boolean hasValue(int index)                {return nulls.get(index);}
 		
@@ -60,7 +64,7 @@ public interface IntShiftNullList {
 		
 		@Positive_OK public int prevNullIndex(int index)  {return nulls.prev0(index);}
 		
-		public long get(@Positive_ONLY int index)         {return  values.array[nulls.rank(index) - 1]; }
+		public long get(@Positive_ONLY int index)         {return values.get(nulls.rank(index) - 1); }
 		
 		
 		public int indexOf()                              { return nulls.next0(0); }
@@ -70,7 +74,6 @@ public interface IntShiftNullList {
 			return i < 0 ? i : nulls.bit(i);
 		}
 		
-		public int lastIndexOf() { return nulls.prev0(size);}
 		
 		public int lastIndexOf(long value) {
 			int i = values.lastIndexOf(value);
@@ -86,7 +89,7 @@ public interface IntShiftNullList {
 		
 		public int hashCode() {
 			int hashCode = 1;
-			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + (hasValue(i) ? 0 : Array.hash(get(i)));
+			for (int i = size(); -1 < --i; i++) hashCode = 31 * hashCode + (hasValue(i) ? 0 : Array.hash(get(i)));
 			
 			return hashCode;
 		}
@@ -96,7 +99,7 @@ public interface IntShiftNullList {
 		
 		public int compareTo(R other) {
 			if (other == null) return -1;
-			if (other.size != size) return other.size - size;
+			if (other.size() != size()) return other.size() - size();
 			
 			int diff;
 			
@@ -122,26 +125,31 @@ public interface IntShiftNullList {
 		public String toString() { return toString(null).toString();}
 		
 		protected static void set(R dst, int index, Long value) {
-			
 			if (value == null)
 			{
-				if (dst.size <= index) dst.size = index + 1;
+				if (dst.size() <= index)
+				{
+					dst.nulls.set0(index);
+					return;
+				}
+				
 				if (!dst.nulls.get(index)) return;
-				dst.nulls.remove(index);
+				
 				dst.values.remove(dst.nulls.rank(index));
+				dst.nulls.remove(index);
 			}
 			else set(dst, index, (long) (value + 0));
 		}
 		
 		protected static void set(R dst, int index, long value) {
-			if (dst.size <= index) dst.size = index + 1;
-			
-			if (dst.nulls.get(index)) dst.values.set(dst.nulls.rank(index) - 1, value);
-			else
+			if (dst.nulls.get(index))
 			{
-				dst.nulls.set1(index);
-				dst.values.add(dst.nulls.rank(index) - 1, value);
+				dst.values.set(dst.nulls.rank(index) - 1, value);
+				return;
 			}
+			
+			dst.nulls.set1(index);
+			dst.values.add(dst.nulls.rank(index) - 1, value);
 		}
 	}
 	
@@ -157,12 +165,11 @@ public interface IntShiftNullList {
 		public RW(long shift, Long... values) {
 			this(shift, values.length);
 			for (Long value : values)
-				if (value == null) size++;
+				if (value == null) nulls.set(false);
 				else
 				{
 					this.values.add(value);
-					nulls.set1(size);
-					size++;
+					nulls.set(true);
 				}
 		}
 		
@@ -170,8 +177,7 @@ public interface IntShiftNullList {
 			this(shift, values.length);
 			for (long value : values) this.values.add(value);
 			
-			size = values.length;
-			nulls.set1(0, size - 1);
+			nulls.set1(0, values.length - 1);
 		}
 		
 		public RW(R src, int fromIndex, int toIndex) {
@@ -197,52 +203,88 @@ public interface IntShiftNullList {
 		public RW clone()    { return (RW) super.clone(); }
 		
 		
-		public void remove() { remove(size - 1); }
+		public void remove() { remove(size() - 1); }
 		
 		public void remove(int index) {
-			if (size < 1 || size <= index) return;
-			
-			size--;
+			if (size() < 1 || size() <= index) return;
 			
 			if (nulls.get(index)) values.remove(nulls.rank(index) - 1);
 			nulls.remove(index);
 		}
 		
+		public void add(Byte value) {
+			if (value == null) nulls.set(false);
+			else add(value);
+		}
+		public void add(Character value) {
+			if (value == null) nulls.set(false);
+			else add(value);
+		}
+		public void add(Short value) {
+			if (value == null) nulls.set(false);
+			else add(value);
+		}
+		public void add(Integer value) {
+			if (value == null) nulls.set(false);
+			else add(value);
+		}
 		public void add(Long value) {
-			if (value == null) size++;
+			if (value == null) nulls.set(false);
 			else add(value);
 		}
 		
 		public void add(long value) {
 			values.add(value);
-			nulls.add(size, true);
-			size++;
+			nulls.set(true);
 		}
 		
 		
+		public void add(int index, Byte value) {
+			if (value == null) nulls.set(false);
+			else add(index, value);
+		}
+		public void add(int index, Character value) {
+			if (value == null) nulls.set(false);
+			else add(index, value);
+		}
+		public void add(int index, Short value) {
+			if (value == null) nulls.set(false);
+			else add(index, value);
+		}
+		public void add(int index, Integer value) {
+			if (value == null) nulls.set(false);
+			else add(index, value);
+		}
 		public void add(int index, Long value) {
-			if (value == null)
-			{
-				nulls.add(index, false);
-				size++;
-			}
+			if (value == null) nulls.set(false);
 			else add(index, value);
 		}
 		
 		public void add(int index, long value) {
-			if (index < size)
+			if (index < size())
 			{
 				nulls.add(index, true);
 				values.add(nulls.rank(index) - 1, value);
-				size++;
 			}
 			else set(index, value);
 		}
 		
-		public void set(Long value)            { set(this, size, value); }
-		
-		public void set(long value)            {set(this, size, value); }
-		
+		public void set(int index, Byte value) {
+			if (value == null) set(this, index, null);
+			else set(this, index, value);
+		}
+		public void set(int index, Character value) {
+			if (value == null) set(this, index, null);
+			else set(this, index, value);
+		}
+		public void set(int index, Short value) {
+			if (value == null) set(this, index, null);
+			else set(this, index, value);
+		}
+		public void set(int index, Integer value) {
+			if (value == null) set(this, index, null);
+			else set(this, index, value);
+		}
 		public void set(int index, Long value) { set(this, index, value); }
 		
 		public void set(int index, long value) {set(this, index, value); }
@@ -252,32 +294,28 @@ public interface IntShiftNullList {
 				set(this, index + i, values[i]);
 		}
 		
-		public void set(int index, Long... values) {
-			for (int i = 0, max = values.length; i < max; i++)
-				set(this, index + i, values[i]);
-		}
+		public void set(int index, Byte... values)      { for (int i = values.length; -1 < --i; ) set(index + i, values[i]); }
+		public void set(int index, Character... values) { for (int i = values.length; -1 < --i; ) set(index + i, values[i]); }
+		public void set(int index, Short... values)     { for (int i = values.length; -1 < --i; ) set(index + i, values[i]); }
+		public void set(int index, Integer... values)   { for (int i = values.length; -1 < --i; ) set(index + i, values[i]); }
+		public void set(int index, Long... values)      { for (int i = values.length; -1 < --i; ) set(index + i, values[i]); }
 		
-		public int addAll(R src) {
-			int fix = size;
+		public void addAll(R src) {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
 				if (src.hasValue(i)) add(src.get(i));
-				else size++;
-			
-			return size - fix;
+				else nulls.set(false);
 		}
 		
 		public void clear() {
 			values.clear();
 			nulls.clear();
-			size = 0;
 		}
 		//region  IDst
-		@Override public void write(int size) {
-			values.write(values.shift, size);
+		@Override public void write(long shift, int size) {
 			nulls.write(size);
-			nulls.clear();//!!!
-			this.size = 0;
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		//endregion
 		public void swap(int index1, int index2) {

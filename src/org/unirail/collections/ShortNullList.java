@@ -23,8 +23,14 @@ public interface ShortNullList {
 			if (dst == null) dst = new StringBuilder(size * 4);
 			else dst.ensureCapacity(dst.length() + size * 64);
 			
-			for (int i = 0, n; i < size; dst.append(get(i)).append('\n'), i++)
-				for (n = nextValueIndex(i); i < n; i++) dst.append("null\n");
+			for (int i = 0, ii; i < size; )
+				if ((ii = nextValueIndex(i)) == i) dst.append(get(i++)).append('\n');
+				else if (ii == -1 || size <= ii)
+				{
+					while (i++ < size) dst.append("null\n");
+					break;
+				}
+				else for (; i < ii; i++) dst.append("null\n");
 			
 			return dst;
 		}
@@ -37,13 +43,12 @@ public interface ShortNullList {
 		ShortList.RW values;
 		
 		
-		public int length() {return values.length();}
+		public int length()                               {return values.length();}
 		
-		int size = 0;
 		
-		public int size()                                 { return size; }
+		public int size()                                 { return nulls.size; }
 		
-		public boolean isEmpty()                          { return size < 1; }
+		public boolean isEmpty()                          { return size() < 1; }
 		
 		public boolean hasValue(int index)                {return nulls.get(index);}
 		
@@ -55,7 +60,7 @@ public interface ShortNullList {
 		
 		@Positive_OK public int prevNullIndex(int index)  {return nulls.prev0(index);}
 		
-		public short get(@Positive_ONLY int index) {return (short) values.array[nulls.rank(index) - 1]; }
+		public short get(@Positive_ONLY int index) {return (short) values.get(nulls.rank(index) - 1); }
 		
 		
 		public int indexOf()                              { return nulls.next0(0); }
@@ -65,7 +70,6 @@ public interface ShortNullList {
 			return i < 0 ? i : nulls.bit(i);
 		}
 		
-		public int lastIndexOf() { return nulls.prev0(size);}
 		
 		public int lastIndexOf(short value) {
 			int i = values.lastIndexOf(value);
@@ -81,7 +85,7 @@ public interface ShortNullList {
 		
 		public int hashCode() {
 			int hashCode = 1;
-			for (int i = 0; i < size; i++) hashCode = 31 * hashCode + (hasValue(i) ? 0 : Array.hash(get(i)));
+			for (int i = size(); -1 < --i; i++) hashCode = 31 * hashCode + (hasValue(i) ? 0 : Array.hash(get(i)));
 			
 			return hashCode;
 		}
@@ -91,7 +95,7 @@ public interface ShortNullList {
 		
 		public int compareTo(R other) {
 			if (other == null) return -1;
-			if (other.size != size) return other.size - size;
+			if (other.size() != size()) return other.size() - size();
 			
 			int diff;
 			
@@ -120,23 +124,29 @@ public interface ShortNullList {
 			
 			if (value == null)
 			{
-				if (dst.size <= index) dst.size = index + 1;
+				if (dst.size() <= index)
+				{
+					dst.nulls.set0(index);
+					return;
+				}
+				
 				if (!dst.nulls.get(index)) return;
-				dst.nulls.remove(index);
+				
 				dst.values.remove(dst.nulls.rank(index));
+				dst.nulls.remove(index);
 			}
 			else set(dst, index, (short) (value + 0));
 		}
 		
 		protected static void set(R dst, int index, short value) {
-			if (dst.size <= index) dst.size = index + 1;
-			
-			if (dst.nulls.get(index)) dst.values.set(dst.nulls.rank(index) - 1, value);
-			else
+			if (dst.nulls.get(index))
 			{
-				dst.nulls.set1(index);
-				dst.values.add(dst.nulls.rank(index) - 1, value);
+				dst.values.set(dst.nulls.rank(index) - 1, value);
+				return;
 			}
+			
+			dst.nulls.set1(index);
+			dst.values.add(dst.nulls.rank(index) - 1, value);
 		}
 	}
 	
@@ -151,12 +161,11 @@ public interface ShortNullList {
 		public RW( Short    ... values) {
 			this(values.length);
 			for ( Short     value : values)
-				if (value == null) size++;
+				if (value == null) nulls.set(false);
 				else
 				{
 					this.values.add((short) (value + 0));
-					nulls.set1(size);
-					size++;
+					nulls.set(true);
 				}
 		}
 		
@@ -164,8 +173,7 @@ public interface ShortNullList {
 			this(values.length);
 			for (short value : values) this.values.add((short) value);
 			
-			size = values.length;
-			nulls.set1(0, size - 1);
+			nulls.set1(0, values.length - 1);
 		}
 		
 		public RW(R src, int fromIndex, int toIndex) {
@@ -190,53 +198,43 @@ public interface ShortNullList {
 		public RW clone()    { return (RW) super.clone(); }
 		
 		
-		public void remove() { remove(size - 1); }
+		public void remove() { remove(size() - 1); }
 		
 		public void remove(int index) {
-			if (size < 1 || size <= index) return;
-			
-			size--;
+			if (size() < 1 || size() <= index) return;
 			
 			if (nulls.get(index)) values.remove(nulls.rank(index) - 1);
 			nulls.remove(index);
 		}
 		
 		public void add( Short     value) {
-			if (value == null) size++;
+			if (value == null) nulls.set(false);
 			else add((short) (value + 0));
 		}
 		
 		public void add(short value) {
 			values.add(value);
-			nulls.add(size, true);
-			size++;
+			nulls.set( true);
 		}
 		
 		
-	
-		
 		public void add(int index,  Short     value) {
-			if (value == null)
-			{
-				nulls.add(index, false);
-				size++;
-			}
+			if (value == null)nulls.set( false);
 			else add(index, (short) (value + 0));
 		}
 		
 		public void add(int index, short value) {
-			if (index < size)
+			if (index < size())
 			{
 				nulls.add(index, true);
 				values.add(nulls.rank(index) - 1, value);
-				size++;
 			}
 			else set(index, value);
 		}
 		
-		public void set( Short     value)            { set(this, size, value); }
+		public void set( Short     value)            { set(this, size(), value); }
 		
-		public void set(short value)                {set(this, size, value); }
+		public void set(short value)                {set(this, size(), value); }
 		
 		public void set(int index,  Short     value) { set(this, index, value); }
 		
@@ -252,27 +250,22 @@ public interface ShortNullList {
 				set(this, index + i, values[i]);
 		}
 		
-		public int addAll(R src) {
-			int fix = size;
+		public void addAll(R src) {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
 				if (src.hasValue(i)) add(src.get(i));
-				else size++;
-			
-			return size - fix;
+				else nulls.set(false);
 		}
 		
 		public void clear() {
 			values.clear();
 			nulls.clear();
-			size = 0;
 		}
 		//region  IDst
 		@Override public void write(int size) {
-			values.write(size);
 			nulls.write(size);
-			nulls.clear();//!!!
-			this.size = 0;
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		//endregion
 		public void swap(int index1, int index2) {

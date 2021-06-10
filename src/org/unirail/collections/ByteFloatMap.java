@@ -18,11 +18,11 @@ public interface ByteFloatMap {
 		
 		float read_null_key_val();
 		
-		int read( int info);
+		int read(int info);
 		
-		byte read_key( int info);
+		byte read_key(int info);
 		
-		float read_val( int info);
+		float read_val(int info);
 		
 		default StringBuilder toString(StringBuilder dst) {
 			int size = size();
@@ -45,12 +45,10 @@ public interface ByteFloatMap {
 	}
 	
 	
-	 abstract class R implements Cloneable, Comparable<R>, ISrc {
+	abstract class R implements Cloneable, Comparable<R>, ISrc {
 		
 		ByteSet.RW         keys = new ByteSet.RW();
 		FloatList.RW values;
-		
-		
 		
 		
 		@Override public int size()               { return keys.size(); }
@@ -59,7 +57,7 @@ public interface ByteFloatMap {
 		
 		public boolean contains( Byte      key) { return key == null ? keys.contains(null) : keys.contains((byte) (key + 0));}
 		
-		public boolean contains(int key) { return keys.contains((byte) key);}
+		public boolean contains(int key)          { return keys.contains((byte) key);}
 		
 		public float value( Byte      key) { return key == null ? NullKeyValue : value(key + 0);}
 		
@@ -124,19 +122,18 @@ public interface ByteFloatMap {
 	
 	class RW extends R implements IDst {
 		
-		public RW(int length)                   { values = new FloatList.RW(265 < length ? 256 : length); }
+		public RW(int length) { values = new FloatList.RW(265 < length ? 256 : length); }
 		
 		public void clear() {
-			if (keys.size() < 1) return;
-			
 			keys.clear();
 			values.clear();
 		}
 		
 		//region  IDst
 		@Override public void write(int size) {
-			keys.write(size);
-			values.write(size);
+			keys.clear();
+			if (values.length() < size) values.length(-size);
+			else values.clear();
 		}
 		
 		//endregion

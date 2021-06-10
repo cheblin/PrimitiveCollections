@@ -376,13 +376,8 @@ public interface LongULongNullMap {
 				mask = size - 1;
 				
 				if (keys.length() < size) keys.length(-size);
-				else keys.clear();
-				
 				if (values.nulls.length() < size) values.nulls.length(-size);
-				else values.nulls.clear();
-				
 				if (values.values.length() < size) values.values.length(-size);
-				else values.values.clear();
 				
 				return;
 			}
