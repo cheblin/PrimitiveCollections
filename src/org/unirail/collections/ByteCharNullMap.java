@@ -3,103 +3,69 @@ package org.unirail.collections;
 
 public interface ByteCharNullMap {
 	
-	interface IDst {
-		boolean put(byte key, char value);
-		
-		boolean put(byte key,  Character value);
-		
-		boolean put( Byte      key,  Character value);
-		
-		boolean put( Byte      key, char value);
-		
-		void write(int size);
-	}
 	
-	interface ISrc {
-		int size();
+	interface Iterator {
 		
-		boolean read_has_null_key();
+		int token = -1;
 		
-		char read_null_key_val();
-		
-		@Positive_YES int read_has_val(int info);
-		
-		byte read_key(int info);
-		
-		char read_val(@Positive_ONLY int info);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		static int token( R src, int token ) {
+			int key  = ByteSet.Iterator.token( src.keys, token );
+			int item = token >> 8 & 0xFF;
 			
-			if (read_has_null_key())
-			{
-				dst.append("null -> ").append(read_null_key_val()).append('\n');
-				size--;
-			}
-			
-			for (int p = -1, i = 0; i < size; i++, dst.append('\n'))
-			{
-				dst.append(read_key(p = read_has_val(p))).append(" -> ");
-				
-				if (p < 0) dst.append("null");
-				else dst.append(read_val(p));
-			}
-			
-			return dst;
+			return (src.values.hasValue( key ) ? Integer.MIN_VALUE | item << 8 : (item + 1 & 0xFF) << 8) | key;
 		}
+		
+		static byte key( int token ) {return (byte) (token & 0xFF);}
+		
+		static char value( R src, int token ) {return  src.values.get( token >> 8 );}
 	}
 	
-	abstract class R implements Cloneable, Comparable<R>, ISrc {
+	abstract class R implements Cloneable, Comparable<R> {
 		
 		ByteSet.RW             keys = new ByteSet.RW();
 		CharNullList.RW values;
 		
 		
-		@Override public int size()                        { return keys.size(); }
+		public int size()                                     {return keys.size();}
 		
-		public boolean isEmpty()                           { return keys.isEmpty();}
-		
-		
-		public @Positive_Values int info( Byte      key) {return key == null ? hasNullKey : info((byte) (key + 0));}
-		
-		public @Positive_Values int info(byte key) {
-			
-			return keys.contains((byte) key) ? values.hasValue(key) ? key : Positive_Values.NULL : Positive_Values.NONE;
-		}
-		
-		public boolean hasValue(int info) {return -1 < info;}
-		
-		public boolean hasNone(int info)  {return info == Positive_Values.NONE;}
-		
-		public boolean hasNull(int info)  {return info == Positive_Values.NULL;}
+		public boolean isEmpty()                              {return keys.isEmpty();}
 		
 		
-		public char value(@Positive_ONLY int info) {
-			if (info == Positive_Values.VALUE) return nullKeyValue;
-			return    values.get(keys.rank((byte) info));
+		public @Positive_Values int token(  Byte      key ) {return key == null ? hasNullKey : token( (byte) (key + 0) );}
+		
+		public @Positive_Values int token( byte key )  {return keys.contains( (byte) key ) ? values.hasValue( key ) ? key : Positive_Values.NULL : Positive_Values.NONE;}
+		
+		public boolean hasValue( int token )                  {return -1 < token;}
+		
+		public boolean hasNone( int token )                   {return token == Positive_Values.NONE;}
+		
+		public boolean hasNull( int token )                   {return token == Positive_Values.NULL;}
+		
+		
+		public char value( @Positive_ONLY int token ) {
+			if (token == Positive_Values.VALUE) return nullKeyValue;
+			return    values.get( keys.rank( (byte) token ) );
 		}
 		
 		
 		@Positive_Values int hasNullKey = Positive_Values.NONE;
 		char nullKeyValue = 0;
 		
-		public boolean equals(Object obj) {
+		public boolean equals( Object obj ) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo(getClass().cast(obj)) == 0;
+			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
+		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
 		
-		@Override public int compareTo(R other) {
+		@Override public int compareTo( R other ) {
 			if (other == null) return -1;
 			
 			int diff;
 			if (hasNullKey != other.nullKeyValue || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue) return 1;
-			if ((diff = other.keys.compareTo(keys)) != 0 || (diff = other.values.compareTo(values)) != 0 || (diff = other.values.compareTo(values)) != 0) return diff;
+			if ((diff = other.keys.compareTo( keys )) != 0 || (diff = other.values.compareTo( values )) != 0 || (diff = other.values.compareTo( values )) != 0) return diff;
 			
 			return 0;
 		}
@@ -109,7 +75,7 @@ public interface ByteCharNullMap {
 			try
 			{
 				R dst = (R) super.clone();
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -121,30 +87,35 @@ public interface ByteCharNullMap {
 		}
 		
 		
-		//region  ISrc
-		@Override public char read_null_key_val() { return nullKeyValue; }
-		
-		@Override public boolean read_has_null_key() { return keys.hasNullKey; }
-		
-		
-		@Override public @Positive_YES int read_has_val(int info) {
-			int key  = keys.read(info);
-			int item = info >> 8 & 0xFF;
-			
-			return (values.hasValue(key) ? Integer.MIN_VALUE | item << 8 : (item + 1 & 0xFF) << 8) | key;
-		}
-		
-		@Override public byte read_key(int info) {return (byte) (info & 0xFF);}
-		
-		@Override public char read_val(@Positive_ONLY int info) { return  values.get(info >> 8); }
-		
 		//endregion
-		public String toString() { return toString(null).toString();}
+		public String toString() {return toString( null ).toString();}
+		
+		StringBuilder toString( StringBuilder dst ) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder( size * 10 );
+			else dst.ensureCapacity( dst.length() + size * 10 );
+			
+			if (keys.hasNullKey)
+			{
+				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
+				size--;
+			}
+			
+			for (int token = Iterator.token, i = 0; i < size; i++, dst.append( '\n' ))
+			{
+				dst.append( Iterator.key( token = Iterator.token( this, token ) ) ).append( " -> " );
+				
+				if (token < 0) dst.append( "null" );
+				else dst.append( Iterator.value( this, token ) );
+			}
+			
+			return dst;
+		}
 	}
 	
-	class RW extends R implements IDst {
+	class RW extends R {
 		
-		public RW(int length) { values = new CharNullList.RW(265 < length ? 256 : length); }
+		public RW( int length ) {values = new CharNullList.RW( 265 < length ? 256 : length );}
 		
 		
 		public void clear() {
@@ -152,27 +123,18 @@ public interface ByteCharNullMap {
 			values.clear();
 		}
 		
-		//region  IDst
-		@Override public void write(int size) {
-			keys.clear();
-			if (values.length() < size) values.length(-size);
-			else values.clear();
-		}
 		
-		//endregion
-		
-		
-		@Override public boolean put( Byte      key, char value) {
-			if (key != null) return put((byte) (key + 0), value);
+		public boolean put(  Byte      key, char value ) {
+			if (key != null) return put( (byte) (key + 0), value );
 			
 			int h = hasNullKey;
-			hasNullKey = Positive_Values.VALUE;
+			hasNullKey   = Positive_Values.VALUE;
 			nullKeyValue = value;
 			return h != Positive_Values.VALUE;
 		}
 		
-		public boolean put( Byte      key,  Character value) {
-			if (key != null) return put((byte) (key + 0), value);
+		public boolean put(  Byte      key,  Character value ) {
+			if (key != null) return put( (byte) (key + 0), value );
 			
 			int h = hasNullKey;
 			
@@ -182,53 +144,53 @@ public interface ByteCharNullMap {
 				return h == Positive_Values.NULL;
 			}
 			
-			hasNullKey = Positive_Values.VALUE;
+			hasNullKey   = Positive_Values.VALUE;
 			nullKeyValue = value;
 			return h == Positive_Values.VALUE;
 		}
 		
 		
-		public boolean put(byte key,  Character value) {
-			if (value != null) return put(key, (char) value);
+		public boolean put( byte key,  Character value ) {
+			if (value != null) return put( key, (char) value );
 			
 			
-			if (keys.add((byte) key))
+			if (keys.add( (byte) key ))
 			{
-				values.add(keys.rank((byte) key) - 1, ( Character) null);
+				values.add( keys.rank( (byte) key ) - 1, ( Character) null );
 				return true;
 			}
-			values.set(keys.rank((byte) key) - 1, ( Character) null);
+			values.set( keys.rank( (byte) key ) - 1, ( Character) null );
 			
 			return false;
 		}
 		
-		@Override public boolean put(byte key, char value) {
+		public boolean put( byte key, char value ) {
 			
-			if (keys.add((byte) key))
+			if (keys.add( (byte) key ))
 			{
-				values.add(keys.rank((byte) key) - 1, value);
+				values.add( keys.rank( (byte) key ) - 1, value );
 				return true;
 			}
 			
-			values.set(keys.rank((byte) key) - 1, value);
+			values.set( keys.rank( (byte) key ) - 1, value );
 			return false;
 		}
 		
-		public boolean remove( Byte       key) {
+		public boolean remove(  Byte       key ) {
 			return key == null ?
 			       hasNullKey != Positive_Values.NONE && (hasNullKey = Positive_Values.NONE) == Positive_Values.NONE :
-			       remove((byte) (key + 0));
+			       remove( (byte) (key + 0) );
 		}
 		
-		public boolean remove(byte key) {
+		public boolean remove( byte key ) {
 			final byte k = (byte) key;
-			if (!keys.contains(k)) return false;
+			if (!keys.contains( k )) return false;
 			
-			values.remove(keys.rank(k) - 1);
-			keys.remove(k);
+			values.remove( keys.rank( k ) - 1 );
+			keys.remove( k );
 			return true;
 		}
 		
-		@Override public RW clone() { return (RW) super.clone(); }
+		@Override public RW clone() {return (RW) super.clone();}
 	}
 }

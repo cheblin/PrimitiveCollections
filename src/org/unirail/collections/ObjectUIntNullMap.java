@@ -1,62 +1,20 @@
 package org.unirail.collections;
 
 
-import java.util.Arrays;
-
 public interface ObjectUIntNullMap {
-	interface IDst<K extends Comparable<? super K>> {
-		boolean put(K key, long value);
-		
-		boolean put(K key,  Long      value);
-		
-		void write(int size);
-	}
-	
-	
-	interface ISrc<K extends Comparable<? super K>> {
-		
-		int size();
-		
-		@Positive_Values int read_has_null_key();
-		
-		long read_null_key_val();
-		
-		@Positive_YES int read_has_val(int info);
-		
-		K read_key(int info);
-		
-		long  read_val(int info);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			
-			switch (read_has_null_key())
-			{
-				case Positive_Values.NULL:
-					dst.append("null -> null\n");
-					size--;
-					break;
-				case Positive_Values.VALUE:
-					dst.append("null -> ").append(read_null_key_val()).append('\n');
-					size--;
-			}
-			
-			for (int p = -1, i = 0; i < size; dst.append('\n'), i++)
-			{
-				dst.append(read_key(p = read_has_val(p))).append(" -> ");
-				
-				if (p < 0) dst.append("null");
-				else dst.append(read_val(p));
-			}
-			
-			return dst;
+	interface Iterator{
+		int token=-1;
+		@Positive_YES static <K extends Comparable<? super K>> int token( R<K> src, int token ) {
+			for (token++, token &= Integer.MAX_VALUE; src.keys.array[token] == null; token++) ;
+			return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
 		}
+		
+		static <K extends Comparable<? super K>> K key( R<K> src, int token ) {return src.keys.array[token & Integer.MAX_VALUE]; }
+		
+		static <K extends Comparable<? super K>> long value( R<K> src, @Positive_ONLY int token ) {return src.values.get(token); }
 	}
 	
-	
-	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, ISrc<K> {
+	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
 		
 		
 		ObjectList.RW<K>       keys   = new ObjectList.RW<>(0);
@@ -73,16 +31,16 @@ public interface ObjectUIntNullMap {
 		public boolean isEmpty() { return size() == 0; }
 		
 		public int hashCode() {
-			int h = hasNullKey == Positive_Values.VALUE ? 0xDEADBEEF : 0;
+			long h = hasNullKey == Positive_Values.VALUE ? 137 : 131;
 			K   k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((k = keys.array[i]) != null)
-					h += Array.hash(k) + Array.hash(values.hashCode());
-			return h;
+					h = h ^ Array.hash(k) + Array.hash(h ^ values.hashCode());
+			return (int) h;
 		}
 		
 		
-		public @Positive_Values int info(K key) {
+		public @Positive_Values int token(K key) {
 			
 			if (key == null) return hasNullKey;
 			
@@ -94,13 +52,13 @@ public interface ObjectUIntNullMap {
 			return Positive_Values.NONE;
 		}
 		
-		public boolean hasValue(int info) {return -1 < info;}
+		public boolean hasValue(int token) {return -1 < token;}
 		
-		public boolean hasNone(int info)  {return info == Positive_Values.NONE;}
+		public boolean hasNone(int token)  {return token == Positive_Values.NONE;}
 		
-		public boolean hasNull(int info)  {return info == Positive_Values.NULL;}
+		public boolean hasNull(int token)  {return token == Positive_Values.NULL;}
 		
-		public long value(@Positive_ONLY int contains) { return contains == Positive_Values.VALUE ? NullKeyValue : values.get(contains); }
+		public long value(@Positive_ONLY int token) { return token == Positive_Values.VALUE ? NullKeyValue : values.get(token); }
 		
 		
 		@SuppressWarnings("unchecked")
@@ -125,10 +83,10 @@ public interface ObjectUIntNullMap {
 				if ((key = keys.array[i]) != null)
 					if (values.nulls.get(i))
 					{
-						int tag = other.info(key);
+						int tag = other.token(key);
 						if (tag == -1 || values.get(i) != other.value(tag)) return 1;
 					}
-					else if (-1 < other.info(key)) return 1;
+					else if (-1 < other.token(key)) return 1;
 			
 			return 0;
 		}
@@ -153,29 +111,39 @@ public interface ObjectUIntNullMap {
 		protected @Positive_Values int         hasNullKey;
 		protected                  long NullKeyValue = 0;
 		
-		
-		//region  ISrc
-		
-		@Override public int read_has_null_key() { return hasNullKey; }
-		
-		@Override public long read_null_key_val() { return NullKeyValue; }
-		
-		
-		@Override public @Positive_YES int read_has_val(int info) {
-			for (info++, info &= Integer.MAX_VALUE; keys.array[info] == null; info++) ;
-			return values.hasValue(info) ? info : info | Integer.MIN_VALUE;
-		}
-		
-		@Override public K read_key(int info) {return keys.array[info & Integer.MAX_VALUE]; }
-		
-		@Override public long read_val(@Positive_ONLY int info) {return values.get(info); }
-		
-		//endregion
+	
 		
 		public String toString() { return toString(null).toString();}
+		
+		public StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
+			
+			switch (hasNullKey)
+			{
+				case Positive_Values.NULL:
+					dst.append("null -> null\n");
+					size--;
+					break;
+				case Positive_Values.VALUE:
+					dst.append("null -> ").append( NullKeyValue ).append('\n');
+					size--;
+			}
+			
+			for (int token = Iterator.token, i = 0; i < size; dst.append('\n'), i++)
+			{
+				dst.append( Iterator.key( this, token = Iterator.token( this, token))).append(" -> ");
+				
+				if (token < 0) dst.append("null");
+				else dst.append( Iterator.value( this, token));
+			}
+			
+			return dst;
+		}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> implements IDst<K> {
+	class RW<K extends Comparable<? super K>> extends R<K>  {
 		
 		public RW(double loadFactor) {this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);}
 		
@@ -198,7 +166,7 @@ public interface ObjectUIntNullMap {
 		
 		
 		
-		@Override public boolean put(K key,  Long      value) {
+		public boolean put(K key,  Long      value) {
 			if (value != null) put(key, (long) value);
 			
 			if (key == null)
@@ -225,7 +193,7 @@ public interface ObjectUIntNullMap {
 			return true;
 		}
 		
-		@Override public boolean put(K key, long value) {
+		 public boolean put(K key, long value) {
 			
 			if (key == null)
 			{
@@ -260,15 +228,6 @@ public interface ObjectUIntNullMap {
 			values.clear();
 		}
 		
-		//region  IDst
-		@Override public void write(int size) {
-			assigned = 0;
-			hasNullKey = Positive_Values.NONE;
-			keys.write(size = (int) Array.nextPowerOf2(size));
-			if (values.length() < size) values.length(-size);
-			else values.clear();
-		}
-		//endregion
 	
 		
 		protected void allocate(int size) {

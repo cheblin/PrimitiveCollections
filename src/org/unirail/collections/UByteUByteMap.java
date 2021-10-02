@@ -3,55 +3,28 @@ package org.unirail.collections;
 
 public interface UByteUByteMap {
 	
-	interface IDst {
-		boolean put(char key, char value);
-		
-		boolean put( Character key, char value);
-		
-		void write(int size);
-	}
 	
-	interface ISrc {
-		int size();
+	interface Iterator {
+		int token = -1;
 		
-		boolean read_has_null_key();
-		
-		char read_null_key_val();
-		
-		int read(int info);
-		
-		char read_key(int info);
-		
-		char read_val(int info);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			
-			if (read_has_null_key())
-			{
-				dst.append("null -> ").append(read_null_key_val()).append('\n');
-				size--;
-			}
-			
-			for (int p = -1, i = 0; i < size; i++)
-				dst.append(read_key(p = read(p)))
-						.append(" -> ")
-						.append(read_val(p))
-						.append('\n');
-			return dst;
+		static int token( R src, int token ) {
+			int i = (token & ~0xFF) + (1 << 8);
+			return i | ByteSet.Iterator.token( src.keys, token );
 		}
+		
+		static char key( int token ) {return (char) (token & 0xFF);}
+		
+		static char value( R src, int token ) {return (char)( 0xFFFF &  src.values.array[token >> 8]);}
 	}
 	
 	
-	abstract class R implements Cloneable, Comparable<R>, ISrc {
+	abstract class R implements Cloneable, Comparable<R> {
 		
 		ByteSet.RW         keys = new ByteSet.RW();
 		UByteList.RW values;
 		
 		
-		@Override public int size()               { return keys.size(); }
+		public int size()               { return keys.size(); }
 		
 		public boolean isEmpty()                  { return keys.isEmpty();}
 		
@@ -85,7 +58,6 @@ public interface UByteUByteMap {
 		}
 		
 		@Override public R clone() {
-			
 			try
 			{
 				R dst = (R) super.clone();
@@ -101,26 +73,32 @@ public interface UByteUByteMap {
 		}
 		
 		
-		//region  ISrc
-		
-		@Override public int read(int info) {
-			int i = (info & ~0xFF) + (1 << 8);
-			return i | keys.read(info);
-		}
-		
-		@Override public boolean read_has_null_key() { return keys.hasNullKey; }
-		
-		@Override public char read_null_key_val() { return NullKeyValue; }
-		
-		@Override public char read_key(int info) {return (char) (info & 0xFF);}
-		
-		@Override public char read_val(int info) { return (char)( 0xFFFF &  values.array[info >> 8]); }
+	
 		
 		//endregion
-		public String toString() { return toString(null).toString();}
+		public String toString() {return toString( null ).toString();}
+		
+		StringBuilder toString( StringBuilder dst ) {
+			int size = keys.size();
+			if (dst == null) dst = new StringBuilder( size * 10 );
+			else dst.ensureCapacity( dst.length() + size * 10 );
+			
+			if (keys.hasNullKey)
+			{
+				dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
+				size--;
+			}
+			
+			for (int token = Iterator.token, i = 0; i < size; i++)
+			     dst.append( Iterator.key( token = Iterator.token( this, token ) ) )
+					     .append( " -> " )
+					     .append( Iterator.value( this, token ) )
+					     .append( '\n' );
+			return dst;
+		}
 	}
 	
-	class RW extends R implements IDst {
+	class RW extends R {
 		
 		public RW(int length) { values = new UByteList.RW(265 < length ? 256 : length); }
 		
@@ -129,17 +107,8 @@ public interface UByteUByteMap {
 			values.clear();
 		}
 		
-		//region  IDst
-		@Override public void write(int size) {
-			keys.clear();
-			if (values.length() < size) values.length(-size);
-			else values.clear();
-		}
 		
-		//endregion
-		
-		
-		@Override public boolean put( Character key, char value) {
+		public boolean put( Character key, char value) {
 			if (key == null)
 			{
 				NullKeyValue = value;
@@ -151,7 +120,7 @@ public interface UByteUByteMap {
 			return put((char) (key + 0), value);
 		}
 		
-		@Override public boolean put(char key, char value) {
+		public boolean put(char key, char value) {
 			boolean ret = keys.add((byte) key);
 			values.array[keys.rank((byte) key) - 1] = (byte) value;
 			return ret;

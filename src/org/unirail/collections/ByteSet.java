@@ -2,45 +2,44 @@ package org.unirail.collections;
 
 public interface ByteSet {
 	
-	interface IDst {
+	interface Iterator {
 		
-		default boolean add(int value) { return add((byte) (value & 0xFF)); }
+		int token = -1;
 		
-		boolean add(byte key);
+		static byte key( int token ) {return (byte) (token & 0xFF);}
 		
-		boolean add( Byte      key);
-		
-		void write(int size);
-	}
-	
-	interface ISrc {
-		boolean read_has_null_key();
-		
-		int size();
-		
-		int read(int info);
-		
-		byte  read_key(int info);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			
-			if (read_has_null_key())
+		static int token( R src, int token ) {
+			token++;
+			token &= 0xFF;
+			long l;
+			if (token < 128)
 			{
-				dst.append("null\n");
-				size--;
+				if (token < 64)
+				{
+					if ((l = src._1 >>> token) != 0) return (token + Long.numberOfTrailingZeros( l ));
+					token = 0;
+				}
+				else token -= 64;
+				
+				if ((l = src._2 >>> token) != 0) return ((token + Long.numberOfTrailingZeros( l ) + 64));
+				token = 128;
 			}
 			
-			for (int p = -1, i = 0; i < size; i++)
-				dst.append(read_key(p = read(p))).append('\n');
+			if (token < 192)
+			{
+				if ((l = src._3 >>> (token - 128)) != 0) return ((token + Long.numberOfTrailingZeros( l ) + 128));
+				
+				token = 0;
+			}
+			else token -= 192;
 			
-			return dst;
+			if ((l = src._4 >>> token) != 0) return ((token + Long.numberOfTrailingZeros( l ) + 192));
+			
+			return -1;
 		}
 	}
 	
-	abstract class R implements Cloneable, Comparable<R>, ISrc {
+	abstract class R implements Cloneable, Comparable<R> {
 		long
 				_1,
 				_2,
@@ -51,7 +50,7 @@ public interface ByteSet {
 		
 		protected boolean hasNullKey;
 		
-		protected boolean add(final byte value) {
+		protected boolean add( final byte value ) {
 			
 			final int val = value & 0xFF;
 			
@@ -72,13 +71,13 @@ public interface ByteSet {
 		}
 		
 		
-		public int size()                         { return hasNullKey ? size + 1 : size; }
+		public int size()                           {return hasNullKey ? size + 1 : size;}
 		
-		public boolean isEmpty()                  { return size < 1; }
+		public boolean isEmpty()                    {return size < 1;}
 		
-		public boolean contains( Byte      key) { return key == null ? hasNullKey : contains((byte) (key + 0)); }
+		public boolean contains(  Byte      key ) {return key == null ? hasNullKey : contains( (byte) (key + 0) );}
 		
-		public boolean contains(int key) {
+		public boolean contains( int key ) {
 			if (size() == 0) return false;
 			
 			final int val = key & 0xFF;
@@ -93,7 +92,7 @@ public interface ByteSet {
 		
 		//Rank returns the number of integers that are smaller or equal to x
 		//return inversed value if key does not exists
-		protected int rank(byte key) {
+		protected int rank( byte key ) {
 			final int val = key & 0xFF;
 			
 			int  ret  = 0;
@@ -102,22 +101,22 @@ public interface ByteSet {
 a:
 			{
 				if (val < 64) break a;
-				if (l != 0) ret += Long.bitCount(l);
+				if (l != 0) ret += Long.bitCount( l );
 				base = 64;
-				l = _2;
+				l    = _2;
 				if (val < 128) break a;
-				if (l != 0) ret += Long.bitCount(l);
+				if (l != 0) ret += Long.bitCount( l );
 				base = 128;
-				l = _3;
+				l    = _3;
 				if (val < 192) break a;
-				if (l != 0) ret += Long.bitCount(l);
+				if (l != 0) ret += Long.bitCount( l );
 				base = 192;
-				l = _4;
+				l    = _4;
 			}
 			
 			while (l != 0)
 			{
-				final int s = Long.numberOfTrailingZeros(l);
+				final int s = Long.numberOfTrailingZeros( l );
 				
 				if ((base += s) == val) return ret + 1;
 				if (val < base) return ~ret;
@@ -129,7 +128,7 @@ a:
 			return ~ret;
 		}
 		
-		public boolean containsAll(R ask) {
+		public boolean containsAll( R ask ) {
 			
 			if (hasNullKey != ask.hasNullKey) return false;
 			
@@ -137,38 +136,31 @@ a:
 			long l;
 			
 			for (i = 0, l = _1; l != 0; l >>>= ++i)
-				if (!ask.contains((byte) (i += Long.numberOfTrailingZeros(l)))) return false;
+				if (!ask.contains( (byte) (i += Long.numberOfTrailingZeros( l )) )) return false;
 			
 			for (i = 0, l = _2; l != 0; l >>>= ++i)
-				if (!ask.contains((byte) (i += Long.numberOfTrailingZeros(l) + 64))) return false;
+				if (!ask.contains( (byte) (i += Long.numberOfTrailingZeros( l ) + 64) )) return false;
 			
 			for (i = 0, l = _3; l != 0; l >>>= ++i)
-				if (!ask.contains((byte) (i += Long.numberOfTrailingZeros(l) + 128))) return false;
+				if (!ask.contains( (byte) (i += Long.numberOfTrailingZeros( l ) + 128) )) return false;
 			
 			for (i = 0, l = _4; l != 0; l >>>= ++i)
-				if (!ask.contains((byte) (i += Long.numberOfTrailingZeros(l) + 192))) return false;
+				if (!ask.contains( (byte) (i += Long.numberOfTrailingZeros( l ) + 192) )) return false;
 			
 			return true;
 		}
 		
-		public boolean containsAll(ISrc src) {
-			if (src.read_has_null_key() != hasNullKey || size() != src.size()) return false;
-			
-			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
-				if (!contains(src.read_key(p))) return false;
-			return true;
-		}
 		
-		public boolean equals(Object obj) {
+		public boolean equals( Object obj ) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo(getClass().cast(obj)) == 0;
+			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
+		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
 		
-		public int compareTo(R other) {
+		public int compareTo( R other ) {
 			
 			return
 					size == other.size ?
@@ -186,54 +178,39 @@ a:
 			return null;
 		}
 		
-		//region  ISrc
-		@Override public boolean read_has_null_key() { return hasNullKey; }
 		
-		public byte read_key(int info) { return (byte) (info & 0xFF); }
+		public String toString() {return toString( null ).toString();}
 		
-		public int read(int info) {
-			info++;
-			info &= 0xFF;
-			long l;
-			if (info < 128)
+		public StringBuilder toString( StringBuilder dst ) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder( size * 10 );
+			else dst.ensureCapacity( dst.length() + size * 10 );
+			
+			if (hasNullKey)
 			{
-				if (info < 64)
-				{
-					if ((l = _1 >>> info) != 0) return (info + Long.numberOfTrailingZeros(l));
-					info = 0;
-				}
-				else info -= 64;
-				
-				if ((l = _2 >>> info) != 0) return ((info + Long.numberOfTrailingZeros(l) + 64));
-				info = 128;
+				dst.append( "null\n" );
+				size--;
 			}
 			
-			if (info < 192)
-			{
-				if ((l = _3 >>> (info - 128)) != 0) return ((info + Long.numberOfTrailingZeros(l) + 128));
-				
-				info = 0;
-			}
-			else info -= 192;
+			for (int token = Iterator.token, i = 0; i < size; i++)
+			     dst.append( (int)Iterator.key( token = Iterator.token( this, token ) ) ).append( '\n' );
 			
-			if ((l = _4 >>> info) != 0) return ((info + Long.numberOfTrailingZeros(l) + 192));
-			
-			return -1;
+			return dst;
 		}
-		
-		//endregion
-		public String toString() { return toString(null).toString(); }
 	}
 	
-	class RW extends R implements IDst {
+	class RW extends R {
 		
-		public RW(byte... items) { for (byte i : items) this.add(i); }
+		public RW(  )     {}
+		public RW( byte... items )     {for (byte i : items) this.add( i );}
 		
-		public boolean add( Byte      key) { return key == null ? !hasNullKey && (hasNullKey = true) : super.add((byte) (key + 0));}
+		public RW(  Byte     ... items )     {for ( Byte      key : items) add( key );}
 		
-		public boolean add(byte key) { return super.add(key); }
+		public boolean add(  Byte      key ) {return key == null ? !hasNullKey && (hasNullKey = true) : super.add( (byte) (key + 0) );}
 		
-		public boolean retainAll(R src) {
+		public boolean add( byte key ) {return super.add( key );}
+		
+		public boolean retainAll( R src ) {
 			boolean ret = false;
 			
 			if (_1 != src._1)
@@ -257,14 +234,14 @@ a:
 				ret = true;
 			}
 			
-			if (ret) size = Long.bitCount(_1) + Long.bitCount(_2) + Long.bitCount(_3) + Long.bitCount(_4);
+			if (ret) size = Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 ) + Long.bitCount( _4 );
 			return ret;
 		}
 		
 		
-		public boolean remove( Byte      key) { return key == null ? hasNullKey && !(hasNullKey = false) : remove((byte) (key + 0)); }
+		public boolean remove(  Byte      key ) {return key == null ? hasNullKey && !(hasNullKey = false) : remove( (byte) (key + 0) );}
 		
-		public boolean remove(byte value) {
+		public boolean remove( byte value ) {
 			if (size == 0) return false;
 			
 			final int val = value & 0xFF;
@@ -286,89 +263,31 @@ a:
 		}
 		
 		
-		public boolean retainAll(ISrc src) {
-			long
-					_1 = 0,
-					_2 = 0,
-					_3 = 0,
-					_4 = 0;
-			
-			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
-			{
-				final int val = src.read_key(p) & 0xFF;
-				
-				if (val < 128)
-					if (val < 64) _1 |= 1L << val;
-					else _2 |= 1L << val - 64;
-				else if (val < 192) _3 |= 1L << val - 128;
-				else _4 |= 1L << val - 192;
-			}
-			
-			boolean ret = false;
-			
-			if (_1 != this._1)
-			{
-				this._1 &= _1;
-				ret = true;
-			}
-			if (_2 != this._2)
-			{
-				this._2 &= _2;
-				ret = true;
-			}
-			if (_3 != this._3)
-			{
-				this._3 &= _3;
-				ret = true;
-			}
-			if (_4 != this._4)
-			{
-				this._4 &= _4;
-				ret = true;
-			}
-			
-			if (ret) size = (_1 == 0 ? 0 : Long.bitCount(_1)) + (_2 == 0 ? 0 : Long.bitCount(_2)) + (_3 == 0 ? 0 : Long.bitCount(_3)) + (_4 == 0 ? 0 : Long.bitCount(_4));
-			return ret;
-		}
 		
-		public boolean removeAll(ISrc src) {
-			boolean ret = false;
-			
-			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
-			{
-				remove(src.read_key(p));
-				ret = true;
-			}
-			return ret;
-		}
 		
 		public void clear() {
-			_1 = 0;
-			_2 = 0;
-			_3 = 0;
-			_4 = 0;
-			size = 0;
+			_1         = 0;
+			_2         = 0;
+			_3         = 0;
+			_4         = 0;
+			size       = 0;
 			hasNullKey = false;
 		}
 		
-		//region  IDst
-		@Override public void write(int size) { clear(); }
-		
-		//endregion
-		public boolean addAll(ISrc src) {
+		public boolean addAll( R src ) {
 			boolean      ret = false;
-			byte val;
+			byte key;
 			
-			for (int p = src.read(-1), i = 0, size = src.size(); i < size; i++, p = src.read(p))
-				if (!contains(val = src.read_key(p)))
+			for (int token = Iterator.token, i = 0, size = src.size(); i < size; i++)
+				if (!contains( key = Iterator.key( Iterator.token( src, token ) ) ))
 				{
 					ret = true;
-					this.add(val);
+					this.add( key );
 				}
 			
 			return ret;
 		}
 		
-		public RW clone() { return (RW) super.clone(); }
+		public RW clone() {return (RW) super.clone();}
 	}
 }

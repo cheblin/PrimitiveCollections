@@ -70,16 +70,16 @@ public interface Array extends Cloneable {
 	}
 	
 	
-	static int hash(Object val) {return val == null ? 0 : hash(val.hashCode());}
+	static int hash(Object val) {return val == null ? 0x85ebca6b : hash(val.hashCode());}
 	
-	static int hash(double val) {return hash(Double.doubleToLongBits(val));}
+	static long hash(double val) {return hash(Double.doubleToLongBits(val));}
 	
 	static int hash(float val)  {return hash(Float.floatToIntBits(val));}
 	
-	static int hash(long val) {
+	static long hash(long val) {
 		val = (val ^ (val >>> 32)) * 0x4cd6944c5cc20b6dL;
 		val = (val ^ (val >>> 29)) * 0xfc12c5b19d3259e9L;
-		return (int) (val ^ (val >>> 32));
+		return  (val ^ (val >>> 32));
 	}
 	
 	static int hash(int val) {
@@ -101,8 +101,6 @@ public interface Array extends Cloneable {
 		return v;
 	}
 	
-	Comparator<String> STRING_COMPARATOR = (s1, s2) -> s1 == s2 ? 0 : s1.compareTo(s2);
-	
 	static <T extends Comparable<T>> boolean equals(T[] a, T[] a2, Comparator<? super T> cmp) {
 		
 		if (a == a2)
@@ -123,25 +121,6 @@ public interface Array extends Cloneable {
 		return true;
 	}
 	
-	static boolean equals(String[] a, String[] a2) {
-		
-		if (a == a2)
-			return true;
-		if (a == null || a2 == null)
-			return false;
-		
-		int length = a.length;
-		if (a2.length != length)
-			return false;
-		
-		for (int i = 0; i < length; i++)
-		{
-			if (STRING_COMPARATOR.compare(a[i], a2[i]) != 0)
-				return false;
-		}
-		
-		return true;
-	}
 	
 	byte[] bytes0 = new byte[0];
 	

@@ -3,46 +3,17 @@ package org.unirail.collections;
 
 public interface ObjectObjectMap {
 	
-	interface IDst<K extends Comparable<? super K>, V extends Comparable<? super V>> {
-		boolean put(K key, V value);
+	interface Iterator{
+		int token=-1;
 		
-		void write(int size);
+		static <K extends Comparable<? super K>, V extends Comparable<? super V>> int token( R<K, V> src, int token ) { for (; ; ) if (src.keys.array[++token] != null) return token; }
+		
+		static <K extends Comparable<? super K>, V extends Comparable<? super V>> K key( R<K, V> src, int token ) {return src.keys.array[token]; }
+		
+		static <K extends Comparable<? super K>, V extends Comparable<? super V>> V value( R<K, V> src, int token ) {return src.values.get(token); }
 	}
 	
-	interface ISrc<K extends Comparable<? super K>, V extends Comparable<? super V>> {
-		
-		int size();
-		
-		boolean read_has_null_key();
-		
-		V read_null_key_val();
-		
-		
-		int read(int info);
-		
-		K read_key(int info);
-		
-		V read_val(int info);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			
-			if (read_has_null_key())
-			{
-				dst.append("null -> ").append(read_null_key_val());
-				size--;
-			}
-			
-			
-			for (int p = -1, i = 0; i < size; i++)
-				dst.append(read_key(p = read(p))).append(" -> ").append(read_val(p));
-			return dst;
-		}
-	}
-	
-	abstract class R<K extends Comparable<? super K>, V extends Comparable<? super V>> implements Cloneable, Comparable<R<K, V>>, ISrc<K, V> {
+	abstract class R<K extends Comparable<? super K>, V extends Comparable<? super V>> implements Cloneable, Comparable<R<K, V>> {
 		
 		public ObjectList.RW<K> keys   = new ObjectList.RW<>(0);
 		public ObjectList.RW<V> values = new ObjectList.RW<>(0);
@@ -64,7 +35,7 @@ public interface ObjectObjectMap {
 		protected double loadFactor;
 		
 		
-		public @Positive_Values int info(K key) {
+		public @Positive_Values int token(K key) {
 			if (key == null) return hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE;
 			
 			int slot = Array.hash(key) & mask;
@@ -75,11 +46,11 @@ public interface ObjectObjectMap {
 			return Positive_Values.NONE;
 		}
 		
-		public boolean contains(K key)          {return -1 < info(key);}
+		public boolean contains(K key)          {return -1 < token(key);}
 		
-		public boolean contains(int info)       {return -1 < info;}
+		public boolean contains(int token)       {return -1 < token;}
 		
-		public V value(@Positive_ONLY int info) {return info == Integer.MAX_VALUE ? NullKeyValue : values.array[info]; }
+		public V value(@Positive_ONLY int token) {return token == Integer.MAX_VALUE ? NullKeyValue : values.array[token]; }
 		
 		
 		public int size()                       { return assigned + (hasNullKey ? 1 : 0); }
@@ -89,12 +60,12 @@ public interface ObjectObjectMap {
 		
 		
 		public int hashCode() {
-			int h = hasNullKey ? 0xDEADBEEF : 0;
+			long h = hasNullKey ? 127 : 113;
 			K   k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((k = keys.array[i]) != null)
-					h += Array.hash(k) + Array.hash(values.array[i]);
-			return h;
+					h = h ^ Array.hash(k) + h ^Array.hash(values.array[i]);
+			return (int) h;
 		}
 		
 		@SuppressWarnings("unchecked")
@@ -122,7 +93,7 @@ public interface ObjectObjectMap {
 			
 			for (int i = keys.array.length - 1, tag; -1 < i; i--)
 				if ((key = keys.array[i]) != null)
-					if ((tag = other.info(key)) == -1 || values.array[i] != other.value(tag)) return 1;
+					if ((tag = other.token(key)) == -1 || values.array[i] != other.value(tag)) return 1;
 			
 			return 0;
 		}
@@ -145,25 +116,26 @@ public interface ObjectObjectMap {
 			return null;
 		}
 		
-		//region  ISrc
-		
-		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
-		
-		@Override public boolean read_has_null_key() { return hasNullKey; }
-		
-		@Override public V read_null_key_val()       { return NullKeyValue; }
-		
-		@Override public K read_key(int info)        {return keys.array[info]; }
-		
-		@Override public V read_val(int info)        {return values.get(info); }
-		
-		//endregion
-		
 		
 		public String toString() { return toString(null).toString();}
+		public StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
+			
+			if (hasNullKey)
+			{
+				dst.append("null -> ").append( NullKeyValue );
+				size--;
+			}
+			
+			for (int token = Iterator.token, i = 0; i < size; i++)
+			     dst.append( Iterator.key( this, token = Iterator.token( this, token))).append(" -> ").append( Iterator.value( this, token));
+			return dst;
+		}
 	}
 	
-	class RW<K extends Comparable<? super K>, V extends Comparable<? super V>> extends R<K, V> implements IDst<K, V> {
+	class RW<K extends Comparable<? super K>, V extends Comparable<? super V>> extends R<K, V>  {
 		
 		public RW(double loadFactor) {
 			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
@@ -225,15 +197,7 @@ public interface ObjectObjectMap {
 			values.clear();
 		}
 		
-		//region  IDst
-		@Override public void write(int size) {
-			assigned = 0;
-			hasNullKey = false;
-			keys.write(size = (int) Array.nextPowerOf2(size));
-			if (values.length() < size) values.length(-size);
-			else values.clear();
-		}
-		//endregion
+		
 	
 		
 		

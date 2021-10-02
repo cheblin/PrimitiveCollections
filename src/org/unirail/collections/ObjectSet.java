@@ -2,41 +2,16 @@ package org.unirail.collections;
 
 public interface ObjectSet {
 	
-	interface IDst<V extends Comparable<? super V>> {
-		boolean add(V key);
+	
+	interface Iterator{
 		
-		void write(int size);
+		int token=-1;
+		static <K extends Comparable<? super K>> int token( R<K> src, int token ) { for (; ; ) if (src.keys.array[++token] != null) return token; }
+		
+		static <K extends Comparable<? super K>> K key( R<K> src, int token ) {return src.keys.array[token]; }
 	}
 	
-	interface ISrc<K extends Comparable<? super K>> {
-		
-		int size();
-		
-		boolean read_has_null_key();
-		
-		int read(int info);
-		
-		K read_key(int info);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			
-			if (read_has_null_key())
-			{
-				dst.append("null\n");
-				size--;
-			}
-			
-			for (int p = -1, i = 0; i < size; dst.append('\n'), i++)
-				dst.append(read_key(p = read(p)));
-			
-			return dst;
-		}
-	}
-	
-	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>>, ISrc<K> {
+	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
 		
 		public ObjectList.RW<K> keys = new ObjectList.RW<>(4);
 		
@@ -67,13 +42,13 @@ public interface ObjectSet {
 		public int size()        { return assigned + (hasNullKey ? 1 : 0); }
 		
 		public int hashCode() {
-			int h = hasNullKey ? 0xDEADBEEF : 0;
+			long h = hasNullKey ? 107 : 109;
 			K   key;
 			
 			for (int slot = mask; 0 <= slot; slot--)
-				if ((key = keys.array[slot]) != null) h += Array.hash(key);
+				if ((key = keys.array[slot]) != null) h += h ^ Array.hash(key);
 			
-			return h;
+			return (int) h;
 		}
 		
 		
@@ -112,20 +87,28 @@ public interface ObjectSet {
 			return null;
 		}
 		
-		//region  ISrc
 		
-		@Override public boolean read_has_null_key() { return hasNullKey; }
-		
-		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != null) return info; }
-		
-		@Override public K read_key(int info)        {return keys.array[info]; }
-		
-		//endregion
 		
 		public String toString() { return toString(null).toString();}
+		public StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
+			
+			if (hasNullKey)
+			{
+				dst.append("null\n");
+				size--;
+			}
+			
+			for (int token = Iterator.token, i = 0; i < size; dst.append('\n'), i++)
+			     dst.append( Iterator.key( this, token = Iterator.token( this, token)));
+			
+			return dst;
+		}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> implements IDst<K> {
+	class RW<K extends Comparable<? super K>> extends R<K>  {
 		public RW()                  { this(4, 0.75f); }
 		
 		
@@ -146,6 +129,10 @@ public interface ObjectSet {
 			keys.length(size);
 		}
 		
+		@SafeVarargs public RW( K... items ) {
+			this( items.length );
+			for (K key : items) add( key );
+		}
 		
 		public boolean add(K key) {
 			if (key == null) return !hasNullKey && (hasNullKey = true);
@@ -166,14 +153,6 @@ public interface ObjectSet {
 			hasNullKey = false;
 			keys.clear();
 		}
-		
-		//region  IDst
-		@Override public void write(int size) {
-			assigned = 0;
-			hasNullKey = false;
-			keys.write((int) Array.nextPowerOf2(size));
-		}
-		//endregion
 		
 		
 		protected void allocate(int size) {

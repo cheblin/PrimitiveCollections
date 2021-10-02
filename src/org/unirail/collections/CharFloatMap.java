@@ -2,62 +2,21 @@ package org.unirail.collections;
 
 public interface CharFloatMap {
 	
-	interface IDst {
-		boolean put(char key, float value);
-		
-		boolean put( Character key, float value);
-		
-		void write(int size);
-	}
 	
-	interface ISrc {
+	interface Iterator {
+		int token = -1;
 		
-		int size();
+		static int token( R src, int token ) {for (; ; ) if (src.keys.array[++token] != 0) return token;}
 		
-		boolean read_has_null_key();
+		static char key( R src, int token ) {return  (char) src.keys.array[token];}
 		
-		float read_null_key_val();
-		
-		boolean read_has_0key();
-		
-		float read_0key_val();
-		
-		int read(int info);
-		
-		char read_key(int info);
-		
-		float read_val(int info);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			
-			if (read_has_null_key())
-			{
-				dst.append("null -> ").append(read_null_key_val()).append('\n');
-				size--;
-			}
-			
-			if (read_has_0key())
-			{
-				dst.append("0 -> ").append(read_0key_val()).append('\n');
-				size--;
-			}
-			
-			for (int p = -1, i = 0; i < size; i++)
-				dst.append(read_key(p = read(p)))
-						.append(" -> ")
-						.append(read_val(p))
-						.append('\n');
-			return dst;
-		}
+		static float value( R src, int token ) {return   src.values.array[token];}
 	}
 	
 	
-	abstract class R implements Cloneable, Comparable<R>, ISrc {
-		public CharList.RW keys   = new CharList.RW(0);
-		public FloatList.RW values = new FloatList.RW(0);
+	abstract class R implements Cloneable, Comparable<R> {
+		public CharList.RW keys   = new CharList.RW( 0 );
+		public FloatList.RW values = new FloatList.RW( 0 );
 		
 		int assigned;
 		
@@ -75,18 +34,17 @@ public interface CharFloatMap {
 		protected double loadFactor;
 		
 		
-	
-		public boolean isEmpty()                              { return size() == 0; }
+		public boolean isEmpty()                                 {return size() == 0;}
 		
-		@Override public int size()                           { return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0); }
+		public int size()                                        {return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
 		
-		public @Positive_Values int info( Character key) { return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : info((char) (key + 0));}
+		public @Positive_Values int token(  Character key ) {return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : token( (char) (key + 0) );}
 		
-		public @Positive_Values int info(char key) {
+		public @Positive_Values int token( char key ) {
 			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
-			int slot = Array.hash(key) & mask;
+			int slot = Array.hash( key ) & mask;
 			
 			for (char key_ =  key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
@@ -94,39 +52,39 @@ public interface CharFloatMap {
 			return Positive_Values.NONE;
 		}
 		
-		public boolean hasValue(int info) {return -1 < info;}
+		public boolean hasValue( int token ) {return -1 < token;}
 		
-		public boolean hasNone(int info)  {return info == Positive_Values.NONE;}
+		public boolean hasNone( int token )  {return token == Positive_Values.NONE;}
 		
-		public float value(@Positive_ONLY int info) {
-			if (info == Positive_Values.VALUE) return nullKeyValue;
-			if (info == Positive_Values.VALUE - 1) return OkeyValue;
+		public float value( @Positive_ONLY int token ) {
+			if (token == Positive_Values.VALUE) return nullKeyValue;
+			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return  values.get(info);
+			return  values.get( token );
 		}
 		
 		public int hashCode() {
-			int h = hasO ? 0xDEADBEEF : 0;
+			int h = hasO ? 193 : 191;
 			
 			char k;
 			for (int i = keys.array.length - 1; 0 <= i; i--)
 				if ((k = keys.array[i]) != 0)
-					h += Array.hash(k) + Array.hash(values.array[i]);
+					h = Array.hash( h ^ k ) + Array.hash( h ^ values.array[i] );
 			
 			return h;
 		}
 		
 		
-		public boolean equals(Object obj) {
+		public boolean equals( Object obj ) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo(getClass().cast(obj)) == 0;
+			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
+		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
 		
-		@Override public int compareTo(R other) {
+		@Override public int compareTo( R other ) {
 			if (other == null) return -1;
 			
 			if (hasO != other.hasO || hasNullKey != other.hasNullKey) return 1;
@@ -141,8 +99,8 @@ public interface CharFloatMap {
 			for (int i = keys.array.length - 1, c; -1 < --i; )
 				if ((k = (char) keys.array[i]) != 0)
 				{
-					if ((c = other.info(k)) < 0) return 3;
-					if (other.value(c) !=   values.array[i]) return 1;
+					if ((c = other.token( k )) < 0) return 3;
+					if (other.value( c ) !=   values.array[i]) return 1;
 				}
 			
 			return 0;
@@ -153,7 +111,7 @@ public interface CharFloatMap {
 			{
 				R dst = (R) super.clone();
 				
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -164,58 +122,65 @@ public interface CharFloatMap {
 			return null;
 		}
 		
-		//region  ISrc
 		
-		@Override public boolean read_has_null_key() {return hasNullKey;}
+		public String toString() {return toString( null ).toString();}
 		
-		@Override public float read_null_key_val() {return nullKeyValue;}
-		
-		@Override public boolean read_has_0key()     {return hasO; }
-		
-		@Override public float read_0key_val() {return OkeyValue;}
-		
-		
-		@Override public int read(int info)          { for (; ; ) if (keys.array[++info] != 0) return info; }
-		
-		@Override public char read_key(int info) {return  (char) keys.array[info]; }
-		
-		@Override public float read_val(int info) {return   values.array[info]; }
-		
-		//endregion
-		
-		public String toString() { return toString(null).toString();}
+		public StringBuilder toString( StringBuilder dst ) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder( size * 10 );
+			else dst.ensureCapacity( dst.length() + size * 10 );
+			
+			if (hasNullKey)
+			{
+				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
+				size--;
+			}
+			
+			if (hasO)
+			{
+				dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
+				size--;
+			}
+			
+			for (int token = Iterator.token, i = 0; i < size; i++)
+			     dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) )
+					     .append( " -> " )
+					     .append( Iterator.value( this, token ) )
+					     .append( '\n' );
+			return dst;
+		}
 	}
 	
 	
-	class RW extends R implements IDst {
+	class RW extends R {
 		
-		public RW(int expectedItems) { this(expectedItems, 0.75); }
+		public RW( int expectedItems ) {this( expectedItems, 0.75 );}
 		
 		
-		public RW(int expectedItems, double loadFactor) {
-			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
+		public RW( int expectedItems, double loadFactor ) {
+			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
 			
-			final long length = (long) Math.ceil(expectedItems / loadFactor);
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			final long length = (long) Math.ceil( expectedItems / loadFactor );
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
 			
-			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
-			mask = size - 1;
+			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
+			mask     = size - 1;
 			
-			keys.length(size);
-			values.length(size);
+			keys.length( size );
+			values.length( size );
 		}
 		
 		
-		@Override public boolean put( Character key, float value) {
-			if (key != null) return put((char) key, value);
+		public boolean put(  Character key, float value ) {
+			if (key != null) return put( (char) key, value );
 			
-			hasNullKey = true;
+			hasNullKey   = true;
 			nullKeyValue = value;
 			
 			return true;
 		}
 		
-		@Override public boolean put(char key, float value) {
+		public boolean put( char key, float value ) {
 			
 			if (key == 0)
 			{
@@ -224,13 +189,13 @@ public interface CharFloatMap {
 					OkeyValue = value;
 					return true;
 				}
-				hasO = true;
+				hasO      = true;
 				OkeyValue = value;
 				return false;
 			}
 			
 			
-			int slot = Array.hash(key) & mask;
+			int slot = Array.hash( key ) & mask;
 			
 			final char key_ =  key;
 			
@@ -241,25 +206,25 @@ public interface CharFloatMap {
 					return true;
 				}
 			
-			keys.array[slot] = key_;
+			keys.array[slot]   = key_;
 			values.array[slot] = (float) value;
 			
-			if (++assigned == resizeAt) allocate(mask + 1 << 1);
+			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
 			return false;
 		}
 		
 		
-		public boolean remove( Character key) {
+		public boolean remove(  Character key ) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
-			return remove((char) key);
+			return remove( (char) key );
 		}
 		
-		public boolean remove(char key) {
+		public boolean remove( char key ) {
 			
 			if (key == 0) return hasO && !(hasO = false);
 			
-			int slot = Array.hash(key) & mask;
+			int slot = Array.hash( key ) & mask;
 			
 			final char key_ =  key;
 			
@@ -271,16 +236,16 @@ public interface CharFloatMap {
 					char kk;
 					
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - Array.hash(kk) & mask) >= distance)
+						if ((s - Array.hash( kk ) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot] = kk;
+							keys.array[gapSlot]   = kk;
 							values.array[gapSlot] = values.array[s];
-							gapSlot = s;
-							distance = 0;
+							                        gapSlot = s;
+							                        distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
+					keys.array[gapSlot]   = 0;
 					values.array[gapSlot] = 0;
 					assigned--;
 					return true;
@@ -290,53 +255,43 @@ public interface CharFloatMap {
 		}
 		
 		public void clear() {
-			assigned = 0;
-			hasO = false;
+			assigned   = 0;
+			hasO       = false;
 			hasNullKey = false;
 			
 			keys.clear();
 			values.clear();
 		}
-		//region  IDst
-		@Override public void write(int size) {
-			assigned = 0;
-			hasO = false;
-			hasNullKey = false;
-			
-			keys.write(size = (int) Array.nextPowerOf2(size));
-			values.write(size);
-		}
 		
-		//endregion
 		
-		protected void allocate(int size) {
+		protected void allocate( int size ) {
 			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
-				if (values.length() < size) values.length(-size);
+				if (keys.length() < size) keys.length( -size );
+				if (values.length() < size) values.length( -size );
 				return;
 			}
 			
 			final char[] k = keys.array;
 			final float[] v = values.array;
 			
-			keys.length(-size);
-			values.length(-size);
+			keys.length( -size );
+			values.length( -size );
 			
 			char key;
 			for (int i = k.length - 1; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = Array.hash(key) & mask;
+					int slot = Array.hash( key ) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
+					keys.array[slot]   = key;
 					values.array[slot] = v[i];
 				}
 		}
 		
-		@Override public RW clone() { return (RW) super.clone(); }
+		@Override public RW clone() {return (RW) super.clone();}
 	}
 }

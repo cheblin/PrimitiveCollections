@@ -3,31 +3,8 @@ package org.unirail.collections;
 import java.util.Arrays;
 
 public interface ObjectList {
-	interface IDst<V extends Comparable<? super V>> {
-		V add(V value);
-		
-		void write(int size);
-	}
-	
-	interface ISrc<V extends Comparable<? super V>> {
-		int size();
-		
-		V get(int index);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			
-			for (int i = 0; i < size; i++)
-				dst.append(get(i)).append('\n');
-			
-			return dst;
-		}
-	}
-	
-	
-	abstract class R<V extends Comparable<? super V>> implements Comparable<R<V>>, ISrc<V> {
+
+	abstract class R<V extends Comparable<? super V>> implements Comparable<R<V>> {
 		
 		
 		protected V[] array;
@@ -45,7 +22,7 @@ public interface ObjectList {
 			return dst;
 		}
 		
-		public boolean containsAll(ISrc<V> src) {
+		public boolean containsAll(R<V> src) {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
 				if (-1 < indexOf(src.get(i))) return false;
@@ -111,10 +88,20 @@ public interface ObjectList {
 		
 		
 		public String toString() { return toString(null).toString();}
+		public StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
+			
+			for (int i = 0; i < size; i++)
+			     dst.append(get(i)).append('\n');
+			
+			return dst;
+		}
 	}
 	
 	
-	class RW<V extends Comparable<? super V>> extends R<V> implements Array, IDst<V> {
+	class RW<V extends Comparable<? super V>> extends R<V> implements Array {
 		@SuppressWarnings("unchecked")
 		public RW(int length) { if (0 < length) array = (V[]) new Comparable[length]; }
 		
@@ -123,6 +110,13 @@ public interface ObjectList {
 			if (items == null) return;
 			array = items.clone();
 			size = items.length;
+		}
+		
+		public RW( V fill_value, int size ) {
+			this( size );
+			this.size = size;
+			if (fill_value == null) return;
+			while (-1 < --size) array[size] = fill_value;
 		}
 		
 		public V[] array() {return array;}
@@ -143,14 +137,6 @@ public interface ObjectList {
 			Arrays.fill(array, 0, size - 1, null);
 			size = 0;
 		}
-		
-		//region  IDst
-		@Override public void write(int size) {
-			if (array == null || array.length < size) length(-this.size);
-			else clear();
-			this.size = size;
-		}
-		//endregion
 		
 		
 		public V add(V value) {
@@ -196,7 +182,7 @@ public interface ObjectList {
 			return array[index] = value;
 		}
 		
-		public void addAll(ISrc<V> src, int count) {
+		public void addAll(R<V> src, int count) {
 			final int s = size;
 			size = Array.resize(this, size, size, count);
 			
@@ -204,13 +190,13 @@ public interface ObjectList {
 				array[s + i] = src.get(i);
 		}
 		
-		public void addAll(ISrc<V> src, int index, int count) {
+		public void addAll(R<V> src, int index, int count) {
 			count = Math.min(src.size(), count);
 			size = Array.resize(this, size, index, count);
 			for (int i = 0; i < count; i++) array[index + i] = src.get(i);
 		}
 		
-		public void removeAll(ISrc<V> src) {for (int i = 0, max = src.size(), p; i < max; i++) removeAll(src.get(i)); }
+		public void removeAll(R<V> src) {for (int i = 0, max = src.size(), p; i < max; i++) removeAll(src.get(i)); }
 		
 		public void removeAll(V src)       {for (int k; -1 < (k = indexOf(src)); ) remove(k); }
 		

@@ -2,42 +2,9 @@ package org.unirail.collections;
 
 
 public interface DoubleNullList {
-	interface IDst {
-		void add(double value);
-		
-		void add( Double    value);
-		
-		void write(int size);
-	}
-	
-	interface ISrc {
-		
-		int size();
-		
-		@Positive_OK int nextValueIndex(int index);
-		
-		double get(@Positive_ONLY int index);
-		
-		default StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 4);
-			else dst.ensureCapacity(dst.length() + size * 64);
-			
-			for (int i = 0, ii; i < size; )
-				if ((ii = nextValueIndex(i)) == i) dst.append(get(i++)).append('\n');
-				else if (ii == -1 || size <= ii)
-				{
-					while (i++ < size) dst.append("null\n");
-					break;
-				}
-				else for (; i < ii; i++) dst.append("null\n");
-			
-			return dst;
-		}
-	}
 	
 	
-	abstract class R implements Comparable<R>, ISrc {
+	abstract class R implements Comparable<R> {
 		
 		BitList.RW         nulls;
 		DoubleList.RW values;
@@ -84,10 +51,10 @@ public interface DoubleNullList {
 		}
 		
 		public int hashCode() {
-			int hashCode = 1;
-			for (int i = size(); -1 < --i; i++) hashCode = 31 * hashCode + (hasValue(i) ? 0 : Array.hash(get(i)));
+			long h = 173;
+			for (int i = size(); -1 < --i; i++) h = hasValue(i) ? Array.hash(h ^ get(i)) : 89 * h;
 			
-			return hashCode;
+			return (int) h;
 		}
 		
 		
@@ -119,6 +86,22 @@ public interface DoubleNullList {
 		}
 		
 		public String toString() { return toString(null).toString();}
+		public StringBuilder toString(StringBuilder dst) {
+			int size = size();
+			if (dst == null) dst = new StringBuilder(size * 4);
+			else dst.ensureCapacity(dst.length() + size * 64);
+			
+			for (int i = 0, ii; i < size; )
+				if ((ii = nextValueIndex(i)) == i) dst.append(get(i++)).append('\n');
+				else if (ii == -1 || size <= ii)
+				{
+					while (i++ < size) dst.append("null\n");
+					break;
+				}
+				else for (; i < ii; i++) dst.append("null\n");
+			
+			return dst;
+		}
 		
 		protected static void set(R dst, int index,  Double    value) {
 			
@@ -151,12 +134,24 @@ public interface DoubleNullList {
 	}
 	
 	
-	class RW extends R implements IDst {
+	class RW extends R {
 		
 		public RW(int length) {
 			nulls = new BitList.RW(length);
 			values = new DoubleList.RW(length);
 		}
+		
+		public RW(  Double    fill_value, int size ) {
+			this( size );
+			if (fill_value == null) nulls.size = size;
+			else
+			{
+				values.size = size;
+				double v =  (double )(fill_value + 0);
+				while (-1 < --size) values.array[size] = v;
+			}
+		}
+		
 		
 		public RW( Double   ... values) {
 			this(values.length);
@@ -261,13 +256,7 @@ public interface DoubleNullList {
 			values.clear();
 			nulls.clear();
 		}
-		//region  IDst
-		@Override public void write(int size) {
-			nulls.write(size);
-			if (values.length() < size) values.length(-size);
-			else values.clear();
-		}
-		//endregion
+		
 		public void swap(int index1, int index2) {
 			
 			int exist, empty;
