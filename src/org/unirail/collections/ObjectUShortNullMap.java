@@ -31,14 +31,27 @@ public interface ObjectUShortNullMap {
 		public boolean isEmpty() { return size() == 0; }
 		
 		public int hashCode() {
-			long h = hasNullKey == Positive_Values.VALUE ? 137 : 131;
-			K   k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((k = keys.array[i]) != null)
-					h = h ^ Array.hash(k) + Array.hash(h ^ values.hashCode());
-			return (int) h;
+			
+			int h = 575551;
+			switch (hasNullKey)
+			{
+				case Positive_Values.NONE: h ^= 719281;
+					break;
+				case Positive_Values.NULL: h ^= 401101;
+					break;
+				case Positive_Values.VALUE: h ^= Array.hash( NullKeyValue );
+					break;
+			}
+			K key;
+			for (int i = keys.array.length; -1 < --i; )
+				if ((key = keys.array[i]) != null)
+					h = h ^ Array.hash( key ) + (values.nulls.get( i ) ? Array.hash( values.get( i ) ) : 461413);
+			
+			return h;
 		}
 		
+		
+		public boolean contains(K key)          {return -1 < token(key);}
 		
 		public @Positive_Values int token(K key) {
 			
@@ -79,7 +92,7 @@ public interface ObjectUShortNullMap {
 			
 			
 			K key;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
+			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != null)
 					if (values.nulls.get(i))
 					{
@@ -251,14 +264,14 @@ public interface ObjectUShortNullMap {
 			keys.length(-size);
 			values = new UShortNullList.RW(-size);
 			
-			K kk;
-			for (int i = k.length - 1; 0 <= --i; )
-				if ((kk = k[i]) != null)
+			K key;
+			for (int i = k.length; -1 < --i; )
+				if ((key = k[i]) != null)
 				{
-					int slot = Array.hash(kk.hashCode()) & mask;
+					int slot = Array.hash(key.hashCode()) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
-					keys.array[slot] = kk;
+					keys.array[slot] = key;
 					
 					if (vals.hasValue(i)) values.set(slot, vals.get(i));
 					else values.set(slot, ( Character) null);
@@ -277,18 +290,18 @@ public interface ObjectUShortNullMap {
 			
 			int slot = Array.hash(key) & mask;
 			
-			final K[] array = keys.array;
-			for (K k; (k = array[slot]) != null; slot = slot + 1 & mask)
+			final K[] ks = keys.array;
+			for (K k; (k = ks[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo(key) == 0)
 				{
 					
 					int gapSlot = slot;
 					
 					K kk;
-					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != null; )
+					for (int distance = 0, s; (kk = ks[s = gapSlot + ++distance & mask]) != null; )
 						if ((s - Array.hash(kk.hashCode()) & mask) >= distance)
 						{
-							array[gapSlot] = kk;
+							ks[gapSlot] = kk;
 							
 							if (values.nulls.get(s))
 								values.set(gapSlot, values.get(s));
@@ -299,7 +312,7 @@ public interface ObjectUShortNullMap {
 							distance = 0;
 						}
 					
-					array[gapSlot] = null;
+					ks[gapSlot] = null;
 					values.set(gapSlot, ( Character) null);
 					assigned--;
 					return true;

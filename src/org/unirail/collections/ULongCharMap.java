@@ -38,6 +38,9 @@ public interface ULongCharMap {
 		
 		public int size()                                        {return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
+		public boolean contains(  Long      key )           {return -1 < token( key );}
+		
+		public boolean contains( long key )               {return -1 < token( key );}
 		
 		public @Positive_Values int token(  Long      key ) {return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : token( (long) (key + 0) );}
 		
@@ -52,6 +55,7 @@ public interface ULongCharMap {
 			return Positive_Values.NONE;
 		}
 		
+		
 		public boolean hasValue( int token ) {return -1 < token;}
 		
 		public boolean hasNone( int token )  {return token == Positive_Values.NONE;}
@@ -64,12 +68,14 @@ public interface ULongCharMap {
 		}
 		
 		public int hashCode() {
-			int h = hasO ? 193 : 191;
+			int h = 100049;
+			h ^= hasO ? Array.hash( OkeyValue ) : 616079;
+			h ^= hasNullKey ? Array.hash( nullKeyValue ) : 331997;
 			
-			long k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((k = keys.array[i]) != 0)
-					h = Array.hash( h ^ k ) + Array.hash( h ^ values.array[i] );
+			long key;
+			for (int i = keys.array.length; -1 < --i; )
+				if ((key = keys.array[i]) != 0)
+					h = Array.hash( h ^ Array.hash(key) ) + Array.hash( h ^ values.array[i] );
 			
 			return h;
 		}
@@ -95,11 +101,11 @@ public interface ULongCharMap {
 			
 			if ((diff = size() - other.size()) != 0) return diff;
 			
-			long           k;
-			for (int i = keys.array.length - 1, c; -1 < --i; )
-				if ((k =  keys.array[i]) != 0)
+			long           key;
+			for (int i = keys.array.length, c; -1 < --i; )
+				if ((key =  keys.array[i]) != 0)
 				{
-					if ((c = other.token( k )) < 0) return 3;
+					if ((c = other.token( key )) < 0) return 3;
 					if (other.value( c ) !=  (char) values.array[i]) return 1;
 				}
 			
@@ -282,7 +288,7 @@ public interface ULongCharMap {
 			values.length( -size );
 			
 			long key;
-			for (int i = k.length - 1; -1 < --i; )
+			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
 					int slot = Array.hash( key ) & mask;

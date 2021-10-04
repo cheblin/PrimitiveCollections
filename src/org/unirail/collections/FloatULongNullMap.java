@@ -42,15 +42,38 @@ public interface FloatULongNullMap {
 		
 		
 		public int hashCode() {
-			int h = hasOkey == Positive_Values.NONE ? 181 : 179;
+			int h = 291113;
+			switch (hasOkey)
+			{
+				case Positive_Values.NONE: h ^= 312679;
+					break;
+				case Positive_Values.NULL: h ^= 777743;
+					break;
+				case Positive_Values.VALUE: h ^= Array.hash( OkeyValue );
+					break;
+			}
+			
+			switch (hasNullKey)
+			{
+				case Positive_Values.NONE: h ^= 132947;
+					break;
+				case Positive_Values.NULL: h ^= 139753;
+					break;
+				case Positive_Values.VALUE: h ^= Array.hash( nullKeyValue );
+					break;
+			}
 			
 			float k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
+			for (int i = keys.array.length; -1 < --i; )
 				if ((k = keys.array[i]) != 0)
-					h = Array.hash(  k  ^ h) + Array.hash( h ^ values.hashCode() );
+					h = Array.hash(  k  ^ h ) + Array.hash( values.hasValue( i ) ? values.get( i ) : 528491 );
 			
 			return h;
 		}
+		
+		public boolean contains(  Float     key )           {return -1 < token( key );}
+		
+		public boolean contains( float key )               {return -1 < token( key );}
 		
 		public @Positive_Values int token(  Float     key ) {return key == null ? hasNullKey : token( (float) (key + 0) );}
 		
@@ -106,7 +129,7 @@ public interface FloatULongNullMap {
 			if (diff != 0) return diff;
 			
 			float           key;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
+			for (int i = keys.array.length; -1 < --i; )
 				if ((key =  keys.array[i]) != 0)
 					if (values.nulls.get( i ))
 					{
@@ -336,11 +359,11 @@ public interface FloatULongNullMap {
 			
 			RW tmp = new RW( size - 1, loadFactor );
 			
-			float[] array = keys.array;
+			float[] k = keys.array;
 			float   key;
 			
-			for (int i = array.length - 1; -1 < --i; )
-				if ((key = array[i]) != 0)
+			for (int i = k.length; -1 < --i; )
+				if ((key = k[i]) != 0)
 					if (values.nulls.get( i )) tmp.put( key, values.get( i ) );
 					else tmp.put( key, null );
 			

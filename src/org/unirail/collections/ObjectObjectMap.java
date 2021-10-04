@@ -60,11 +60,11 @@ public interface ObjectObjectMap {
 		
 		
 		public int hashCode() {
-			long h = hasNullKey ? 127 : 113;
-			K   k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((k = keys.array[i]) != null)
-					h = h ^ Array.hash(k) + h ^Array.hash(values.array[i]);
+			long h = hasNullKey ? NullKeyValue.hashCode() : 113;
+			K   key;
+			for (int i = keys.array.length; -1 < --i; )
+				if ((key = keys.array[i]) != null)
+					h = h ^ Array.hash(key) + h ^Array.hash(values.array[i]);
 			return (int) h;
 		}
 		
@@ -91,9 +91,11 @@ public interface ObjectObjectMap {
 			
 			K key;
 			
-			for (int i = keys.array.length - 1, tag; -1 < i; i--)
+			for (int i = keys.array.length, tag; -1 < --i;)
 				if ((key = keys.array[i]) != null)
-					if ((tag = other.token(key)) == -1 || values.array[i] != other.value(tag)) return 1;
+					if ((tag = other.token(key)) == -1)return 1;
+					else if( values.array[i] !=null && other.value(tag)!=null){if ((diff = other.value(tag).compareTo( values.array[i] )) != 0) return diff;}
+					else if (values.array[i] != other.value(tag)) return 8;
 			
 			return 0;
 		}
@@ -212,21 +214,21 @@ public interface ObjectObjectMap {
 				return;
 			}
 			
-			final K[] k = this.keys.array;
-			final V[] v = this.values.array;
+			final K[] ks = this.keys.array;
+			final V[] vs = this.values.array;
 			
 			keys.length(-size);
 			values.length(-size);
 			
-			K kk;
-			for (int from = k.length - 1; 0 <= --from; )
-				if ((kk = k[from]) != null)
+			K k;
+			for (int i = ks.length; -1 < --i; )
+				if ((k = ks[i]) != null)
 				{
-					int slot = Array.hash(kk.hashCode()) & mask;
+					int slot = Array.hash(k.hashCode()) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
-					keys.array[slot] = kk;
-					values.array[slot] = v[from];
+					keys.array[slot] = k;
+					values.array[slot] = vs[i];
 				}
 		}
 		

@@ -48,7 +48,7 @@ public interface BitsNullList {
 			for (int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++)
 			{
 				final int bit   = bit( bp );
-				long      value = (BITS < bit + bits ? value( src, src = array[index( bp ) + 1], bit, bits ) : value( src, bit, (int) mask ));
+				long      value = (BITS < bit + bits ? value( src, src = array[index( bp ) + 1], bit, bits ) : value( src, bit, bits ));
 				
 				if (value == null_val) dst.append( "null" );
 				else dst.append( value );

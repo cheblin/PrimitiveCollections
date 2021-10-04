@@ -60,12 +60,8 @@ public interface ObjectList {
 			if (other.size != size) return other.size - size;
 			
 			for (int i = 0, diff; i < size; i++)
-				if (array[i] != null)
-					if (other.array[i] == null)
-					{
-						if (other.array[i] != null) return -1;
-					}
-					else if ((diff = array[i].compareTo(other.array[i])) != 0) return diff;
+				if (array[i] != null && other.array[i] != null) {if ((diff = array[i].compareTo(other.array[i])) != 0) return diff;}
+				else if (array[i] != other.array[i] ) return -1;
 			
 			return 0;
 		}
@@ -119,10 +115,10 @@ public interface ObjectList {
 			while (-1 < --size) array[size] = fill_value;
 		}
 		
-		public V[] array() {return array;}
+		public Comparable[] array() {return array;}
 		
 		@SuppressWarnings("unchecked")
-		public V[] length(int length) {
+		public Comparable[] length(int length) {
 			if (0 < length)
 			{
 				if (length < size) size = length;

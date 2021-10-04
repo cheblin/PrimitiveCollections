@@ -46,12 +46,14 @@ public interface IntSet {
 		
 		
 		public int hashCode() {
-			long         h = hasOkey ? 157 : 151;
-			int k;
+			int h = 280879;
+			if (hasOkey) h ^= 131111;
+			if (hasNullKey) h ^= 997651;
+			int key;
 			
 			for (int slot = mask; slot >= 0; slot--)
-				if ((k = keys.array[slot]) != 0)
-					h = Array.hash( h ^ k );
+				if ((key = keys.array[slot]) != 0)
+					h = Array.hash( h ^ key );
 			
 			return (int) h;
 		}
@@ -61,7 +63,7 @@ public interface IntSet {
 			final int size = size();
 			if (dst == null || dst.length < size) dst = new int[size];
 			
-			for (int i = keys.array.length - 1, ii = 0; 0 <= i; i--)
+			for (int i = keys.array.length, ii = 0; -1 < --i; )
 				if (keys.array[i] != 0) dst[ii++] = keys.array[i];
 			
 			return dst;
@@ -189,8 +191,8 @@ public interface IntSet {
 			keys.length( -size );
 			
 			int key;
-			for (int from = k.length - 1; 0 <= --from; )
-				if ((key = k[from]) != 0)
+			for (int i = k.length; -1 < --i; )
+				if ((key = k[i]) != 0)
 				{
 					int slot = Array.hash( key ) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
@@ -240,7 +242,7 @@ public interface IntSet {
 		public void retainAll( RW chk ) {
 			int key;
 			
-			for (int i = keys.array.length - 1; 0 <= i; i--)
+			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != 0 && !chk.add( key )) remove( key );
 			
 			if (hasOkey && !chk.add( (int) 0 )) hasOkey = false;

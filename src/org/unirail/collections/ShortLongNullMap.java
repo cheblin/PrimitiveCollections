@@ -42,15 +42,38 @@ public interface ShortLongNullMap {
 		
 		
 		public int hashCode() {
-			int h = hasOkey == Positive_Values.NONE ? 181 : 179;
+			int h = 291113;
+			switch (hasOkey)
+			{
+				case Positive_Values.NONE: h ^= 312679;
+					break;
+				case Positive_Values.NULL: h ^= 777743;
+					break;
+				case Positive_Values.VALUE: h ^= Array.hash( OkeyValue );
+					break;
+			}
+			
+			switch (hasNullKey)
+			{
+				case Positive_Values.NONE: h ^= 132947;
+					break;
+				case Positive_Values.NULL: h ^= 139753;
+					break;
+				case Positive_Values.VALUE: h ^= Array.hash( nullKeyValue );
+					break;
+			}
 			
 			short k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
+			for (int i = keys.array.length; -1 < --i; )
 				if ((k = keys.array[i]) != 0)
-					h = Array.hash( (short) k  ^ h) + Array.hash( h ^ values.hashCode() );
+					h = Array.hash( (short) k  ^ h ) + Array.hash( values.hasValue( i ) ? values.get( i ) : 528491 );
 			
 			return h;
 		}
+		
+		public boolean contains(  Short     key )           {return -1 < token( key );}
+		
+		public boolean contains( short key )               {return -1 < token( key );}
 		
 		public @Positive_Values int token(  Short     key ) {return key == null ? hasNullKey : token( (short) (key + 0) );}
 		
@@ -106,7 +129,7 @@ public interface ShortLongNullMap {
 			if (diff != 0) return diff;
 			
 			short           key;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
+			for (int i = keys.array.length; -1 < --i; )
 				if ((key = (short) keys.array[i]) != 0)
 					if (values.nulls.get( i ))
 					{
@@ -336,11 +359,11 @@ public interface ShortLongNullMap {
 			
 			RW tmp = new RW( size - 1, loadFactor );
 			
-			short[] array = keys.array;
+			short[] k = keys.array;
 			short   key;
 			
-			for (int i = array.length - 1; -1 < --i; )
-				if ((key = array[i]) != 0)
+			for (int i = k.length; -1 < --i; )
+				if ((key = k[i]) != 0)
 					if (values.nulls.get( i )) tmp.put((short) key, values.get( i ) );
 					else tmp.put((short) key, null );
 			

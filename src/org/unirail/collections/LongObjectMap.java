@@ -38,6 +38,9 @@ public interface LongObjectMap {
 		
 		protected double loadFactor;
 		
+		public boolean contains(  Long      key ) {return -1 < token( key );}
+		
+		public boolean contains( long key )     {return -1 < token( key );}
 		
 		public @Positive_Values int token( Long      key) { return key == null ? hasNullKey ? Integer.MAX_VALUE : Positive_Values.NONE : token((long) (key + 0));}
 		
@@ -66,12 +69,15 @@ public interface LongObjectMap {
 		
 		
 		public int hashCode() {
-			long         h = hasO ? 167 : 163;
-			long k;
+			int h = 575551;
+			h ^= hasO ? Array.hash( OkeyValue ) : 131111;
+			h ^= hasNullKey ? Array.hash( nullKeyValue ) : 997651;
+			
+			long key;
 			
 			for (int i = mask; 0 <= i; i--)
-				if ((k = keys.array[i]) != 0)
-					h =  Array.hash(h ^ k) + h ^ Array.hash( values.array[i]);
+				if ((key = keys.array[i]) != 0)
+					h =  Array.hash(h ^ key) + h ^ Array.hash( values.array[i]);
 			
 			return (int) h;
 		}
@@ -98,15 +104,15 @@ public interface LongObjectMap {
 			
 			
 			V           v;
-			long k;
+			long key;
 			
-			for (int i = keys.array.length - 1, c; -1 <= --i; )
-				if ((k = keys.array[i]) != 0)
+			for (int i = keys.array.length, c; -1 < --i; )
+				if ((key = keys.array[i]) != 0)
 				{
-					if ((c = other.token(k)) < 0) return 3;
+					if ((c = other.token(key)) < 0) return 3;
 					v = other.value(c);
 					
-					if (values.array[i] != null && v != null && (diff = v.compareTo(values.array[i])) != 0) return diff;
+					if (values.array[i] != null && v != null) {if ((diff = v.compareTo( values.array[i] )) != 0) return diff;}
 					else if (values.array[i] != v) return 8;
 				}
 			return 0;
@@ -289,13 +295,13 @@ public interface LongObjectMap {
 			values.length(-size);
 			
 			long key;
-			for (int from = k.length - 1; 0 <= --from; )
-				if ((key = k[from]) != 0)
+			for (int i = k.length; -1 < --i; )
+				if ((key = k[i]) != 0)
 				{
 					int slot = Array.hash(key) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
 					keys.array[slot] =  key;
-					values.array[slot] = v[from];
+					values.array[slot] = v[i];
 				}
 		}
 		

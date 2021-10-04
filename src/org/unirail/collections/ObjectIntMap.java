@@ -56,11 +56,12 @@ public interface ObjectIntMap {
 		
 		
 		public int hashCode() {
-			long h = hasNullKey ? 149 : 139;
-			K   k;
-			for (int i = keys.array.length - 1; 0 <= i; i--)
-				if ((k = keys.array[i]) != null)
-					h = h ^  Array.hash( k ) + Array.hash( h ^ values.array[i] );
+			int h = 125117;
+			h ^= hasNullKey ? Array.hash( NullKeyValue ) : 719717;
+			K   key;
+			for (int i = keys.array.length; -1 < --i; )
+				if ((key = keys.array[i]) != null)
+					h = h ^  Array.hash( key ) + Array.hash( h ^ values.array[i] );
 			return (int) h;
 		}
 		
@@ -86,7 +87,7 @@ public interface ObjectIntMap {
 			
 			
 			K key;
-			for (int i = keys.array.length - 1, token; -1 < i; i--)
+			for (int i = keys.array.length, token; -1 < --i; )
 				if ((key = keys.array[i]) != null)
 					if ((token = other.token( key )) == Positive_Values.NONE || values.array[i] != other.value( token )) return 1;
 			
@@ -239,14 +240,14 @@ public interface ObjectIntMap {
 			keys.length( -size );
 			values.length( -size );
 			
-			K kk;
-			for (int i = k.length - 1; 0 <= --i; )
-				if ((kk = k[i]) != null)
+			K key;
+			for (int i = k.length; -1 < --i; )
+				if ((key = k[i]) != null)
 				{
-					int slot = Array.hash( kk.hashCode() ) & mask;
+					int slot = Array.hash( key.hashCode() ) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
-					keys.array[slot]   = kk;
+					keys.array[slot]   = key;
 					values.array[slot] = v[i];
 				}
 		}

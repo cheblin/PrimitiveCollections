@@ -31,6 +31,11 @@ public interface UByteDoubleNullMap {
 		public boolean isEmpty()                              {return keys.isEmpty();}
 		
 		
+		public boolean contains(  Character key) {return -1 < token( key );}
+		
+		public boolean contains( char key )     {return -1 < token( key );}
+		
+		
 		public @Positive_Values int token(  Character key ) {return key == null ? hasNullKey : token( (char) (key + 0) );}
 		
 		public @Positive_Values int token( char key )  {return keys.contains( (byte) key ) ? values.hasValue( key ) ? key : Positive_Values.NULL : Positive_Values.NONE;}

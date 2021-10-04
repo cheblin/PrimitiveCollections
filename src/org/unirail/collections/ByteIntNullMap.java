@@ -31,6 +31,11 @@ public interface ByteIntNullMap {
 		public boolean isEmpty()                              {return keys.isEmpty();}
 		
 		
+		public boolean contains(  Byte      key) {return -1 < token( key );}
+		
+		public boolean contains( byte key )     {return -1 < token( key );}
+		
+		
 		public @Positive_Values int token(  Byte      key ) {return key == null ? hasNullKey : token( (byte) (key + 0) );}
 		
 		public @Positive_Values int token( byte key )  {return keys.contains( (byte) key ) ? values.hasValue( key ) ? key : Positive_Values.NULL : Positive_Values.NONE;}
