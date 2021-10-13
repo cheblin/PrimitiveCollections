@@ -2,22 +2,23 @@ package org.unirail.collections;
 
 public interface DoubleObjectMap {
 	
-	interface Iterator{
+	interface Iterator {
 		
-		int token=-1;
-		static <V extends Comparable<? super V>> int token( R<V> src, int token ) { for (; ; ) if (src.keys.array[++token] != 0) return token; }
+		int token = -1;
 		
-		static <V extends Comparable<? super V>> double key( R<V> src, int token ) {return   src.keys.array[token]; }
+		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {for (; ; ) if (src.keys.array[++token] != 0) return token;}
 		
-		static <V extends Comparable<? super V>> V value( R<V> src, int token ) {return src.values.array[token]; }
+		static <V extends Comparable<? super V>> double key( R<V> src, int token ) {return   src.keys.array[token];}
+		
+		static <V extends Comparable<? super V>> V value( R<V> src, int token )   {return src.values.array[token];}
 	}
 	
-	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>>{
+	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>> {
 		
 		
-		public DoubleList.RW keys = new DoubleList.RW(0);
+		public DoubleList.RW keys = new DoubleList.RW( 0 );
 		
-		public ObjectList.RW<V> values = new ObjectList.RW<>(0);
+		public ObjectList.RW<V> values = new ObjectList.RW<>( 0 );
 		
 		
 		int assigned;
@@ -38,16 +39,19 @@ public interface DoubleObjectMap {
 		
 		protected double loadFactor;
 		
-		public boolean contains(  Double    key ) {return -1 < token( key );}
+		public boolean contains(  Double    key )           {return !hasNone( token( key ) );}
 		
-		public boolean contains( double key )     {return -1 < token( key );}
+		public boolean contains( double key )               {return !hasNone( token( key ) );}
 		
-		public @Positive_Values int token( Double    key) { return key == null ? hasNullKey ? Integer.MAX_VALUE : Positive_Values.NONE : token((double) (key + 0));}
+		public boolean hasNone( int token )                      {return token == Positive_Values.NONE;}
 		
-		public @Positive_Values int token(double key) {
+		
+		public @Positive_Values int token(  Double    key ) {return key == null ? hasNullKey ? Integer.MAX_VALUE : Positive_Values.NONE : token( (double) (key + 0) );}
+		
+		public @Positive_Values int token( double key ) {
 			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
-			int slot = Array.hash(key) & mask;
+			int slot = Array.hash( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return slot;
@@ -55,7 +59,7 @@ public interface DoubleObjectMap {
 			return Positive_Values.NONE;
 		}
 		
-		public V value(@Positive_ONLY int token) {
+		public V value( @Positive_ONLY int token ) {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
 			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
@@ -63,9 +67,9 @@ public interface DoubleObjectMap {
 		}
 		
 		
-		public boolean isEmpty() { return size() == 0; }
+		public boolean isEmpty() {return size() == 0;}
 		
-		public int size()        { return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0); }
+		public int size()        {return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
 		
 		public int hashCode() {
@@ -77,30 +81,33 @@ public interface DoubleObjectMap {
 			
 			for (int i = mask; 0 <= i; i--)
 				if ((key = keys.array[i]) != 0)
-					h =  Array.hash(h ^ key) + h ^ Array.hash( values.array[i]);
+					h = h ^ Array.hash( key ) + h ^ Array.hash( values.array[i] );
 			
 			return (int) h;
 		}
 		
 		
-		@SuppressWarnings("unchecked") public boolean equals(Object obj) {
+		@SuppressWarnings("unchecked") public boolean equals( Object obj ) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo(getClass().cast(obj)) == 0;
+			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		public boolean equals(R<V> other) { return other != null && compareTo(other) == 0; }
+		public boolean equals( R<V> other ) {return other != null && compareTo( other ) == 0;}
 		
-		public int compareTo(R<V> other) {
+		public int compareTo( R<V> other ) {
 			
 			if (other == null) return -1;
 			if (assigned != other.assigned) return assigned - other.assigned;
 			if (hasO != other.hasO || hasNullKey != other.hasNullKey) return 1;
 			
 			int diff;
-			if (hasO && (diff = OkeyValue.compareTo(other.OkeyValue)) != 0) return diff;
-			if (hasNullKey && (diff = nullKeyValue.compareTo(other.nullKeyValue)) != 0) return diff;
+			if (hasO && (diff = OkeyValue.compareTo( other.OkeyValue )) != 0) return diff;
+			if (hasNullKey)
+				if (nullKeyValue != null && other.nullKeyValue != null)
+				{if ((diff = nullKeyValue.compareTo( other.nullKeyValue )) != 0) return diff;}
+				else if (nullKeyValue != other.nullKeyValue) return -2334;
 			
 			
 			V           v;
@@ -109,8 +116,8 @@ public interface DoubleObjectMap {
 			for (int i = keys.array.length, c; -1 < --i; )
 				if ((key = keys.array[i]) != 0)
 				{
-					if ((c = other.token(key)) < 0) return 3;
-					v = other.value(c);
+					if ((c = other.token( key )) < 0) return 3;
+					v = other.value( c );
 					
 					if (values.array[i] != null && v != null) {if ((diff = v.compareTo( values.array[i] )) != 0) return diff;}
 					else if (values.array[i] != v) return 8;
@@ -124,7 +131,7 @@ public interface DoubleObjectMap {
 			try
 			{
 				R<V> dst = (R<V>) super.clone();
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -136,32 +143,31 @@ public interface DoubleObjectMap {
 		}
 		
 		
+		public String toString() {return toString( null ).toString();}
 		
-		
-		public String toString() { return toString(null).toString();}
-		public StringBuilder toString(StringBuilder dst) {
+		public StringBuilder toString( StringBuilder dst ) {
 			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+			if (dst == null) dst = new StringBuilder( size * 10 );
+			else dst.ensureCapacity( dst.length() + size * 10 );
 			
 			
 			if (hasNullKey)
 			{
-				dst.append("null -> ").append( nullKeyValue ).append('\n');
+				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 				size--;
 			}
 			
 			if (hasO)
 			{
-				dst.append("0 -> ").append( OkeyValue ).append('\n');
+				dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
 				size--;
 			}
 			
 			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( Iterator.key( this, token = Iterator.token( this, token)))
-					     .append(" -> ")
-					     .append( Iterator.value( this, token))
-					     .append('\n');
+			     dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) )
+					     .append( " -> " )
+					     .append( Iterator.value( this, token ) )
+					     .append( '\n' );
 			
 			return dst;
 		}
@@ -169,43 +175,43 @@ public interface DoubleObjectMap {
 	
 	class RW<V extends Comparable<? super V>> extends R<V> {
 		
-		public RW(double loadFactor) { this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D); }
+		public RW( double loadFactor ) {this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );}
 		
-		public RW(int expectedItems) { this(expectedItems, 0.75); }
+		public RW( int expectedItems ) {this( expectedItems, 0.75 );}
 		
 		
-		public RW(int expectedItems, double loadFactor) {
-			this(loadFactor);
+		public RW( int expectedItems, double loadFactor ) {
+			this( loadFactor );
 			
-			final long length = (long) Math.ceil(expectedItems / loadFactor);
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			final long length = (long) Math.ceil( expectedItems / loadFactor );
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
 			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
 			
-			keys.length(size);
-			values.length(size);
+			keys.length( size );
+			values.length( size );
 		}
 		
 		
-		public boolean put( Double    key, V value) {
-			if (key != null) return put((double) key, value);
+		public boolean put(  Double    key, V value ) {
+			if (key != null) return put( (double) key, value );
 			
-			hasNullKey = true;
+			hasNullKey   = true;
 			nullKeyValue = value;
 			
 			return true;
 		}
 		
-		public boolean put(double key, V value) {
+		public boolean put( double key, V value ) {
 			if (key == 0)
 			{
-				hasO = true;
+				hasO      = true;
 				OkeyValue = value;
 				return true;
 			}
 			
 			
-			int slot = Array.hash(key) & mask;
+			int slot = Array.hash( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -214,26 +220,26 @@ public interface DoubleObjectMap {
 					return true;
 				}
 			
-			keys.array[slot] =  key;
-			values.array[slot] = value;
+			keys.array[slot]   =  key;
+			values.array[slot] =            value;
 			
-			if (++assigned == resizeAt) allocate(mask + 1 << 1);
+			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
 			
 			return true;
 		}
 		
 		
-		public boolean remove( Double    key) {
+		public boolean remove(  Double    key ) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
 			
-			return remove((double) key);
+			return remove( (double) key );
 		}
 		
-		public boolean remove(double key) {
+		public boolean remove( double key ) {
 			
 			if (key == 0) return hasO && !(hasO = false);
 			
-			int slot = Array.hash(key) & mask;
+			int slot = Array.hash( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -243,16 +249,16 @@ public interface DoubleObjectMap {
 					
 					double kk;
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - Array.hash(kk) & mask) >= distance)
+						if ((s - Array.hash( kk ) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot] =  kk;
+							keys.array[gapSlot]   =  kk;
 							values.array[gapSlot] = values.array[s];
-							gapSlot = s;
-							distance = 0;
+							                                   gapSlot = s;
+							                                   distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
+					keys.array[gapSlot]   = 0;
 					values.array[gapSlot] = null;
 					assigned--;
 					return true;
@@ -264,10 +270,10 @@ public interface DoubleObjectMap {
 		public void clear() {
 			assigned = 0;
 			
-			hasO = false;
+			hasO      = false;
 			OkeyValue = null;
 			
-			hasNullKey = false;
+			hasNullKey   = false;
 			nullKeyValue = null;
 			
 			keys.clear();
@@ -275,15 +281,15 @@ public interface DoubleObjectMap {
 		}
 		
 		
-		void allocate(int size) {
+		void allocate( int size ) {
 			
-			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
+				if (keys.length() < size) keys.length( -size );
 				
-				if (values.length() < size) values.length(-size);
+				if (values.length() < size) values.length( -size );
 				return;
 			}
 			
@@ -291,21 +297,21 @@ public interface DoubleObjectMap {
 			final double[] k = keys.array;
 			final V[]           v = values.array;
 			
-			keys.length(-size);
-			values.length(-size);
+			keys.length( -size );
+			values.length( -size );
 			
 			double key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = Array.hash(key) & mask;
+					int slot = Array.hash( key ) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] =  key;
+					keys.array[slot]   =  key;
 					values.array[slot] = v[i];
 				}
 		}
 		
 		
-		public RW<V> clone() { return (RW<V>) super.clone(); }
+		public RW<V> clone() {return (RW<V>) super.clone();}
 	}
 }

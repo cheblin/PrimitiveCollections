@@ -53,7 +53,7 @@ public interface UIntSet {
 			
 			for (int slot = mask; slot >= 0; slot--)
 				if ((key = keys.array[slot]) != 0)
-					h = Array.hash( h ^ key );
+					h ^= Array.hash(  key );
 			
 			return (int) h;
 		}

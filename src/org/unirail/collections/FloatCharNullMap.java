@@ -42,7 +42,7 @@ public interface FloatCharNullMap {
 		
 		
 		public int hashCode() {
-			int h = 291113;
+			long h = 291113;
 			switch (hasOkey)
 			{
 				case Positive_Values.NONE: h ^= 312679;
@@ -66,14 +66,14 @@ public interface FloatCharNullMap {
 			float k;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((k = keys.array[i]) != 0)
-					h = Array.hash(  k  ^ h ) + Array.hash( values.hasValue( i ) ? values.get( i ) : 528491 );
+					h = Array.hash(  k   ) ^ h + Array.hash( values.hasValue( i ) ? values.get( i ) : 528491 );
 			
-			return h;
+			return (int)h;
 		}
 		
-		public boolean contains(  Float     key )           {return -1 < token( key );}
+		public boolean contains(  Float     key )           {return !hasNone( token( key ));}
 		
-		public boolean contains( float key )               {return -1 < token( key );}
+		public boolean contains( float key )                {return !hasNone( token( key ));}
 		
 		public @Positive_Values int token(  Float     key ) {return key == null ? hasNullKey : token( (float) (key + 0) );}
 		

@@ -69,7 +69,7 @@ public interface DoubleList {
 		
 		public int hashCode() {
 			long h = 199;
-			for (int i = 0; i < size; i++) h = Array.hash( h ^ get( i ) );
+			for (int i = 0; i < size; i++) h = Array.hash( h ^  Array.hash(get( i )) );
 			
 			return (int) h;
 		}

@@ -168,28 +168,38 @@ public interface BitsList {
 		
 		protected static void set( R dst, int from, long... src )  {for (int i = src.length; -1 < --i; ) set( dst, from + i, src[i] );}
 		
-		protected static void set( R dst, int item, long src ) {
+		protected static void set(R dst, int item, long src)
+		{
 			final long v = src & dst.mask;
 			final int
 					p = item * dst.bits,
-					index = index( p ),
-					bit = bit( p );
+					index = index(p),
+					bit = bit(p);
 			
-			if (dst.size <= item)
+			final int  k = BITS - bit;
+			final long i = dst.array[index];
+			
+			if (item < dst.size)
 			{
-				if (dst.length() <= item) dst.length( Math.max( dst.length() + dst.length() / 2, len4bits( p + dst.bits ) ) );
-				dst.array[index] = index == index( dst.size * dst.bits ) ? dst.array[index] & FFFFFFFFFFFFFFFF >> BITS - bit | v << bit : v << bit;
-				dst.size         = item + 1;
+				if (k < dst.bits)
+				{
+					dst.array[index]     = i << k >>> k | v << bit;
+					dst.array[index + 1] = dst.array[index + 1] >>> dst.bits - k << dst.bits - k | v >>  k;
+				}
+				else dst.array[index] = ~(~0L >>> BITS - dst.bits << bit) & i | v << bit;
 				return;
 			}
-			final long i = dst.array[index];
-			final int  k = BITS - bit;
-			if (k < dst.bits)
+			
+			if (dst.length() <= item) dst.length( Math.max( dst.length() + dst.length() / 2, len4bits( p + dst.bits ) ) );
+			
+			if(k < dst.bits)
 			{
-				dst.array[index]     = i << k | v << bit;
-				dst.array[index + 1] = dst.array[index + 1] >>> dst.bits + k << dst.bits + k | v >> k;
+				dst.array[index]     = i << k >>> k | v << bit;
+				dst.array[index + 1] = v >>  k;
 			}
-			else dst.array[index] = i >>> bit + dst.bits << bit + dst.bits | v << bit | i << k >>> k;
+			else dst.array[index] = ~(~0L << bit) & i | v << bit;
+			
+			dst.size = item + 1;
 		}
 		
 		

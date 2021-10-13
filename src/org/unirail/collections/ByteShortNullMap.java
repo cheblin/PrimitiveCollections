@@ -31,9 +31,9 @@ public interface ByteShortNullMap {
 		public boolean isEmpty()                              {return keys.isEmpty();}
 		
 		
-		public boolean contains(  Byte      key) {return -1 < token( key );}
+		public boolean contains(  Byte      key )           {return !hasNone( token( key ) );}
 		
-		public boolean contains( byte key )     {return -1 < token( key );}
+		public boolean contains( byte key )            {return !hasNone( token( key ));}
 		
 		
 		public @Positive_Values int token(  Byte      key ) {return key == null ? hasNullKey : token( (byte) (key + 0) );}

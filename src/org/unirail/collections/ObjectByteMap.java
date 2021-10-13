@@ -43,11 +43,11 @@ public interface ObjectByteMap {
 			return Positive_Values.NONE;
 		}
 		
-		public boolean contains( K key )    {return -1 < token( key );}
-		
-		public boolean contains( int token ) {return -1 < token;}
+		public boolean contains( K key )    {return !hasNone( token( key ));}
 		
 		public byte value( @Positive_ONLY int token ) {return token == Positive_Values.VALUE ? NullKeyValue :  (byte) values.array[token];}
+		
+		public boolean hasNone(int token)  {return token == Positive_Values.NONE;}
 		
 		
 		public int size()                   {return assigned + (hasNullKey ? 1 : 0);}
@@ -61,7 +61,7 @@ public interface ObjectByteMap {
 			K   key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != null)
-					h = h ^  Array.hash( key ) + Array.hash( h ^ values.array[i] );
+					h ^= h ^  Array.hash( key ) + h ^ Array.hash( values.array[i] );
 			return (int) h;
 		}
 		
@@ -198,7 +198,7 @@ public interface ObjectByteMap {
 					
 					K kk;
 					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != null; )
-						if ((s - Array.hash( kk.hashCode() ) & mask) >= distance)
+						if ((s - Array.hash( kk ) & mask) >= distance)
 						{
 							vals[gapSlot] = vals[s];
 							array[gapSlot] = kk;
@@ -244,7 +244,7 @@ public interface ObjectByteMap {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = Array.hash( key.hashCode() ) & mask;
+					int slot = Array.hash( key ) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
 					keys.array[slot]   = key;

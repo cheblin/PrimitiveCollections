@@ -38,9 +38,9 @@ public interface FloatByteMap {
 		
 		public int size()                                        {return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
-		public boolean contains(  Float     key )           {return -1 < token( key );}
+		public boolean contains(  Float     key )           {return !hasNone( token( key ));}
 		
-		public boolean contains( float key )               {return -1 < token( key );}
+		public boolean contains( float key )               {return !hasNone( token( key ));}
 		
 		public @Positive_Values int token(  Float     key ) {return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : token( (float) (key + 0) );}
 		
@@ -75,7 +75,7 @@ public interface FloatByteMap {
 			float key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != 0)
-					h = Array.hash( h ^ Array.hash(key) ) + Array.hash( h ^ values.array[i] );
+					h = Array.hash( h ^ Array.hash(key) ) + Array.hash( h ^ Array.hash(values.array[i]) );
 			
 			return h;
 		}
@@ -97,7 +97,7 @@ public interface FloatByteMap {
 			
 			int diff;
 			if (hasO && (OkeyValue - other.OkeyValue) != 0) return 7;
-			if (hasNullKey && (nullKeyValue - other.nullKeyValue) != 0) return 8;
+			if (hasNullKey && nullKeyValue != other.nullKeyValue) return 8;
 			
 			if ((diff = size() - other.size()) != 0) return diff;
 			

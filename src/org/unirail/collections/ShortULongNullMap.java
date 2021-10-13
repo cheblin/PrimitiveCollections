@@ -42,7 +42,7 @@ public interface ShortULongNullMap {
 		
 		
 		public int hashCode() {
-			int h = 291113;
+			long h = 291113;
 			switch (hasOkey)
 			{
 				case Positive_Values.NONE: h ^= 312679;
@@ -66,14 +66,14 @@ public interface ShortULongNullMap {
 			short k;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((k = keys.array[i]) != 0)
-					h = Array.hash( (short) k  ^ h ) + Array.hash( values.hasValue( i ) ? values.get( i ) : 528491 );
+					h = Array.hash( (short) k   ) ^ h + Array.hash( values.hasValue( i ) ? values.get( i ) : 528491 );
 			
-			return h;
+			return (int)h;
 		}
 		
-		public boolean contains(  Short     key )           {return -1 < token( key );}
+		public boolean contains(  Short     key )           {return !hasNone( token( key ));}
 		
-		public boolean contains( short key )               {return -1 < token( key );}
+		public boolean contains( short key )                {return !hasNone( token( key ));}
 		
 		public @Positive_Values int token(  Short     key ) {return key == null ? hasNullKey : token( (short) (key + 0) );}
 		

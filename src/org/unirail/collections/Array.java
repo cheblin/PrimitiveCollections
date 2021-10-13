@@ -72,14 +72,14 @@ public interface Array extends Cloneable {
 	
 	static int hash(Object val) {return val == null ? 0x85ebca6b : hash(val.hashCode());}
 	
-	static long hash(double val) {return hash(Double.doubleToLongBits(val));}
+	static int hash(double val) {return hash(Double.doubleToLongBits(val));}
 	
 	static int hash(float val)  {return hash(Float.floatToIntBits(val));}
 	
-	static long hash(long val) {
+	static int hash(long val) {
 		val = (val ^ (val >>> 32)) * 0x4cd6944c5cc20b6dL;
 		val = (val ^ (val >>> 29)) * 0xfc12c5b19d3259e9L;
-		return  (val ^ (val >>> 32));
+		return  (int)(val ^ (val >>> 32));
 	}
 	
 	static int hash(int val) {
