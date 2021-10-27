@@ -60,12 +60,12 @@ public interface ObjectObjectMap {
 		
 		
 		public int hashCode() {
-			long h = hasNullKey ? Array.hash( NullKeyValue ) : 113;
-			K    key;
+			int hash = Array.hash( hasNullKey ? NullKeyValue : 113 );
+			K   key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != null)
-					h = h ^ Array.hash( key ) + h ^ Array.hash( values.array[i] );
-			return (int) h;
+					hash = Array.hash( Array.hash( hash, key ), values.array[i] );
+			return  hash;
 		}
 		
 		@SuppressWarnings("unchecked")

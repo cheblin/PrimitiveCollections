@@ -43,13 +43,13 @@ public interface ObjectSet {
 		public int size()        {return assigned + (hasNullKey ? 1 : 0);}
 		
 		public int hashCode() {
-			long h = hasNullKey ? 107 : 109;
+			int hash = hasNullKey ? 107 : 109;
 			K    key;
 			
 			for (int i = keys.array.length; -1 < --i; )
-				if ((key = keys.array[i]) != null) h += h ^ Array.hash( key );
+				if ((key = keys.array[i]) != null) hash = Array.hash(hash, key );
 			
-			return (int) h;
+			return hash;
 		}
 		
 		

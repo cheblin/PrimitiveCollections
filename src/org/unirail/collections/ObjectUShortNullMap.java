@@ -33,22 +33,22 @@ public interface ObjectUShortNullMap {
 		
 		public int hashCode() {
 			
-			int h = 575551;
+			int hash = 575551;
 			switch (hasNullKey)
 			{
-				case Positive_Values.NONE: h ^= 719281;
+				case Positive_Values.NONE: hash = Array.hash( hash, 719281 );
 					break;
-				case Positive_Values.NULL: h ^= 401101;
+				case Positive_Values.NULL: hash = Array.hash( hash, 401101 );
 					break;
-				case Positive_Values.VALUE: h ^= Array.hash( NullKeyValue );
+				case Positive_Values.VALUE: hash = Array.hash( hash, NullKeyValue );
 					break;
 			}
 			K key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != null)
-					h = h ^ Array.hash( key ) + (values.nulls.get( i ) ? Array.hash( values.get( i ) ) : 461413);
+					hash = Array.hash( Array.hash( hash, key ), values.nulls.get( i ) ? values.get( i ) : 461413 );
 			
-			return h;
+			return hash;
 		}
 		
 		

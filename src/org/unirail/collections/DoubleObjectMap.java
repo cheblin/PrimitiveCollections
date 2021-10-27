@@ -73,17 +73,17 @@ public interface DoubleObjectMap {
 		
 		
 		public int hashCode() {
-			int h = 575551;
-			h ^= hasO ? Array.hash( OkeyValue ) : 131111;
-			h ^= hasNullKey ? Array.hash( nullKeyValue ) : 997651;
+			int hash = 575551;
+			hash = Array.hash( hash, hasO ? OkeyValue : 131111 );
+			hash = Array.hash( hash, hasNullKey ? nullKeyValue : 997651 );
 			
 			double key;
 			
 			for (int i = mask; 0 <= i; i--)
 				if ((key = keys.array[i]) != 0)
-					h = h ^ Array.hash( key ) + h ^ Array.hash( values.array[i] );
+					hash = Array.hash( Array.hash( hash, key ), values.array[i] );
 			
-			return (int) h;
+			return (int) hash;
 		}
 		
 		

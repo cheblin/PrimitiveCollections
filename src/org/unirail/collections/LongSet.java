@@ -46,16 +46,16 @@ public interface LongSet {
 		
 		
 		public int hashCode() {
-			int h = 280879;
-			if (hasOkey) h ^= 131111;
-			if (hasNullKey) h ^= 997651;
+			int hash = 280879;
+			if (hasOkey) hash = Array.hash( hash, 131111 );
+			if (hasNullKey) hash = Array.hash( hash, 997651 );
 			long key;
 			
 			for (int slot = mask; slot >= 0; slot--)
 				if ((key = keys.array[slot]) != 0)
-					h ^= Array.hash(  key );
+					hash = Array.hash( hash, key );
 			
-			return (int) h;
+			return (int) hash;
 		}
 		
 		

@@ -43,11 +43,11 @@ public interface ObjectByteMap {
 			return Positive_Values.NONE;
 		}
 		
-		public boolean contains( K key )    {return !hasNone( token( key ));}
+		public boolean contains( K key )    {return !hasNone( token( key ) );}
 		
 		public byte value( @Positive_ONLY int token ) {return token == Positive_Values.VALUE ? NullKeyValue :  (byte) values.array[token];}
 		
-		public boolean hasNone(int token)  {return token == Positive_Values.NONE;}
+		public boolean hasNone( int token ) {return token == Positive_Values.NONE;}
 		
 		
 		public int size()                   {return assigned + (hasNullKey ? 1 : 0);}
@@ -56,13 +56,13 @@ public interface ObjectByteMap {
 		
 		
 		public int hashCode() {
-			int h = 125117;
-			h ^= hasNullKey ? Array.hash( NullKeyValue ) : 719717;
-			K   key;
+			int hash = 125117;
+			hash = Array.hash( hash, hasNullKey ? NullKeyValue : 719717 );
+			K key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != null)
-					h ^= h ^  Array.hash( key ) + h ^ Array.hash( values.array[i] );
-			return (int) h;
+					hash = Array.hash( Array.hash( hash, key ), values.array[i] );
+			return (int) hash;
 		}
 		
 		@SuppressWarnings("unchecked")

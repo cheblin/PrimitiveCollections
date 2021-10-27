@@ -69,6 +69,15 @@ public interface Array extends Cloneable {
 		return new_size;
 	}
 	
+	static int hash( int hash, Object val ) {return  hash ^  hash( val );}
+	
+	static int hash( int hash, double val ) {return  hash ^ hash(  val );}
+	
+	static int hash( int hash, float val )  {return hash ^ hash( val );}
+	
+	static int hash( int hash, long val ) {return hash ^ hash( val );}
+	
+	static int hash( int hash, int val ) {return hash ^ hash( val );}
 	
 	static int hash(Object val) {return val == null ? 0x85ebca6b : hash(val.hashCode());}
 	

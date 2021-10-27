@@ -68,10 +68,10 @@ public interface LongList {
 		}
 		
 		public int hashCode() {
-			long h = 199;
-			for (int i = 0; i < size; i++) h = Array.hash( h ^  Array.hash(get( i )) );
+			int hash = 199;
+			for (int i = 0; i < size; i++) hash = Array.hash( hash, get( i ) );
 			
-			return (int) h;
+			return hash;
 		}
 		
 		public R clone() {

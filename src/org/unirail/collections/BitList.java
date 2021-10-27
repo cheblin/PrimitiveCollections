@@ -177,11 +177,11 @@ public interface BitList {
 		
 		
 		public int hashCode() {
-			long h = 197;
+			int hash = 197;
 			for (int i = used; --i >= 0; )
-			     h = Array.hash( h ^ array[i] );
+			     hash = Array.hash( hash , array[i] );
 			
-			return (int)h;
+			return hash;
 		}
 		
 		public int length() {return array.length * BITS;}

@@ -38,9 +38,9 @@ public interface FloatShortMap {
 		
 		public int size()                                        {return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
-		public boolean contains(  Float     key )           {return !hasNone( token( key ));}
+		public boolean contains(  Float     key )           {return !hasNone( token( key ) );}
 		
-		public boolean contains( float key )               {return !hasNone( token( key ));}
+		public boolean contains( float key )               {return !hasNone( token( key ) );}
 		
 		public @Positive_Values int token(  Float     key ) {return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : token( (float) (key + 0) );}
 		
@@ -68,16 +68,16 @@ public interface FloatShortMap {
 		}
 		
 		public int hashCode() {
-			int h = 100049;
-			h ^= hasO ? Array.hash( OkeyValue ) : 616079;
-			h ^= hasNullKey ? Array.hash( nullKeyValue ) : 331997;
+			int hash = 100049;
+			hash = Array.hash( hash, hasO ? OkeyValue : 616079 );
+			hash = Array.hash( hash, hasNullKey ? nullKeyValue : 331997 );
 			
 			float key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != 0)
-					h = Array.hash( h ^ Array.hash(key) ) + Array.hash( h ^ Array.hash(values.array[i]) );
+					hash = Array.hash( Array.hash( hash, key ), values.array[i] );
 			
-			return h;
+			return hash;
 		}
 		
 		

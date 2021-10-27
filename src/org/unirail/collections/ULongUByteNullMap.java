@@ -42,38 +42,38 @@ public interface ULongUByteNullMap {
 		
 		
 		public int hashCode() {
-			long h = 291113;
+			int hash = 291113;
 			switch (hasOkey)
 			{
-				case Positive_Values.NONE: h ^= 312679;
+				case Positive_Values.NONE: hash = Array.hash( hash, 312679 );
 					break;
-				case Positive_Values.NULL: h ^= 777743;
+				case Positive_Values.NULL: hash = Array.hash( hash, 777743 );
 					break;
-				case Positive_Values.VALUE: h ^= Array.hash( OkeyValue );
+				case Positive_Values.VALUE: hash = Array.hash( hash, OkeyValue );
 					break;
 			}
 			
 			switch (hasNullKey)
 			{
-				case Positive_Values.NONE: h ^= 132947;
+				case Positive_Values.NONE: hash = Array.hash( hash, 132947 );
 					break;
-				case Positive_Values.NULL: h ^= 139753;
+				case Positive_Values.NULL: hash = Array.hash( hash, 139753 );
 					break;
-				case Positive_Values.VALUE: h ^= Array.hash( nullKeyValue );
+				case Positive_Values.VALUE: hash = Array.hash( hash, nullKeyValue );
 					break;
 			}
 			
 			long k;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((k = keys.array[i]) != 0)
-					h = Array.hash(  k   ) ^ h + Array.hash( values.hasValue( i ) ? values.get( i ) : 528491 );
+					hash = Array.hash( Array.hash( hash,  k  ), values.hasValue( i ) ? values.get( i ) : 528491 );
 			
-			return (int)h;
+			return  hash;
 		}
 		
-		public boolean contains(  Long      key )           {return !hasNone( token( key ));}
+		public boolean contains(  Long      key )           {return !hasNone( token( key ) );}
 		
-		public boolean contains( long key )                {return !hasNone( token( key ));}
+		public boolean contains( long key )               {return !hasNone( token( key ) );}
 		
 		public @Positive_Values int token(  Long      key ) {return key == null ? hasNullKey : token( (long) (key + 0) );}
 		
