@@ -1,7 +1,6 @@
 package org.unirail.collections;
 
 
-import java.util.Arrays;
 import java.util.Comparator;
 
 public interface Array extends Cloneable {
@@ -67,34 +66,6 @@ public interface Array extends Cloneable {
 			else if (src != dst) System.arraycopy(src, 0, dst, 0, size);
 		
 		return new_size;
-	}
-	
-	static int hash( int hash, Object val ) {return  hash ^  hash( val );}
-	
-	static int hash( int hash, double val ) {return  hash ^ hash(  val );}
-	
-	static int hash( int hash, float val )  {return hash ^ hash( val );}
-	
-	static int hash( int hash, long val ) {return hash ^ hash( val );}
-	
-	static int hash( int hash, int val ) {return hash ^ hash( val );}
-	
-	static int hash(Object val) {return val == null ? 0x85ebca6b : hash(val.hashCode());}
-	
-	static int hash(double val) {return hash(Double.doubleToLongBits(val));}
-	
-	static int hash(float val)  {return hash(Float.floatToIntBits(val));}
-	
-	static int hash(long val) {
-		val = (val ^ (val >>> 32)) * 0x4cd6944c5cc20b6dL;
-		val = (val ^ (val >>> 29)) * 0xfc12c5b19d3259e9L;
-		return  (int)(val ^ (val >>> 32));
-	}
-	
-	static int hash(int val) {
-		val = (val ^ (val >>> 16)) * 0x85ebca6b;
-		val = (val ^ (val >>> 13)) * 0xc2b2ae35;
-		return val ^ (val >>> 16);
 	}
 	
 	

@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 public interface ObjectUByteNullMap {
 	interface Iterator {
 		int token = -1;
@@ -36,17 +38,17 @@ public interface ObjectUByteNullMap {
 			int hash = 575551;
 			switch (hasNullKey)
 			{
-				case Positive_Values.NONE: hash = Array.hash( hash, 719281 );
+				case Positive_Values.NONE: hash = Hash.code( hash, 719281 );
 					break;
-				case Positive_Values.NULL: hash = Array.hash( hash, 401101 );
+				case Positive_Values.NULL: hash = Hash.code( hash, 401101 );
 					break;
-				case Positive_Values.VALUE: hash = Array.hash( hash, NullKeyValue );
+				case Positive_Values.VALUE: hash = Hash.code( hash, NullKeyValue );
 					break;
 			}
 			K key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != null)
-					hash = Array.hash( Array.hash( hash, key ), values.nulls.get( i ) ? values.get( i ) : 461413 );
+					hash = Hash.code( Hash.code( hash, key ), values.nulls.get( i ) ? values.get( i ) : 461413 );
 			
 			return hash;
 		}
@@ -58,7 +60,7 @@ public interface ObjectUByteNullMap {
 			
 			if (key == null) return hasNullKey;
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0) return (values.hasValue( slot )) ? slot : Positive_Values.NULL;
@@ -187,7 +189,7 @@ public interface ObjectUByteNullMap {
 				return true;
 			}
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
@@ -215,7 +217,7 @@ public interface ObjectUByteNullMap {
 				return h != Positive_Values.VALUE;
 			}
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
@@ -266,7 +268,7 @@ public interface ObjectUByteNullMap {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = Array.hash( key ) & mask;
+					int slot = Hash.code( key ) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
 					keys.array[slot] = key;
@@ -286,7 +288,7 @@ public interface ObjectUByteNullMap {
 				return h != Positive_Values.NONE;
 			}
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			final K[] ks = keys.array;
 			for (K k; (k = ks[slot]) != null; slot = slot + 1 & mask)
@@ -297,7 +299,7 @@ public interface ObjectUByteNullMap {
 					
 					K kk;
 					for (int distance = 0, s; (kk = ks[s = gapSlot + ++distance & mask]) != null; )
-						if ((s - Array.hash( kk ) & mask) >= distance)
+						if ((s - Hash.code( kk ) & mask) >= distance)
 						{
 							ks[gapSlot] = kk;
 							

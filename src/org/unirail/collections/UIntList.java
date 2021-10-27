@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 import java.util.Arrays;
 
 public interface UIntList {
@@ -69,7 +71,7 @@ public interface UIntList {
 		
 		public int hashCode() {
 			int hash = 199;
-			for (int i = 0; i < size; i++) hash = Array.hash( hash, get( i ) );
+			for (int i = 0; i < size; i++) hash = Hash.code( hash, get( i ) );
 			
 			return hash;
 		}

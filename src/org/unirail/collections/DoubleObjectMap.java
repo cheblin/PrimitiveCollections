@@ -1,5 +1,7 @@
 package org.unirail.collections;
 
+import org.unirail.Hash;
+
 public interface DoubleObjectMap {
 	
 	interface Iterator {
@@ -51,7 +53,7 @@ public interface DoubleObjectMap {
 		public @Positive_Values int token( double key ) {
 			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return slot;
@@ -74,14 +76,14 @@ public interface DoubleObjectMap {
 		
 		public int hashCode() {
 			int hash = 575551;
-			hash = Array.hash( hash, hasO ? OkeyValue : 131111 );
-			hash = Array.hash( hash, hasNullKey ? nullKeyValue : 997651 );
+			hash = Hash.code( hash, hasO ? OkeyValue : 131111 );
+			hash = Hash.code( hash, hasNullKey ? nullKeyValue : 997651 );
 			
 			double key;
 			
 			for (int i = mask; 0 <= i; i--)
 				if ((key = keys.array[i]) != 0)
-					hash = Array.hash( Array.hash( hash, key ), values.array[i] );
+					hash = Hash.code( Hash.code( hash, key ), values.array[i] );
 			
 			return (int) hash;
 		}
@@ -211,7 +213,7 @@ public interface DoubleObjectMap {
 			}
 			
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -239,7 +241,7 @@ public interface DoubleObjectMap {
 			
 			if (key == 0) return hasO && !(hasO = false);
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -249,7 +251,7 @@ public interface DoubleObjectMap {
 					
 					double kk;
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - Array.hash( kk ) & mask) >= distance)
+						if ((s - Hash.code( kk ) & mask) >= distance)
 						{
 							
 							keys.array[gapSlot]   =  kk;
@@ -304,7 +306,7 @@ public interface DoubleObjectMap {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = Array.hash( key ) & mask;
+					int slot = Hash.code( key ) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
 					keys.array[slot]   =  key;
 					values.array[slot] = v[i];

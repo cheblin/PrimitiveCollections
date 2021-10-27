@@ -1,5 +1,7 @@
 package org.unirail.collections;
 
+import org.unirail.Hash;
+
 public interface DoubleSet {
 	
 	interface Iterator {
@@ -31,7 +33,7 @@ public interface DoubleSet {
 		public boolean contains( double key ) {
 			if (key == 0) return hasOkey;
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return true;
@@ -47,13 +49,13 @@ public interface DoubleSet {
 		
 		public int hashCode() {
 			int hash = 280879;
-			if (hasOkey) hash = Array.hash( hash, 131111 );
-			if (hasNullKey) hash = Array.hash( hash, 997651 );
+			if (hasOkey) hash = Hash.code( hash, 131111 );
+			if (hasNullKey) hash = Hash.code( hash, 997651 );
 			double key;
 			
 			for (int slot = mask; slot >= 0; slot--)
 				if ((key = keys.array[slot]) != 0)
-					hash = Array.hash( hash, key );
+					hash = Hash.code( hash, key );
 			
 			return (int) hash;
 		}
@@ -165,7 +167,7 @@ public interface DoubleSet {
 			
 			if (key == 0) return !hasOkey && (hasOkey = true);
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return false;
@@ -194,7 +196,7 @@ public interface DoubleSet {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = Array.hash( key ) & mask;
+					int slot = Hash.code( key ) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
 					keys.array[slot] = key;
 				}
@@ -207,7 +209,7 @@ public interface DoubleSet {
 			
 			if (key == 0) return hasOkey && !(hasOkey = false);
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -216,7 +218,7 @@ public interface DoubleSet {
 					
 					double kk;
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - Array.hash( kk ) & mask) >= distance)
+						if ((s - Hash.code( kk ) & mask) >= distance)
 						{
 							keys.array[gapSlot] =  kk;
 							                                 gapSlot = s;

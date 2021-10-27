@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 public interface ObjectFloatMap {
 	
 	interface Iterator {
@@ -35,7 +37,7 @@ public interface ObjectFloatMap {
 		public @Positive_Values int token( K key ) {
 			if (key == null) return hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE;
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0) return slot;
@@ -57,11 +59,11 @@ public interface ObjectFloatMap {
 		
 		public int hashCode() {
 			int hash = 125117;
-			hash = Array.hash( hash, hasNullKey ? NullKeyValue : 719717 );
+			hash = Hash.code( hash, hasNullKey ? NullKeyValue : 719717 );
 			K key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != null)
-					hash = Array.hash( Array.hash( hash, key ), values.array[i] );
+					hash = Hash.code( Hash.code( hash, key ), values.array[i] );
 			return (int) hash;
 		}
 		
@@ -162,7 +164,7 @@ public interface ObjectFloatMap {
 				return !hasNullKey && (hasNullKey = true);
 			}
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
@@ -184,7 +186,7 @@ public interface ObjectFloatMap {
 		public boolean remove( K key ) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			final K[] array = keys.array;
 			
@@ -198,7 +200,7 @@ public interface ObjectFloatMap {
 					
 					K kk;
 					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != null; )
-						if ((s - Array.hash( kk ) & mask) >= distance)
+						if ((s - Hash.code( kk ) & mask) >= distance)
 						{
 							vals[gapSlot] = vals[s];
 							array[gapSlot] = kk;
@@ -244,7 +246,7 @@ public interface ObjectFloatMap {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = Array.hash( key ) & mask;
+					int slot = Hash.code( key ) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
 					keys.array[slot]   = key;

@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 import java.util.Arrays;
 
 public interface BitList {
@@ -179,7 +181,7 @@ public interface BitList {
 		public int hashCode() {
 			int hash = 197;
 			for (int i = used; --i >= 0; )
-			     hash = Array.hash( hash , array[i] );
+			     hash = Hash.code( hash , array[i] );
 			
 			return hash;
 		}

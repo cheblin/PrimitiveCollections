@@ -1,5 +1,7 @@
 package org.unirail.collections;
 
+import org.unirail.Hash;
+
 public interface ObjectSet {
 	
 	
@@ -29,7 +31,7 @@ public interface ObjectSet {
 		
 		public boolean contains( K key ) {
 			if (key == null) return hasNullKey;
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0) return true;
@@ -47,7 +49,7 @@ public interface ObjectSet {
 			K    key;
 			
 			for (int i = keys.array.length; -1 < --i; )
-				if ((key = keys.array[i]) != null) hash = Array.hash(hash, key );
+				if ((key = keys.array[i]) != null) hash = Hash.code(hash, key );
 			
 			return hash;
 		}
@@ -138,7 +140,7 @@ public interface ObjectSet {
 		public boolean add( K key ) {
 			if (key == null) return !hasNullKey && (hasNullKey = true);
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0) return false;
 			
@@ -173,7 +175,7 @@ public interface ObjectSet {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = Array.hash( key ) & mask;
+					int slot = Hash.code( key ) & mask;
 					
 					while (keys.array[slot] != null) slot = slot + 1 & mask;
 					
@@ -186,7 +188,7 @@ public interface ObjectSet {
 		public boolean remove( K key ) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0)
 				{
@@ -194,7 +196,7 @@ public interface ObjectSet {
 					
 					K kk;
 					for (int distance = 0, slot1; (kk = keys.array[slot1 = gapSlot + ++distance & mask]) != null; )
-						if ((slot1 - Array.hash( kk ) & mask) >= distance)
+						if ((slot1 - Hash.code( kk ) & mask) >= distance)
 						{
 							keys.array[gapSlot] = kk;
 							                      gapSlot = slot1;

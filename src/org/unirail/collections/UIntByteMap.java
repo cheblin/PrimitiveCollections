@@ -1,5 +1,7 @@
 package org.unirail.collections;
 
+import org.unirail.Hash;
+
 public interface UIntByteMap {
 	
 	
@@ -47,7 +49,7 @@ public interface UIntByteMap {
 		public @Positive_Values int token( long key ) {
 			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (int key_ = (int) key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
@@ -69,13 +71,13 @@ public interface UIntByteMap {
 		
 		public int hashCode() {
 			int hash = 100049;
-			hash = Array.hash( hash, hasO ? OkeyValue : 616079 );
-			hash = Array.hash( hash, hasNullKey ? nullKeyValue : 331997 );
+			hash = Hash.code( hash, hasO ? OkeyValue : 616079 );
+			hash = Hash.code( hash, hasNullKey ? nullKeyValue : 331997 );
 			
 			int key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != 0)
-					hash = Array.hash( Array.hash( hash, key ), values.array[i] );
+					hash = Hash.code( Hash.code( hash, key ), values.array[i] );
 			
 			return hash;
 		}
@@ -201,7 +203,7 @@ public interface UIntByteMap {
 			}
 			
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			final int key_ = (int) key;
 			
@@ -230,7 +232,7 @@ public interface UIntByteMap {
 			
 			if (key == 0) return hasO && !(hasO = false);
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			final int key_ = (int) key;
 			
@@ -242,7 +244,7 @@ public interface UIntByteMap {
 					int kk;
 					
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - Array.hash( kk ) & mask) >= distance)
+						if ((s - Hash.code( kk ) & mask) >= distance)
 						{
 							
 							keys.array[gapSlot]   = kk;
@@ -291,7 +293,7 @@ public interface UIntByteMap {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = Array.hash( key ) & mask;
+					int slot = Hash.code( key ) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
 					keys.array[slot]   = key;
 					values.array[slot] = v[i];

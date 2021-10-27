@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 public interface ObjectObjectMap {
 	
 	interface Iterator {
@@ -38,7 +40,7 @@ public interface ObjectObjectMap {
 		public @Positive_Values int token( K key ) {
 			if (key == null) return hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE;
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0) return slot;
@@ -60,11 +62,11 @@ public interface ObjectObjectMap {
 		
 		
 		public int hashCode() {
-			int hash = Array.hash( hasNullKey ? NullKeyValue : 113 );
+			int hash = Hash.code( hasNullKey ? NullKeyValue : 113 );
 			K   key;
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != null)
-					hash = Array.hash( Array.hash( hash, key ), values.array[i] );
+					hash = Hash.code( Hash.code( hash, key ), values.array[i] );
 			return  hash;
 		}
 		
@@ -173,7 +175,7 @@ public interface ObjectObjectMap {
 			}
 			
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
@@ -222,7 +224,7 @@ public interface ObjectObjectMap {
 			for (int i = ks.length; -1 < --i; )
 				if ((k = ks[i]) != null)
 				{
-					int slot = Array.hash( k ) & mask;
+					int slot = Hash.code( k ) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
 					keys.array[slot]   = k;
@@ -238,7 +240,7 @@ public interface ObjectObjectMap {
 				return h != hasNullKey;
 			}
 			
-			int slot = Array.hash( key ) & mask;
+			int slot = Hash.code( key ) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
 				if (k.compareTo( key ) == 0)
@@ -248,7 +250,7 @@ public interface ObjectObjectMap {
 					
 					K kk;
 					for (int distance = 0, slot1; (kk = keys.array[slot1 = gapSlot + ++distance & mask]) != null; )
-						if ((slot1 - Array.hash( kk ) & mask) >= distance)
+						if ((slot1 - Hash.code( kk ) & mask) >= distance)
 						{
 							values.array[gapSlot] = values.array[slot1];
 							keys.array[gapSlot] = kk;
