@@ -4,18 +4,19 @@ import org.unirail.Hash;
 
 public interface UIntSet {
 	
-	interface NonNullZeroKeysIterator {
+	interface NonNullKeysIterator {
 		int END = -1;
 		
 		static int token( R src ) {return token( src, END );}
 		
 		static int token( R src, int token ) {
-			for (; ; )
-				if (++token == src.keys.array.length) return END;
+			for (int len = src.keys.array.length; ; )
+				if (++token == len) return src.has0Key ? -2 : END;
+				else if (token == 0x7FFF_FFFF) return END;
 				else if (src.keys.array[token] != 0) return token;
 		}
 		
-		static long key( R src, int token ) {return   src.keys.array[token];}
+		static long key( R src, int token ) {return token == -2 ? 0 :   src.keys.array[token];}
 	}
 	
 	abstract class R implements Cloneable, Comparable<R> {
@@ -28,7 +29,7 @@ public interface UIntSet {
 		
 		int resizeAt;
 		
-		boolean hasOkey;
+		boolean has0Key;
 		boolean hasNullKey;
 		
 		protected double loadFactor;
@@ -37,7 +38,7 @@ public interface UIntSet {
 		public boolean contains(  Integer   key ) {return key == null ? hasNullKey : contains( (long) (key + 0) );}
 		
 		public boolean contains( long key ) {
-			if (key == 0) return hasOkey;
+			if (key == 0) return has0Key;
 			
 			int slot = Hash.code( key ) & mask;
 			
@@ -50,14 +51,14 @@ public interface UIntSet {
 		public boolean isEmpty() {return size() == 0;}
 		
 		
-		public int size()        {return assigned + (hasOkey ? 1 : 0) + (hasNullKey ? 1 : 0);}
+		public int size()        {return assigned + (has0Key ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
 		
 		public int hashCode() {
-			int hash = Hash.code( hasOkey ? 20831323 : 535199981, hasNullKey ? 10910099 : 97654321 );
+			int hash = hasNullKey ? 10910099 : 97654321;
 			
-			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
-			     hash = Hash.code( hash, NonNullZeroKeysIterator.key( this, token ) );
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
 			
 			return Hash.code( hash, keys );
 		}
@@ -118,10 +119,8 @@ public interface UIntSet {
 			
 			if (hasNullKey) dst.append( "null\n" );
 			
-			if (hasOkey) dst.append( "0\n" );
-			
-			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
-			     dst.append( NonNullZeroKeysIterator.key( this, token ) ).append( '\n' );
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     dst.append( NonNullKeysIterator.key( this, token ) ).append( '\n' );
 			return dst;
 		}
 	}
@@ -159,7 +158,7 @@ public interface UIntSet {
 		
 		public boolean add( long  key ) {
 			
-			if (key == 0) return !hasOkey && (hasOkey = true);
+			if (key == 0) return !has0Key && (has0Key = true);
 			
 			int slot = Hash.code( key ) & mask;
 			
@@ -201,7 +200,7 @@ public interface UIntSet {
 		
 		public boolean remove( long key ) {
 			
-			if (key == 0) return hasOkey && !(hasOkey = false);
+			if (key == 0) return has0Key && !(has0Key = false);
 			
 			int slot = Hash.code( key ) & mask;
 			
@@ -228,7 +227,7 @@ public interface UIntSet {
 		
 		public void clear() {
 			assigned   = 0;
-			hasOkey    = false;
+			has0Key    = false;
 			hasNullKey = false;
 			
 			keys.clear();
@@ -241,13 +240,13 @@ public interface UIntSet {
 			for (int i = keys.array.length; -1 < --i; )
 				if ((key = keys.array[i]) != 0 && !chk.add( key )) remove( key );
 			
-			if (hasOkey && !chk.add( (long) 0 )) hasOkey = false;
+			if (has0Key && !chk.add( (long) 0 )) has0Key = false;
 		}
 		
 		public int removeAll( R src ) {
 			int fix = size();
 			
-			for (int i = 0, s = src.size(), token = NonNullZeroKeysIterator.END; i < s; i++) remove( NonNullZeroKeysIterator.key( src, token = NonNullZeroKeysIterator.token( src, token ) ) );
+			for (int i = 0, s = src.size(), token = NonNullKeysIterator.END; i < s; i++) remove( NonNullKeysIterator.key( src, token = NonNullKeysIterator.token( src, token ) ) );
 			
 			return fix - size();
 		}

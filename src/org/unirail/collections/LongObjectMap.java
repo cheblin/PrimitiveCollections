@@ -4,21 +4,22 @@ import org.unirail.Hash;
 
 public interface LongObjectMap {
 	
-	interface NonNullZeroKeysIterator {
+	interface NonNullKeysIterator {
 		
 		int END = -1;
 		
 		static <V extends Comparable<? super V>> int token( R<V> src ) {return token( src, END );}
 		
 		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {
-			for (; ; )
-				if (++token == src.keys.array.length) return END;
+			for (int len = src.keys.array.length; ; )
+				if (++token == len) return src.has0Key ? -2 : END;
+				else if (token == 0x7FFF_FFFF) return END;
 				else if (src.keys.array[token] != 0) return token;
 		}
 		
-		static <V extends Comparable<? super V>> long key( R<V> src, int token ) {return   src.keys.array[token];}
+		static <V extends Comparable<? super V>> long key( R<V> src, int token ) {return token == -2 ? 0 :  src.keys.array[token];}
 		
-		static <V extends Comparable<? super V>> V value( R<V> src, int token ) {return token < 0 ? null : src.values.array[token];}
+		static <V extends Comparable<? super V>> V value( R<V> src, int token ) {return token == -2 ? src.OkeyValue : src.values.array[token];}
 	}
 	
 	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>> {
@@ -41,7 +42,7 @@ public interface LongObjectMap {
 		V       nullKeyValue;
 		
 		
-		boolean hasO;
+		boolean has0Key;
 		V       OkeyValue;
 		
 		
@@ -57,7 +58,7 @@ public interface LongObjectMap {
 		public @Positive_Values int token(  Long      key ) {return key == null ? hasNullKey ? Integer.MAX_VALUE : Positive_Values.NONE : token( (long) (key + 0) );}
 		
 		public @Positive_Values int token( long key ) {
-			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
+			if (key == 0) return has0Key ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
 			int slot = Hash.code( key ) & mask;
 			
@@ -77,14 +78,14 @@ public interface LongObjectMap {
 		
 		public boolean isEmpty() {return size() == 0;}
 		
-		public int size()        {return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0);}
+		public int size()        {return assigned + (has0Key ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
 		
 		public int hashCode() {
-			int hash = Hash.code( hasNullKey ? Hash.code( nullKeyValue ) : 997651, hasO ? Hash.code( OkeyValue ) : 131111 );
+			int hash = hasNullKey ? Hash.code( nullKeyValue ) : 997651 ;
 			
-			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
-			     hash = Hash.code( Hash.code( hash, NonNullZeroKeysIterator.key( this, token ) ), NonNullZeroKeysIterator.value( this, token ) );
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     hash = Hash.code( Hash.code( hash, NonNullKeysIterator.key( this, token ) ), NonNullKeysIterator.value( this, token ) );
 			return hash;
 		}
 		
@@ -102,10 +103,10 @@ public interface LongObjectMap {
 			
 			if (other == null) return -1;
 			if (assigned != other.assigned) return assigned - other.assigned;
-			if (hasO != other.hasO || hasNullKey != other.hasNullKey) return 1;
+			if (has0Key != other.has0Key || hasNullKey != other.hasNullKey) return 1;
 			
 			int diff;
-			if (hasO && (diff = OkeyValue.compareTo( other.OkeyValue )) != 0) return diff;
+			if (has0Key && (diff = OkeyValue.compareTo( other.OkeyValue )) != 0) return diff;
 			if (hasNullKey)
 				if (nullKeyValue != null && other.nullKeyValue != null)
 				{if ((diff = nullKeyValue.compareTo( other.nullKeyValue )) != 0) return diff;}
@@ -154,12 +155,10 @@ public interface LongObjectMap {
 			
 			if (hasNullKey) dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			
-			if (hasO) dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
-			
-			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
-			     dst.append( NonNullZeroKeysIterator.key( this, token ) )
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     dst.append( NonNullKeysIterator.key( this, token ) )
 					     .append( " -> " )
-					     .append( NonNullZeroKeysIterator.value( this, token ) )
+					     .append( NonNullKeysIterator.value( this, token ) )
 					     .append( '\n' );
 			
 			return dst;
@@ -198,7 +197,7 @@ public interface LongObjectMap {
 		public boolean put( long key, V value ) {
 			if (key == 0)
 			{
-				hasO      = true;
+				has0Key   = true;
 				OkeyValue = value;
 				return true;
 			}
@@ -230,7 +229,7 @@ public interface LongObjectMap {
 		
 		public boolean remove( long key ) {
 			
-			if (key == 0) return hasO && !(hasO = false);
+			if (key == 0) return has0Key && !(has0Key = false);
 			
 			int slot = Hash.code( key ) & mask;
 			
@@ -263,7 +262,7 @@ public interface LongObjectMap {
 		public void clear() {
 			assigned = 0;
 			
-			hasO      = false;
+			has0Key   = false;
 			OkeyValue = null;
 			
 			hasNullKey   = false;

@@ -195,7 +195,7 @@ a:
 			
 			
 			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
-			     dst.append( (int) NonNullKeysIterator.key( token = NonNullKeysIterator.token( this, token ) ) ).append( '\n' );
+			     dst.append( (int) NonNullKeysIterator.key( token ) ).append( '\n' );
 			
 			return dst;
 		}

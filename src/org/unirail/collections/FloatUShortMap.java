@@ -5,20 +5,21 @@ import org.unirail.Hash;
 public interface FloatUShortMap {
 	
 	
-	interface NonNullZeroKeysIterator {
+	interface NonNullKeysIterator {
 		int END = -1;
 		
 		static int token( R src ) {return token( src, END );}
 		
 		static int token( R src, int token ) {
-			for (; ; )
-				if (++token == src.keys.array.length) return END;
+			for (int len = src.keys.array.length; ; )
+				if (++token == len) return src.has0Key ? -2 : END;
+				else if (token == 0x7FFF_FFFF) return END;
 				else if (src.keys.array[token] != 0) return token;
 		}
 		
-		static float key( R src, int token ) {return   src.keys.array[token];}
+		static float key( R src, int token ) {return token == -2 ? 0 :   src.keys.array[token];}
 		
-		static char value( R src, int token ) {return   src.values.array[token];}
+		static char value( R src, int token ) {return token == -2 ? src.OkeyValue :   src.values.array[token];}
 	}
 	
 	
@@ -36,7 +37,7 @@ public interface FloatUShortMap {
 		boolean hasNullKey;
 		char       nullKeyValue;
 		
-		boolean hasO;
+		boolean has0Key;
 		char       OkeyValue;
 		
 		protected double loadFactor;
@@ -44,7 +45,7 @@ public interface FloatUShortMap {
 		
 		public boolean isEmpty()                                 {return size() == 0;}
 		
-		public int size()                                        {return assigned + (hasO ? 1 : 0) + (hasNullKey ? 1 : 0);}
+		public int size()                                        {return assigned + (has0Key ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
 		public boolean contains(  Float     key )           {return !hasNone( token( key ) );}
 		
@@ -53,7 +54,7 @@ public interface FloatUShortMap {
 		public @Positive_Values int token(  Float     key ) {return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : token( (float) (key + 0) );}
 		
 		public @Positive_Values int token( float key ) {
-			if (key == 0) return hasO ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
+			if (key == 0) return has0Key ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
 			int slot = Hash.code( key ) & mask;
 			
@@ -76,10 +77,10 @@ public interface FloatUShortMap {
 		}
 		
 		public int hashCode() {
-			int hash = Hash.code( hasO ? Hash.code(OkeyValue) : 616079, hasNullKey ? Hash.code(nullKeyValue) : 331997 );
+			int hash =  hasNullKey ? Hash.code( nullKeyValue ) : 331997 ;
 			
-			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
-			     hash = Hash.code( Hash.code( hash, NonNullZeroKeysIterator.key( this, token ) ), NonNullZeroKeysIterator.value( this, token ) );
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     hash = Hash.code( Hash.code( hash, NonNullKeysIterator.key( this, token ) ), NonNullKeysIterator.value( this, token ) );
 			return hash;
 		}
 		
@@ -96,10 +97,10 @@ public interface FloatUShortMap {
 		@Override public int compareTo( R other ) {
 			if (other == null) return -1;
 			
-			if (hasO != other.hasO || hasNullKey != other.hasNullKey) return 1;
+			if (has0Key != other.has0Key || hasNullKey != other.hasNullKey) return 1;
 			
 			int diff;
-			if (hasO && (OkeyValue - other.OkeyValue) != 0) return 7;
+			if (has0Key && (OkeyValue - other.OkeyValue) != 0) return 7;
 			if (hasNullKey && nullKeyValue != other.nullKeyValue) return 8;
 			
 			if ((diff = size() - other.size()) != 0) return diff;
@@ -141,12 +142,10 @@ public interface FloatUShortMap {
 			
 			if (hasNullKey) dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			
-			if (hasO) dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
-			
-			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
-			     dst.append( NonNullZeroKeysIterator.key( this, token ) )
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     dst.append( NonNullKeysIterator.key( this, token ) )
 					     .append( " -> " )
-					     .append( NonNullZeroKeysIterator.value( this, token ) )
+					     .append( NonNullKeysIterator.value( this, token ) )
 					     .append( '\n' );
 			return dst;
 		}
@@ -185,12 +184,12 @@ public interface FloatUShortMap {
 			
 			if (key == 0)
 			{
-				if (hasO)
+				if (has0Key)
 				{
 					OkeyValue = value;
 					return true;
 				}
-				hasO      = true;
+				has0Key   = true;
 				OkeyValue = value;
 				return false;
 			}
@@ -223,7 +222,7 @@ public interface FloatUShortMap {
 		
 		public boolean remove( float key ) {
 			
-			if (key == 0) return hasO && !(hasO = false);
+			if (key == 0) return has0Key && !(has0Key = false);
 			
 			int slot = Hash.code( key ) & mask;
 			
@@ -257,7 +256,7 @@ public interface FloatUShortMap {
 		
 		public void clear() {
 			assigned   = 0;
-			hasO       = false;
+			has0Key    = false;
 			hasNullKey = false;
 			
 			keys.clear();

@@ -4,22 +4,25 @@ import org.unirail.Hash;
 
 public interface DoubleUIntNullMap {
 	
-	interface NonNullZeroKeysIterator {
+	interface NonNullKeysIterator {
 		int END = -1;
 		
-		static double key( R src, int token ) {return   src.keys.array[token & Integer.MAX_VALUE];}
 		
 		static int token( R src ) {return token( src, END );}
 		
 		static int token( R src, int token ) {
+			int len = src.keys.array.length;
 			for (token++, token &= Integer.MAX_VALUE; ; token++)
-				if (token == src.keys.array.length) return END;
+				if (token == len) return src.has0key == Positive_Values.NONE ? END : -2;
+				else if (token == 0x7FFF_FFFF) return END;
 				else if (src.keys.array[token] != 0) return src.values.hasValue( token ) ? token : token | Integer.MIN_VALUE;
 		}
 		
-		static boolean hasValue( R src, int token ) {return -1 < token;}
+		static double key( R src, int token ) {return token == -2 ? 0 : src.keys.array[token & Integer.MAX_VALUE];}
 		
-		static long value( R src, int token ) {return   src.values.get( token );}
+		static boolean hasValue( R src, int token ) {return (token == -2 && src.has0key == Positive_Values.VALUE) || -1 < token;}
+		
+		static long value( R src, int token ) {return token == -2 ? src.OkeyValue :    src.values.get( token );}
 	}
 	
 	abstract class R implements Cloneable, Comparable<R> {
@@ -37,7 +40,7 @@ public interface DoubleUIntNullMap {
 		long nullKeyValue = 0;
 		
 		
-		@Positive_Values int hasOkey = Positive_Values.NONE;
+		@Positive_Values int has0key = Positive_Values.NONE;
 		long       OkeyValue;
 		
 		
@@ -45,17 +48,16 @@ public interface DoubleUIntNullMap {
 		
 		public boolean isEmpty() {return size() == 0;}
 		
-		public int size()        {return assigned + (hasOkey == Positive_Values.NONE ? 0 : 1) + (hasNullKey == Positive_Values.NONE ? 0 : 1);}
+		public int size()        {return assigned + (has0key == Positive_Values.NONE ? 0 : 1) + (hasNullKey == Positive_Values.NONE ? 0 : 1);}
 		
 		
 		public int hashCode() {
-			int hash = Hash.code( 15618090, hasOkey == Positive_Values.VALUE ? Hash.code( OkeyValue ) : hasOkey == Positive_Values.NONE ? 13011091 : 136101521 );
-			hash = Hash.code( hash, hasNullKey == Positive_Values.VALUE ? Hash.code( nullKeyValue ) : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887 );
+			int hash = hasNullKey == Positive_Values.VALUE ? Hash.code( nullKeyValue ) : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887;
 			
-			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
 			{
-				hash = Hash.code( hash, NonNullZeroKeysIterator.key( this, token ) );
-				if (NonNullZeroKeysIterator.hasValue( this, token )) hash = Hash.code( hash, Hash.code( (NonNullZeroKeysIterator.value( this, token )) ) );
+				hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
+				if (NonNullKeysIterator.hasValue( this, token )) hash = Hash.code( hash, Hash.code( (NonNullKeysIterator.value( this, token )) ) );
 			}
 			
 			return hash;
@@ -69,7 +71,7 @@ public interface DoubleUIntNullMap {
 		
 		public @Positive_Values int token( double key ) {
 			
-			if (key == 0) return hasOkey == Positive_Values.VALUE ? Positive_Values.VALUE - 1 : hasOkey;
+			if (key == 0) return has0key == Positive_Values.VALUE ? Positive_Values.VALUE - 1 : has0key;
 			
 			final double key_ =  key ;
 			
@@ -113,7 +115,7 @@ public interface DoubleUIntNullMap {
 			
 			if (hasNullKey != other.hasNullKey || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue) return 1;
 			
-			if (hasOkey != other.hasOkey || hasOkey == Positive_Values.VALUE && OkeyValue != other.OkeyValue) return 1;
+			if (has0key != other.has0key || has0key == Positive_Values.VALUE && OkeyValue != other.OkeyValue) return 1;
 			
 			int diff = size() - other.size();
 			if (diff != 0) return diff;
@@ -165,7 +167,7 @@ public interface DoubleUIntNullMap {
 					dst.append( "null -> null\n" );
 			}
 			
-			switch (hasOkey)
+			switch (has0key)
 			{
 				case Positive_Values.VALUE:
 					dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
@@ -174,11 +176,11 @@ public interface DoubleUIntNullMap {
 					dst.append( "0 -> null\n" );
 			}
 			
-			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ), dst.append( '\n' ))
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ), dst.append( '\n' ))
 			{
-				dst.append( NonNullZeroKeysIterator.key( this, token ) ).append( " -> " );
-				if (token < 0) dst.append( "null" );
-				else dst.append( NonNullZeroKeysIterator.value( this, token ) );
+				dst.append( NonNullKeysIterator.key( this, token ) ).append( " -> " );
+				if (NonNullKeysIterator.hasValue( this, token )) dst.append( NonNullKeysIterator.value( this, token ) );
+				else dst.append( "null" );
 			}
 			
 			return dst;
@@ -235,8 +237,8 @@ public interface DoubleUIntNullMap {
 			
 			if (key == 0)
 			{
-				int h = hasOkey;
-				hasOkey = Positive_Values.NULL;
+				int h = has0key;
+				has0key = Positive_Values.NULL;
 				return h == Positive_Values.NONE;
 			}
 			
@@ -262,8 +264,8 @@ public interface DoubleUIntNullMap {
 		public boolean put( double key, long value ) {
 			if (key == 0)
 			{
-				int h = hasOkey;
-				hasOkey   = Positive_Values.VALUE;
+				int h = has0key;
+				has0key   = Positive_Values.VALUE;
 				OkeyValue = value;
 				return h == Positive_Values.NONE;
 			}
@@ -288,7 +290,7 @@ public interface DoubleUIntNullMap {
 		}
 		
 		
-		public boolean remove() {return hasOkey != Positive_Values.NONE && (hasOkey = Positive_Values.NONE) == Positive_Values.NONE;}
+		public boolean remove() {return has0key != Positive_Values.NONE && (has0key = Positive_Values.NONE) == Positive_Values.NONE;}
 		
 		public boolean remove( double key ) {
 			if (key == 0) return remove();
@@ -362,7 +364,7 @@ public interface DoubleUIntNullMap {
 		
 		public void clear() {
 			assigned = 0;
-			hasOkey  = Positive_Values.NONE;
+			has0key  = Positive_Values.NONE;
 			keys.clear();
 			values.clear();
 		}
