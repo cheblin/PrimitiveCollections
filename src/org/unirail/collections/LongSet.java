@@ -4,10 +4,16 @@ import org.unirail.Hash;
 
 public interface LongSet {
 	
-	interface Iterator {
-		int token = -1;
+	interface NonNullZeroKeysIterator {
+		int END = -1;
 		
-		static int token( R src, int token ) {for (; ; ) if (src.keys.array[++token] != 0) return token;}
+		static int token( R src ) {return token( src, END );}
+		
+		static int token( R src, int token ) {
+			for (; ; )
+				if (++token == src.keys.array.length) return END;
+				else if (src.keys.array[token] != 0) return token;
+		}
 		
 		static long key( R src, int token ) {return   src.keys.array[token];}
 	}
@@ -48,8 +54,11 @@ public interface LongSet {
 		
 		
 		public int hashCode() {
-			int hash = Hash.code( hasOkey ? 20831323 : 535199981 );
-			hash = Hash.code( hash, hasNullKey ? 10910099 : 97654321 );
+			int hash = Hash.code( hasOkey ? 20831323 : 535199981, hasNullKey ? 10910099 : 97654321 );
+			
+			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
+			     hash = Hash.code( hash, NonNullZeroKeysIterator.key( this, token ) );
+			
 			return Hash.code( hash, keys );
 		}
 		
@@ -107,20 +116,12 @@ public interface LongSet {
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
-			if (hasNullKey)
-			{
-				dst.append( "null\n" );
-				size--;
-			}
+			if (hasNullKey) dst.append( "null\n" );
 			
-			if (hasOkey)
-			{
-				dst.append( "0\n" );
-				size--;
-			}
+			if (hasOkey) dst.append( "0\n" );
 			
-			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) ).append( '\n' );
+			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
+			     dst.append( NonNullZeroKeysIterator.key( this, token ) ).append( '\n' );
 			return dst;
 		}
 	}
@@ -246,7 +247,7 @@ public interface LongSet {
 		public int removeAll( R src ) {
 			int fix = size();
 			
-			for (int i = 0, s = src.size(), token = Iterator.token; i < s; i++) remove( Iterator.key( src, token = Iterator.token( src, token ) ) );
+			for (int i = 0, s = src.size(), token = NonNullZeroKeysIterator.END; i < s; i++) remove( NonNullZeroKeysIterator.key( src, token = NonNullZeroKeysIterator.token( src, token ) ) );
 			
 			return fix - size();
 		}

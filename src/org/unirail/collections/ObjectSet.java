@@ -5,13 +5,19 @@ import org.unirail.Hash;
 public interface ObjectSet {
 	
 	
-	interface Iterator {
+	interface NonNullKeysIterator {
 		
-		int token = -1;
+		int END = -1;
 		
-		static <K extends Comparable<? super K>> int token( R<K> src, int token ) {for (; ; ) if (src.keys.array[++token] != null) return token;}
+		static <K extends Comparable<? super K>> int token( R<K> src ) {return token( src, END );}
 		
-		static <K extends Comparable<? super K>> K key( R<K> src, int token )     {return src.keys.array[token];}
+		static <K extends Comparable<? super K>> int token( R<K> src, int token ) {
+			for (; ; )
+				if (++token == src.keys.array.length) return END;
+				else if (src.keys.array[token] != null) return token;
+		}
+		
+		static <K extends Comparable<? super K>> K key( R<K> src, int token ) {return src.keys.array[token];}
 	}
 	
 	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
@@ -44,7 +50,12 @@ public interface ObjectSet {
 		
 		public int size()        {return assigned + (hasNullKey ? 1 : 0);}
 		
-		public int hashCode() {return Hash.code( hasNullKey ? 10153331 : 888888883, keys );}
+		public int hashCode() {
+			int hash = Hash.code( hasNullKey ? 10153331 : 888888883 );
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
+			return hash;
+		}
 		
 		
 		@SuppressWarnings("unchecked")
@@ -90,14 +101,9 @@ public interface ObjectSet {
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
-			if (hasNullKey)
-			{
-				dst.append( "null\n" );
-				size--;
-			}
-			
-			for (int token = Iterator.token, i = 0; i < size; dst.append( '\n' ), i++)
-			     dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) );
+			if (hasNullKey) dst.append( "null\n" );
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ), dst.append( '\n' ))
+			     dst.append( NonNullKeysIterator.key( this, token ) );
 			
 			return dst;
 		}

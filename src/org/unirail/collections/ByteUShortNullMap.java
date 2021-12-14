@@ -6,18 +6,22 @@ import org.unirail.Hash;
 public interface ByteUShortNullMap {
 	
 	
-	interface Iterator {
+	interface NonNullKeysIterator {
 		
-		int token = -1;
+		int END = -1;
+		
+		static int token( R src ) {return token( src, END );}
 		
 		static int token( R src, int token ) {
-			int key  = ByteSet.Iterator.token( src.keys, token );
+			int key  = ByteSet.NonNullKeysIterator.token( src.keys, token );
 			int item = token >> 8 & 0xFF;
 			
 			return (src.values.hasValue( key ) ? Integer.MIN_VALUE | item << 8 : (item + 1 & 0xFF) << 8) | key;
 		}
 		
 		static byte key( int token ) {return (byte) (token & 0xFF);}
+		
+		static boolean hasValue( R src, int token ) {return -1 < token;}
 		
 		static char value( R src, int token ) {return  src.values.get( token >> 8 );}
 	}
@@ -59,7 +63,7 @@ public interface ByteUShortNullMap {
 		char nullKeyValue = 0;
 		
 		public int hashCode() {
-			return Hash.code( Hash.code( hasNullKey == Positive_Values.NULL ? 553735009 : hasNullKey == Positive_Values.NONE ? 10019689 : Hash.code(nullKeyValue), keys ), values );
+			return Hash.code( Hash.code( hasNullKey == Positive_Values.NULL ? 553735009 : hasNullKey == Positive_Values.NONE ? 10019689 : Hash.code( nullKeyValue ), keys ), values );
 		}
 		
 		public boolean equals( Object obj ) {
@@ -109,15 +113,14 @@ public interface ByteUShortNullMap {
 			if (keys.hasNullKey)
 			{
 				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
-				size--;
 			}
 			
-			for (int token = Iterator.token, i = 0; i < size; i++, dst.append( '\n' ))
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ), dst.append( '\n' ))
 			{
-				dst.append( Iterator.key( token = Iterator.token( this, token ) ) ).append( " -> " );
+				dst.append( NonNullKeysIterator.key( token ) ).append( " -> " );
 				
-				if (token < 0) dst.append( "null" );
-				else dst.append( Iterator.value( this, token ) );
+				if (NonNullKeysIterator.hasValue( this, token )) dst.append( NonNullKeysIterator.value( this, token ) );
+				else dst.append( "null" );
 			}
 			
 			return dst;

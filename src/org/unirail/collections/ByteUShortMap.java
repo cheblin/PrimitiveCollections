@@ -6,12 +6,14 @@ import org.unirail.Hash;
 public interface ByteUShortMap {
 	
 	
-	interface Iterator {
-		int token = -1;
+	interface NonNullKeysIterator {
+		int END = -1;
+		
+		static int token( R src ) {return token( src, END );}
 		
 		static int token( R src, int token ) {
 			int i = (token & ~0xFF) + (1 << 8);
-			return i | ByteSet.Iterator.token( src.keys, token );
+			return i | ByteSet.NonNullKeysIterator.token( src.keys, token );
 		}
 		
 		static byte key( int token ) {return (byte) (token & 0xFF);}
@@ -40,7 +42,7 @@ public interface ByteUShortMap {
 		
 		char NullKeyValue = 0;
 		
-		public int hashCode() {return Hash.code( Hash.code( contains( null ) ? Hash.code( NullKeyValue ): 77415193, keys ), values );}
+		public int hashCode() {return Hash.code( Hash.code( contains( null ) ? Hash.code( NullKeyValue ) : 77415193, keys ), values );}
 		
 		
 		public boolean equals( Object obj ) {
@@ -81,21 +83,18 @@ public interface ByteUShortMap {
 		//endregion
 		public String toString() {return toString( null ).toString();}
 		
-		StringBuilder toString( StringBuilder dst ) {
+		public StringBuilder toString( StringBuilder dst ) {
 			int size = keys.size();
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
-			if (keys.hasNullKey)
-			{
-				dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
-				size--;
-			}
+			if (keys.hasNullKey) dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
 			
-			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( Iterator.key( token = Iterator.token( this, token ) ) )
+			
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     dst.append( NonNullKeysIterator.key( token ) )
 					     .append( " -> " )
-					     .append( Iterator.value( this, token ) )
+					     .append( NonNullKeysIterator.value( this, token ) )
 					     .append( '\n' );
 			return dst;
 		}

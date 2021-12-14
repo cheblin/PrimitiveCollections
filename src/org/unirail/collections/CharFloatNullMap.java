@@ -4,17 +4,22 @@ import org.unirail.Hash;
 
 public interface CharFloatNullMap {
 	
-	interface Iterator {
-		int token = -1;
+	interface NonNullZeroKeysIterator {
+		int END = -1;
 		
 		static char key( R src, int token ) {return  (char) src.keys.array[token & Integer.MAX_VALUE];}
 		
-		@Positive_YES static int token( R src, int token ) {
-			for (token++, token &= Integer.MAX_VALUE; src.keys.array[token] == 0; token++) ;
-			return src.values.hasValue( token ) ? token : token | Integer.MIN_VALUE;
+		static int token( R src ) {return token( src, END );}
+		
+		static int token( R src, int token ) {
+			for (token++, token &= Integer.MAX_VALUE; ; token++)
+				if (token == src.keys.array.length) return END;
+				else if (src.keys.array[token] != 0) return src.values.hasValue( token ) ? token : token | Integer.MIN_VALUE;
 		}
 		
-		static float value( R src, @Positive_ONLY int token ) {return   src.values.get( token );}
+		static boolean hasValue( R src, int token ) {return -1 < token;}
+		
+		static float value( R src, int token ) {return   src.values.get( token );}
 	}
 	
 	abstract class R implements Cloneable, Comparable<R> {
@@ -44,10 +49,16 @@ public interface CharFloatNullMap {
 		
 		
 		public int hashCode() {
-			int hash = Hash.code( 15618090, hasOkey == Positive_Values.VALUE ? OkeyValue : hasOkey == Positive_Values.NONE ? 13011091 : 136101521  );
-			hash = Hash.code( hash, hasNullKey == Positive_Values.VALUE ? nullKeyValue : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887 );
+			int hash = Hash.code( 15618090, hasOkey == Positive_Values.VALUE ? Hash.code( OkeyValue ) : hasOkey == Positive_Values.NONE ? 13011091 : 136101521 );
+			hash = Hash.code( hash, hasNullKey == Positive_Values.VALUE ? Hash.code( nullKeyValue ) : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887 );
 			
-			return Hash.code( Hash.code( hash, keys ), values );
+			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
+			{
+				hash = Hash.code( hash, NonNullZeroKeysIterator.key( this, token ) );
+				if (NonNullZeroKeysIterator.hasValue( this, token )) hash = Hash.code( hash, Hash.code( (NonNullZeroKeysIterator.value( this, token )) ) );
+			}
+			
+			return hash;
 		}
 		
 		public boolean contains(  Character key )           {return !hasNone( token( key ) );}
@@ -149,30 +160,25 @@ public interface CharFloatNullMap {
 			{
 				case Positive_Values.VALUE:
 					dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
-					size--;
 					break;
 				case Positive_Values.NULL:
 					dst.append( "null -> null\n" );
-					size--;
 			}
 			
 			switch (hasOkey)
 			{
 				case Positive_Values.VALUE:
 					dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
-					size--;
 					break;
 				case Positive_Values.NULL:
 					dst.append( "0 -> null\n" );
-					size--;
 			}
 			
-			for (int token = Iterator.token, i = 0; i < size; i++, dst.append( '\n' ))
+			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ), dst.append( '\n' ))
 			{
-				dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) ).append( " -> " );
-				
+				dst.append( NonNullZeroKeysIterator.key( this, token ) ).append( " -> " );
 				if (token < 0) dst.append( "null" );
-				else dst.append( Iterator.value( this, token ) );
+				else dst.append( NonNullZeroKeysIterator.value( this, token ) );
 			}
 			
 			return dst;

@@ -5,14 +5,20 @@ import org.unirail.Hash;
 
 public interface ObjectObjectMap {
 	
-	interface Iterator {
-		int token = -1;
+	interface NonNullKeysIterator {
+		int END = -1;
 		
-		static <K extends Comparable<? super K>, V extends Comparable<? super V>> int token( R<K, V> src, int token ) {for (; ; ) if (src.keys.array[++token] != null) return token;}
+		static <K extends Comparable<? super K>, V extends Comparable<? super V>> int token( R<K, V> src ) {return token( src, END );}
 		
-		static <K extends Comparable<? super K>, V extends Comparable<? super V>> K key( R<K, V> src, int token )     {return src.keys.array[token];}
+		static <K extends Comparable<? super K>, V extends Comparable<? super V>> int token( R<K, V> src, int token ) {
+			for (; ; )
+				if (++token == src.keys.array.length) return END;
+				else if (src.keys.array[token] != null) return token;
+		}
 		
-		static <K extends Comparable<? super K>, V extends Comparable<? super V>> V value( R<K, V> src, int token )   {return src.values.get( token );}
+		static <K extends Comparable<? super K>, V extends Comparable<? super V>> K key( R<K, V> src, int token )   {return src.keys.array[token];}
+		
+		static <K extends Comparable<? super K>, V extends Comparable<? super V>> V value( R<K, V> src, int token ) {return src.values.get( token );}
 	}
 	
 	abstract class R<K extends Comparable<? super K>, V extends Comparable<? super V>> implements Cloneable, Comparable<R<K, V>> {
@@ -61,7 +67,13 @@ public interface ObjectObjectMap {
 		public boolean isEmpty()                   {return size() == 0;}
 		
 		
-		public int hashCode() {return Hash.code( Hash.code( Hash.code( hasNullKey ? Hash.code(NullKeyValue)  : 10100011 ), keys ), values );}
+		public int hashCode() {
+			int hash = Hash.code( hasNullKey ? Hash.code( NullKeyValue ) : 10100011 );
+			
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     hash = Hash.code( Hash.code( hash, NonNullKeysIterator.key( this, token ) ), NonNullKeysIterator.value( this, token ) );
+			return hash;
+		}
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals( Object obj ) {
@@ -122,14 +134,10 @@ public interface ObjectObjectMap {
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
-			if (hasNullKey)
-			{
-				dst.append( "null -> " ).append( NullKeyValue );
-				size--;
-			}
+			if (hasNullKey) dst.append( "null -> " ).append( NullKeyValue );
 			
-			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) ).append( " -> " ).append( Iterator.value( this, token ) );
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     dst.append( NonNullKeysIterator.key( this, token ) ).append( " -> " ).append( NonNullKeysIterator.value( this, token ) );
 			return dst;
 		}
 	}

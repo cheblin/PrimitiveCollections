@@ -4,17 +4,22 @@ package org.unirail.collections;
 import org.unirail.Hash;
 
 public interface ObjectDoubleNullMap {
-	interface Iterator {
-		int token = -1;
+	interface NonNullKeysIterator {
+		int END = -1;
 		
-		@Positive_YES static <K extends Comparable<? super K>> int token( R<K> src, int token ) {
-			for (token++, token &= Integer.MAX_VALUE; src.keys.array[token] == null; token++) ;
-			return src.values.hasValue( token ) ? token : token | Integer.MIN_VALUE;
+		static <K extends Comparable<? super K>> int token( R<K> src ) {return token( src, END );}
+		
+		static <K extends Comparable<? super K>> int token( R<K> src, int token ) {
+			for (token++, token &= Integer.MAX_VALUE; ; token++)
+				if (token == src.keys.array.length) return END;
+				else if (src.keys.array[token] != null) return src.values.hasValue( token ) ? token : token | Integer.MIN_VALUE;
 		}
 		
-		static <K extends Comparable<? super K>> K key( R<K> src, int token ) {return src.keys.array[token & Integer.MAX_VALUE];}
+		static <K extends Comparable<? super K>> K key( R<K> src, int token )            {return src.keys.array[token & Integer.MAX_VALUE];}
 		
-		static <K extends Comparable<? super K>> double value( R<K> src, @Positive_ONLY int token ) {return src.values.get( token );}
+		static <K extends Comparable<? super K>> boolean hasValue( R<K> src, int token ) {return -1 < token;}
+		
+		static <K extends Comparable<? super K>> double value( R<K> src, int token ) {return src.values.get( token );}
 	}
 	
 	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
@@ -34,18 +39,15 @@ public interface ObjectDoubleNullMap {
 		public boolean isEmpty() {return size() == 0;}
 		
 		public int hashCode() {
+			int hash = Hash.code( hasNullKey == Positive_Values.NONE ? 719281 : hasNullKey == Positive_Values.NULL ? 401101 : Hash.code( NullKeyValue ) );
 			
-			int hash = 575551;
-			switch (hasNullKey)
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
 			{
-				case Positive_Values.NONE: hash = Hash.code( hash, 719281 );
-					break;
-				case Positive_Values.NULL: hash = Hash.code( hash, 401101 );
-					break;
-				case Positive_Values.VALUE: hash = Hash.code( hash, NullKeyValue );
-					break;
+				hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
+				if (NonNullKeysIterator.hasValue( this, token )) hash = Hash.code( hash, NonNullKeysIterator.value( this, token ) );
 			}
-			return Hash.code( Hash.code( hash, keys ), values );
+			
+			return hash;
 		}
 		
 		
@@ -134,19 +136,17 @@ public interface ObjectDoubleNullMap {
 			{
 				case Positive_Values.NULL:
 					dst.append( "null -> null\n" );
-					size--;
 					break;
 				case Positive_Values.VALUE:
 					dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
-					size--;
 			}
 			
-			for (int token = Iterator.token, i = 0; i < size; dst.append( '\n' ), i++)
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; dst.append( '\n' ), token = NonNullKeysIterator.token( this, token ))
 			{
-				dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) ).append( " -> " );
+				dst.append( NonNullKeysIterator.key( this, token ) ).append( " -> " );
 				
-				if (token < 0) dst.append( "null" );
-				else dst.append( Iterator.value( this, token ) );
+				if (NonNullKeysIterator.hasValue( this, token )) dst.append( NonNullKeysIterator.value( this, token ) );
+				else dst.append( "null" );
 			}
 			
 			return dst;

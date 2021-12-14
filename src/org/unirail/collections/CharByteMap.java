@@ -5,10 +5,16 @@ import org.unirail.Hash;
 public interface CharByteMap {
 	
 	
-	interface Iterator {
-		int token = -1;
+	interface NonNullZeroKeysIterator {
+		int END = -1;
 		
-		static int token( R src, int token ) {for (; ; ) if (src.keys.array[++token] != 0) return token;}
+		static int token( R src ) {return token( src, END );}
+		
+		static int token( R src, int token ) {
+			for (; ; )
+				if (++token == src.keys.array.length) return END;
+				else if (src.keys.array[token] != 0) return token;
+		}
 		
 		static char key( R src, int token ) {return  (char) src.keys.array[token];}
 		
@@ -70,10 +76,11 @@ public interface CharByteMap {
 		}
 		
 		public int hashCode() {
-			int hash = Hash.code( hasO ? OkeyValue : 616079 );
-			hash = Hash.code( hash, hasNullKey ? nullKeyValue : 331997 );
+			int hash = Hash.code( hasO ? Hash.code(OkeyValue) : 616079, hasNullKey ? Hash.code(nullKeyValue) : 331997 );
 			
-			return Hash.code( Hash.code( hash, keys ), values );
+			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
+			     hash = Hash.code( Hash.code( hash, NonNullZeroKeysIterator.key( this, token ) ), NonNullZeroKeysIterator.value( this, token ) );
+			return hash;
 		}
 		
 		
@@ -132,22 +139,14 @@ public interface CharByteMap {
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
-			if (hasNullKey)
-			{
-				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
-				size--;
-			}
+			if (hasNullKey) dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			
-			if (hasO)
-			{
-				dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
-				size--;
-			}
+			if (hasO) dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
 			
-			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) )
+			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
+			     dst.append( NonNullZeroKeysIterator.key( this, token ) )
 					     .append( " -> " )
-					     .append( Iterator.value( this, token ) )
+					     .append( NonNullZeroKeysIterator.value( this, token ) )
 					     .append( '\n' );
 			return dst;
 		}

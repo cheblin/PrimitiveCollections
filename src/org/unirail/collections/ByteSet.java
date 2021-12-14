@@ -4,11 +4,13 @@ import org.unirail.Hash;
 
 public interface ByteSet {
 	
-	interface Iterator {
+	interface NonNullKeysIterator {
 		
-		int token = -1;
+		int END = -1;
 		
 		static byte key( int token ) {return (byte) (token & 0xFF);}
+		
+		static int token( R src ) {return token( src, END );}
 		
 		static int token( R src, int token ) {
 			token++;
@@ -37,7 +39,7 @@ public interface ByteSet {
 			
 			if ((l = src._4 >>> token) != 0) return ((token + Long.numberOfTrailingZeros( l ) + 192));
 			
-			return -1;
+			return END;
 		}
 	}
 	
@@ -189,14 +191,11 @@ a:
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
-			if (hasNullKey)
-			{
-				dst.append( "null\n" );
-				size--;
-			}
+			if (hasNullKey) dst.append( "null\n" );
 			
-			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( (int) Iterator.key( token = Iterator.token( this, token ) ) ).append( '\n' );
+			
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     dst.append( (int) NonNullKeysIterator.key( token = NonNullKeysIterator.token( this, token ) ) ).append( '\n' );
 			
 			return dst;
 		}
@@ -280,8 +279,8 @@ a:
 			boolean      ret = false;
 			byte key;
 			
-			for (int token = Iterator.token, i = 0, size = src.size(); i < size; i++)
-				if (!contains( key = Iterator.key( Iterator.token( src, token ) ) ))
+			for (int token = NonNullKeysIterator.END, i = 0, size = src.size(); i < size; i++)
+				if (!contains( key = NonNullKeysIterator.key( NonNullKeysIterator.token( src, token ) ) ))
 				{
 					ret = true;
 					this.add( key );

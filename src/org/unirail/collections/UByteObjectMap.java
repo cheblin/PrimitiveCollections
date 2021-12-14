@@ -6,18 +6,20 @@ import org.unirail.Hash;
 public interface UByteObjectMap {
 	
 	
-	interface Iterator {
+	interface NonNullKeysIterator {
 		
-		int token = -1;
+		int END = -1;
+		
+		static <V extends Comparable<? super V>> int token( R<V> src ) {return token( src, END );}
 		
 		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {
 			int i = (token & ~0xFF) + (1 << 8);
-			return i | ByteSet.Iterator.token( src.keys, token );
+			return i | ByteSet.NonNullKeysIterator.token( src.keys, token );
 		}
 		
 		static char key( int token ) {return (char) (token & 0xFF);}
 		
-		static <V extends Comparable<? super V>> V value( R<V> src, int token ) {return src.values.array[token >> 8];}
+		static <V extends Comparable<? super V>> V value( R<V> src, int token ) {return token < 0 ? null : src.values.array[token >> 8];}
 	}
 	
 	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>> {
@@ -40,7 +42,7 @@ public interface UByteObjectMap {
 		
 		V NullKeyValue = null;
 		
-		public int hashCode() {return Hash.code( Hash.code( Hash.code( keys.contains( null ) ? Hash.code(NullKeyValue)  : 29399999 ), keys ), values );}
+		public int hashCode() {return Hash.code( Hash.code( Hash.code( keys.contains( null ) ? Hash.code( NullKeyValue ) : 29399999 ), keys ), values );}
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals( Object obj ) {
@@ -83,16 +85,13 @@ public interface UByteObjectMap {
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
-			if (keys.hasNullKey)
-			{
-				dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
-				size--;
-			}
+			if (keys.hasNullKey) dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
 			
-			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( Iterator.key( token = Iterator.token( this, token ) ) )
+			
+			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			     dst.append( NonNullKeysIterator.key( token ) )
 					     .append( " -> " )
-					     .append( Iterator.value( this, token ) )
+					     .append( NonNullKeysIterator.value( this, token ) )
 					     .append( '\n' );
 			
 			return dst;

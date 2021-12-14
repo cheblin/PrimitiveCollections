@@ -4,15 +4,21 @@ import org.unirail.Hash;
 
 public interface IntObjectMap {
 	
-	interface Iterator {
+	interface NonNullZeroKeysIterator {
 		
-		int token = -1;
+		int END = -1;
 		
-		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {for (; ; ) if (src.keys.array[++token] != 0) return token;}
+		static <V extends Comparable<? super V>> int token( R<V> src ) {return token( src, END );}
+		
+		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {
+			for (; ; )
+				if (++token == src.keys.array.length) return END;
+				else if (src.keys.array[token] != 0) return token;
+		}
 		
 		static <V extends Comparable<? super V>> int key( R<V> src, int token ) {return   src.keys.array[token];}
 		
-		static <V extends Comparable<? super V>> V value( R<V> src, int token )   {return src.values.array[token];}
+		static <V extends Comparable<? super V>> V value( R<V> src, int token ) {return token < 0 ? null : src.values.array[token];}
 	}
 	
 	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>> {
@@ -75,10 +81,11 @@ public interface IntObjectMap {
 		
 		
 		public int hashCode() {
-			int hash = Hash.code( 999999503, hasO ? Hash.code(OkeyValue) : 131111 );
-			hash = Hash.code( hash, hasNullKey ? Hash.code(nullKeyValue) : 997651 );
+			int hash = Hash.code( hasNullKey ? Hash.code( nullKeyValue ) : 997651, hasO ? Hash.code( OkeyValue ) : 131111 );
 			
-			return Hash.code( Hash.code( hash, keys ), values );
+			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
+			     hash = Hash.code( Hash.code( hash, NonNullZeroKeysIterator.key( this, token ) ), NonNullZeroKeysIterator.value( this, token ) );
+			return hash;
 		}
 		
 		
@@ -145,23 +152,14 @@ public interface IntObjectMap {
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
+			if (hasNullKey) dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			
-			if (hasNullKey)
-			{
-				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
-				size--;
-			}
+			if (hasO) dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
 			
-			if (hasO)
-			{
-				dst.append( "0 -> " ).append( OkeyValue ).append( '\n' );
-				size--;
-			}
-			
-			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( Iterator.key( this, token = Iterator.token( this, token ) ) )
+			for (int token = NonNullZeroKeysIterator.token( this ); token != NonNullZeroKeysIterator.END; token = NonNullZeroKeysIterator.token( this, token ))
+			     dst.append( NonNullZeroKeysIterator.key( this, token ) )
 					     .append( " -> " )
-					     .append( Iterator.value( this, token ) )
+					     .append( NonNullZeroKeysIterator.value( this, token ) )
 					     .append( '\n' );
 			
 			return dst;
