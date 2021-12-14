@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 public interface ByteObjectMap {
 	
 	
@@ -37,6 +39,8 @@ public interface ByteObjectMap {
 		public V value( int key )                   {return values.array[keys.rank( (byte) key )];}
 		
 		V NullKeyValue = null;
+		
+		public int hashCode() {return Hash.code( Hash.code( Hash.code( keys.contains( null ) ? Hash.code(NullKeyValue)  : 29399999 ), keys ), values );}
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals( Object obj ) {
@@ -123,7 +127,14 @@ public interface ByteObjectMap {
 			return ret;
 		}
 		
-		public boolean remove(  Byte       key ) {return key == null ? keys.remove( null ) : remove( (byte) (key + 0) );}
+		public boolean remove(  Byte       key ) {
+			if (key == null)
+			{
+				NullKeyValue = null;
+				return keys.remove( null );
+			}
+			return remove( (byte) (key + 0) );
+		}
 		
 		public boolean remove( byte key ) {
 			final byte k = (byte) key;

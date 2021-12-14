@@ -48,16 +48,9 @@ public interface UIntSet {
 		
 		
 		public int hashCode() {
-			int hash = 280879;
-			if (hasOkey) hash = Hash.code( hash, 131111 );
-			if (hasNullKey) hash = Hash.code( hash, 997651 );
-			long key;
-			
-			for (int slot = mask; slot >= 0; slot--)
-				if ((key = keys.array[slot]) != 0)
-					hash = Hash.code( hash, key );
-			
-			return (int) hash;
+			int hash = Hash.code( hasOkey ? 20831323 : 535199981 );
+			hash = Hash.code( hash, hasNullKey ? 10910099 : 97654321 );
+			return Hash.code( hash, keys );
 		}
 		
 		

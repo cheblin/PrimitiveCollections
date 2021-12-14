@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 public interface ByteFloatNullMap {
 	
 	
@@ -33,7 +35,7 @@ public interface ByteFloatNullMap {
 		
 		public boolean contains(  Byte      key )           {return !hasNone( token( key ) );}
 		
-		public boolean contains( byte key )            {return !hasNone( token( key ));}
+		public boolean contains( byte key )            {return !hasNone( token( key ) );}
 		
 		
 		public @Positive_Values int token(  Byte      key ) {return key == null ? hasNullKey : token( (byte) (key + 0) );}
@@ -55,6 +57,10 @@ public interface ByteFloatNullMap {
 		
 		@Positive_Values int hasNullKey = Positive_Values.NONE;
 		float nullKeyValue = 0;
+		
+		public int hashCode() {
+			return Hash.code( Hash.code( hasNullKey == Positive_Values.NULL ? 553735009 : hasNullKey == Positive_Values.NONE ? 10019689 : Hash.code(nullKeyValue), keys ), values );
+		}
 		
 		public boolean equals( Object obj ) {
 			

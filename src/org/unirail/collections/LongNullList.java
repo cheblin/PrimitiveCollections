@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 public interface LongNullList {
 	
 	
@@ -50,7 +52,7 @@ public interface LongNullList {
 			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		public int hashCode()            {return nulls.hashCode() ^ values.hashCode();}
+		public int hashCode()            {return Hash.code( Hash.code( nulls ), values );}
 		
 		
 		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}

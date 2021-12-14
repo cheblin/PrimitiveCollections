@@ -64,15 +64,14 @@ public interface ByteList {
 			if (other == null) return -1;
 			if (other.size != size) return other.size - size;
 			
-			for (int i = 0; i < size; i++)
-				if (array[i] != other.array[i]) return 1;
+			for (int i = size(); -1 < --i; )
+				if (array[i] != other.array[i]) return i + 1;
 			return 0;
 		}
 		
 		public int hashCode() {
-			int hash = 199;
-			for (int i = 0; i < size; i++) hash = Hash.code( hash, get( i ) );
-			
+			int hash = 999197497;
+			for (int i = size(); -1 < --i; ) hash = Hash.code( hash, array[i] );
 			return hash;
 		}
 		

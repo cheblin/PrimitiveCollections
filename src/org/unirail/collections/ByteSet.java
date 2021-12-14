@@ -1,5 +1,7 @@
 package org.unirail.collections;
 
+import org.unirail.Hash;
+
 public interface ByteSet {
 	
 	interface Iterator {
@@ -150,6 +152,7 @@ a:
 			return true;
 		}
 		
+		public int hashCode() {return Hash.code( Hash.code( Hash.code( Hash.code( hasNullKey ? 184889743 : 22633363, _1 ), _2 ), _3 ), _4 );}
 		
 		public boolean equals( Object obj ) {
 			
@@ -193,7 +196,7 @@ a:
 			}
 			
 			for (int token = Iterator.token, i = 0; i < size; i++)
-			     dst.append( (int)Iterator.key( token = Iterator.token( this, token ) ) ).append( '\n' );
+			     dst.append( (int) Iterator.key( token = Iterator.token( this, token ) ) ).append( '\n' );
 			
 			return dst;
 		}
@@ -201,7 +204,8 @@ a:
 	
 	class RW extends R {
 		
-		public RW(  )     {}
+		public RW()                            {}
+		
 		public RW( byte... items )     {for (byte i : items) this.add( i );}
 		
 		public RW(  Byte     ... items )     {for ( Byte      key : items) add( key );}
@@ -261,8 +265,6 @@ a:
 			size--;
 			return true;
 		}
-		
-		
 		
 		
 		public void clear() {

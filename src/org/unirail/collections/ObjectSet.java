@@ -44,15 +44,7 @@ public interface ObjectSet {
 		
 		public int size()        {return assigned + (hasNullKey ? 1 : 0);}
 		
-		public int hashCode() {
-			int hash = hasNullKey ? 107 : 109;
-			K    key;
-			
-			for (int i = keys.array.length; -1 < --i; )
-				if ((key = keys.array[i]) != null) hash = Hash.code(hash, key );
-			
-			return hash;
-		}
+		public int hashCode() {return Hash.code( hasNullKey ? 10153331 : 888888883, keys );}
 		
 		
 		@SuppressWarnings("unchecked")

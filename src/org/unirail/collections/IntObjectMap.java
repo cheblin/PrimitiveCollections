@@ -75,17 +75,10 @@ public interface IntObjectMap {
 		
 		
 		public int hashCode() {
-			int hash = 575551;
-			hash = Hash.code( hash, hasO ? OkeyValue : 131111 );
-			hash = Hash.code( hash, hasNullKey ? nullKeyValue : 997651 );
+			int hash = Hash.code( 999999503, hasO ? Hash.code(OkeyValue) : 131111 );
+			hash = Hash.code( hash, hasNullKey ? Hash.code(nullKeyValue) : 997651 );
 			
-			int key;
-			
-			for (int i = mask; 0 <= i; i--)
-				if ((key = keys.array[i]) != 0)
-					hash = Hash.code( Hash.code( hash, key ), values.array[i] );
-			
-			return (int) hash;
+			return Hash.code( Hash.code( hash, keys ), values );
 		}
 		
 		

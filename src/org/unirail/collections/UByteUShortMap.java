@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 public interface UByteUShortMap {
 	
 	
@@ -24,34 +26,37 @@ public interface UByteUShortMap {
 		UShortList.RW values;
 		
 		
-		public int size()               { return keys.size(); }
+		public int size()                           {return keys.size();}
 		
-		public boolean isEmpty()                  { return keys.isEmpty();}
+		public boolean isEmpty()                    {return keys.isEmpty();}
 		
-		public boolean contains( Character key) { return key == null ? keys.contains(null) : keys.contains((byte) (key + 0));}
+		public boolean contains(  Character key ) {return key == null ? keys.contains( null ) : keys.contains( (byte) (key + 0) );}
 		
-		public boolean contains(int key)          { return keys.contains((byte) key);}
+		public boolean contains( int key )          {return keys.contains( (byte) key );}
 		
-		public char value( Character key) { return key == null ? NullKeyValue : value(key + 0);}
+		public char value(  Character key ) {return key == null ? NullKeyValue : value( key + 0 );}
 		
-		public char  value(int key) {return    values.array[keys.rank((byte) key)];}
+		public char  value( int key ) {return    values.array[keys.rank( (byte) key )];}
 		
 		char NullKeyValue = 0;
 		
-		public boolean equals(Object obj) {
+		public int hashCode() {return Hash.code( Hash.code( contains( null ) ? Hash.code( NullKeyValue ): 77415193, keys ), values );}
+		
+		
+		public boolean equals( Object obj ) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo(getClass().cast(obj)) == 0;
+			       compareTo( getClass().cast( obj ) ) == 0;
 		}
 		
-		public boolean equals(R other) { return other != null && compareTo(other) == 0; }
+		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
 		
-		@Override public int compareTo(R other) {
+		@Override public int compareTo( R other ) {
 			if (other == null) return -1;
 			
 			int diff;
-			if ((diff = other.keys.compareTo(keys)) != 0 || (diff = other.values.compareTo(values)) != 0) return diff;
+			if ((diff = other.keys.compareTo( keys )) != 0 || (diff = other.values.compareTo( values )) != 0) return diff;
 			if (keys.hasNullKey && NullKeyValue != other.NullKeyValue) return 1;
 			
 			return 0;
@@ -61,7 +66,7 @@ public interface UByteUShortMap {
 			try
 			{
 				R dst = (R) super.clone();
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -72,8 +77,6 @@ public interface UByteUShortMap {
 			return null;
 		}
 		
-		
-	
 		
 		//endregion
 		public String toString() {return toString( null ).toString();}
@@ -100,7 +103,7 @@ public interface UByteUShortMap {
 	
 	class RW extends R {
 		
-		public RW(int length) { values = new UShortList.RW(265 < length ? 256 : length); }
+		public RW( int length ) {values = new UShortList.RW( 265 < length ? 256 : length );}
 		
 		public void clear() {
 			keys.clear();
@@ -108,37 +111,37 @@ public interface UByteUShortMap {
 		}
 		
 		
-		public boolean put( Character key, char value) {
+		public boolean put(  Character key, char value ) {
 			if (key == null)
 			{
 				NullKeyValue = value;
-				boolean ret = keys.contains(null);
-				keys.add(null);
+				boolean ret = keys.contains( null );
+				keys.add( null );
 				return !ret;
 			}
 			
-			return put((char) (key + 0), value);
+			return put( (char) (key + 0), value );
 		}
 		
-		public boolean put(char key, char value) {
-			boolean ret = keys.add((byte) key);
-			values.array[keys.rank((byte) key) - 1] = (char) value;
+		public boolean put( char key, char value ) {
+			boolean ret = keys.add( (byte) key );
+			values.array[keys.rank( (byte) key ) - 1] = (char) value;
 			return ret;
 		}
 		
-		public boolean remove( Character  key) { return key == null ? keys.remove(null) : remove((char) (key + 0)); }
+		public boolean remove(  Character  key ) {return key == null ? keys.remove( null ) : remove( (char) (key + 0) );}
 		
-		public boolean remove(char key) {
+		public boolean remove( char key ) {
 			final byte k = (byte) key;
-			if (!keys.contains(k)) return false;
+			if (!keys.contains( k )) return false;
 			
-			values.remove(keys.rank(k) - 1);
-			keys.remove(k);
+			values.remove( keys.rank( k ) - 1 );
+			keys.remove( k );
 			
 			return true;
 		}
 		
 		
-		@Override public RW clone() { return (RW) super.clone(); }
+		@Override public RW clone() {return (RW) super.clone();}
 	}
 }

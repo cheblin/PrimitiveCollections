@@ -61,14 +61,7 @@ public interface ObjectObjectMap {
 		public boolean isEmpty()                   {return size() == 0;}
 		
 		
-		public int hashCode() {
-			int hash = Hash.code( hasNullKey ? NullKeyValue : 113 );
-			K   key;
-			for (int i = keys.array.length; -1 < --i; )
-				if ((key = keys.array[i]) != null)
-					hash = Hash.code( Hash.code( hash, key ), values.array[i] );
-			return  hash;
-		}
+		public int hashCode() {return Hash.code( Hash.code( Hash.code( hasNullKey ? Hash.code(NullKeyValue)  : 10100011 ), keys ), values );}
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals( Object obj ) {

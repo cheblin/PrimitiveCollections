@@ -70,16 +70,10 @@ public interface ULongLongMap {
 		}
 		
 		public int hashCode() {
-			int hash = 100049;
-			hash = Hash.code( hash, hasO ? OkeyValue : 616079 );
+			int hash = Hash.code( hasO ? OkeyValue : 616079 );
 			hash = Hash.code( hash, hasNullKey ? nullKeyValue : 331997 );
 			
-			long key;
-			for (int i = keys.array.length; -1 < --i; )
-				if ((key = keys.array[i]) != 0)
-					hash = Hash.code( Hash.code( hash, key ), values.array[i] );
-			
-			return hash;
+			return Hash.code( Hash.code( hash, keys ), values );
 		}
 		
 		

@@ -1,11 +1,12 @@
 package org.unirail.collections;
 
 
+import org.unirail.Hash;
+
 import java.util.Arrays;
 
 public interface BitsList {
 	
-
 	
 	long FFFFFFFFFFFFFFFF = ~0L;
 	
@@ -26,7 +27,6 @@ public interface BitsList {
 	int LEN  = 6;
 	
 	static int len4bits( int bits ) {return (bits + BITS) >>> LEN;}
-	
 	
 	
 	abstract class R implements Cloneable, Comparable<R> {
@@ -63,6 +63,7 @@ public interface BitsList {
 			mask  = mask( bits = bits_per_item );
 			array = new long[len4bits( items * bits )];
 		}
+		
 		protected R( int bits_per_item, int fill_value, int size ) {
 			this( bits_per_item, size );
 			this.size = size;
@@ -73,6 +74,16 @@ public interface BitsList {
 		protected void clear() {
 			for (int i = index( bits * size ) + 1; -1 < --i; ) array[i] = 0;
 			size = 0;
+		}
+		
+		public int hashCode() {
+			int i = index( size );
+			
+			int hash = Hash.code( 149989999 , (array[i] & (1L << bit( size )) - 1) );
+			
+			while (-1 < --i) hash = Hash.code( hash, array[i] );
+			
+			return hash;
 		}
 		
 		public boolean equals( Object other ) {
@@ -99,10 +110,10 @@ public interface BitsList {
 		}
 		
 		
-		public int length()                            {return array.length * BITS / bits;}
+		public int length()                          {return array.length * BITS / bits;}
 		
 		
-		protected static void add( R dst, long src )   {set( dst, dst.size, src );}
+		protected static void add( R dst, long src ) {set( dst, dst.size, src );}
 		
 		protected static void add( R dst, int item, long value ) {
 			
@@ -168,13 +179,12 @@ public interface BitsList {
 		
 		protected static void set( R dst, int from, long... src )  {for (int i = src.length; -1 < --i; ) set( dst, from + i, src[i] );}
 		
-		protected static void set(R dst, int item, long src)
-		{
+		protected static void set( R dst, int item, long src ) {
 			final long v = src & dst.mask;
 			final int
 					p = item * dst.bits,
-					index = index(p),
-					bit = bit(p);
+					index = index( p ),
+					bit = bit( p );
 			
 			final int  k = BITS - bit;
 			final long i = dst.array[index];
@@ -184,7 +194,7 @@ public interface BitsList {
 				if (k < dst.bits)
 				{
 					dst.array[index]     = i << k >>> k | v << bit;
-					dst.array[index + 1] = dst.array[index + 1] >>> dst.bits - k << dst.bits - k | v >>  k;
+					dst.array[index + 1] = dst.array[index + 1] >>> dst.bits - k << dst.bits - k | v >> k;
 				}
 				else dst.array[index] = ~(~0L >>> BITS - dst.bits << bit) & i | v << bit;
 				return;
@@ -192,10 +202,10 @@ public interface BitsList {
 			
 			if (dst.length() <= item) dst.length( Math.max( dst.length() + dst.length() / 2, len4bits( p + dst.bits ) ) );
 			
-			if(k < dst.bits)
+			if (k < dst.bits)
 			{
 				dst.array[index]     = i << k >>> k | v << bit;
-				dst.array[index + 1] = v >>  k;
+				dst.array[index + 1] = v >> k;
 			}
 			else dst.array[index] = ~(~0L << bit) & i | v << bit;
 			
@@ -281,11 +291,11 @@ public interface BitsList {
 			if (dst == null) dst = new StringBuilder( size * 4 );
 			else dst.ensureCapacity( dst.length() + size * 4 );
 			
-			long src = array[ 0 ];
+			long src = array[0];
 			for (int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++)
 			{
 				final int bit   = bit( bp );
-				long      value = (BITS < bit + bits ? value( src, src = array[ index( bp ) + 1 ], bit, bits ) : src >>> bit & mask);
+				long      value = (BITS < bit + bits ? value( src, src = array[index( bp ) + 1], bit, bits ) : src >>> bit & mask);
 				
 				dst.append( value ).append( '\t' );
 				
@@ -294,6 +304,7 @@ public interface BitsList {
 			
 			return dst;
 		}
+		
 		public int indexOf( long value ) {
 			for (int item = 0, max = size * bits; item < max; item += bits)
 				if (value == get( item )) return item / bits;
@@ -329,7 +340,7 @@ public interface BitsList {
 	}
 	
 	
-	class RW extends R  {
+	class RW extends R {
 		
 		public RW( int bits_per_item )                            {super( bits_per_item );}
 		
@@ -367,7 +378,6 @@ public interface BitsList {
 			super( bits_per_item, values.length );
 			set( this, 0, values );
 		}
-		
 		
 		
 		public void add( long value )                {add( this, value );}

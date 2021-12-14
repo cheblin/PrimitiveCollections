@@ -45,12 +45,7 @@ public interface ObjectUIntNullMap {
 				case Positive_Values.VALUE: hash = Hash.code( hash, NullKeyValue );
 					break;
 			}
-			K key;
-			for (int i = keys.array.length; -1 < --i; )
-				if ((key = keys.array[i]) != null)
-					hash = Hash.code( Hash.code( hash, key ), values.nulls.get( i ) ? values.get( i ) : 461413 );
-			
-			return hash;
+			return Hash.code( Hash.code( hash, keys ), values );
 		}
 		
 		

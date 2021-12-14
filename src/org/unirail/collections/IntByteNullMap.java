@@ -44,33 +44,10 @@ public interface IntByteNullMap {
 		
 		
 		public int hashCode() {
-			int hash = 291113;
-			switch (hasOkey)
-			{
-				case Positive_Values.NONE: hash = Hash.code( hash, 312679 );
-					break;
-				case Positive_Values.NULL: hash = Hash.code( hash, 777743 );
-					break;
-				case Positive_Values.VALUE: hash = Hash.code( hash, OkeyValue );
-					break;
-			}
+			int hash = Hash.code( 15618090, hasOkey == Positive_Values.VALUE ? OkeyValue : hasOkey == Positive_Values.NONE ? 13011091 : 136101521  );
+			hash = Hash.code( hash, hasNullKey == Positive_Values.VALUE ? nullKeyValue : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887 );
 			
-			switch (hasNullKey)
-			{
-				case Positive_Values.NONE: hash = Hash.code( hash, 132947 );
-					break;
-				case Positive_Values.NULL: hash = Hash.code( hash, 139753 );
-					break;
-				case Positive_Values.VALUE: hash = Hash.code( hash, nullKeyValue );
-					break;
-			}
-			
-			int k;
-			for (int i = keys.array.length; -1 < --i; )
-				if ((k = keys.array[i]) != 0)
-					hash = Hash.code( Hash.code( hash,  k  ), values.hasValue( i ) ? values.get( i ) : 528491 );
-			
-			return  hash;
+			return Hash.code( Hash.code( hash, keys ), values );
 		}
 		
 		public boolean contains(  Integer   key )           {return !hasNone( token( key ) );}
