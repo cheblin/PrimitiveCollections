@@ -6,13 +6,11 @@ import org.unirail.Hash;
 public interface ObjectDoubleMap {
 	
 	interface NonNullKeysIterator {
-		int END = -1;
-		
-		static <K extends Comparable<? super K>> int token( R<K> src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static <K extends Comparable<? super K>> int token( R<K> src, int token ) {
 			for (; ; )
-				if (++token == src.keys.array.length) return END;
+				if (++token == src.keys.array.length) return INIT;
 				else if (src.keys.array[token] != null) return token;
 		}
 		
@@ -65,7 +63,7 @@ public interface ObjectDoubleMap {
 		
 		public int hashCode() {
 			int hash = Hash.code( hasNullKey ? Hash.code( NullKeyValue ) : 719717, keys );
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
 			
 			return hash;
@@ -127,7 +125,7 @@ public interface ObjectDoubleMap {
 			
 			if (hasNullKey) dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     dst.append( NonNullKeysIterator.key( this, token ) )
 					     .append( " -> " )
 					     .append( NonNullKeysIterator.value( this, token ) )

@@ -5,14 +5,12 @@ import org.unirail.Hash;
 public interface ShortSet {
 	
 	interface NonNullKeysIterator {
-		int END = -1;
-		
-		static int token( R src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static int token( R src, int token ) {
 			for (int len = src.keys.array.length; ; )
-				if (++token == len) return src.has0Key ? -2 : END;
-				else if (token == 0x7FFF_FFFF) return END;
+				if (++token == len) return src.has0Key ? -2 : INIT;
+				else if (token == 0x7FFF_FFFF) return INIT;
 				else if (src.keys.array[token] != 0) return token;
 		}
 		
@@ -57,7 +55,7 @@ public interface ShortSet {
 		public int hashCode() {
 			int hash = hasNullKey ? 10910099 : 97654321;
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
 			
 			return Hash.code( hash, keys );
@@ -119,7 +117,7 @@ public interface ShortSet {
 			
 			if (hasNullKey) dst.append( "null\n" );
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     dst.append( NonNullKeysIterator.key( this, token ) ).append( '\n' );
 			return dst;
 		}
@@ -246,7 +244,7 @@ public interface ShortSet {
 		public int removeAll( R src ) {
 			int fix = size();
 			
-			for (int i = 0, s = src.size(), token = NonNullKeysIterator.END; i < s; i++) remove( NonNullKeysIterator.key( src, token = NonNullKeysIterator.token( src, token ) ) );
+			for (int i = 0, s = src.size(), token = NonNullKeysIterator.INIT; i < s; i++) remove( NonNullKeysIterator.key( src, token = NonNullKeysIterator.token( src, token ) ) );
 			
 			return fix - size();
 		}

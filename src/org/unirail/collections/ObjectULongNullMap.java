@@ -5,13 +5,11 @@ import org.unirail.Hash;
 
 public interface ObjectULongNullMap {
 	interface NonNullKeysIterator {
-		int END = -1;
-		
-		static <K extends Comparable<? super K>> int token( R<K> src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static <K extends Comparable<? super K>> int token( R<K> src, int token ) {
 			for (token++, token &= Integer.MAX_VALUE; ; token++)
-				if (token == src.keys.array.length) return END;
+				if (token == src.keys.array.length) return INIT;
 				else if (src.keys.array[token] != null) return src.values.hasValue( token ) ? token : token | Integer.MIN_VALUE;
 		}
 		
@@ -41,7 +39,7 @@ public interface ObjectULongNullMap {
 		public int hashCode() {
 			int hash = Hash.code( hasNullKey == Positive_Values.NONE ? 719281 : hasNullKey == Positive_Values.NULL ? 401101 : Hash.code( NullKeyValue ) );
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			{
 				hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
 				if (NonNullKeysIterator.hasValue( this, token )) hash = Hash.code( hash, NonNullKeysIterator.value( this, token ) );
@@ -140,8 +138,7 @@ public interface ObjectULongNullMap {
 				case Positive_Values.VALUE:
 					dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
 			}
-			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; dst.append( '\n' ), token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT;  dst.append( '\n' ))
 			{
 				dst.append( NonNullKeysIterator.key( this, token ) ).append( " -> " );
 				

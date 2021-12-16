@@ -7,9 +7,7 @@ public interface UByteIntMap {
 	
 	
 	interface NonNullKeysIterator {
-		int END = -1;
-		
-		static int token( R src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static int token( R src, int token ) {
 			int i = (token & ~0xFF) + (1 << 8);
@@ -91,7 +89,7 @@ public interface UByteIntMap {
 			if (keys.hasNullKey) dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
 			
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     dst.append( NonNullKeysIterator.key( token ) )
 					     .append( " -> " )
 					     .append( NonNullKeysIterator.value( this, token ) )

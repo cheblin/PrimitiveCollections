@@ -8,9 +8,7 @@ public interface UByteIntNullMap {
 	
 	interface NonNullKeysIterator {
 		
-		int END = -1;
-		
-		static int token( R src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static int token( R src, int token ) {
 			int key  = ByteSet.NonNullKeysIterator.token( src.keys, token );
@@ -19,7 +17,7 @@ public interface UByteIntNullMap {
 			return (src.values.hasValue( key ) ? Integer.MIN_VALUE | item << 8 : (item + 1 & 0xFF) << 8) | key;
 		}
 		
-		static char key( int token ) {return (char) (token & 0xFF);}
+		static char key( R src,  int token ) {return (char) (token & 0xFF);}
 		
 		static boolean hasValue( R src, int token ) {return -1 < token;}
 		
@@ -115,9 +113,9 @@ public interface UByteIntNullMap {
 				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			}
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ), dst.append( '\n' ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT;  dst.append( '\n' ))
 			{
-				dst.append( NonNullKeysIterator.key( token ) ).append( " -> " );
+				dst.append( NonNullKeysIterator.key(this, token ) ).append( " -> " );
 				
 				if (NonNullKeysIterator.hasValue( this, token )) dst.append( NonNullKeysIterator.value( this, token ) );
 				else dst.append( "null" );

@@ -7,13 +7,11 @@ public interface ObjectSet {
 	
 	interface NonNullKeysIterator {
 		
-		int END = -1;
-		
-		static <K extends Comparable<? super K>> int token( R<K> src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static <K extends Comparable<? super K>> int token( R<K> src, int token ) {
 			for (; ; )
-				if (++token == src.keys.array.length) return END;
+				if (++token == src.keys.array.length) return INIT;
 				else if (src.keys.array[token] != null) return token;
 		}
 		
@@ -52,7 +50,7 @@ public interface ObjectSet {
 		
 		public int hashCode() {
 			int hash = Hash.code( hasNullKey ? 10153331 : 888888883 );
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
 			return hash;
 		}
@@ -102,7 +100,7 @@ public interface ObjectSet {
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
 			if (hasNullKey) dst.append( "null\n" );
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ), dst.append( '\n' ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; dst.append( '\n' ))
 			     dst.append( NonNullKeysIterator.key( this, token ) );
 			
 			return dst;

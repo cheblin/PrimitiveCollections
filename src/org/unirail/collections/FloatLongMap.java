@@ -6,14 +6,12 @@ public interface FloatLongMap {
 	
 	
 	interface NonNullKeysIterator {
-		int END = -1;
-		
-		static int token( R src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static int token( R src, int token ) {
 			for (int len = src.keys.array.length; ; )
-				if (++token == len) return src.has0Key ? -2 : END;
-				else if (token == 0x7FFF_FFFF) return END;
+				if (++token == len) return src.has0Key ? -2 : INIT;
+				else if (token == 0x7FFF_FFFF) return INIT;
 				else if (src.keys.array[token] != 0) return token;
 		}
 		
@@ -77,9 +75,9 @@ public interface FloatLongMap {
 		}
 		
 		public int hashCode() {
-			int hash =  hasNullKey ? Hash.code( nullKeyValue ) : 331997 ;
+			int hash = hasNullKey ? Hash.code( nullKeyValue ) : 331997;
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     hash = Hash.code( Hash.code( hash, NonNullKeysIterator.key( this, token ) ), NonNullKeysIterator.value( this, token ) );
 			return hash;
 		}
@@ -142,7 +140,7 @@ public interface FloatLongMap {
 			
 			if (hasNullKey) dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     dst.append( NonNullKeysIterator.key( this, token ) )
 					     .append( " -> " )
 					     .append( NonNullKeysIterator.value( this, token ) )

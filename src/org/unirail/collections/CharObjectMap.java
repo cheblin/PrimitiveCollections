@@ -6,14 +6,12 @@ public interface CharObjectMap {
 	
 	interface NonNullKeysIterator {
 		
-		int END = -1;
-		
-		static <V extends Comparable<? super V>> int token( R<V> src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {
 			for (int len = src.keys.array.length; ; )
-				if (++token == len) return src.has0Key ? -2 : END;
-				else if (token == 0x7FFF_FFFF) return END;
+				if (++token == len) return src.has0Key ? -2 : INIT;
+				else if (token == 0x7FFF_FFFF) return INIT;
 				else if (src.keys.array[token] != 0) return token;
 		}
 		
@@ -82,9 +80,9 @@ public interface CharObjectMap {
 		
 		
 		public int hashCode() {
-			int hash = hasNullKey ? Hash.code( nullKeyValue ) : 997651 ;
+			int hash = hasNullKey ? Hash.code( nullKeyValue ) : 997651;
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     hash = Hash.code( Hash.code( hash, NonNullKeysIterator.key( this, token ) ), NonNullKeysIterator.value( this, token ) );
 			return hash;
 		}
@@ -155,8 +153,8 @@ public interface CharObjectMap {
 			
 			if (hasNullKey) dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
-			     dst.append( NonNullKeysIterator.key( this, token ) )
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
+				dst.append( NonNullKeysIterator.key( this, token ) )
 					     .append( " -> " )
 					     .append( NonNullKeysIterator.value( this, token ) )
 					     .append( '\n' );

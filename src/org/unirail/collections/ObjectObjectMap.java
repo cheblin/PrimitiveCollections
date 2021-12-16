@@ -6,13 +6,11 @@ import org.unirail.Hash;
 public interface ObjectObjectMap {
 	
 	interface NonNullKeysIterator {
-		int END = -1;
-		
-		static <K extends Comparable<? super K>, V extends Comparable<? super V>> int token( R<K, V> src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static <K extends Comparable<? super K>, V extends Comparable<? super V>> int token( R<K, V> src, int token ) {
 			for (; ; )
-				if (++token == src.keys.array.length) return END;
+				if (++token == src.keys.array.length) return INIT;
 				else if (src.keys.array[token] != null) return token;
 		}
 		
@@ -58,7 +56,7 @@ public interface ObjectObjectMap {
 		
 		public boolean hasNone( int token )        {return token == Positive_Values.NONE;}
 		
-		public V value( @Positive_ONLY int token ) {return token == Integer.MAX_VALUE ? NullKeyValue : values.array[token];}
+		public V value( @Positive_ONLY int token ) {return token == Positive_Values.VALUE ? NullKeyValue : values.array[token];}
 		
 		
 		public int size()                          {return assigned + (hasNullKey ? 1 : 0);}
@@ -70,7 +68,7 @@ public interface ObjectObjectMap {
 		public int hashCode() {
 			int hash = Hash.code( hasNullKey ? Hash.code( NullKeyValue ) : 10100011 );
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     hash = Hash.code( Hash.code( hash, NonNullKeysIterator.key( this, token ) ), NonNullKeysIterator.value( this, token ) );
 			return hash;
 		}
@@ -136,7 +134,7 @@ public interface ObjectObjectMap {
 			
 			if (hasNullKey) dst.append( "null -> " ).append( NullKeyValue );
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     dst.append( NonNullKeysIterator.key( this, token ) ).append( " -> " ).append( NonNullKeysIterator.value( this, token ) );
 			return dst;
 		}

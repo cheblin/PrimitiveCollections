@@ -6,11 +6,9 @@ public interface ByteSet {
 	
 	interface NonNullKeysIterator {
 		
-		int END = -1;
+		int INIT = -1;
 		
 		static byte key( int token ) {return (byte) (token & 0xFF);}
-		
-		static int token( R src ) {return token( src, END );}
 		
 		static int token( R src, int token ) {
 			token++;
@@ -39,7 +37,7 @@ public interface ByteSet {
 			
 			if ((l = src._4 >>> token) != 0) return ((token + Long.numberOfTrailingZeros( l ) + 192));
 			
-			return END;
+			return INIT;
 		}
 	}
 	
@@ -194,7 +192,7 @@ a:
 			if (hasNullKey) dst.append( "null\n" );
 			
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			     dst.append( (int) NonNullKeysIterator.key( token ) ).append( '\n' );
 			
 			return dst;
@@ -279,7 +277,7 @@ a:
 			boolean      ret = false;
 			byte key;
 			
-			for (int token = NonNullKeysIterator.END, i = 0, size = src.size(); i < size; i++)
+			for (int token = NonNullKeysIterator.INIT, i = 0, size = src.size(); i < size; i++)
 				if (!contains( key = NonNullKeysIterator.key( NonNullKeysIterator.token( src, token ) ) ))
 				{
 					ret = true;

@@ -8,9 +8,7 @@ public interface ByteObjectMap {
 	
 	interface NonNullKeysIterator {
 		
-		int END = -1;
-		
-		static <V extends Comparable<? super V>> int token( R<V> src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {
 			int i = (token & ~0xFF) + (1 << 8);
@@ -88,7 +86,7 @@ public interface ByteObjectMap {
 			if (keys.hasNullKey) dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
 			
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; ( token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT;)
 			     dst.append( NonNullKeysIterator.key( token ) )
 					     .append( " -> " )
 					     .append( NonNullKeysIterator.value( this, token ) )

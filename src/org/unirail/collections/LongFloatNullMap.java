@@ -5,16 +5,13 @@ import org.unirail.Hash;
 public interface LongFloatNullMap {
 	
 	interface NonNullKeysIterator {
-		int END = -1;
-		
-		
-		static int token( R src ) {return token( src, END );}
+		int INIT = -1;
 		
 		static int token( R src, int token ) {
 			int len = src.keys.array.length;
 			for (token++, token &= Integer.MAX_VALUE; ; token++)
-				if (token == len) return src.has0key == Positive_Values.NONE ? END : -2;
-				else if (token == 0x7FFF_FFFF) return END;
+				if (token == len) return src.has0key == Positive_Values.NONE ? INIT : -2;
+				else if (token == 0x7FFF_FFFF) return INIT;
 				else if (src.keys.array[token] != 0) return src.values.hasValue( token ) ? token : token | Integer.MIN_VALUE;
 		}
 		
@@ -54,7 +51,7 @@ public interface LongFloatNullMap {
 		public int hashCode() {
 			int hash = hasNullKey == Positive_Values.VALUE ? Hash.code( nullKeyValue ) : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887;
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			{
 				hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
 				if (NonNullKeysIterator.hasValue( this, token )) hash = Hash.code( hash, Hash.code( (NonNullKeysIterator.value( this, token )) ) );
@@ -176,7 +173,7 @@ public interface LongFloatNullMap {
 					dst.append( "0 -> null\n" );
 			}
 			
-			for (int token = NonNullKeysIterator.token( this ); token != NonNullKeysIterator.END; token = NonNullKeysIterator.token( this, token ), dst.append( '\n' ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
 			{
 				dst.append( NonNullKeysIterator.key( this, token ) ).append( " -> " );
 				if (NonNullKeysIterator.hasValue( this, token )) dst.append( NonNullKeysIterator.value( this, token ) );
