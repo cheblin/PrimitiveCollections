@@ -72,7 +72,7 @@ public interface UByteUShortNullMap {
 			if (other == null) return -1;
 			
 			int diff;
-			if (hasNullKey != other.nullKeyValue || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue) return 1;
+			if (hasNullKey != other.hasNullKey || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue) return 1;
 			if ((diff = other.keys.compareTo( keys )) != 0 || (diff = other.values.compareTo( values )) != 0 || (diff = other.values.compareTo( values )) != 0) return diff;
 			
 			return 0;
@@ -103,9 +103,13 @@ public interface UByteUShortNullMap {
 			if (dst == null) dst = new StringBuilder( size * 10 );
 			else dst.ensureCapacity( dst.length() + size * 10 );
 			
-			if (keys.hasNullKey)
+			switch (hasNullKey)
 			{
-				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
+				case Positive_Values.NULL:
+					dst.append( "null -> null\n" );
+					break;
+				case Positive_Values.VALUE:
+					dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			}
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; dst.append( '\n' ))
@@ -143,6 +147,7 @@ public interface UByteUShortNullMap {
 		public boolean put(  Character key,  Character value ) {
 			if (key != null) return put( (char) (key + 0), value );
 			
+			keys.add( null );
 			int h = hasNullKey;
 			
 			if (value == null)
@@ -184,9 +189,13 @@ public interface UByteUShortNullMap {
 		}
 		
 		public boolean remove(  Character  key ) {
-			return key == null ?
-			       hasNullKey != Positive_Values.NONE && (hasNullKey = Positive_Values.NONE) == Positive_Values.NONE :
-			       remove( (char) (key + 0) );
+			if (key == null)
+			{
+				hasNullKey = Positive_Values.NONE;
+				return remove( null );
+			}
+			
+			return remove( (char) (key + 0) );
 		}
 		
 		public boolean remove( char key ) {

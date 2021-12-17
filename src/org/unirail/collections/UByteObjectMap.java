@@ -107,9 +107,7 @@ public interface UByteObjectMap {
 			if (key == null)
 			{
 				NullKeyValue = value;
-				boolean ret = keys.contains( null );
-				keys.add( null );
-				return !ret;
+				return keys.add( null );
 			}
 			
 			return put( (char) (key + 0), value );

@@ -63,7 +63,10 @@ public interface ObjectList {
 			if (other.size != size) return other.size - size;
 			
 			for (int i = 0, diff; i < size; i++)
-				if (array[i] != null && other.array[i] != null) {if ((diff = array[i].compareTo( other.array[i] )) != 0) return diff;}
+				if (array[i] != null && other.array[i] != null)
+				{
+					if ((diff = array[i].compareTo( other.array[i] )) != 0) return diff;
+				}
 				else if (array[i] != other.array[i]) return -1;
 			
 			return 0;
