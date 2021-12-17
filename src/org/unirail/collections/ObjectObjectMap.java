@@ -97,11 +97,11 @@ public interface ObjectObjectMap {
 			
 			K key;
 			
-			for (int i = keys.array.length, tag; -1 < --i; )
+			for (int i = keys.array.length, token; -1 < --i; )
 				if ((key = keys.array[i]) != null)
-					if ((tag = other.token( key )) == -1) return 1;
-					else if (values.array[i] != null && other.value( tag ) != null) {if ((diff = other.value( tag ).compareTo( values.array[i] )) != 0) return diff;}
-					else if (values.array[i] != other.value( tag )) return 8;
+					if ((token = other.token( key )) == -1) return 1;
+					else if (values.array[i] != null && other.value( token ) != null) {if ((diff = other.value( token ).compareTo( values.array[i] )) != 0) return diff;}
+					else if (values.array[i] != other.value( token )) return 8;
 			
 			return 0;
 		}

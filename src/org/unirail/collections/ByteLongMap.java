@@ -9,14 +9,11 @@ public interface ByteLongMap {
 	interface NonNullKeysIterator {
 		int INIT = -1;
 		
-		static int token( R src, int token ) {
-			int i = (token & ~0xFF) + (1 << 8);
-			return i | ByteSet.NonNullKeysIterator.token( src.keys, token );
-		}
+		static int token( R src, int token ) {return ByteSet.NonNullKeysIterator.token( src.keys, token );}
 		
-		static byte key( int token ) {return (byte) (token & 0xFF);}
+		static byte key( R src, int token ) {return (byte) (ByteSet.NonNullKeysIterator.key( null, token ));}
 		
-		static long value( R src, int token ) {return  src.values.array[token >> 8];}
+		static long value( R src, int token ) {return  src.values.array[ByteSet.NonNullKeysIterator.index( null, token )];}
 	}
 	
 	
@@ -90,7 +87,7 @@ public interface ByteLongMap {
 			
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     dst.append( NonNullKeysIterator.key( token ) )
+			     dst.append( NonNullKeysIterator.key(this, token ) )
 					     .append( " -> " )
 					     .append( NonNullKeysIterator.value( this, token ) )
 					     .append( '\n' );

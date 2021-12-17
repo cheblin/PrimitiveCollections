@@ -9,14 +9,11 @@ public interface UByteUByteMap {
 	interface NonNullKeysIterator {
 		int INIT = -1;
 		
-		static int token( R src, int token ) {
-			int i = (token & ~0xFF) + (1 << 8);
-			return i | ByteSet.NonNullKeysIterator.token( src.keys, token );
-		}
+		static int token( R src, int token ) {return ByteSet.NonNullKeysIterator.token( src.keys, token );}
 		
-		static char key( int token ) {return (char) (token & 0xFF);}
+		static char key( R src, int token ) {return (char) (ByteSet.NonNullKeysIterator.key( null, token ));}
 		
-		static char value( R src, int token ) {return (char)( 0xFFFF &  src.values.array[token >> 8]);}
+		static char value( R src, int token ) {return (char)( 0xFFFF &  src.values.array[ByteSet.NonNullKeysIterator.index( null, token )]);}
 	}
 	
 	
@@ -90,7 +87,7 @@ public interface UByteUByteMap {
 			
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     dst.append( NonNullKeysIterator.key( token ) )
+			     dst.append( NonNullKeysIterator.key(this, token ) )
 					     .append( " -> " )
 					     .append( NonNullKeysIterator.value( this, token ) )
 					     .append( '\n' );

@@ -10,18 +10,13 @@ public interface ByteUIntNullMap {
 		
 		int INIT = -1;
 		
-		static int token( R src, int token ) {
-			int key  = ByteSet.NonNullKeysIterator.token( src.keys, token );
-			int item = token >> 8 & 0xFF;
-			
-			return (src.values.hasValue( key ) ? Integer.MIN_VALUE | item << 8 : (item + 1 & 0xFF) << 8) | key;
-		}
+		static int token( R src, int token )        {return ByteSet.NonNullKeysIterator.token( src.keys, token );}
 		
-		static byte key( R src,  int token ) {return (byte) (token & 0xFF);}
+		static byte key( R src, int token ) {return (byte) (ByteSet.NonNullKeysIterator.key( src.keys, token ));}
 		
-		static boolean hasValue( R src, int token ) {return -1 < token;}
+		static boolean hasValue( R src, int token ) {return src.values.hasValue( ByteSet.NonNullKeysIterator.index( null, token ) );}
 		
-		static long value( R src, int token ) {return  src.values.get( token >> 8 );}
+		static long value( R src, int token ) {return  src.values.get( ByteSet.NonNullKeysIterator.index( null, token ) );}
 	}
 	
 	abstract class R implements Cloneable, Comparable<R> {
@@ -113,9 +108,9 @@ public interface ByteUIntNullMap {
 				dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
 			}
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT;  dst.append( '\n' ))
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; dst.append( '\n' ))
 			{
-				dst.append( NonNullKeysIterator.key(this, token ) ).append( " -> " );
+				dst.append( NonNullKeysIterator.key( this, token ) ).append( " -> " );
 				
 				if (NonNullKeysIterator.hasValue( this, token )) dst.append( NonNullKeysIterator.value( this, token ) );
 				else dst.append( "null" );

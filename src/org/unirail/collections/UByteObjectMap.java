@@ -10,14 +10,11 @@ public interface UByteObjectMap {
 		
 		int INIT = -1;
 		
-		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {
-			int i = (token & ~0xFF) + (1 << 8);
-			return i | ByteSet.NonNullKeysIterator.token( src.keys, token );
-		}
+		static <V extends Comparable<? super V>> int token( R<V> src, int token ) {return  ByteSet.NonNullKeysIterator.token( src.keys, token );}
 		
-		static char key( int token ) {return (char) (token & 0xFF);}
+		static <V extends Comparable<? super V>> char key( R<V> src, int token ) {return (char) ByteSet.NonNullKeysIterator.key( src.keys, token );}
 		
-		static <V extends Comparable<? super V>> V value( R<V> src, int token ) {return token < 0 ? null : src.values.array[token >> 8];}
+		static <V extends Comparable<? super V>> V value( R<V> src, int token ) {return src.values.array[ByteSet.NonNullKeysIterator.index( src.keys, token )];}
 	}
 	
 	abstract class R<V extends Comparable<? super V>> implements Cloneable, Comparable<R<V>> {
@@ -87,7 +84,7 @@ public interface UByteObjectMap {
 			
 			
 			for (int token = NonNullKeysIterator.INIT; ( token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT;)
-			     dst.append( NonNullKeysIterator.key( token ) )
+			     dst.append( NonNullKeysIterator.key(this, token ) )
 					     .append( " -> " )
 					     .append( NonNullKeysIterator.value( this, token ) )
 					     .append( '\n' );

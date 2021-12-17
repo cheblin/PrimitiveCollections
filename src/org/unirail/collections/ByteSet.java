@@ -8,36 +8,37 @@ public interface ByteSet {
 		
 		int INIT = -1;
 		
-		static byte key( int token ) {return (byte) (token & 0xFF);}
+		static int key( R src, int token )   {return token & 0xFF;}
+		
+		static int index( R src, int token ) {return token >>> 8 & 0xFF;}
 		
 		static int token( R src, int token ) {
-			token++;
-			token &= 0xFF;
+			token += 0x100;
+			if (src.size << 8 == (token & 0x1FF00)) return INIT;
+			
+			final int key   = token + 1 & 0xFF;
+			final int index = token & 0xFFFFFF00;
+			
 			long l;
-			if (token < 128)
+			
+			if (key < 128)
 			{
-				if (token < 64)
+				if (key < 64)
 				{
-					if ((l = src._1 >>> token) != 0) return (token + Long.numberOfTrailingZeros( l ));
-					token = 0;
+					if ((l = src._1 >>> key) == 0)
+						return (src._2 != 0 ? 64 + Long.numberOfTrailingZeros( src._2 ) :
+						        src._3 != 0 ? 128 + Long.numberOfTrailingZeros( src._3 ) : 192 + Long.numberOfTrailingZeros( src._4 )) | index;
 				}
-				else token -= 64;
-				
-				if ((l = src._2 >>> token) != 0) return ((token + Long.numberOfTrailingZeros( l ) + 64));
-				token = 128;
+				else if ((l = src._2 >>> key) == 0)
+					return (src._3 != 0 ? 128 + Long.numberOfTrailingZeros( src._3 ) : 192 + Long.numberOfTrailingZeros( src._4 )) | index;
 			}
-			
-			if (token < 192)
+			else if (key < 192)
 			{
-				if ((l = src._3 >>> (token - 128)) != 0) return ((token + Long.numberOfTrailingZeros( l ) + 128));
-				
-				token = 0;
+				if ((l = src._3 >>> key) == 0) return 192 + Long.numberOfTrailingZeros( src._4 ) | index;
 			}
-			else token -= 192;
+			else l = src._4 >>> key;
 			
-			if ((l = src._4 >>> token) != 0) return ((token + Long.numberOfTrailingZeros( l ) + 192));
-			
-			return INIT;
+			return key + Long.numberOfTrailingZeros( l ) | index;
 		}
 	}
 	
@@ -52,20 +53,21 @@ public interface ByteSet {
 		
 		protected boolean hasNullKey;
 		
-		protected boolean add( final byte value ) {
+		protected boolean add( final int value ) {
 			
-			final int val = value & 0xFF;
+			final int  val = value & 0xFF;
+			final long bit = 1L << val;
 			
 			if (val < 128)
 				if (val < 64)
-					if ((_1 & 1L << val) == 0) _1 |= 1L << val;
+					if ((_1 & bit) == 0) _1 |= bit;
 					else return false;
-				else if ((_2 & 1L << val - 64) == 0) _2 |= 1L << val - 64;
+				else if ((_2 & bit) == 0) _2 |= bit;
 				else return false;
 			else if (val < 192)
-				if ((_3 & 1L << val - 128) == 0) _3 |= 1L << val - 128;
+				if ((_3 & bit) == 0) _3 |= bit;
 				else return false;
-			else if ((_4 & 1L << val - 192) == 0) _4 |= 1L << val - 192;
+			else if ((_4 & bit) == 0) _4 |= bit;
 			else return false;
 			
 			size++;
@@ -83,12 +85,7 @@ public interface ByteSet {
 			if (size() == 0) return false;
 			
 			final int val = key & 0xFF;
-			return
-					(
-							val < 128 ?
-							val < 64 ? _1 & 1L << val : _2 & 1L << val - 64 :
-							val < 192 ? _3 & 1L << val - 128 : _4 & 1L << val - 192
-					) != 0;
+			return ((val < 128 ? val < 64 ? _1 : _2 : val < 192 ? _3 : _4) & 1L << val) != 0;
 		}
 		
 		
@@ -124,30 +121,24 @@ a:
 				if (val < base) return ~ret;
 				
 				ret++;
+				base++;
 				l >>>= s + 1;
 			}
 			
 			return ~ret;
 		}
 		
-		public boolean containsAll( R ask ) {
+		//Returns true if this set contains all of the elements of the specified collection.
+		public boolean containsAll( R subset ) {
 			
-			if (hasNullKey != ask.hasNullKey) return false;
-			
-			int  i;
-			long l;
-			
-			for (i = 0, l = _1; l != 0; l >>>= ++i)
-				if (!ask.contains( (byte) (i += Long.numberOfTrailingZeros( l )) )) return false;
-			
-			for (i = 0, l = _2; l != 0; l >>>= ++i)
-				if (!ask.contains( (byte) (i += Long.numberOfTrailingZeros( l ) + 64) )) return false;
-			
-			for (i = 0, l = _3; l != 0; l >>>= ++i)
-				if (!ask.contains( (byte) (i += Long.numberOfTrailingZeros( l ) + 128) )) return false;
-			
-			for (i = 0, l = _4; l != 0; l >>>= ++i)
-				if (!ask.contains( (byte) (i += Long.numberOfTrailingZeros( l ) + 192) )) return false;
+			if (
+					size() < subset.size() ||
+					!hasNullKey && subset.hasNullKey ||
+					Long.bitCount( _1 ) < Long.bitCount( _1 | subset._1 ) &&
+					64 < size && Long.bitCount( _2 ) < Long.bitCount( _2 | subset._2 ) &&
+					128 < size && Long.bitCount( _3 ) < Long.bitCount( _3 | subset._3 ) &&
+					192 < size && Long.bitCount( _4 ) < Long.bitCount( _4 | subset._4 )
+			) return false;
 			
 			return true;
 		}
@@ -193,7 +184,7 @@ a:
 			
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     dst.append( (int) NonNullKeysIterator.key( token ) ).append( '\n' );
+			     dst.append( NonNullKeysIterator.key( this, token ) ).append( '\n' );
 			
 			return dst;
 		}
@@ -211,6 +202,7 @@ a:
 		
 		public boolean add( byte key ) {return super.add( key );}
 		
+		//Retains only the elements in this set that are contained in the specified collection (optional operation).
 		public boolean retainAll( R src ) {
 			boolean ret = false;
 			
@@ -245,19 +237,20 @@ a:
 		public boolean remove( byte value ) {
 			if (size == 0) return false;
 			
-			final int val = value & 0xFF;
+			final int  val = value & 0xFF;
+			final long bit = 1L << val;
 			
 			if (val < 128)
 				if (val < 64)
 					if ((_1 & 1L << val) == 0) return false;
 					else _1 &= ~(1L << val);
-				else if ((_2 & 1L << val - 64) == 0) return false;
-				else _2 &= ~(1L << val - 64);
+				else if ((_2 & bit) == 0) return false;
+				else _2 &= ~bit;
 			else if (val < 192)
-				if ((_3 & 1L << val - 128) == 0) return false;
-				else _3 &= ~(1L << val - 128);
-			else if ((_4 & 1L << val - 192) == 0) return false;
-			else _4 &= ~(1L << val - 192);
+				if ((_3 & bit) == 0) return false;
+				else _3 &= ~bit;
+			else if ((_4 & bit) == 0) return false;
+			else _4 &= ~bit;
 			
 			size--;
 			return true;
@@ -273,18 +266,11 @@ a:
 			hasNullKey = false;
 		}
 		
-		public boolean addAll( R src ) {
-			boolean      ret = false;
-			byte key;
+		public void addAll( R src ) {
 			
-			for (int token = NonNullKeysIterator.INIT, i = 0, size = src.size(); i < size; i++)
-				if (!contains( key = NonNullKeysIterator.key( NonNullKeysIterator.token( src, token ) ) ))
-				{
-					ret = true;
-					this.add( key );
-				}
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( src, token )) != NonNullKeysIterator.INIT; )
+			     add( NonNullKeysIterator.key( this, token ) );
 			
-			return ret;
 		}
 		
 		public RW clone() {return (RW) super.clone();}
