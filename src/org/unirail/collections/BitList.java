@@ -419,7 +419,7 @@ public interface BitList {
 		}
 		
 		
-		public void set( boolean value ) {set( size, value );}
+		public void add( boolean value ) {set( size, value );}
 		
 		public void set( int bit, boolean value ) {
 			if (value)
@@ -564,7 +564,7 @@ public interface BitList {
 				                   used |= IO;
 				size++;
 			}
-			else if (value) set1( key );
+			else set (key, value );
 		}
 		
 		public void clear() {

@@ -154,11 +154,11 @@ public interface ShortNullList {
 		public RW(  Short    ... values ) {
 			this( values.length );
 			for ( Short     value : values)
-				if (value == null) nulls.set( false );
+				if (value == null) nulls.add( false );
 				else
 				{
 					this.values.add( (short) (value + 0) );
-					nulls.set( true );
+					nulls.add( true );
 				}
 		}
 		
@@ -201,18 +201,18 @@ public interface ShortNullList {
 		}
 		
 		public void add(  Short     value ) {
-			if (value == null) nulls.set( false );
+			if (value == null) nulls.add( false );
 			else add( (short) (value + 0) );
 		}
 		
 		public void add( short value ) {
 			values.add( value );
-			nulls.set( true );
+			nulls.add( true );
 		}
 		
 		
 		public void add( int index,  Short     value ) {
-			if (value == null) nulls.set( false );
+			if (value == null) nulls.add(index, false );
 			else add( index, (short) (value + 0) );
 		}
 		
@@ -247,7 +247,7 @@ public interface ShortNullList {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
 				if (src.hasValue( i )) add( src.get( i ) );
-				else nulls.set( false );
+				else nulls.add( false );
 		}
 		
 		public void clear() {

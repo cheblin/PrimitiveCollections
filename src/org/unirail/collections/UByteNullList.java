@@ -154,11 +154,11 @@ public interface UByteNullList {
 		public RW(  Character... values ) {
 			this( values.length );
 			for ( Character value : values)
-				if (value == null) nulls.set( false );
+				if (value == null) nulls.add( false );
 				else
 				{
 					this.values.add( (char) (value + 0) );
-					nulls.set( true );
+					nulls.add( true );
 				}
 		}
 		
@@ -201,18 +201,18 @@ public interface UByteNullList {
 		}
 		
 		public void add(  Character value ) {
-			if (value == null) nulls.set( false );
+			if (value == null) nulls.add( false );
 			else add( (char) (value + 0) );
 		}
 		
 		public void add( char value ) {
 			values.add( value );
-			nulls.set( true );
+			nulls.add( true );
 		}
 		
 		
 		public void add( int index,  Character value ) {
-			if (value == null) nulls.set( false );
+			if (value == null) nulls.add(index, false );
 			else add( index, (char) (value + 0) );
 		}
 		
@@ -247,7 +247,7 @@ public interface UByteNullList {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
 				if (src.hasValue( i )) add( src.get( i ) );
-				else nulls.set( false );
+				else nulls.add( false );
 		}
 		
 		public void clear() {

@@ -81,7 +81,7 @@ public interface UByteSet {
 		
 		public boolean contains(  Character key ) {return key == null ? hasNullKey : contains( (char) (key + 0) );}
 		
-		public boolean contains( int key ) {
+		public boolean contains( byte key ) {
 			if (size() == 0) return false;
 			
 			final int val = key & 0xFF;

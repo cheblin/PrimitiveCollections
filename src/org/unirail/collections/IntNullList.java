@@ -154,11 +154,11 @@ public interface IntNullList {
 		public RW(  Integer  ... values ) {
 			this( values.length );
 			for ( Integer   value : values)
-				if (value == null) nulls.set( false );
+				if (value == null) nulls.add( false );
 				else
 				{
 					this.values.add( (int) (value + 0) );
-					nulls.set( true );
+					nulls.add( true );
 				}
 		}
 		
@@ -201,18 +201,18 @@ public interface IntNullList {
 		}
 		
 		public void add(  Integer   value ) {
-			if (value == null) nulls.set( false );
+			if (value == null) nulls.add( false );
 			else add( (int) (value + 0) );
 		}
 		
 		public void add( int value ) {
 			values.add( value );
-			nulls.set( true );
+			nulls.add( true );
 		}
 		
 		
 		public void add( int index,  Integer   value ) {
-			if (value == null) nulls.set( false );
+			if (value == null) nulls.add(index, false );
 			else add( index, (int) (value + 0) );
 		}
 		
@@ -247,7 +247,7 @@ public interface IntNullList {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
 				if (src.hasValue( i )) add( src.get( i ) );
-				else nulls.set( false );
+				else nulls.add( false );
 		}
 		
 		public void clear() {

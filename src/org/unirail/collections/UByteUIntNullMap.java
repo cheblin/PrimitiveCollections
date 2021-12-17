@@ -32,23 +32,30 @@ public interface UByteUIntNullMap {
 		
 		public boolean contains(  Character key )           {return !hasNone( token( key ) );}
 		
-		public boolean contains( char key )            {return !hasNone( token( key ) );}
+		public boolean contains( char key )           {return !hasNone( token( key ) );}
 		
 		
 		public @Positive_Values int token(  Character key ) {return key == null ? hasNullKey : token( (char) (key + 0) );}
 		
-		public @Positive_Values int token( char key )  {return keys.contains( (byte) key ) ? values.hasValue( key ) ? key : Positive_Values.NULL : Positive_Values.NONE;}
+		public @Positive_Values int token( char key ) {
+			if (keys.contains( (byte) key ))
+			{
+				int i = keys.rank( (byte) key ) - 1;
+				return values.hasValue( i ) ? i : Positive_Values.NULL;
+			}
+			return Positive_Values.NONE;
+		}
 		
-		public boolean hasValue( int token )                  {return -1 < token;}
+		public boolean hasValue( int token ) {return -1 < token;}
 		
-		public boolean hasNone( int token )                   {return token == Positive_Values.NONE;}
+		public boolean hasNone( int token )  {return token == Positive_Values.NONE;}
 		
-		public boolean hasNull( int token )                   {return token == Positive_Values.NULL;}
+		public boolean hasNull( int token )  {return token == Positive_Values.NULL;}
 		
 		
 		public long value( @Positive_ONLY int token ) {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
-			return    values.get( keys.rank( (byte) token ) );
+			return    values.get( (byte) token );
 		}
 		
 		

@@ -81,7 +81,7 @@ public interface ByteSet {
 		
 		public boolean contains(  Byte      key ) {return key == null ? hasNullKey : contains( (byte) (key + 0) );}
 		
-		public boolean contains( int key ) {
+		public boolean contains( byte key ) {
 			if (size() == 0) return false;
 			
 			final int val = key & 0xFF;

@@ -154,11 +154,11 @@ public interface FloatNullList {
 		public RW(  Float    ... values ) {
 			this( values.length );
 			for ( Float     value : values)
-				if (value == null) nulls.set( false );
+				if (value == null) nulls.add( false );
 				else
 				{
 					this.values.add( (float) (value + 0) );
-					nulls.set( true );
+					nulls.add( true );
 				}
 		}
 		
@@ -201,18 +201,18 @@ public interface FloatNullList {
 		}
 		
 		public void add(  Float     value ) {
-			if (value == null) nulls.set( false );
+			if (value == null) nulls.add( false );
 			else add( (float) (value + 0) );
 		}
 		
 		public void add( float value ) {
 			values.add( value );
-			nulls.set( true );
+			nulls.add( true );
 		}
 		
 		
 		public void add( int index,  Float     value ) {
-			if (value == null) nulls.set( false );
+			if (value == null) nulls.add(index, false );
 			else add( index, (float) (value + 0) );
 		}
 		
@@ -247,7 +247,7 @@ public interface FloatNullList {
 			
 			for (int i = 0, s = src.size(); i < s; i++)
 				if (src.hasValue( i )) add( src.get( i ) );
-				else nulls.set( false );
+				else nulls.add( false );
 		}
 		
 		public void clear() {
