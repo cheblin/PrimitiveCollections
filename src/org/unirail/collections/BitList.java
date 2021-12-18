@@ -562,9 +562,13 @@ public interface BitList {
 				}
 				array[index - 1] = m;
 				                   used |= IO;
-				size++;
 			}
-			else set (key, value );
+			else if (value){
+				final int index = used(key);  //!!!
+				array[index] |= 1L << key;
+			}
+			
+			size++;
 		}
 		
 		public void clear() {
