@@ -1,14 +1,16 @@
 package org.unirail.collections;
 
 
-import org.unirail.Hash;
+
+
+import org.unirail.collections.Array.HashEqual;
 
 import java.util.Arrays;
 
 public interface BitList {
 	
 	
-	abstract class R implements Cloneable, Comparable<R> {
+	abstract class R implements Cloneable {
 		
 		protected int size;
 		
@@ -181,7 +183,7 @@ public interface BitList {
 		public int hashCode() {
 			int hash = 197;
 			for (int i = used; --i >= 0; )
-			     hash = Hash.code( hash , array[i] );
+			     hash = HashEqual.hash( hash , array[i] );
 			
 			return hash;
 		}
@@ -203,7 +205,6 @@ public interface BitList {
 		
 		public boolean equals( Object obj ) {return obj != null && getClass() == obj.getClass() && equals( getClass().cast( obj ) );}
 		
-		public int compareTo( R other )     {return equals( other ) ? 0 : 1;}
 		
 		public boolean equals( R other ) {
 			int i = size();

@@ -1,6 +1,7 @@
 package org.unirail.collections;
 
-import org.unirail.Hash;
+
+import static org.unirail.collections.Array.HashEqual.hash;
 
 public interface FloatDoubleMap {
 	
@@ -8,22 +9,22 @@ public interface FloatDoubleMap {
 	interface NonNullKeysIterator {
 		int INIT = -1;
 		
-		static int token( R src, int token ) {
+		static int token(R src, int token) {
 			for (int len = src.keys.array.length; ; )
 				if (++token == len) return src.has0Key ? -2 : INIT;
 				else if (token == 0x7FFF_FFFF) return INIT;
 				else if (src.keys.array[token] != 0) return token;
 		}
 		
-		static float key( R src, int token ) {return token == -2 ? 0 :   src.keys.array[token];}
+		static float key(R src, int token) {return token == -2 ? 0 :   src.keys.array[token];}
 		
-		static double value( R src, int token ) {return token == -2 ? src.OkeyValue :   src.values.array[token];}
+		static double value(R src, int token) {return token == -2 ? src.OkeyValue :   src.values.array[token];}
 	}
 	
 	
-	abstract class R implements Cloneable, Comparable<R> {
-		public FloatList.RW keys   = new FloatList.RW( 0 );
-		public DoubleList.RW values = new DoubleList.RW( 0 );
+	abstract class R implements Cloneable {
+		public FloatList.RW keys   = new FloatList.RW(0);
+		public DoubleList.RW values = new DoubleList.RW(0);
 		
 		int assigned;
 		
@@ -41,20 +42,20 @@ public interface FloatDoubleMap {
 		protected double loadFactor;
 		
 		
-		public boolean isEmpty()                                 {return size() == 0;}
+		public boolean isEmpty()                               {return size() == 0;}
 		
-		public int size()                                        {return assigned + (has0Key ? 1 : 0) + (hasNullKey ? 1 : 0);}
+		public int size()                                      {return assigned + (has0Key ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
-		public boolean contains(  Float     key )           {return !hasNone( token( key ) );}
+		public boolean contains( Float     key)           {return !hasNone(token(key));}
 		
-		public boolean contains( float key )               {return !hasNone( token( key ) );}
+		public boolean contains(float key)               {return !hasNone(token(key));}
 		
-		public @Positive_Values int token(  Float     key ) {return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : token( (float) (key + 0) );}
+		public @Positive_Values int token( Float     key) {return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : token((float) (key + 0));}
 		
-		public @Positive_Values int token( float key ) {
+		public @Positive_Values int token(float key) {
 			if (key == 0) return has0Key ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = hash(key) & mask;
 			
 			for (float key_ =  key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
@@ -63,55 +64,48 @@ public interface FloatDoubleMap {
 		}
 		
 		
-		public boolean hasValue( int token ) {return -1 < token;}
+		public boolean hasValue(int token) {return -1 < token;}
 		
-		public boolean hasNone( int token )  {return token == Positive_Values.NONE;}
+		public boolean hasNone(int token)  {return token == Positive_Values.NONE;}
 		
-		public double value( @Positive_ONLY int token ) {
+		public double value(@Positive_ONLY int token) {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
 			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return  values.get( token );
+			return  values.get(token);
 		}
 		
 		public int hashCode() {
-			int hash = hasNullKey ? Hash.code( nullKeyValue ) : 331997;
+			int hash = hasNullKey ? hash(nullKeyValue) : 331997;
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     hash = Hash.code( Hash.code( hash, NonNullKeysIterator.key( this, token ) ), NonNullKeysIterator.value( this, token ) );
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				hash = hash(hash(hash, NonNullKeysIterator.key(this, token)), NonNullKeysIterator.value(this, token));
 			return hash;
 		}
 		
 		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       equals(getClass().cast(obj));
 		}
 		
-		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
-		
-		@Override public int compareTo( R other ) {
-			if (other == null) return -1;
-			
-			if (has0Key != other.has0Key || hasNullKey != other.hasNullKey) return 1;
-			
-			int diff;
-			if (has0Key && (OkeyValue - other.OkeyValue) != 0) return 7;
-			if (hasNullKey && nullKeyValue != other.nullKeyValue) return 8;
-			
-			if ((diff = size() - other.size()) != 0) return diff;
+		public boolean equals(R other) {
+			if (other == null ||
+			    has0Key != other.has0Key ||
+			    hasNullKey != other.hasNullKey || has0Key && OkeyValue != other.OkeyValue
+			    || hasNullKey && nullKeyValue != other.nullKeyValue || size() != other.size()) return false;
 			
 			float           key;
 			for (int i = keys.array.length, c; -1 < --i; )
 				if ((key =  keys.array[i]) != 0)
 				{
-					if ((c = other.token( key )) < 0) return 3;
-					if (other.value( c ) !=   values.array[i]) return 1;
+					if ((c = other.token(key)) < 0) return false;
+					if (other.value(c) !=   values.array[i]) return false;
 				}
 			
-			return 0;
+			return true;
 		}
 		
 		@Override public R clone() {
@@ -119,7 +113,7 @@ public interface FloatDoubleMap {
 			{
 				R dst = (R) super.clone();
 				
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -131,20 +125,20 @@ public interface FloatDoubleMap {
 		}
 		
 		
-		public String toString() {return toString( null ).toString();}
+		public String toString() {return toString(null).toString();}
 		
-		public StringBuilder toString( StringBuilder dst ) {
+		public StringBuilder toString(StringBuilder dst) {
 			int size = size();
-			if (dst == null) dst = new StringBuilder( size * 10 );
-			else dst.ensureCapacity( dst.length() + size * 10 );
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append( "null -> " ).append( nullKeyValue ).append( '\n' );
+			if (hasNullKey) dst.append("null -> ").append(nullKeyValue).append('\n');
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     dst.append( NonNullKeysIterator.key( this, token ) )
-					     .append( " -> " )
-					     .append( NonNullKeysIterator.value( this, token ) )
-					     .append( '\n' );
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				dst.append(NonNullKeysIterator.key(this, token))
+						.append(" -> ")
+						.append(NonNullKeysIterator.value(this, token))
+						.append('\n');
 			return dst;
 		}
 	}
@@ -152,33 +146,33 @@ public interface FloatDoubleMap {
 	
 	class RW extends R {
 		
-		public RW( int expectedItems ) {this( expectedItems, 0.75 );}
+		public RW(int expectedItems) {this(expectedItems, 0.75);}
 		
 		
-		public RW( int expectedItems, double loadFactor ) {
-			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
+		public RW(int expectedItems, double loadFactor) {
+			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
-			final long length = (long) Math.ceil( expectedItems / loadFactor );
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
 			
-			resizeAt = Math.min( size - 1, (int) Math.ceil( size * loadFactor ) );
-			mask     = size - 1;
+			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
+			mask = size - 1;
 			
-			keys.length( size );
-			values.length( size );
+			keys.length(size);
+			values.length(size);
 		}
 		
 		
-		public boolean put(  Float     key, double value ) {
-			if (key != null) return put( (float) key, value );
+		public boolean put( Float     key, double value) {
+			if (key != null) return put((float) key, value);
 			
-			hasNullKey   = true;
+			hasNullKey = true;
 			nullKeyValue = value;
 			
 			return true;
 		}
 		
-		public boolean put( float key, double value ) {
+		public boolean put(float key, double value) {
 			
 			if (key == 0)
 			{
@@ -187,13 +181,13 @@ public interface FloatDoubleMap {
 					OkeyValue = value;
 					return true;
 				}
-				has0Key   = true;
+				has0Key = true;
 				OkeyValue = value;
 				return false;
 			}
 			
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = hash(key) & mask;
 			
 			final float key_ =  key;
 			
@@ -204,25 +198,25 @@ public interface FloatDoubleMap {
 					return true;
 				}
 			
-			keys.array[slot]   = key_;
+			keys.array[slot] = key_;
 			values.array[slot] = (double) value;
 			
-			if (++assigned == resizeAt) allocate( mask + 1 << 1 );
+			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
 			return false;
 		}
 		
 		
-		public boolean remove(  Float     key ) {
+		public boolean remove( Float     key) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
-			return remove( (float) key );
+			return remove((float) key);
 		}
 		
-		public boolean remove( float key ) {
+		public boolean remove(float key) {
 			
 			if (key == 0) return has0Key && !(has0Key = false);
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = hash(key) & mask;
 			
 			final float key_ =  key;
 			
@@ -234,16 +228,16 @@ public interface FloatDoubleMap {
 					float kk;
 					
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - Hash.code( kk ) & mask) >= distance)
+						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot]   = kk;
+							keys.array[gapSlot] = kk;
 							values.array[gapSlot] = values.array[s];
-							                        gapSlot = s;
-							                        distance = 0;
+							gapSlot = s;
+							distance = 0;
 						}
 					
-					keys.array[gapSlot]   = 0;
+					keys.array[gapSlot] = 0;
 					values.array[gapSlot] = 0;
 					assigned--;
 					return true;
@@ -253,8 +247,8 @@ public interface FloatDoubleMap {
 		}
 		
 		public void clear() {
-			assigned   = 0;
-			has0Key    = false;
+			assigned = 0;
+			has0Key = false;
 			hasNullKey = false;
 			
 			keys.clear();
@@ -262,30 +256,30 @@ public interface FloatDoubleMap {
 		}
 		
 		
-		protected void allocate( int size ) {
+		protected void allocate(int size) {
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length( -size );
-				if (values.length() < size) values.length( -size );
+				if (keys.length() < size) keys.length(-size);
+				if (values.length() < size) values.length(-size);
 				return;
 			}
 			
 			final float[] k = keys.array;
 			final double[] v = values.array;
 			
-			keys.length( -size );
-			values.length( -size );
+			keys.length(-size);
+			values.length(-size);
 			
 			float key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = Hash.code( key ) & mask;
+					int slot = hash(key) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot]   = key;
+					keys.array[slot] = key;
 					values.array[slot] = v[i];
 				}
 		}

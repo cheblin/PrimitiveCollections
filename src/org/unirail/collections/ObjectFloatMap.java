@@ -1,36 +1,32 @@
 package org.unirail.collections;
 
 
-import org.unirail.Hash;
+import static org.unirail.collections.Array.HashEqual.hash;
 
 public interface ObjectFloatMap {
 	
 	interface NonNullKeysIterator {
 		int INIT = -1;
 		
-		static <K extends Comparable<? super K>> int token( R<K> src, int token ) {
+		static <K> int token(R<K> src, int token) {
 			for (; ; )
 				if (++token == src.keys.array.length) return INIT;
 				else if (src.keys.array[token] != null) return token;
 		}
 		
-		static <K extends Comparable<? super K>> K key( R<K> src, int token ) {return src.keys.array[token];}
+		static <K> K key(R<K> src, int token) {return src.keys.array[token];}
 		
-		static <K extends Comparable<? super K>> float value( R<K> src, int token ) {return src.values.get( token );}
+		static <K> float value(R<K> src, int token) {return src.values.get(token);}
 	}
 	
-	abstract class R<K extends Comparable<? super K>> implements Cloneable, Comparable<R<K>> {
+	abstract class R<K> implements Cloneable {
 		
-		public ObjectList.RW<K> keys = new ObjectList.RW<>( 0 );
+		public ObjectList.RW<K>   keys;
+		public FloatList.RW values;
 		
-		public FloatList.RW values = new FloatList.RW( 0 );
-		
-		protected int assigned;
-		
-		protected int mask;
-		
-		protected int resizeAt;
-		
+		protected int     assigned;
+		protected int     mask;
+		protected int     resizeAt;
 		protected boolean hasNullKey;
 		
 		float NullKeyValue = 0;
@@ -38,64 +34,48 @@ public interface ObjectFloatMap {
 		protected double loadFactor;
 		
 		
-		public @Positive_Values int token( K key ) {
+		public @Positive_Values int token(K key) {
 			if (key == null) return hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE;
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = keys.hash_equal.hashCode(key) & mask;
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0) return slot;
+				if (keys.equals(key)) return slot;
 			
 			return Positive_Values.NONE;
 		}
 		
-		public boolean contains( K key )    {return !hasNone( token( key ) );}
+		public boolean contains(K key)    {return !hasNone(token(key));}
 		
-		public float value( @Positive_ONLY int token ) {return token == Positive_Values.VALUE ? NullKeyValue :   values.array[token];}
+		public float value(@Positive_ONLY int token) {return token == Positive_Values.VALUE ? NullKeyValue :   values.array[token];}
 		
-		public boolean hasNone( int token ) {return token == Positive_Values.NONE;}
+		public boolean hasNone(int token) {return token == Positive_Values.NONE;}
 		
 		
-		public int size()                   {return assigned + (hasNullKey ? 1 : 0);}
+		public int size()                 {return assigned + (hasNullKey ? 1 : 0);}
 		
-		public boolean isEmpty()            {return size() == 0;}
+		public boolean isEmpty()          {return size() == 0;}
 		
 		
 		public int hashCode() {
-			int hash = Hash.code( hasNullKey ? Hash.code( NullKeyValue ) : 719717, keys );
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
+			int hash = hash(hasNullKey ? hash(NullKeyValue) : 719717, keys);
+			for (int token = NonNullKeysIterator.INIT, h = 719717; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				hash = (h++) + hash(hash, keys.hash_equal.hashCode(NonNullKeysIterator.key(this, token)));
 			
 			return hash;
 		}
 		
 		@SuppressWarnings("unchecked")
-		public boolean equals( Object obj ) {
-			
-			return obj != null &&
-			       getClass() == obj.getClass() &&
-			
-			       compareTo( getClass().cast( obj ) ) == 0;
-		}
+		public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}
 		
-		public boolean equals( R<K> other ) {return other != null && compareTo( other ) == 0;}
-		
-		public int compareTo( R<K> other ) {
-			if (other == null) return -1;
-			
-			if (hasNullKey != other.hasNullKey ||
-			    hasNullKey && NullKeyValue != other.NullKeyValue) return 1;
-			
-			int diff;
-			if ((diff = size() - other.size()) != 0) return diff;
-			
+		public boolean equals(R<K> other) {
+			if (other == null || hasNullKey != other.hasNullKey || hasNullKey && NullKeyValue != other.NullKeyValue || size() != other.size()) return false;
 			
 			K key;
 			for (int i = keys.array.length, token; -1 < --i; )
-				if ((key = keys.array[i]) != null)
-					if ((token = other.token( key )) == Positive_Values.NONE || values.array[i] != other.value( token )) return 1;
+				if ((key = keys.array[i]) != null && ((token = other.token(key)) == Positive_Values.NONE || values.array[i] != other.value(token))) return false;
 			
-			return 0;
+			return true;
 		}
 		
 		@SuppressWarnings("unchecked")
@@ -104,7 +84,7 @@ public interface ObjectFloatMap {
 			{
 				R<K> dst = (R<K>) super.clone();
 				
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -116,45 +96,43 @@ public interface ObjectFloatMap {
 		}
 		
 		
-		public String toString() {return toString( null ).toString();}
+		public String toString() {return toString(null).toString();}
 		
-		public StringBuilder toString( StringBuilder dst ) {
+		public StringBuilder toString(StringBuilder dst) {
 			int size = size();
-			if (dst == null) dst = new StringBuilder( size * 10 );
-			else dst.ensureCapacity( dst.length() + size * 10 );
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
+			if (hasNullKey) dst.append("null -> ").append(NullKeyValue).append('\n');
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     dst.append( NonNullKeysIterator.key( this, token ) )
-					     .append( " -> " )
-					     .append( NonNullKeysIterator.value( this, token ) )
-					     .append( '\n' );
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				dst.append(NonNullKeysIterator.key(this, token))
+						.append(" -> ")
+						.append(NonNullKeysIterator.value(this, token))
+						.append('\n');
 			return dst;
 		}
 	}
 	
-	class RW<K extends Comparable<? super K>> extends R<K> {
+	class RW<K> extends R<K> {
 		
+		public RW(Class<K[]> clazz, int expectedItems) {this(clazz, expectedItems, 0.75);}
 		
-		public RW( double loadFactor ) {this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );}
-		
-		public RW( int expectedItems ) {this( expectedItems, 0.75 );}
-		
-		
-		public RW( int expectedItems, double loadFactor ) {
-			this( loadFactor );
+		public RW(Class<K[]> clazz, int expectedItems, double loadFactor) {
 			
-			long length = (long) Math.ceil( expectedItems / loadFactor );
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
+			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			long length = (long) Math.ceil(expectedItems / loadFactor);
 			
-			keys.length( size );
-			values.length( size );
+			int size = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
+			
+			keys = new ObjectList.RW<>(clazz, size);
+			values = new FloatList.RW(0);
 		}
 		
-		public boolean put( K key, float value ) {
+		public boolean put(K key, float value) {
 			
 			if (key == null)
 			{
@@ -162,34 +140,34 @@ public interface ObjectFloatMap {
 				return !hasNullKey && (hasNullKey = true);
 			}
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = keys.hash_equal.hashCode(key) & mask;
 			
 			
 			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0)
+				if (keys.equals(key))
 				{
 					values.array[slot] = (float) value;
 					return false;
 				}
 			
-			keys.array[slot]   = key;
+			keys.array[slot] = key;
 			values.array[slot] = (float) value;
 			
-			if (assigned++ == resizeAt) allocate( mask + 1 << 1 );
+			if (assigned++ == resizeAt) allocate(mask + 1 << 1);
 			
 			return true;
 		}
 		
 		
-		public boolean remove( K key ) {
+		public boolean remove(K key) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = keys.hash_equal.hashCode(key) & mask;
 			
 			final K[] array = keys.array;
 			
 			for (K k; (k = array[slot]) != null; slot = slot + 1 & mask)
-				if (k.compareTo( key ) == 0)
+				if (keys.equals(key))
 				{
 					float[] vals = values.array;
 					
@@ -198,16 +176,16 @@ public interface ObjectFloatMap {
 					
 					K kk;
 					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != null; )
-						if ((s - Hash.code( kk ) & mask) >= distance)
+						if ((s - keys.hash_equal.hashCode(kk) & mask) >= distance)
 						{
 							vals[gapSlot] = vals[s];
 							array[gapSlot] = kk;
-							                 gapSlot = s;
-							                 distance = 0;
+							gapSlot = s;
+							distance = 0;
 						}
 					
 					array[gapSlot] = null;
-					vals[gapSlot]  = (float) 0;
+					vals[gapSlot] = (float) 0;
 					assigned--;
 					return true;
 				}
@@ -216,38 +194,38 @@ public interface ObjectFloatMap {
 		}
 		
 		public void clear() {
-			assigned   = 0;
+			assigned = 0;
 			hasNullKey = false;
 			keys.clear();
 			values.clear();
 		}
 		
 		
-		protected void allocate( int size ) {
+		protected void allocate(int size) {
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length( -size );
-				if (values.length() < size) values.length( -size );
+				if (keys.length() < size) keys.length(-size);
+				if (values.length() < size) values.length(-size);
 				return;
 			}
 			
 			final K[]           k = keys.array;
 			final float[] v = values.array;
 			
-			keys.length( -size );
-			values.length( -size );
+			keys.length(-size);
+			values.length(-size);
 			
 			K key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = Hash.code( key ) & mask;
+					int slot = keys.hash_equal.hashCode(key) & mask;
 					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
 					
-					keys.array[slot]   = key;
+					keys.array[slot] = key;
 					values.array[slot] = v[i];
 				}
 		}

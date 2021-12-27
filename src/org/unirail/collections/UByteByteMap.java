@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import org.unirail.Hash;
+import org.unirail.collections.Array.HashEqual;
 
 public interface UByteByteMap {
 	
@@ -9,61 +9,54 @@ public interface UByteByteMap {
 	interface NonNullKeysIterator {
 		int INIT = -1;
 		
-		static int token( R src, int token ) {return ByteSet.NonNullKeysIterator.token( src.keys, token );}
+		static int token(R src, int token) {return ByteSet.NonNullKeysIterator.token(src.keys, token);}
 		
-		static char key( R src, int token ) {return (char) (ByteSet.NonNullKeysIterator.key( null, token ));}
+		static char key(R src, int token) {return (char) (ByteSet.NonNullKeysIterator.key(null, token));}
 		
-		static byte value( R src, int token ) {return (byte) src.values.array[ByteSet.NonNullKeysIterator.index( null, token )];}
+		static byte value(R src, int token) {return (byte) src.values.array[ByteSet.NonNullKeysIterator.index(null, token)];}
 	}
 	
 	
-	abstract class R implements Cloneable, Comparable<R> {
+	abstract class R implements Cloneable {
 		
 		ByteSet.RW         keys = new ByteSet.RW();
 		ByteList.RW values;
 		
 		
-		public int size()                           {return keys.size();}
+		public int size()                         {return keys.size();}
 		
-		public boolean isEmpty()                    {return keys.isEmpty();}
+		public boolean isEmpty()                  {return keys.isEmpty();}
 		
-		public boolean contains(  Character key ) {return key == null ? keys.contains( null ) : keys.contains( (byte) (key + 0) );}
+		public boolean contains( Character key) {return key == null ? keys.contains(null) : keys.contains((byte) (key + 0));}
 		
-		public boolean contains( int key )          {return keys.contains( (byte) key );}
+		public boolean contains(int key)          {return keys.contains((byte) key);}
 		
-		public byte value(  Character key ) {return key == null ? NullKeyValue : value( key + 0 );}
+		public byte value( Character key) {return key == null ? NullKeyValue : value(key + 0);}
 		
-		public byte  value( int key ) {return  (byte)  values.array[keys.rank( (byte) key )];}
+		public byte  value(int key) {return  (byte)  values.array[keys.rank((byte) key)];}
 		
 		byte NullKeyValue = 0;
 		
-		public int hashCode() {return Hash.code( Hash.code( contains( null ) ? Hash.code( NullKeyValue ) : 77415193, keys ), values );}
+		public int hashCode() {return HashEqual.hash(HashEqual.hash(contains(null) ? HashEqual.hash(NullKeyValue) : 77415193, keys), values);}
 		
 		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       equals(getClass().cast(obj));
 		}
 		
-		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
-		
-		@Override public int compareTo( R other ) {
-			if (other == null) return -1;
-			
-			int diff;
-			if ((diff = other.keys.compareTo( keys )) != 0 || (diff = other.values.compareTo( values )) != 0) return diff;
-			if (keys.hasNullKey && NullKeyValue != other.NullKeyValue) return 1;
-			
-			return 0;
+		public boolean equals(R other) {
+			return other != null && other.keys.equals(keys) && other.values.equals(values) &&
+			       (!keys.hasNullKey || NullKeyValue == other.NullKeyValue);
 		}
 		
 		@Override public R clone() {
 			try
 			{
 				R dst = (R) super.clone();
-				dst.keys   = keys.clone();
+				dst.keys = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -76,28 +69,28 @@ public interface UByteByteMap {
 		
 		
 		//endregion
-		public String toString() {return toString( null ).toString();}
+		public String toString() {return toString(null).toString();}
 		
-		public StringBuilder toString( StringBuilder dst ) {
+		public StringBuilder toString(StringBuilder dst) {
 			int size = keys.size();
-			if (dst == null) dst = new StringBuilder( size * 10 );
-			else dst.ensureCapacity( dst.length() + size * 10 );
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (keys.hasNullKey) dst.append( "null -> " ).append( NullKeyValue ).append( '\n' );
+			if (keys.hasNullKey) dst.append("null -> ").append(NullKeyValue).append('\n');
 			
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     dst.append( NonNullKeysIterator.key(this, token ) )
-					     .append( " -> " )
-					     .append( NonNullKeysIterator.value( this, token ) )
-					     .append( '\n' );
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				dst.append(NonNullKeysIterator.key(this, token))
+						.append(" -> ")
+						.append(NonNullKeysIterator.value(this, token))
+						.append('\n');
 			return dst;
 		}
 	}
 	
 	class RW extends R {
 		
-		public RW( int length ) {values = new ByteList.RW( 265 < length ? 256 : length );}
+		public RW(int length) {values = new ByteList.RW(265 < length ? 256 : length);}
 		
 		public void clear() {
 			keys.clear();
@@ -105,32 +98,32 @@ public interface UByteByteMap {
 		}
 		
 		
-		public boolean put(  Character key, byte value ) {
+		public boolean put( Character key, byte value) {
 			if (key == null)
 			{
 				NullKeyValue = value;
-				boolean ret = keys.contains( null );
-				keys.add( null );
+				boolean ret = keys.contains(null);
+				keys.add(null);
 				return !ret;
 			}
 			
-			return put( (char) (key + 0), value );
+			return put((char) (key + 0), value);
 		}
 		
-		public boolean put( char key, byte value ) {
-			boolean ret = keys.add( (byte) key );
-			values.array[keys.rank( (byte) key ) - 1] = (byte) value;
+		public boolean put(char key, byte value) {
+			boolean ret = keys.add((byte) key);
+			values.array[keys.rank((byte) key) - 1] = (byte) value;
 			return ret;
 		}
 		
-		public boolean remove(  Character  key ) {return key == null ? keys.remove( null ) : remove( (char) (key + 0) );}
+		public boolean remove( Character  key) {return key == null ? keys.remove(null) : remove((char) (key + 0));}
 		
-		public boolean remove( char key ) {
+		public boolean remove(char key) {
 			final byte k = (byte) key;
-			if (!keys.contains( k )) return false;
+			if (!keys.contains(k)) return false;
 			
-			values.remove( keys.rank( k ) - 1 );
-			keys.remove( k );
+			values.remove(keys.rank(k) - 1);
+			keys.remove(k);
 			
 			return true;
 		}

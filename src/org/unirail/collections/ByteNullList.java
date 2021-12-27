@@ -1,12 +1,12 @@
 package org.unirail.collections;
 
 
-import org.unirail.Hash;
+import static org.unirail.collections.Array.HashEqual.hash;
 
 public interface ByteNullList {
 	
 	
-	abstract class R implements Comparable<R> {
+	abstract class R  {
 		
 		BitList.RW         nulls;
 		ByteList.RW values;
@@ -49,24 +49,13 @@ public interface ByteNullList {
 		public boolean equals( Object obj ) {
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       equals( getClass().cast( obj ) );
 		}
 		
-		public int hashCode()            {return Hash.code( Hash.code( nulls ), values );}
+		public int hashCode()            {return hash( hash( nulls ), values );}
 		
 		
-		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
-		
-		public int compareTo( R other ) {
-			if (other == null) return -1;
-			if (other.size() != size()) return other.size() - size();
-			
-			int diff;
-			
-			if ((diff = values.compareTo( other.values )) != 0 || (diff = nulls.compareTo( other.nulls )) != 0) return diff;
-			
-			return 0;
-		}
+		public boolean equals( R other )  {return other != null && other.size() == size() && values.equals(other.values) && nulls.equals(other.nulls);}
 		
 		public R clone() {
 			try

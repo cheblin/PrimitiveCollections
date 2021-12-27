@@ -1,6 +1,7 @@
 package org.unirail.collections;
 
-import org.unirail.Hash;
+
+import static org.unirail.collections.Array.HashEqual.hash;
 
 public interface UByteSet {
 	
@@ -42,7 +43,7 @@ public interface UByteSet {
 		}
 	}
 	
-	abstract class R implements Cloneable, Comparable<R> {
+	abstract class R implements Cloneable {
 		long
 				_1,
 				_2,
@@ -143,26 +144,16 @@ a:
 			return true;
 		}
 		
-		public int hashCode() {return Hash.code( Hash.code( Hash.code( Hash.code( hasNullKey ? 184889743 : 22633363, _1 ), _2 ), _3 ), _4 );}
+		public int hashCode() {return hash( hash( hash( hash(hasNullKey ? 184889743 : 22633363, _1 ), _2 ), _3 ), _4 );}
 		
 		public boolean equals( Object obj ) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       equals( getClass().cast( obj ) );
 		}
 		
-		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
-		
-		public int compareTo( R other ) {
-			
-			return
-					size == other.size ?
-					(int) (_1 == other._1 ?
-					       _2 == other._2 ?
-					       _3 == other._3 ?
-					       _4 == other._4 ? 0 : _4 - other._4 : _3 - other._3 : _2 - other._2 : _1 - other._1) : size - other.size;
-		}
+		public boolean equals( R other )  {return size != other.size || _1 != other._1 || _2 != other._2 || _3 != other._3 || _4 != other._4 ;}
 		
 		public R clone() {
 			try
@@ -232,7 +223,16 @@ a:
 		}
 		
 		
-		public boolean remove(  Character key ) {return key == null ? hasNullKey && !(hasNullKey = false) : remove( (char) (key + 0) );}
+		public boolean remove(  Character key ) {
+			if (key == null)
+			{
+				boolean ret = hasNullKey;
+				hasNullKey = false;
+				return ret;
+			}
+			
+			return remove( (char) (key + 0) );
+		}
 		
 		public boolean remove( char value ) {
 			if (size == 0) return false;

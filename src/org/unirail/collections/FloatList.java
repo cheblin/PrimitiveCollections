@@ -1,14 +1,16 @@
 package org.unirail.collections;
 
 
-import org.unirail.Hash;
+
 
 import java.util.Arrays;
+
+import static org.unirail.collections.Array.HashEqual.hash;
 
 public interface FloatList {
 	
 	
-	abstract class R implements Comparable<R> {
+	abstract class R  {
 		float[] array = Array.floats0     ;
 		
 		public int length() {return array.length;}
@@ -55,23 +57,20 @@ public interface FloatList {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       equals( getClass().cast( obj ) );
 		}
 		
-		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
-		
-		public int compareTo( R other ) {
-			if (other == null) return -1;
-			if (other.size != size) return other.size - size;
+		public boolean equals( R other ) {
+			if (other == null || other.size != size) return false;
 			
 			for (int i = size(); -1 < --i; )
-				if (array[i] != other.array[i]) return i + 1;
-			return 0;
+				if (array[i] != other.array[i]) return false;
+			return true;
 		}
 		
 		public int hashCode() {
 			int hash = 999197497;
-			for (int i = size(); -1 < --i; ) hash = Hash.code( hash, array[i] );
+			for (int i = size(); -1 < --i; ) hash = hash( hash, array[i] );
 			return hash;
 		}
 		

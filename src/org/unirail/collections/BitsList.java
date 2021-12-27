@@ -1,7 +1,9 @@
 package org.unirail.collections;
 
 
-import org.unirail.Hash;
+
+
+import org.unirail.collections.Array.HashEqual;
 
 import java.util.Arrays;
 
@@ -29,7 +31,7 @@ public interface BitsList {
 	static int len4bits( int bits ) {return (bits + BITS) >>> LEN;}
 	
 	
-	abstract class R implements Cloneable, Comparable<R> {
+	abstract class R implements Cloneable {
 		
 		protected long[] array = Array.longs0;
 		protected int    size  = 0;
@@ -79,9 +81,9 @@ public interface BitsList {
 		public int hashCode() {
 			int i = index( size );
 			
-			int hash = Hash.code( 149989999 , (array[i] & (1L << bit( size )) - 1) );
+			int hash = HashEqual.hash( 149989999 , (array[i] & (1L << bit( size )) - 1) );
 			
-			while (-1 < --i) hash = Hash.code( hash, array[i] );
+			while (-1 < --i) hash = HashEqual.hash( hash, array[i] );
 			
 			return hash;
 		}
@@ -92,21 +94,18 @@ public interface BitsList {
 			       equals( getClass().cast( other ) );
 		}
 		
-		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
-		
-		@Override public int compareTo( R other ) {
-			if (other == null) return -1;
-			if (other.size != size) return other.size - size;
+		public boolean equals( R other ) {
+			if (other == null || other.size != size) return false;
 			
 			int i = index( size );
 			
 			long m = (1L << bit( size )) - 1;
-			if ((array[i] & m) != (other.array[i] & m)) return 2;
+			if ((array[i] & m) != (other.array[i] & m)) return false;
 			
 			while (-1 < --i)
-				if (array[i] != other.array[i]) return (int) (array[i] - other.array[i]);
+				if (array[i] != other.array[i]) return false;
 			
-			return 0;
+			return true;
 		}
 		
 		

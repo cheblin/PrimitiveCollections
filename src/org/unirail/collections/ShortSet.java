@@ -1,6 +1,7 @@
 package org.unirail.collections;
 
-import org.unirail.Hash;
+
+import static org.unirail.collections.Array.HashEqual.hash;
 
 public interface ShortSet {
 	
@@ -17,7 +18,7 @@ public interface ShortSet {
 		static short key( R src, int token ) {return token == -2 ? 0 : (short)  src.keys.array[token];}
 	}
 	
-	abstract class R implements Cloneable, Comparable<R> {
+	abstract class R implements Cloneable {
 		
 		public ShortList.RW keys = new ShortList.RW( 0 );
 		
@@ -38,7 +39,7 @@ public interface ShortSet {
 		public boolean contains( short key ) {
 			if (key == 0) return has0Key;
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = hash( key ) & mask;
 			
 			for (short k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return true;
@@ -56,9 +57,9 @@ public interface ShortSet {
 			int hash = hasNullKey ? 10910099 : 97654321;
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     hash = Hash.code( hash, NonNullKeysIterator.key( this, token ) );
+			     hash = hash( hash, NonNullKeysIterator.key( this, token ) );
 			
-			return Hash.code( hash, keys );
+			return hash( hash, keys );
 		}
 		
 		
@@ -77,18 +78,15 @@ public interface ShortSet {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       compareTo( getClass().cast( obj ) ) == 0;
+			       equals( getClass().cast( obj ) );
 		}
 		
-		public boolean equals( R other ) {return other != null && compareTo( other ) == 0;}
-		
-		@Override public int compareTo( R other ) {
-			if (other == null) return -1;
-			if (other.assigned != assigned) return other.assigned - assigned;
+		public boolean equals( R other ) {
+			if (other == null || other.assigned != assigned) return false;
 			
-			for (short k : keys.array) if (k != 0 && !other.contains( k )) return 1;
+			for (short k : keys.array) if (k != 0 && !other.contains( k )) return false;
 			
-			return 0;
+			return true;
 		}
 		
 		
@@ -158,7 +156,7 @@ public interface ShortSet {
 			
 			if (key == 0) return !has0Key && (has0Key = true);
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = hash( key ) & mask;
 			
 			for (short k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return false;
@@ -187,7 +185,7 @@ public interface ShortSet {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = Hash.code( key ) & mask;
+					int slot = hash( key ) & mask;
 					while (keys.array[slot] != 0) slot = slot + 1 & mask;
 					keys.array[slot] = key;
 				}
@@ -200,7 +198,7 @@ public interface ShortSet {
 			
 			if (key == 0) return has0Key && !(has0Key = false);
 			
-			int slot = Hash.code( key ) & mask;
+			int slot = hash( key ) & mask;
 			
 			for (short k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -209,7 +207,7 @@ public interface ShortSet {
 					
 					short kk;
 					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - Hash.code( kk ) & mask) >= distance)
+						if ((s - hash( kk ) & mask) >= distance)
 						{
 							keys.array[gapSlot] =  kk;
 							                                 gapSlot = s;
