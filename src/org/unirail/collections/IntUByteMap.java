@@ -10,21 +10,21 @@ public interface IntUByteMap {
 		int INIT = -1;
 		
 		static int token(R src, int token) {
-			for (int len = src.keys.array.length; ; )
+			for (int len = src.keys.length; ; )
 				if (++token == len) return src.has0Key ? -2 : INIT;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return token;
+				else if (src.keys[token] != 0) return token;
 		}
 		
-		static int key(R src, int token) {return token == -2 ? 0 :   src.keys.array[token];}
+		static int key(R src, int token) {return token == -2 ? 0 :   src.keys[token];}
 		
-		static char value(R src, int token) {return token == -2 ? src.OkeyValue :  (char)( 0xFFFF &  src.values.array[token]);}
+		static char value(R src, int token) {return token == -2 ? src.OkeyValue :  (char)( 0xFFFF &  src.values[token]);}
 	}
 	
 	
 	abstract class R implements Cloneable {
-		public IntList.RW keys   = new IntList.RW(0);
-		public UByteList.RW values = new UByteList.RW(0);
+		int[] keys   = Array.ints0     ;
+		byte[] values = Array.bytes0     ;
 		
 		int assigned;
 		
@@ -57,7 +57,7 @@ public interface IntUByteMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (int key_ =  key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (int key_ =  key , k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
 			
 			return Positive_Values.NONE;
@@ -72,7 +72,7 @@ public interface IntUByteMap {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
 			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return (char)( 0xFFFF &  values.get(token));
+			return (char)( 0xFFFF &  values[token]);
 		}
 		
 		public int hashCode() {
@@ -98,11 +98,11 @@ public interface IntUByteMap {
 			    || hasNullKey && nullKeyValue != other.nullKeyValue || size() != other.size()) return false;
 			
 			int           key;
-			for (int i = keys.array.length, c; -1 < --i; )
-				if ((key =  keys.array[i]) != 0)
+			for (int i = keys.length, c; -1 < --i; )
+				if ((key =  keys[i]) != 0)
 				{
 					if ((c = other.token(key)) < 0) return false;
-					if (other.value(c) !=  (char)( 0xFFFF &  values.array[i])) return false;
+					if (other.value(c) !=  (char)( 0xFFFF &  values[i])) return false;
 				}
 			
 			return true;
@@ -158,8 +158,8 @@ public interface IntUByteMap {
 			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
 			mask = size - 1;
 			
-			keys.length(size);
-			values.length(size);
+			keys = new int[size];
+			values = new byte[size];
 		}
 		
 		
@@ -191,15 +191,15 @@ public interface IntUByteMap {
 			
 			final int key_ =  key;
 			
-			for (int k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (int k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] = (byte) value;
+					values[slot] = (byte) value;
 					return true;
 				}
 			
-			keys.array[slot] = key_;
-			values.array[slot] = (byte) value;
+			keys[slot] = key_;
+			values[slot] = (byte) value;
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
@@ -220,25 +220,25 @@ public interface IntUByteMap {
 			
 			final int key_ =  key;
 			
-			for (int k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (int k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					int gapSlot = slot;
 					
 					int kk;
 					
-					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot] = kk;
-							values.array[gapSlot] = values.array[s];
+							keys[gapSlot] = kk;
+							values[gapSlot] = values[s];
 							gapSlot = s;
 							distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
-					values.array[gapSlot] = 0;
+					keys[gapSlot] = 0;
+					values[gapSlot] = 0;
 					assigned--;
 					return true;
 				}
@@ -250,9 +250,6 @@ public interface IntUByteMap {
 			assigned = 0;
 			has0Key = false;
 			hasNullKey = false;
-			
-			keys.clear();
-			values.clear();
 		}
 		
 		
@@ -262,25 +259,25 @@ public interface IntUByteMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
-				if (values.length() < size) values.length(-size);
+				if (keys.length < size) keys = new int[size];
+				if (values.length < size) values = new byte[size];
 				return;
 			}
 			
-			final int[] k = keys.array;
-			final byte[] v = values.array;
+			final int[] k = keys;
+			final byte[] v = values;
 			
-			keys.length(-size);
-			values.length(-size);
+			keys = new int[size];
+			values = new byte[size];
 			
 			int key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
 					int slot = hash(key) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
-					values.array[slot] = v[i];
+					while (keys[slot] != 0) slot = slot + 1 & mask;
+					keys[slot] = key;
+					values[slot] = v[i];
 				}
 		}
 		

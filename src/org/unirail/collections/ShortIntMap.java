@@ -10,21 +10,21 @@ public interface ShortIntMap {
 		int INIT = -1;
 		
 		static int token(R src, int token) {
-			for (int len = src.keys.array.length; ; )
+			for (int len = src.keys.length; ; )
 				if (++token == len) return src.has0Key ? -2 : INIT;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return token;
+				else if (src.keys[token] != 0) return token;
 		}
 		
-		static short key(R src, int token) {return token == -2 ? 0 :  (short) src.keys.array[token];}
+		static short key(R src, int token) {return token == -2 ? 0 :  (short) src.keys[token];}
 		
-		static int value(R src, int token) {return token == -2 ? src.OkeyValue :   src.values.array[token];}
+		static int value(R src, int token) {return token == -2 ? src.OkeyValue :   src.values[token];}
 	}
 	
 	
 	abstract class R implements Cloneable {
-		public ShortList.RW keys   = new ShortList.RW(0);
-		public IntList.RW values = new IntList.RW(0);
+		short[] keys   = Array.shorts0     ;
+		int[] values = Array.ints0     ;
 		
 		int assigned;
 		
@@ -57,7 +57,7 @@ public interface ShortIntMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (short key_ =  key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (short key_ =  key , k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
 			
 			return Positive_Values.NONE;
@@ -72,7 +72,7 @@ public interface ShortIntMap {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
 			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return  values.get(token);
+			return  values[token];
 		}
 		
 		public int hashCode() {
@@ -98,11 +98,11 @@ public interface ShortIntMap {
 			    || hasNullKey && nullKeyValue != other.nullKeyValue || size() != other.size()) return false;
 			
 			short           key;
-			for (int i = keys.array.length, c; -1 < --i; )
-				if ((key = (short) keys.array[i]) != 0)
+			for (int i = keys.length, c; -1 < --i; )
+				if ((key = (short) keys[i]) != 0)
 				{
 					if ((c = other.token(key)) < 0) return false;
-					if (other.value(c) !=   values.array[i]) return false;
+					if (other.value(c) !=   values[i]) return false;
 				}
 			
 			return true;
@@ -158,8 +158,8 @@ public interface ShortIntMap {
 			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
 			mask = size - 1;
 			
-			keys.length(size);
-			values.length(size);
+			keys = new short[size];
+			values = new int[size];
 		}
 		
 		
@@ -191,15 +191,15 @@ public interface ShortIntMap {
 			
 			final short key_ =  key;
 			
-			for (short k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (short k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] = (int) value;
+					values[slot] = (int) value;
 					return true;
 				}
 			
-			keys.array[slot] = key_;
-			values.array[slot] = (int) value;
+			keys[slot] = key_;
+			values[slot] = (int) value;
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
@@ -220,25 +220,25 @@ public interface ShortIntMap {
 			
 			final short key_ =  key;
 			
-			for (short k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (short k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					int gapSlot = slot;
 					
 					short kk;
 					
-					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot] = kk;
-							values.array[gapSlot] = values.array[s];
+							keys[gapSlot] = kk;
+							values[gapSlot] = values[s];
 							gapSlot = s;
 							distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
-					values.array[gapSlot] = 0;
+					keys[gapSlot] = 0;
+					values[gapSlot] = 0;
 					assigned--;
 					return true;
 				}
@@ -250,9 +250,6 @@ public interface ShortIntMap {
 			assigned = 0;
 			has0Key = false;
 			hasNullKey = false;
-			
-			keys.clear();
-			values.clear();
 		}
 		
 		
@@ -262,25 +259,25 @@ public interface ShortIntMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
-				if (values.length() < size) values.length(-size);
+				if (keys.length < size) keys = new short[size];
+				if (values.length < size) values = new int[size];
 				return;
 			}
 			
-			final short[] k = keys.array;
-			final int[] v = values.array;
+			final short[] k = keys;
+			final int[] v = values;
 			
-			keys.length(-size);
-			values.length(-size);
+			keys = new short[size];
+			values = new int[size];
 			
 			short key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
 					int slot = hash(key) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
-					values.array[slot] = v[i];
+					while (keys[slot] != 0) slot = slot + 1 & mask;
+					keys[slot] = key;
+					values[slot] = v[i];
 				}
 		}
 		

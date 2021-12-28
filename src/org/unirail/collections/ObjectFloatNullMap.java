@@ -9,11 +9,11 @@ public interface ObjectFloatNullMap {
 		
 		static <K> int token(R<K> src, int token) {
 			for (token++, token &= Integer.MAX_VALUE; ; token++)
-				if (token == src.keys.array.length) return INIT;
-				else if (src.keys.array[token] != null) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
+				if (token == src.keys.length) return INIT;
+				else if (src.keys[token] != null) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
 		}
 		
-		static <K> K key(R<K> src, int token)            {return src.keys.array[token & Integer.MAX_VALUE];}
+		static <K> K key(R<K> src, int token)            {return src.keys[token & Integer.MAX_VALUE];}
 		
 		static <K> boolean hasValue(R<K> src, int token) {return -1 < token;}
 		
@@ -22,8 +22,11 @@ public interface ObjectFloatNullMap {
 	
 	abstract class R<K> implements Cloneable {
 		
+		protected final Array.HashEqual<K> hash_equal;
 		
-		ObjectList.RW<K>       keys;
+		protected R(Class<K> clazz) {hash_equal = Array.HashEqual.get(clazz);}
+		
+		K[]                    keys;
 		FloatNullList.RW values;
 		
 		protected int    assigned;
@@ -32,11 +35,10 @@ public interface ObjectFloatNullMap {
 		protected double loadFactor;
 		
 		
-		public int size()        {return assigned + (hasNullKey == Positive_Values.NONE ? 0 : 1);}
+		public int size()              {return assigned + (hasNullKey == Positive_Values.NONE ? 0 : 1);}
 		
-		public boolean isEmpty() {return size() == 0;}
+		public boolean isEmpty()       {return size() == 0;}
 		
-	
 		
 		public boolean contains(K key) {return !hasNone(token(key));}
 		
@@ -44,9 +46,9 @@ public interface ObjectFloatNullMap {
 			
 			if (key == null) return hasNullKey;
 			
-			int slot = keys.hash_equal.hashCode(key) & mask;
+			int slot = hash_equal.hashCode(key) & mask;
 			
-			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
+			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
 				if (keys.equals(key)) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
 			
 			return Positive_Values.NONE;
@@ -65,7 +67,7 @@ public interface ObjectFloatNullMap {
 			int hash = hash(hasNullKey == Positive_Values.NONE ? 719281 : hasNullKey == Positive_Values.NULL ? 401101 : hash(NullKeyValue));
 			
 			for (int token = NonNullKeysIterator.INIT, h = 719281; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash, hash(keys.hash_equal.hashCode(NonNullKeysIterator.key(this, token)),
+				hash = (h++) + hash(hash, hash(hash_equal.hashCode(NonNullKeysIterator.key(this, token)),
 						NonNullKeysIterator.hasValue(this, token) ? NonNullKeysIterator.value(this, token) : h++));
 			
 			return hash;
@@ -81,11 +83,11 @@ public interface ObjectFloatNullMap {
 			
 			
 			K key;
-			for (int i = keys.array.length, token; -1 < --i; )
-				if ((key = keys.array[i]) != null)
+			for (int i = keys.length, token; -1 < --i; )
+				if ((key = keys[i]) != null)
 					if (values.nulls.get(i))
 					{
-						if (( token = other.token(key)) == -1 || values.get(i) != other.value(token)) return false;
+						if ((token = other.token(key)) == -1 || values.get(i) != other.value(token)) return false;
 					}
 					else if (-1 < other.token(key)) return false;
 			
@@ -142,9 +144,10 @@ public interface ObjectFloatNullMap {
 	
 	class RW<K> extends R<K> {
 		
-		public RW(Class<K[]> clazz, int expectedItems) {this(clazz, expectedItems, 0.75);}
+		public RW(Class<K> clazz, int expectedItems) {this(clazz, expectedItems, 0.75);}
 		
-		public RW(Class<K[]> clazz, int expectedItems, double loadFactor) {
+		public RW(Class<K> clazz, int expectedItems, double loadFactor) {
+			super(clazz);
 			
 			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
@@ -154,8 +157,8 @@ public interface ObjectFloatNullMap {
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys = new ObjectList.RW<>(clazz, size);
-			values= new FloatNullList.RW(size);
+			keys = hash_equal.copyOf(null, size);
+			values = new FloatNullList.RW(size);
 		}
 		
 		@Override public RW<K> clone() {return (RW<K>) super.clone();}
@@ -170,17 +173,17 @@ public interface ObjectFloatNullMap {
 				return true;
 			}
 			
-			int slot = keys.hash_equal.hashCode(key) & mask;
+			int slot = hash_equal.hashCode(key) & mask;
 			
 			
-			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (keys.equals(key))
+			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
+				if (hash_equal.equals(k, key))
 				{
 					values.set(slot, ( Float    ) null);
 					return true;
 				}
 			
-			keys.array[slot] = key;
+			keys[slot] = key;
 			values.set(slot, ( Float    ) null);
 			
 			if (++assigned == resizeAt) this.allocate(mask + 1 << 1);
@@ -198,17 +201,17 @@ public interface ObjectFloatNullMap {
 				return h != Positive_Values.VALUE;
 			}
 			
-			int slot = keys.hash_equal.hashCode(key) & mask;
+			int slot = hash_equal.hashCode(key) & mask;
 			
 			
-			for (K k; (k = keys.array[slot]) != null; slot = slot + 1 & mask)
-				if (keys.equals(key))
+			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
+				if (hash_equal.equals(k, key))
 				{
 					values.set(slot, value);
 					return true;
 				}
 			
-			keys.array[slot] = key;
+			keys[slot] = key;
 			values.set(slot, value);
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
@@ -219,7 +222,7 @@ public interface ObjectFloatNullMap {
 		public void clear() {
 			assigned = 0;
 			hasNullKey = Positive_Values.NONE;
-			keys.clear();
+			for (int i = keys.length - 1; i >= 0; i--) keys[i] = null;
 			values.clear();
 		}
 		
@@ -230,34 +233,32 @@ public interface ObjectFloatNullMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
+				if (keys.length < size)keys = hash_equal.copyOf(null, size);
 				
 				if (values.nulls.length() < size) values.nulls.length(-size);
-				
 				if (values.values.length() < size) values.values.length(-size);
 				
 				return;
 			}
 			
-			final K[]              k    = keys.array;
+			final K[]              k    = keys;
 			FloatNullList.RW vals = values;
 			
-			keys.length(-size);
+			keys = hash_equal.copyOf(null, size);
 			values = new FloatNullList.RW(-size);
 			
 			K key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = keys.hash_equal.hashCode(key) & mask;
-					while (!(keys.array[slot] == null)) slot = slot + 1 & mask;
+					int slot = hash_equal.hashCode(key) & mask;
+					while (!(keys[slot] == null)) slot = slot + 1 & mask;
 					
-					keys.array[slot] = key;
+					keys[slot] = key;
 					
 					if (vals.hasValue(i)) values.set(slot, vals.get(i));
 					else values.set(slot, ( Float    ) null);
 				}
-			
 		}
 		
 		
@@ -269,20 +270,18 @@ public interface ObjectFloatNullMap {
 				return h != Positive_Values.NONE;
 			}
 			
-			int slot = keys.hash_equal.hashCode(key) & mask;
+			int slot = hash_equal.hashCode(key) & mask;
 			
-			final K[] ks = keys.array;
-			for (K k; (k = ks[slot]) != null; slot = slot + 1 & mask)
-				if (keys.equals(key))
+			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
+				if (hash_equal.equals(k, key))
 				{
-					
 					int gapSlot = slot;
 					
 					K kk;
-					for (int distance = 0, s; (kk = ks[s = gapSlot + ++distance & mask]) != null; )
-						if ((s - keys.hash_equal.hashCode(kk) & mask) >= distance)
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != null; )
+						if ((s - hash_equal.hashCode(kk) & mask) >= distance)
 						{
-							ks[gapSlot] = kk;
+							keys[gapSlot] = kk;
 							
 							if (values.nulls.get(s))
 								values.set(gapSlot, values.get(s));
@@ -293,7 +292,7 @@ public interface ObjectFloatNullMap {
 							distance = 0;
 						}
 					
-					ks[gapSlot] = null;
+					keys[gapSlot] = null;
 					values.set(gapSlot, ( Float    ) null);
 					assigned--;
 					return true;
@@ -301,10 +300,7 @@ public interface ObjectFloatNullMap {
 			
 			return false;
 		}
-		
-		
 	}
-	
 }
 	
 	

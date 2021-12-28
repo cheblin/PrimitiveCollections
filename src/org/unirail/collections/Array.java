@@ -119,7 +119,6 @@ public interface Array extends Cloneable {
 	
 	double[] doubles0 = new double[0];
 	
-	
 	class HashEqual<V> {
 		
 		public static int hash(int hash, Object val) {return hash ^ hash(val);}
@@ -136,7 +135,7 @@ public interface Array extends Cloneable {
 		
 		public static int hash(double val)           {return hash(Double.doubleToLongBits(val));}
 		
-		public static int hash(float val)           {return hash(Float.floatToIntBits(val));}
+		public static int hash(float val)  {return hash(Float.floatToIntBits(val));}
 		
 		public static int hash(long val) {
 			val = (val ^ (val >>> 32)) * 0x4cd6944c5cc20b6dL;
@@ -156,7 +155,7 @@ public interface Array extends Cloneable {
 		
 		public int hashCode(V[] src, int len) {
 			int hash = HashEqual.class.hashCode();
-			while (-1 < --len) hash =(len + 10153331) + hash(hash  , hashCode(src[len]));
+			while (-1 < --len) hash = (len + 10153331) + hash(hash, hashCode(src[len]));
 			return hash;
 		}
 		
@@ -164,79 +163,76 @@ public interface Array extends Cloneable {
 			for (V o, x; -1 < --len; )
 				if ((o = O[len]) != (x = X[len]))
 					if (o == null || x == null || !equals(o, x)) return false;
-			
 			return true;
 		}
 		
-		private final V[] zeroid;
+		public final V[] zeroid;
 		@SuppressWarnings("unchecked")
-		private HashEqual(Class<V[]> clazz) {zeroid = (V[]) java.lang.reflect.Array.newInstance(clazz.getComponentType(), 0);}
+		private HashEqual(Class<V> clazz) {zeroid = (V[]) java.lang.reflect.Array.newInstance(clazz, 0);}
 		
 		public V[] copyOf(V[] current, int len) {return len < 1 ? zeroid : Arrays.copyOf(current == null ? zeroid : current, len);}
 		
-		private static final HashEqual<boolean[]> booleans = new HashEqual<boolean[]>(boolean[][].class) {
+		private static final HashEqual<boolean[]> booleans = new HashEqual<boolean[]>(boolean[].class) {
 			@Override public int hashCode(boolean[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(boolean[] v1, boolean[] v2) {return Arrays.equals(v1, v2);}
 		};
-		private static final HashEqual<byte[]>    bytes    = new HashEqual<byte[]>(byte[][].class) {
+		private static final HashEqual<byte[]>    bytes    = new HashEqual<byte[]>(byte[].class) {
 			@Override public int hashCode(byte[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(byte[] v1, byte[] v2) {return Arrays.equals(v1, v2);}
 		};
-		private static final HashEqual<short[]>   shorts   = new HashEqual<short[]>(short[][].class) {
+		private static final HashEqual<short[]>   shorts   = new HashEqual<short[]>(short[].class) {
 			@Override public int hashCode(short[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(short[] v1, short[] v2) {return Arrays.equals(v1, v2);}
 		};
-		private static final HashEqual<char[]>    chars    = new HashEqual<char[]>(char[][].class) {
+		private static final HashEqual<char[]>    chars    = new HashEqual<char[]>(char[].class) {
 			@Override public int hashCode(char[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(char[] v1, char[] v2) {return Arrays.equals(v1, v2);}
-			
 		};
-		private static final HashEqual<int[]>     ints     = new HashEqual<int[]>(int[][].class) {
+		private static final HashEqual<int[]>     ints     = new HashEqual<int[]>(int[].class) {
 			@Override public int hashCode(int[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(int[] v1, int[] v2) {return Arrays.equals(v1, v2);}
-			
 		};
-		private static final HashEqual<long[]>    longs    = new HashEqual<long[]>(long[][].class) {
+		private static final HashEqual<long[]>    longs    = new HashEqual<long[]>(long[].class) {
 			@Override public int hashCode(long[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(long[] v1, long[] v2) {return Arrays.equals(v1, v2);}
-			
 		};
-		private static final HashEqual<float[]>   floats   = new HashEqual<float[]>(float[][].class) {
+		private static final HashEqual<float[]>   floats   = new HashEqual<float[]>(float[].class) {
 			@Override public int hashCode(float[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(float[] v1, float[] v2) {return Arrays.equals(v1, v2);}
 		};
-		private static final HashEqual<double[]>  doubles  = new HashEqual<double[]>(double[][].class) {
+		private static final HashEqual<double[]>  doubles  = new HashEqual<double[]>(double[].class) {
 			@Override public int hashCode(double[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(double[] v1, double[] v2) {return Arrays.equals(v1, v2);}
 		};
 		
-		private static final HashEqual<Object[]> objects = new HashEqual<Object[]>(Object[][].class) {
+		private static final HashEqual<Object[]> objects = new HashEqual<Object[]>(Object[].class) {
 			@Override public int hashCode(Object[] src) {return Arrays.hashCode(src);}
 			@Override public boolean equals(Object[] v1, Object[] v2) {return Arrays.equals(v1, v2);}
 		};
 		
-		static final HashMap<Class<?>, Object> pool = new HashMap<>(8);
+		private static final HashMap<Class<?>, Object> pool = new HashMap<>(8);
 		
 		@SuppressWarnings("unchecked")
-		public static <R> HashEqual<R> get(Class<R[]> clazz) {
+		public static <R> HashEqual<R> get(Class<R> clazz) {
 			final Object c = clazz;
-			
-			if (c == boolean[][].class) return (HashEqual<R>) booleans;
-			if (c == byte[][].class) return (HashEqual<R>) bytes;
-			if (c == short[][].class) return (HashEqual<R>) shorts;
-			if (c == int[][].class) return (HashEqual<R>) ints;
-			if (c == long[][].class) return (HashEqual<R>) longs;
-			if (c == char[][].class) return (HashEqual<R>) chars;
-			if (c == float[][].class) return (HashEqual<R>) floats;
-			if (c == double[][].class) return (HashEqual<R>) doubles;
-			if (c == Object[][].class) return (HashEqual<R>) objects;
-			
+			if (c == boolean[].class) return (HashEqual<R>) booleans;
+			if (c == byte[].class) return (HashEqual<R>) bytes;
+			if (c == short[].class) return (HashEqual<R>) shorts;
+			if (c == int[].class) return (HashEqual<R>) ints;
+			if (c == long[].class) return (HashEqual<R>) longs;
+			if (c == char[].class) return (HashEqual<R>) chars;
+			if (c == float[].class) return (HashEqual<R>) floats;
+			if (c == double[].class) return (HashEqual<R>) doubles;
+			if (c == Object[].class) return (HashEqual<R>) objects;
 			if (pool.containsKey(clazz)) return (HashEqual<R>) pool.get(clazz);
 			
-			HashEqual<R> ret = new HashEqual<>(clazz);
-			
-			pool.put(clazz, ret);
-			return ret;
+			synchronized (pool)
+			{
+				if (pool.containsKey(clazz)) return (HashEqual<R>) pool.get(clazz);
+				HashEqual<R> ret = new HashEqual<>(clazz);
+				pool.put(clazz, ret);
+				return ret;
+			}
 		}
 	}
 }

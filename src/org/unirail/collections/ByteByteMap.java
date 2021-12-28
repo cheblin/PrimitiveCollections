@@ -3,6 +3,8 @@ package org.unirail.collections;
 
 import org.unirail.collections.Array.HashEqual;
 
+import java.util.Arrays;
+
 public interface ByteByteMap {
 	
 	
@@ -13,14 +15,14 @@ public interface ByteByteMap {
 		
 		static byte key(R src, int token) {return (byte) (ByteSet.NonNullKeysIterator.key(null, token));}
 		
-		static byte value(R src, int token) {return (byte) src.values.array[ByteSet.NonNullKeysIterator.index(null, token)];}
+		static byte value(R src, int token) {return (byte) src.values[ByteSet.NonNullKeysIterator.index(null, token)];}
 	}
 	
 	
 	abstract class R implements Cloneable {
 		
-		ByteSet.RW         keys = new ByteSet.RW();
-		ByteList.RW values;
+		ByteSet.RW    keys = new ByteSet.RW();
+		byte[] values;
 		
 		
 		public int size()                         {return keys.size();}
@@ -33,7 +35,7 @@ public interface ByteByteMap {
 		
 		public byte value( Byte      key) {return key == null ? NullKeyValue : value(key + 0);}
 		
-		public byte  value(int key) {return  (byte)  values.array[keys.rank((byte) key)];}
+		public byte  value(int key) {return  (byte)  values[keys.rank((byte) key)];}
 		
 		byte NullKeyValue = 0;
 		
@@ -88,13 +90,12 @@ public interface ByteByteMap {
 		}
 	}
 	
-	class RW extends R {
+	class RW extends R implements Array {
 		
-		public RW(int length) {values = new ByteList.RW(265 < length ? 256 : length);}
+		public RW(int length) {values = new byte[265 < length ? 256 : length];}
 		
 		public void clear() {
 			keys.clear();
-			values.clear();
 		}
 		
 		
@@ -112,7 +113,7 @@ public interface ByteByteMap {
 		
 		public boolean put(byte key, byte value) {
 			boolean ret = keys.add((byte) key);
-			values.array[keys.rank((byte) key) - 1] = (byte) value;
+			values[keys.rank((byte) key) - 1] = (byte) value;
 			return ret;
 		}
 		
@@ -122,13 +123,21 @@ public interface ByteByteMap {
 			final byte k = (byte) key;
 			if (!keys.contains(k)) return false;
 			
-			values.remove(keys.rank(k) - 1);
+			Array.resize( this, size(), keys.rank(k) - 1, -1 );
 			keys.remove(k);
 			
 			return true;
 		}
-		
-		
-		@Override public RW clone() {return (RW) super.clone();}
+		@Override public Object array() {return values;}
+		@Override public Object length(int length) {
+			if (0 < length)
+			{
+				
+				return Arrays.copyOf(values, length);
+			}
+			return values = length == 0 ? Array.bytes0      : new byte[-length];
+		}
+		@Override public int length() {return values.length;}
+		@Override public RW clone()   {return (RW) super.clone();}
 	}
 }

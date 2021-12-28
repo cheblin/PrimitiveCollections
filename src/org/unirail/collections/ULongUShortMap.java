@@ -10,21 +10,21 @@ public interface ULongUShortMap {
 		int INIT = -1;
 		
 		static int token(R src, int token) {
-			for (int len = src.keys.array.length; ; )
+			for (int len = src.keys.length; ; )
 				if (++token == len) return src.has0Key ? -2 : INIT;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return token;
+				else if (src.keys[token] != 0) return token;
 		}
 		
-		static long key(R src, int token) {return token == -2 ? 0 :   src.keys.array[token];}
+		static long key(R src, int token) {return token == -2 ? 0 :   src.keys[token];}
 		
-		static char value(R src, int token) {return token == -2 ? src.OkeyValue :   src.values.array[token];}
+		static char value(R src, int token) {return token == -2 ? src.OkeyValue :   src.values[token];}
 	}
 	
 	
 	abstract class R implements Cloneable {
-		public ULongList.RW keys   = new ULongList.RW(0);
-		public UShortList.RW values = new UShortList.RW(0);
+		long[] keys   = Array.longs0     ;
+		char[] values = Array.chars0     ;
 		
 		int assigned;
 		
@@ -57,7 +57,7 @@ public interface ULongUShortMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (long key_ =  key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (long key_ =  key , k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
 			
 			return Positive_Values.NONE;
@@ -72,7 +72,7 @@ public interface ULongUShortMap {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
 			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return  values.get(token);
+			return  values[token];
 		}
 		
 		public int hashCode() {
@@ -98,11 +98,11 @@ public interface ULongUShortMap {
 			    || hasNullKey && nullKeyValue != other.nullKeyValue || size() != other.size()) return false;
 			
 			long           key;
-			for (int i = keys.array.length, c; -1 < --i; )
-				if ((key =  keys.array[i]) != 0)
+			for (int i = keys.length, c; -1 < --i; )
+				if ((key =  keys[i]) != 0)
 				{
 					if ((c = other.token(key)) < 0) return false;
-					if (other.value(c) !=   values.array[i]) return false;
+					if (other.value(c) !=   values[i]) return false;
 				}
 			
 			return true;
@@ -158,8 +158,8 @@ public interface ULongUShortMap {
 			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
 			mask = size - 1;
 			
-			keys.length(size);
-			values.length(size);
+			keys = new long[size];
+			values = new char[size];
 		}
 		
 		
@@ -191,15 +191,15 @@ public interface ULongUShortMap {
 			
 			final long key_ =  key;
 			
-			for (long k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (long k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] = (char) value;
+					values[slot] = (char) value;
 					return true;
 				}
 			
-			keys.array[slot] = key_;
-			values.array[slot] = (char) value;
+			keys[slot] = key_;
+			values[slot] = (char) value;
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
@@ -220,25 +220,25 @@ public interface ULongUShortMap {
 			
 			final long key_ =  key;
 			
-			for (long k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (long k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					int gapSlot = slot;
 					
 					long kk;
 					
-					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot] = kk;
-							values.array[gapSlot] = values.array[s];
+							keys[gapSlot] = kk;
+							values[gapSlot] = values[s];
 							gapSlot = s;
 							distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
-					values.array[gapSlot] = 0;
+					keys[gapSlot] = 0;
+					values[gapSlot] = 0;
 					assigned--;
 					return true;
 				}
@@ -250,9 +250,6 @@ public interface ULongUShortMap {
 			assigned = 0;
 			has0Key = false;
 			hasNullKey = false;
-			
-			keys.clear();
-			values.clear();
 		}
 		
 		
@@ -262,25 +259,25 @@ public interface ULongUShortMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
-				if (values.length() < size) values.length(-size);
+				if (keys.length < size) keys = new long[size];
+				if (values.length < size) values = new char[size];
 				return;
 			}
 			
-			final long[] k = keys.array;
-			final char[] v = values.array;
+			final long[] k = keys;
+			final char[] v = values;
 			
-			keys.length(-size);
-			values.length(-size);
+			keys = new long[size];
+			values = new char[size];
 			
 			long key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
 					int slot = hash(key) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
-					values.array[slot] = v[i];
+					while (keys[slot] != 0) slot = slot + 1 & mask;
+					keys[slot] = key;
+					values[slot] = v[i];
 				}
 		}
 		

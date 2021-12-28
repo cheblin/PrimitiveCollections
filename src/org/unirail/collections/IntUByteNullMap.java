@@ -9,14 +9,14 @@ public interface IntUByteNullMap {
 		int INIT = -1;
 		
 		static int token(R src, int token) {
-			int len = src.keys.array.length;
+			int len = src.keys.length;
 			for (token++, token &= Integer.MAX_VALUE; ; token++)
 				if (token == len) return src.has0key == Positive_Values.NONE ? INIT : -2;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
+				else if (src.keys[token] != 0) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
 		}
 		
-		static int key(R src, int token) {return token == -2 ? 0 : src.keys.array[token & Integer.MAX_VALUE];}
+		static int key(R src, int token) {return token == -2 ? 0 : src.keys[token & Integer.MAX_VALUE];}
 		
 		static boolean hasValue(R src, int token) {return (token == -2 && src.has0key == Positive_Values.VALUE) || -1 < token;}
 		
@@ -26,7 +26,7 @@ public interface IntUByteNullMap {
 	abstract class R implements Cloneable {
 		
 		
-		public IntList.RW     keys   = new IntList.RW(0);
+		public int[]          keys   = Array.ints0     ;
 		public UByteNullList.RW values = new UByteNullList.RW(0);
 		
 		int assigned;
@@ -75,7 +75,7 @@ public interface IntUByteNullMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (int k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (int k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
 			
 			return Positive_Values.NONE;//the key is not present
@@ -108,12 +108,12 @@ public interface IntUByteNullMap {
 		
 		public boolean equals(R other) {
 			if (other == null || hasNullKey != other.hasNullKey || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue
-			    || has0key != other.has0key || has0key == Positive_Values.VALUE && OkeyValue != other.OkeyValue ||  size() != other.size()) return false;
+			    || has0key != other.has0key || has0key == Positive_Values.VALUE && OkeyValue != other.OkeyValue || size() != other.size()) return false;
 			
 			
 			int           key;
-			for (int i = keys.array.length; -1 < --i; )
-				if ((key =  keys.array[i]) != 0)
+			for (int i = keys.length; -1 < --i; )
+				if ((key =  keys[i]) != 0)
 					if (values.nulls.get(i))
 					{
 						int ii = other.token(key);
@@ -167,7 +167,7 @@ public interface IntUByteNullMap {
 					dst.append("0 -> null\n");
 			}
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; dst.append('\n'))
 			{
 				dst.append(NonNullKeysIterator.key(this, token)).append(" -> ");
 				if (NonNullKeysIterator.hasValue(this, token)) dst.append(NonNullKeysIterator.value(this, token));
@@ -192,7 +192,7 @@ public interface IntUByteNullMap {
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys.length(size);
+			keys = new int[size];
 			values.nulls.length(size);
 			values.values.length(size);
 		}
@@ -236,14 +236,14 @@ public interface IntUByteNullMap {
 			int               slot = hash(key) & mask;
 			final int key_ =  key ;
 			
-			for (int k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (int k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					values.set(slot, ( Character) null);
 					return false;
 				}
 			
-			keys.array[slot] = key_;
+			keys[slot] = key_;
 			values.set(slot, ( Character) null);
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
@@ -265,14 +265,14 @@ public interface IntUByteNullMap {
 			
 			final int key_ =  key ;
 			
-			for (int k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (int k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					values.set(slot, value);
 					return true;
 				}
 			
-			keys.array[slot] = key_;
+			keys[slot] = key_;
 			values.set(slot, value);
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
@@ -290,7 +290,7 @@ public interface IntUByteNullMap {
 			
 			final int key_ =  key ;
 			
-			final int[] array = keys.array;
+			final int[] array = keys;
 			for (int k; (k = array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
@@ -328,7 +328,7 @@ public interface IntUByteNullMap {
 				resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
 				mask = size - 1;
 				
-				if (keys.length() < size) keys.length(-size);
+				if (keys.length < size) keys = new int[size];
 				if (values.nulls.length() < size) values.nulls.length(-size);
 				if (values.values.length() < size) values.values.length(-size);
 				
@@ -337,7 +337,7 @@ public interface IntUByteNullMap {
 			
 			RW tmp = new RW(size - 1, loadFactor);
 			
-			int[] k = keys.array;
+			int[] k = keys;
 			int   key;
 			
 			for (int i = k.length; -1 < --i; )
@@ -356,7 +356,6 @@ public interface IntUByteNullMap {
 		public void clear() {
 			assigned = 0;
 			has0key = Positive_Values.NONE;
-			keys.clear();
 			values.clear();
 		}
 		

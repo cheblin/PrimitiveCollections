@@ -4,6 +4,7 @@ package org.unirail.collections;
 import org.unirail.collections.Array.HashEqual;
 
 import static org.unirail.collections.Array.HashEqual.hash;
+
 public interface UByteObjectMap {
 	
 	
@@ -15,13 +16,16 @@ public interface UByteObjectMap {
 		
 		static <V> char key(R<V> src, int token) {return (char) ByteSet.NonNullKeysIterator.key(src.keys, token);}
 		
-		static <V> V value(R<V> src, int token)   {return src.values.array[ByteSet.NonNullKeysIterator.index(src.keys, token)];}
+		static <V> V value(R<V> src, int token)   {return src.values[ByteSet.NonNullKeysIterator.index(src.keys, token)];}
 	}
 	
 	abstract class R<V> implements Cloneable {
 		
-		public ByteSet.RW       keys = new ByteSet.RW();
-		public ObjectList.RW<V> values;
+		public          ByteSet.RW   keys = new ByteSet.RW();
+		public          V[]          values;
+		protected final HashEqual<V> hash_equal;
+		
+		protected R(Class<V> clazz)               {hash_equal = HashEqual.get(clazz);}
 		
 		public int size()                         {return keys.size();}
 		
@@ -34,21 +38,16 @@ public interface UByteObjectMap {
 		
 		public V value( Character key)          {return key == null ? NullKeyValue : value(key + 0);}
 		
-		public V value(int key)                   {return values.array[keys.rank((byte) key)];}
+		public V value(int key)                   {return values[keys.rank((byte) key)];}
 		
 		V NullKeyValue = null;
 		
-		public int hashCode() {return hash(HashEqual.hash(HashEqual.hash(keys.contains(null) ? hash(NullKeyValue) : 29399999), keys), values);}
+		public int hashCode() {return hash(HashEqual.hash(HashEqual.hash(keys.contains(null) ? hash(NullKeyValue) : 29399999), keys), hash_equal.hashCode(values, size()));}
 		
 		@SuppressWarnings("unchecked")
-		public boolean equals(Object obj) {
-			
-			return obj != null &&
-			       getClass() == obj.getClass() &&
-			       equals(getClass().cast(obj));
-		}
+		public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}
 		
-		public boolean equals(R<V> other) {return other != null && keys.equals(other.keys) && values.equals(other.values) && (!keys.hasNullKey || NullKeyValue == other.NullKeyValue);}
+		public boolean equals(R<V> other) {return other != null && keys.equals(other.keys) && hash_equal.equals(values, other.values, size()) && (!keys.hasNullKey || NullKeyValue == other.NullKeyValue);}
 		
 		
 		@SuppressWarnings("unchecked")
@@ -85,13 +84,16 @@ public interface UByteObjectMap {
 		}
 	}
 	
-	class RW<V> extends R<V> {
+	class RW<V> extends R<V> implements Array {
 		
-		public RW(Class<V[]> clazz, int length) {values = new ObjectList.RW<>(clazz, 265 < length ? 256 : length);}
+		public RW(Class<V> clazz, int length) {
+			super(clazz);
+			values = hash_equal.copyOf(null, 265 < length ? 256 : length);
+		}
 		
 		public void clear() {
 			NullKeyValue = null;
-			values.clear();
+			java.util.Arrays.fill(values, 0, size() - 1, null);
 			keys.clear();
 		}
 		
@@ -107,7 +109,7 @@ public interface UByteObjectMap {
 		
 		public boolean put(char key, V value) {
 			boolean ret = keys.add((byte) key);
-			values.array[keys.rank((byte) key) - 1] = value;
+			values[keys.rank((byte) key) - 1] = value;
 			return ret;
 		}
 		
@@ -124,7 +126,7 @@ public interface UByteObjectMap {
 			final byte k = (byte) key;
 			if (!keys.contains(k)) return false;
 			
-			values.remove(keys.rank(k) - 1);
+			Array.resize(this, size(), keys.rank(k) - 1, -1);
 			keys.remove(k);
 			
 			return true;
@@ -132,5 +134,19 @@ public interface UByteObjectMap {
 		
 		
 		public RW<V> clone() {return (RW<V>) super.clone();}
+		
+		@SuppressWarnings("unchecked")
+		public Object[] length(int length) {
+			if (0 < length) return values = hash_equal.copyOf(values, length);
+			
+			return values = hash_equal.copyOf(null, -length);
+		}
+		
+		@Override public int length() {return values.length;}
+		@Override public Object array() {
+			return values;
+		}
 	}
+	
+	
 }

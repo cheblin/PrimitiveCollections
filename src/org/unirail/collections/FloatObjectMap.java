@@ -10,27 +10,25 @@ public interface FloatObjectMap {
 		int INIT = -1;
 		
 		static <V> int token(R<V> src, int token) {
-			for (int len = src.keys.array.length; ; )
+			for (int len = src.keys.length; ; )
 				if (++token == len) return src.has0Key ? -2 : INIT;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return token;
+				else if (src.keys[token] != 0) return token;
 		}
 		
-		static <V> float key(R<V> src, int token) {return token == -2 ? 0 :  src.keys.array[token];}
+		static <V> float key(R<V> src, int token) {return token == -2 ? 0 :  src.keys[token];}
 		
-		static <V> V value(R<V> src, int token) {return token == -2 ? src.OkeyValue : src.values.array[token];}
+		static <V> V value(R<V> src, int token) {return token == -2 ? src.OkeyValue : src.values[token];}
 	}
 	
 	abstract class R<V> implements Cloneable {
 		
 		
-		public FloatList.RW keys;
-		public ObjectList.RW<V>   values;
+		public          float[]      keys;
+		public          V[]                values;
+		protected final Array.HashEqual<V> hash_equal;
 		
-		protected R(Class<V[]> clazz, int size) {
-			values = new ObjectList.RW<>(clazz, size);
-			keys = new FloatList.RW(size);
-		}
+		protected R(Class<V> clazz) {hash_equal = Array.HashEqual.get(clazz);}
 		
 		
 		int assigned;
@@ -65,7 +63,7 @@ public interface FloatObjectMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (float k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return slot;
 			
 			return Positive_Values.NONE;
@@ -75,7 +73,7 @@ public interface FloatObjectMap {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
 			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return values.array[token];
+			return values[token];
 		}
 		
 		
@@ -88,7 +86,7 @@ public interface FloatObjectMap {
 			int hash = hasNullKey ? hash(nullKeyValue) : 997651;
 			
 			for (int token = NonNullKeysIterator.INIT, h = 0xc2b2ae35; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash(hash, NonNullKeysIterator.key(this, token)), values.hash_equal.hashCode(NonNullKeysIterator.value(this, token)));
+				hash = (h++) + hash(hash(hash, NonNullKeysIterator.key(this, token)), hash_equal.hashCode(NonNullKeysIterator.value(this, token)));
 			return hash;
 		}
 		
@@ -106,21 +104,21 @@ public interface FloatObjectMap {
 			    assigned != other.assigned ||
 			    has0Key != other.has0Key ||
 			    hasNullKey != other.hasNullKey ||
-			    has0Key && !values.hash_equal.equals(OkeyValue, other.OkeyValue) ||
+			    has0Key && !hash_equal.equals(OkeyValue, other.OkeyValue) ||
 			    hasNullKey && nullKeyValue != other.nullKeyValue &&
-			    (nullKeyValue == null || other.nullKeyValue == null || !values.hash_equal.equals(nullKeyValue, other.nullKeyValue))) return false;
+			    (nullKeyValue == null || other.nullKeyValue == null || !hash_equal.equals(nullKeyValue, other.nullKeyValue))) return false;
 			
 			V           v;
 			float key;
 			
-			for (int i = keys.array.length, c; -1 < --i; )
-				if ((key = keys.array[i]) != 0)
+			for (int i = keys.length, c; -1 < --i; )
+				if ((key = keys[i]) != 0)
 				{
 					if ((c = other.token(key)) < 0) return false;
 					v = other.value(c);
 					
-					if (values.array[i] != v)
-						if (v == null || values.array[i] == null || !values.hash_equal.equals(v, values.array[i])) return false;
+					if (values[i] != v)
+						if (v == null || values[i] == null || !hash_equal.equals(v, values[i])) return false;
 				}
 			return true;
 		}
@@ -164,21 +162,20 @@ public interface FloatObjectMap {
 	
 	class RW<V> extends R<V> {
 		
-		public RW(Class<V[]> clazz, double loadFactor) { super(clazz, 0); this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);}
-		
-		public RW(Class<V[]> clazz, int expectedItems) {this(clazz, expectedItems, 0.75);}
+		public RW(Class<V> clazz, int expectedItems) {this(clazz, expectedItems, 0.75);}
 		
 		
-		public RW(Class<V[]> clazz, int expectedItems, double loadFactor) {
-			this(clazz, loadFactor);
+		public RW(Class<V> clazz, int expectedItems, double loadFactor) {
+			super(clazz);
+			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
 			final long length = (long) Math.ceil(expectedItems / loadFactor);
 			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys.length(size);
-			values.length(size);
+			keys = new float[size];
+			values = hash_equal.copyOf(null, size);
 		}
 		
 		
@@ -202,15 +199,15 @@ public interface FloatObjectMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (float k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
 				{
-					values.array[slot] = value;
+					values[slot] = value;
 					return true;
 				}
 			
-			keys.array[slot] =  key;
-			values.array[slot] = value;
+			keys[slot] =  key;
+			values[slot] = value;
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
@@ -228,27 +225,27 @@ public interface FloatObjectMap {
 			
 			if (key == 0) return has0Key && !(has0Key = false);
 			
-			int slot =hash(key) & mask;
+			int slot = hash(key) & mask;
 			
-			for (float k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
 				{
-					final V v       = values.array[slot];
+					final V v       = values[slot];
 					int     gapSlot = slot;
 					
 					float kk;
-					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot] =  kk;
-							values.array[gapSlot] = values.array[s];
+							keys[gapSlot] =  kk;
+							values[gapSlot] = values[s];
 							gapSlot = s;
 							distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
-					values.array[gapSlot] = null;
+					keys[gapSlot] = 0;
+					values[gapSlot] = null;
 					assigned--;
 					return true;
 				}
@@ -265,8 +262,7 @@ public interface FloatObjectMap {
 			hasNullKey = false;
 			nullKeyValue = null;
 			
-			keys.clear();
-			values.clear();
+			for (int i = keys.length - 1; i >= 0; i--) values[i] = null;
 		}
 		
 		
@@ -276,27 +272,29 @@ public interface FloatObjectMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
-				
-				if (values.length() < size) values.length(-size);
+				if (keys.length < size)
+				{
+					keys = new float[size];
+					values = hash_equal.copyOf(null, size);
+				}
 				return;
 			}
 			
 			
-			final float[] k = keys.array;
-			final V[]           v = values.array;
+			final float[] k = keys;
+			final V[]           v = values;
 			
-			keys.length(-size);
-			values.length(-size);
+			keys = new float[size];
+			values = hash_equal.copyOf(null, size);
 			
 			float key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
 					int slot = hash(key) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] =  key;
-					values.array[slot] = v[i];
+					while (keys[slot] != 0) slot = slot + 1 & mask;
+					keys[slot] =  key;
+					values[slot] = v[i];
 				}
 		}
 		

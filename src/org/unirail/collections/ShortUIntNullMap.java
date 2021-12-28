@@ -9,14 +9,14 @@ public interface ShortUIntNullMap {
 		int INIT = -1;
 		
 		static int token(R src, int token) {
-			int len = src.keys.array.length;
+			int len = src.keys.length;
 			for (token++, token &= Integer.MAX_VALUE; ; token++)
 				if (token == len) return src.has0key == Positive_Values.NONE ? INIT : -2;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
+				else if (src.keys[token] != 0) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
 		}
 		
-		static short key(R src, int token) {return token == -2 ? 0 :(short) src.keys.array[token & Integer.MAX_VALUE];}
+		static short key(R src, int token) {return token == -2 ? 0 :(short) src.keys[token & Integer.MAX_VALUE];}
 		
 		static boolean hasValue(R src, int token) {return (token == -2 && src.has0key == Positive_Values.VALUE) || -1 < token;}
 		
@@ -26,7 +26,7 @@ public interface ShortUIntNullMap {
 	abstract class R implements Cloneable {
 		
 		
-		public ShortList.RW     keys   = new ShortList.RW(0);
+		public short[]          keys   = Array.shorts0     ;
 		public UIntNullList.RW values = new UIntNullList.RW(0);
 		
 		int assigned;
@@ -75,7 +75,7 @@ public interface ShortUIntNullMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (short k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (short k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
 			
 			return Positive_Values.NONE;//the key is not present
@@ -108,12 +108,12 @@ public interface ShortUIntNullMap {
 		
 		public boolean equals(R other) {
 			if (other == null || hasNullKey != other.hasNullKey || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue
-			    || has0key != other.has0key || has0key == Positive_Values.VALUE && OkeyValue != other.OkeyValue ||  size() != other.size()) return false;
+			    || has0key != other.has0key || has0key == Positive_Values.VALUE && OkeyValue != other.OkeyValue || size() != other.size()) return false;
 			
 			
 			short           key;
-			for (int i = keys.array.length; -1 < --i; )
-				if ((key = (short) keys.array[i]) != 0)
+			for (int i = keys.length; -1 < --i; )
+				if ((key = (short) keys[i]) != 0)
 					if (values.nulls.get(i))
 					{
 						int ii = other.token(key);
@@ -167,7 +167,7 @@ public interface ShortUIntNullMap {
 					dst.append("0 -> null\n");
 			}
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; dst.append('\n'))
 			{
 				dst.append(NonNullKeysIterator.key(this, token)).append(" -> ");
 				if (NonNullKeysIterator.hasValue(this, token)) dst.append(NonNullKeysIterator.value(this, token));
@@ -192,7 +192,7 @@ public interface ShortUIntNullMap {
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys.length(size);
+			keys = new short[size];
 			values.nulls.length(size);
 			values.values.length(size);
 		}
@@ -236,14 +236,14 @@ public interface ShortUIntNullMap {
 			int               slot = hash(key) & mask;
 			final short key_ =  key ;
 			
-			for (short k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (short k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					values.set(slot, ( Long     ) null);
 					return false;
 				}
 			
-			keys.array[slot] = key_;
+			keys[slot] = key_;
 			values.set(slot, ( Long     ) null);
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
@@ -265,14 +265,14 @@ public interface ShortUIntNullMap {
 			
 			final short key_ =  key ;
 			
-			for (short k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (short k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					values.set(slot, value);
 					return true;
 				}
 			
-			keys.array[slot] = key_;
+			keys[slot] = key_;
 			values.set(slot, value);
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
@@ -290,7 +290,7 @@ public interface ShortUIntNullMap {
 			
 			final short key_ =  key ;
 			
-			final short[] array = keys.array;
+			final short[] array = keys;
 			for (short k; (k = array[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
@@ -328,7 +328,7 @@ public interface ShortUIntNullMap {
 				resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
 				mask = size - 1;
 				
-				if (keys.length() < size) keys.length(-size);
+				if (keys.length < size) keys = new short[size];
 				if (values.nulls.length() < size) values.nulls.length(-size);
 				if (values.values.length() < size) values.values.length(-size);
 				
@@ -337,7 +337,7 @@ public interface ShortUIntNullMap {
 			
 			RW tmp = new RW(size - 1, loadFactor);
 			
-			short[] k = keys.array;
+			short[] k = keys;
 			short   key;
 			
 			for (int i = k.length; -1 < --i; )
@@ -356,7 +356,6 @@ public interface ShortUIntNullMap {
 		public void clear() {
 			assigned = 0;
 			has0key = Positive_Values.NONE;
-			keys.clear();
 			values.clear();
 		}
 		

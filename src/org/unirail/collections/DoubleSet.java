@@ -8,19 +8,19 @@ public interface DoubleSet {
 	interface NonNullKeysIterator {
 		int INIT = -1;
 		
-		static int token( R src, int token ) {
-			for (int len = src.keys.array.length; ; )
+		static int token(R src, int token) {
+			for (int len = src.keys.length; ; )
 				if (++token == len) return src.has0Key ? -2 : INIT;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return token;
+				else if (src.keys[token] != 0) return token;
 		}
 		
-		static double key( R src, int token ) {return token == -2 ? 0 :   src.keys.array[token];}
+		static double key(R src, int token) {return token == -2 ? 0 :   src.keys[token];}
 	}
 	
 	abstract class R implements Cloneable {
 		
-		public DoubleList.RW keys = new DoubleList.RW( 0 );
+		public double[] keys = new double[0];
 		
 		int assigned;
 		
@@ -34,14 +34,14 @@ public interface DoubleSet {
 		protected double loadFactor;
 		
 		
-		public boolean contains(  Double    key ) {return key == null ? hasNullKey : contains( (double) (key + 0) );}
+		public boolean contains( Double    key) {return key == null ? hasNullKey : contains((double) (key + 0));}
 		
-		public boolean contains( double key ) {
+		public boolean contains(double key) {
 			if (key == 0) return has0Key;
 			
-			int slot = hash( key ) & mask;
+			int slot = hash(key) & mask;
 			
-			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (double k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return true;
 			return false;
 		}
@@ -56,35 +56,35 @@ public interface DoubleSet {
 		public int hashCode() {
 			int hash = hasNullKey ? 10910099 : 97654321;
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     hash = hash( hash, NonNullKeysIterator.key( this, token ) );
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				hash = hash(hash, NonNullKeysIterator.key(this, token));
 			
-			return hash( hash, keys );
+			return hash(hash, keys);
 		}
 		
 		
-		public double[] toArray( double[] dst ) {
+		public double[] toArray(double[] dst) {
 			final int size = size();
 			if (dst == null || dst.length < size) dst = new double[size];
 			
-			for (int i = keys.array.length, ii = 0; -1 < --i; )
-				if (keys.array[i] != 0) dst[ii++] = keys.array[i];
+			for (int i = keys.length, ii = 0; -1 < --i; )
+				if (keys[i] != 0) dst[ii++] = keys[i];
 			
 			return dst;
 		}
 		
 		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       equals( getClass().cast( obj ) );
+			       equals(getClass().cast(obj));
 		}
 		
-		public boolean equals( R other ) {
+		public boolean equals(R other) {
 			if (other == null || other.assigned != assigned) return false;
 			
-			for (double k : keys.array) if (k != 0 && !other.contains( k )) return false;
+			for (double k : keys) if (k != 0 && !other.contains(k)) return false;
 			
 			return true;
 		}
@@ -106,17 +106,17 @@ public interface DoubleSet {
 		}
 		
 		
-		public String toString() {return toString( null ).toString();}
+		public String toString() {return toString(null).toString();}
 		
-		public StringBuilder toString( StringBuilder dst ) {
+		public StringBuilder toString(StringBuilder dst) {
 			int size = size();
-			if (dst == null) dst = new StringBuilder( size * 10 );
-			else dst.ensureCapacity( dst.length() + size * 10 );
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append( "null\n" );
+			if (hasNullKey) dst.append("null\n");
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     dst.append( NonNullKeysIterator.key( this, token ) ).append( '\n' );
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				dst.append(NonNullKeysIterator.key(this, token)).append('\n');
 			return dst;
 		}
 	}
@@ -124,97 +124,97 @@ public interface DoubleSet {
 	
 	class RW extends R {
 		
-		public RW( int expectedItems ) {this( expectedItems, 0.75 );}
+		public RW(int expectedItems) {this(expectedItems, 0.75);}
 		
-		public RW( double loadFactor ) {this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );}
+		public RW(double loadFactor) {this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);}
 		
 		
-		public RW( int expectedItems, double loadFactor ) {
-			this( loadFactor );
+		public RW(int expectedItems, double loadFactor) {
+			this(loadFactor);
 			
-			final long length = (long) Math.ceil( expectedItems / loadFactor );
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
+			final long length = (long) Math.ceil(expectedItems / loadFactor);
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys.length( size );
+			keys = new double[size];
 		}
 		
-		public RW( double... items ) {
-			this( items.length );
-			for (double key : items) add( key );
+		public RW(double... items) {
+			this(items.length);
+			for (double key : items) add(key);
 		}
 		
-		public RW(  Double   ... items ) {
-			this( items.length );
-			for ( Double    key : items) add( key );
+		public RW( Double   ... items) {
+			this(items.length);
+			for ( Double    key : items) add(key);
 		}
 		
-		public boolean add(  Double    key ) {return key == null ? !hasNullKey && (hasNullKey = true) : add( (double) key );}
+		public boolean add( Double    key) {return key == null ? !hasNullKey && (hasNullKey = true) : add((double) key);}
 		
-		public boolean add( double  key ) {
+		public boolean add(double  key) {
 			
 			if (key == 0) return !has0Key && (has0Key = true);
 			
-			int slot = hash( key ) & mask;
+			int slot = hash(key) & mask;
 			
-			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (double k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return false;
 			
-			keys.array[slot] =  key;
+			keys[slot] =  key;
 			
-			if (assigned++ == resizeAt) allocate( mask + 1 << 1 );
+			if (assigned++ == resizeAt) allocate(mask + 1 << 1);
 			return true;
 		}
 		
-		protected void allocate( int size ) {
+		protected void allocate(int size) {
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length( -size );
+				if (keys.length < size)keys =  new double[size] ;
 				return;
 			}
 			
-			final double[] k = keys.array;
+			final double[] k = keys;
 			
-			keys.length( -size );
+			keys =  new double[size] ;
 			
 			double key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = hash( key ) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
+					int slot = hash(key) & mask;
+					while (keys[slot] != 0) slot = slot + 1 & mask;
+					keys[slot] = key;
 				}
 		}
 		
 		
-		public boolean remove(  Double    key ) {return key == null ? hasNullKey && !(hasNullKey = false) : remove( (double) key );}
+		public boolean remove( Double    key) {return key == null ? hasNullKey && !(hasNullKey = false) : remove((double) key);}
 		
-		public boolean remove( double key ) {
+		public boolean remove(double key) {
 			
 			if (key == 0) return has0Key && !(has0Key = false);
 			
-			int slot = hash( key ) & mask;
+			int slot = hash(key) & mask;
 			
-			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (double k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
 				{
 					int gapSlot = slot;
 					
 					double kk;
-					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hash( kk ) & mask) >= distance)
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
+						if ((s - hash(kk) & mask) >= distance)
 						{
-							keys.array[gapSlot] =  kk;
-							                                 gapSlot = s;
-							                                 distance = 0;
+							keys[gapSlot] =  kk;
+							gapSlot = s;
+							distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
+					keys[gapSlot] = 0;
 					assigned--;
 					return true;
 				}
@@ -222,27 +222,25 @@ public interface DoubleSet {
 		}
 		
 		public void clear() {
-			assigned   = 0;
-			has0Key    = false;
+			assigned = 0;
+			has0Key = false;
 			hasNullKey = false;
-			
-			keys.clear();
 		}
 		
 		
-		public void retainAll( RW chk ) {
+		public void retainAll(RW chk) {
 			double key;
 			
-			for (int i = keys.array.length; -1 < --i; )
-				if ((key = keys.array[i]) != 0 && !chk.add( key )) remove( key );
+			for (int i = keys.length; -1 < --i; )
+				if ((key = keys[i]) != 0 && !chk.add(key)) remove(key);
 			
-			if (has0Key && !chk.add( (double) 0 )) has0Key = false;
+			if (has0Key && !chk.add((double) 0)) has0Key = false;
 		}
 		
-		public int removeAll( R src ) {
+		public int removeAll(R src) {
 			int fix = size();
 			
-			for (int i = 0, s = src.size(), token = NonNullKeysIterator.INIT; i < s; i++) remove( NonNullKeysIterator.key( src, token = NonNullKeysIterator.token( src, token ) ) );
+			for (int i = 0, s = src.size(), token = NonNullKeysIterator.INIT; i < s; i++) remove(NonNullKeysIterator.key(src, token = NonNullKeysIterator.token(src, token)));
 			
 			return fix - size();
 		}

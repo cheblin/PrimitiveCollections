@@ -10,21 +10,21 @@ public interface CharUIntMap {
 		int INIT = -1;
 		
 		static int token(R src, int token) {
-			for (int len = src.keys.array.length; ; )
+			for (int len = src.keys.length; ; )
 				if (++token == len) return src.has0Key ? -2 : INIT;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return token;
+				else if (src.keys[token] != 0) return token;
 		}
 		
-		static char key(R src, int token) {return token == -2 ? 0 :  (char) src.keys.array[token];}
+		static char key(R src, int token) {return token == -2 ? 0 :  (char) src.keys[token];}
 		
-		static long value(R src, int token) {return token == -2 ? src.OkeyValue :  (0xFFFFFFFFL &  src.values.array[token]);}
+		static long value(R src, int token) {return token == -2 ? src.OkeyValue :  (0xFFFFFFFFL &  src.values[token]);}
 	}
 	
 	
 	abstract class R implements Cloneable {
-		public CharList.RW keys   = new CharList.RW(0);
-		public UIntList.RW values = new UIntList.RW(0);
+		char[] keys   = Array.chars0     ;
+		int[] values = Array.ints0     ;
 		
 		int assigned;
 		
@@ -57,7 +57,7 @@ public interface CharUIntMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (char key_ =  key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (char key_ =  key , k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
 			
 			return Positive_Values.NONE;
@@ -72,7 +72,7 @@ public interface CharUIntMap {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
 			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return (0xFFFFFFFFL &  values.get(token));
+			return (0xFFFFFFFFL &  values[token]);
 		}
 		
 		public int hashCode() {
@@ -98,11 +98,11 @@ public interface CharUIntMap {
 			    || hasNullKey && nullKeyValue != other.nullKeyValue || size() != other.size()) return false;
 			
 			char           key;
-			for (int i = keys.array.length, c; -1 < --i; )
-				if ((key = (char) keys.array[i]) != 0)
+			for (int i = keys.length, c; -1 < --i; )
+				if ((key = (char) keys[i]) != 0)
 				{
 					if ((c = other.token(key)) < 0) return false;
-					if (other.value(c) !=  (0xFFFFFFFFL &  values.array[i])) return false;
+					if (other.value(c) !=  (0xFFFFFFFFL &  values[i])) return false;
 				}
 			
 			return true;
@@ -158,8 +158,8 @@ public interface CharUIntMap {
 			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
 			mask = size - 1;
 			
-			keys.length(size);
-			values.length(size);
+			keys = new char[size];
+			values = new int[size];
 		}
 		
 		
@@ -191,15 +191,15 @@ public interface CharUIntMap {
 			
 			final char key_ =  key;
 			
-			for (char k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (char k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] = (int) value;
+					values[slot] = (int) value;
 					return true;
 				}
 			
-			keys.array[slot] = key_;
-			values.array[slot] = (int) value;
+			keys[slot] = key_;
+			values[slot] = (int) value;
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
@@ -220,25 +220,25 @@ public interface CharUIntMap {
 			
 			final char key_ =  key;
 			
-			for (char k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (char k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					int gapSlot = slot;
 					
 					char kk;
 					
-					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot] = kk;
-							values.array[gapSlot] = values.array[s];
+							keys[gapSlot] = kk;
+							values[gapSlot] = values[s];
 							gapSlot = s;
 							distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
-					values.array[gapSlot] = 0;
+					keys[gapSlot] = 0;
+					values[gapSlot] = 0;
 					assigned--;
 					return true;
 				}
@@ -250,9 +250,6 @@ public interface CharUIntMap {
 			assigned = 0;
 			has0Key = false;
 			hasNullKey = false;
-			
-			keys.clear();
-			values.clear();
 		}
 		
 		
@@ -262,25 +259,25 @@ public interface CharUIntMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
-				if (values.length() < size) values.length(-size);
+				if (keys.length < size) keys = new char[size];
+				if (values.length < size) values = new int[size];
 				return;
 			}
 			
-			final char[] k = keys.array;
-			final int[] v = values.array;
+			final char[] k = keys;
+			final int[] v = values;
 			
-			keys.length(-size);
-			values.length(-size);
+			keys = new char[size];
+			values = new int[size];
 			
 			char key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
 					int slot = hash(key) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
-					values.array[slot] = v[i];
+					while (keys[slot] != 0) slot = slot + 1 & mask;
+					keys[slot] = key;
+					values[slot] = v[i];
 				}
 		}
 		

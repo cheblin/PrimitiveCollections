@@ -13,10 +13,10 @@ public interface ObjectList {
 		protected       V[]          array;
 		protected final HashEqual<V> hash_equal;
 		
-		protected R(Class<V[]> clazz) {hash_equal = HashEqual.get(clazz);}
+		protected R(Class<V> clazz) {hash_equal = HashEqual.get(clazz);}
 		
 		
-		public int length()           {return array == null ? 0 : array.length;}
+		public int length()         {return array.length;}
 		
 		int size = 0;
 		
@@ -90,19 +90,19 @@ public interface ObjectList {
 	
 	class RW<V> extends R<V> implements Array {
 		@SuppressWarnings("unchecked")
-		public RW(Class<V[]> clazz, int length) {
+		public RW(Class<V> clazz, int length) {
 			super(clazz);
-			if (0 < length) array = hash_equal.copyOf(null, length);
+			array = 0 < length ? hash_equal.copyOf(null, length) : hash_equal.zeroid;
 		}
 		
-		@SafeVarargs public RW(Class<V[]> core_storage_class, V... items) {
+		@SafeVarargs public RW(Class<V> core_storage_class, V... items) {
 			this(core_storage_class, 0);
 			if (items == null) return;
 			array = items.clone();
 			size = items.length;
 		}
 		
-		public RW(Class<V[]> core_storage_class, V fill_value, int size) {
+		public RW(Class<V> core_storage_class, V fill_value, int size) {
 			this(core_storage_class, size);
 			this.size = size;
 			if (fill_value == null) return;
@@ -198,7 +198,6 @@ public interface ObjectList {
 				final V val = array[i];
 				if (chk.indexOf(val) == -1) removeAll(val);
 			}
-			
 		}
 		
 		

@@ -10,21 +10,21 @@ public interface DoubleLongMap {
 		int INIT = -1;
 		
 		static int token(R src, int token) {
-			for (int len = src.keys.array.length; ; )
+			for (int len = src.keys.length; ; )
 				if (++token == len) return src.has0Key ? -2 : INIT;
 				else if (token == 0x7FFF_FFFF) return INIT;
-				else if (src.keys.array[token] != 0) return token;
+				else if (src.keys[token] != 0) return token;
 		}
 		
-		static double key(R src, int token) {return token == -2 ? 0 :   src.keys.array[token];}
+		static double key(R src, int token) {return token == -2 ? 0 :   src.keys[token];}
 		
-		static long value(R src, int token) {return token == -2 ? src.OkeyValue :   src.values.array[token];}
+		static long value(R src, int token) {return token == -2 ? src.OkeyValue :   src.values[token];}
 	}
 	
 	
 	abstract class R implements Cloneable {
-		public DoubleList.RW keys   = new DoubleList.RW(0);
-		public LongList.RW values = new LongList.RW(0);
+		double[] keys   = Array.doubles0     ;
+		long[] values = Array.longs0     ;
 		
 		int assigned;
 		
@@ -57,7 +57,7 @@ public interface DoubleLongMap {
 			
 			int slot = hash(key) & mask;
 			
-			for (double key_ =  key , k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (double key_ =  key , k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
 			
 			return Positive_Values.NONE;
@@ -72,7 +72,7 @@ public interface DoubleLongMap {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
 			if (token == Positive_Values.VALUE - 1) return OkeyValue;
 			
-			return  values.get(token);
+			return  values[token];
 		}
 		
 		public int hashCode() {
@@ -98,11 +98,11 @@ public interface DoubleLongMap {
 			    || hasNullKey && nullKeyValue != other.nullKeyValue || size() != other.size()) return false;
 			
 			double           key;
-			for (int i = keys.array.length, c; -1 < --i; )
-				if ((key =  keys.array[i]) != 0)
+			for (int i = keys.length, c; -1 < --i; )
+				if ((key =  keys[i]) != 0)
 				{
 					if ((c = other.token(key)) < 0) return false;
-					if (other.value(c) !=   values.array[i]) return false;
+					if (other.value(c) !=   values[i]) return false;
 				}
 			
 			return true;
@@ -158,8 +158,8 @@ public interface DoubleLongMap {
 			resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
 			mask = size - 1;
 			
-			keys.length(size);
-			values.length(size);
+			keys = new double[size];
+			values = new long[size];
 		}
 		
 		
@@ -191,15 +191,15 @@ public interface DoubleLongMap {
 			
 			final double key_ =  key;
 			
-			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (double k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
-					values.array[slot] = (long) value;
+					values[slot] = (long) value;
 					return true;
 				}
 			
-			keys.array[slot] = key_;
-			values.array[slot] = (long) value;
+			keys[slot] = key_;
+			values[slot] = (long) value;
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
@@ -220,25 +220,25 @@ public interface DoubleLongMap {
 			
 			final double key_ =  key;
 			
-			for (double k; (k = keys.array[slot]) != 0; slot = slot + 1 & mask)
+			for (double k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					int gapSlot = slot;
 					
 					double kk;
 					
-					for (int distance = 0, s; (kk = keys.array[s = gapSlot + ++distance & mask]) != 0; )
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							keys.array[gapSlot] = kk;
-							values.array[gapSlot] = values.array[s];
+							keys[gapSlot] = kk;
+							values[gapSlot] = values[s];
 							gapSlot = s;
 							distance = 0;
 						}
 					
-					keys.array[gapSlot] = 0;
-					values.array[gapSlot] = 0;
+					keys[gapSlot] = 0;
+					values[gapSlot] = 0;
 					assigned--;
 					return true;
 				}
@@ -250,9 +250,6 @@ public interface DoubleLongMap {
 			assigned = 0;
 			has0Key = false;
 			hasNullKey = false;
-			
-			keys.clear();
-			values.clear();
 		}
 		
 		
@@ -262,25 +259,25 @@ public interface DoubleLongMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length() < size) keys.length(-size);
-				if (values.length() < size) values.length(-size);
+				if (keys.length < size) keys = new double[size];
+				if (values.length < size) values = new long[size];
 				return;
 			}
 			
-			final double[] k = keys.array;
-			final long[] v = values.array;
+			final double[] k = keys;
+			final long[] v = values;
 			
-			keys.length(-size);
-			values.length(-size);
+			keys = new double[size];
+			values = new long[size];
 			
 			double key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
 					int slot = hash(key) & mask;
-					while (keys.array[slot] != 0) slot = slot + 1 & mask;
-					keys.array[slot] = key;
-					values.array[slot] = v[i];
+					while (keys[slot] != 0) slot = slot + 1 & mask;
+					keys[slot] = key;
+					values[slot] = v[i];
 				}
 		}
 		
