@@ -1,9 +1,7 @@
 package org.unirail.collections;
 
 
-import org.unirail.collections.Array.HashEqual;
-
-import java.util.Arrays;
+import org.unirail.collections.Array;
 
 public interface ByteLongMap {
 	
@@ -39,7 +37,7 @@ public interface ByteLongMap {
 		
 		long NullKeyValue = 0;
 		
-		public int hashCode() {return HashEqual.hash(HashEqual.hash(contains(null) ? HashEqual.hash(NullKeyValue) : 77415193, keys), values);}
+		public int hashCode() {return Array.hash(Array.hash(contains(null) ? Array.hash(NullKeyValue) : 77415193, keys), values);}
 		
 		
 		public boolean equals(Object obj) {
@@ -90,7 +88,7 @@ public interface ByteLongMap {
 		}
 	}
 	
-	class RW extends R implements Array {
+	class RW extends R {
 		
 		public RW(int length) {values = new long[265 < length ? 256 : length];}
 		
@@ -123,21 +121,13 @@ public interface ByteLongMap {
 			final byte k = (byte) key;
 			if (!keys.contains(k)) return false;
 			
-			Array.resize( this, size(), keys.rank(k) - 1, -1 );
+			org.unirail.collections.Array.resize(values, values, keys.rank(k) - 1, size(), -1);
+			
 			keys.remove(k);
 			
 			return true;
 		}
-		@Override public Object array() {return values;}
-		@Override public Object length(int length) {
-			if (0 < length)
-			{
-				
-				return Arrays.copyOf(values, length);
-			}
-			return values = length == 0 ? Array.longs0      : new long[-length];
-		}
-		@Override public int length() {return values.length;}
-		@Override public RW clone()   {return (RW) super.clone();}
+		
+		@Override public RW clone() {return (RW) super.clone();}
 	}
 }

@@ -44,11 +44,11 @@ public interface BitsNullList {
 			if (dst == null) dst = new StringBuilder( size * 4 );
 			else dst.ensureCapacity( dst.length() + size * 4 );
 			
-			long src  = array[0];
+			long src  = values[0];
 			for (int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++)
 			{
 				final int bit   = bit( bp );
-				long      value = (BITS < bit + bits ? value( src, src = array[index( bp ) + 1], bit, bits ) : value( src, bit, bits ));
+				long      value = (BITS < bit + bits ? value( src, src = values[index( bp ) + 1], bit, bits ) : value( src, bit, bits ));
 				
 				if (value == null_val) dst.append( "null" );
 				else dst.append( value );

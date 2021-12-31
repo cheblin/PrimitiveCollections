@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface IntIntNullMap {
 	
@@ -193,8 +193,7 @@ public interface IntIntNullMap {
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
 			keys = new int[size];
-			values.nulls.length(size);
-			values.values.length(size);
+			values.length(size);
 		}
 		
 		
@@ -290,19 +289,18 @@ public interface IntIntNullMap {
 			
 			final int key_ =  key ;
 			
-			final int[] array = keys;
-			for (int k; (k = array[slot]) != 0; slot = slot + 1 & mask)
+			for (int k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					int gapSlot = slot;
 					
 					int kk;
 					
-					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != 0; )
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							array[gapSlot] = kk;
+							keys[gapSlot] = kk;
 							
 							if (values.nulls.get(s))
 								values.set(gapSlot, values.get(s));
@@ -313,7 +311,7 @@ public interface IntIntNullMap {
 							distance = 0;
 						}
 					
-					array[gapSlot] = 0;
+					keys[gapSlot] = 0;
 					values.set(gapSlot, ( Integer  ) null);
 					assigned--;
 					return true;
@@ -329,8 +327,7 @@ public interface IntIntNullMap {
 				mask = size - 1;
 				
 				if (keys.length < size) keys = new int[size];
-				if (values.nulls.length() < size) values.nulls.length(-size);
-				if (values.values.length() < size) values.values.length(-size);
+				if (values.nulls.length() < size|| values.values.values.length < size) values.length (size);
 				
 				return;
 			}

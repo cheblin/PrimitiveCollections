@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface ObjectSet {
 	
@@ -32,20 +32,19 @@ public interface ObjectSet {
 		
 		protected double loadFactor;
 		
-		protected final Array.HashEqual<K> hash_equal;
+		protected final Array<K> array;
 		
-		protected R(Class<K> clazz) {hash_equal = Array.HashEqual.get(clazz);}
+		protected R(Class<K> clazz) {array = Array.get(clazz);}
 		
 		public K[] keys;
 		
 		
-		
 		public boolean contains(K key) {
 			if (key == null) return hasNullKey;
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (hash_equal.equals(k, key)) return true;
+				if (array.equals(k, key)) return true;
 			
 			return false;
 		}
@@ -58,7 +57,7 @@ public interface ObjectSet {
 		public int hashCode() {
 			int hash = hash(hasNullKey ? 10153331 : 888888883);
 			for (int token = NonNullKeysIterator.INIT, h = 888888883; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = hash(hash, hash_equal.hashCode(NonNullKeysIterator.key(this, token)));
+				hash = (h++) + hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
 			return hash;
 		}
 		
@@ -116,11 +115,11 @@ public interface ObjectSet {
 			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
 			long length = (long) Math.ceil(expectedItems / loadFactor);
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, org.unirail.collections.Array.nextPowerOf2(length)));
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys = hash_equal.copyOf(null, size);
+			keys = array.copyOf(null, size);
 		}
 		
 		@SafeVarargs public RW(Class<K> clazz, K... items) {
@@ -131,9 +130,9 @@ public interface ObjectSet {
 		public boolean add(K key) {
 			if (key == null) return !hasNullKey && (hasNullKey = true);
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (!hash_equal.equals(k, key)) return false;
+				if (array.equals(k, key)) return false;
 			
 			keys[slot] = key;
 			if (assigned == resizeAt) this.allocate(mask + 1 << 1);
@@ -155,18 +154,18 @@ public interface ObjectSet {
 			
 			if (assigned < 1)
 			{
-				if (keys.length < size) keys = hash_equal.copyOf(null, size);
+				if (keys.length < size) keys = array.copyOf(null, size);
 				return;
 			}
 			
 			final K[] k = keys;
-			keys = hash_equal.copyOf(null, size);
+			keys = array.copyOf(null, size);
 			
 			K key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = hash_equal.hashCode(key) & mask;
+					int slot = array.hashCode(key) & mask;
 					
 					while (keys[slot] != null) slot = slot + 1 & mask;
 					
@@ -179,15 +178,15 @@ public interface ObjectSet {
 		public boolean remove(K key) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (hash_equal.equals(k, key))
+				if (array.equals(k, key))
 				{
 					int gapSlot = slot;
 					
 					K kk;
 					for (int distance = 0, slot1; (kk = keys[slot1 = gapSlot + ++distance & mask]) != null; )
-						if ((slot1 - hash_equal.hashCode(kk) & mask) >= distance)
+						if ((slot1 - array.hashCode(kk) & mask) >= distance)
 						{
 							keys[gapSlot] = kk;
 							gapSlot = slot1;

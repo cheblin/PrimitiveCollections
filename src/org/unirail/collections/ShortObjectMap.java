@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface ShortObjectMap {
 	
@@ -25,10 +25,10 @@ public interface ShortObjectMap {
 		
 		
 		public          short[]      keys;
-		public          V[]                values;
-		protected final Array.HashEqual<V> hash_equal;
+		public          V[]            values;
+		protected final Array<V> array;
 		
-		protected R(Class<V> clazz) {hash_equal = Array.HashEqual.get(clazz);}
+		protected R(Class<V> clazz) {array = Array.get(clazz);}
 		
 		
 		int assigned;
@@ -86,7 +86,7 @@ public interface ShortObjectMap {
 			int hash = hasNullKey ? hash(nullKeyValue) : 997651;
 			
 			for (int token = NonNullKeysIterator.INIT, h = 0xc2b2ae35; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash(hash, NonNullKeysIterator.key(this, token)), hash_equal.hashCode(NonNullKeysIterator.value(this, token)));
+				hash = (h++) + hash(hash(hash, NonNullKeysIterator.key(this, token)), array.hashCode(NonNullKeysIterator.value(this, token)));
 			return hash;
 		}
 		
@@ -104,9 +104,9 @@ public interface ShortObjectMap {
 			    assigned != other.assigned ||
 			    has0Key != other.has0Key ||
 			    hasNullKey != other.hasNullKey ||
-			    has0Key && !hash_equal.equals(OkeyValue, other.OkeyValue) ||
+			    has0Key && !array.equals(OkeyValue, other.OkeyValue) ||
 			    hasNullKey && nullKeyValue != other.nullKeyValue &&
-			    (nullKeyValue == null || other.nullKeyValue == null || !hash_equal.equals(nullKeyValue, other.nullKeyValue))) return false;
+			    (nullKeyValue == null || other.nullKeyValue == null || !array.equals(nullKeyValue, other.nullKeyValue))) return false;
 			
 			V           v;
 			short key;
@@ -118,7 +118,7 @@ public interface ShortObjectMap {
 					v = other.value(c);
 					
 					if (values[i] != v)
-						if (v == null || values[i] == null || !hash_equal.equals(v, values[i])) return false;
+						if (v == null || values[i] == null || !array.equals(v, values[i])) return false;
 				}
 			return true;
 		}
@@ -170,12 +170,12 @@ public interface ShortObjectMap {
 			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
 			final long length = (long) Math.ceil(expectedItems / loadFactor);
-			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			int        size   = (int) (length == expectedItems ? length + 1 : Math.max(4, org.unirail.collections.Array.nextPowerOf2(length)));
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
 			keys = new short[size];
-			values = hash_equal.copyOf(null, size);
+			values = array.copyOf(null, size);
 		}
 		
 		
@@ -275,7 +275,7 @@ public interface ShortObjectMap {
 				if (keys.length < size)
 				{
 					keys = new short[size];
-					values = hash_equal.copyOf(null, size);
+					values = array.copyOf(null, size);
 				}
 				return;
 			}
@@ -285,7 +285,7 @@ public interface ShortObjectMap {
 			final V[]           v = values;
 			
 			keys = new short[size];
-			values = hash_equal.copyOf(null, size);
+			values = array.copyOf(null, size);
 			
 			short key;
 			for (int i = k.length; -1 < --i; )

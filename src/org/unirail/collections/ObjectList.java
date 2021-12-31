@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import org.unirail.collections.Array.HashEqual;
+import org.unirail.collections.Array;
 
 import java.util.Arrays;
 
@@ -10,13 +10,11 @@ public interface ObjectList {
 	abstract class R<V> {
 		
 		
-		protected       V[]          array;
-		protected final HashEqual<V> hash_equal;
+		protected       V[]      values;
+		protected final Array<V> array;
 		
-		protected R(Class<V> clazz) {hash_equal = HashEqual.get(clazz);}
+		protected R(Class<V> clazz) {array = Array.get(clazz);}
 		
-		
-		public int length()         {return array.length;}
 		
 		int size = 0;
 		
@@ -24,8 +22,8 @@ public interface ObjectList {
 		
 		public V[] toArray(int index, int len, V[] dst) {
 			if (size == 0) return null;
-			if (dst == null || dst.length < len) return Arrays.copyOfRange(array, index, len);
-			System.arraycopy(array, index, dst, 0, len);
+			if (dst == null || dst.length < len) return Arrays.copyOfRange(values, index, len);
+			System.arraycopy(values, index, dst, 0, len);
 			return dst;
 		}
 		
@@ -36,36 +34,36 @@ public interface ObjectList {
 			return true;
 		}
 		
-		public boolean hasValue(int index) {return index < size && array[index] != null;}
+		public boolean hasValue(int index) {return index < size && values[index] != null;}
 		
-		public V get(int index)            {return array[index];}
+		public V get(int index)            {return values[index];}
 		
 		
 		public int indexOf(V value) {
 			for (int i = 0; i < size; i++)
-				if (hash_equal.equals(array[i], value)) return i;
+				if (array.equals(values[i], value)) return i;
 			return -1;
 		}
 		
 		public int lastIndexOf(V value) {
 			for (int i = size; -1 < --i; )
-				if (hash_equal.equals(array[i], value)) return i;
+				if (array.equals(values[i], value)) return i;
 			return -1;
 		}
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals((R<V>) obj);}
 		
-		public boolean equals(R<V> other) {return other != null && size == other.size && hash_equal.equals(array, other.array, size);}
+		public boolean equals(R<V> other) {return other != null && size == other.size && array.equals(values, other.values, size);}
 		
-		public int hashCode()             {return hash_equal.hashCode(array, size);}
+		public int hashCode()             {return array.hashCode(values, size);}
 		
 		@SuppressWarnings("unchecked")
 		public R<V> clone() {
 			try
 			{
 				R<V> dst = (R<V>) super.clone();
-				if (dst.array != null) dst.array = array.clone();
+				if (dst.values != null) dst.values = values.clone();
 				
 			} catch (CloneNotSupportedException e) {e.printStackTrace();}
 			
@@ -88,17 +86,17 @@ public interface ObjectList {
 	}
 	
 	
-	class RW<V> extends R<V> implements Array {
+	class RW<V> extends R<V> {
 		@SuppressWarnings("unchecked")
 		public RW(Class<V> clazz, int length) {
 			super(clazz);
-			array = 0 < length ? hash_equal.copyOf(null, length) : hash_equal.zeroid;
+			values = 0 < length ? array.copyOf(null, length) : array.zeroid;
 		}
 		
 		@SafeVarargs public RW(Class<V> core_storage_class, V... items) {
 			this(core_storage_class, 0);
 			if (items == null) return;
-			array = items.clone();
+			values = items.clone();
 			size = items.length;
 		}
 		
@@ -106,85 +104,73 @@ public interface ObjectList {
 			this(core_storage_class, size);
 			this.size = size;
 			if (fill_value == null) return;
-			while (-1 < --size) array[size] = fill_value;
+			while (-1 < --size) values[size] = fill_value;
 		}
 		
-		public Object[] array() {return array;}
-		
-		@SuppressWarnings("unchecked")
-		public Object[] length(int length) {
-			if (0 < length)
-			{
-				if (length < size) size = length;
-				return array = hash_equal.copyOf(array, length);
-			}
-			size = 0;
-			return array = hash_equal.copyOf(null, -length);
-		}
 		
 		public void clear() {
 			if (size < 1) return;
-			Arrays.fill(array, 0, size - 1, null);
+			Arrays.fill(values, 0, size - 1, null);
 			size = 0;
 		}
 		
 		
-		public V add(V value) {
-			size = Array.resize(this, size, size, 1);
-			return array[size - 1] = value;
-		}
+		public V add(V value) {return add(size,value); }
 		
 		public V add(int index, V value) {
-			if (index < size)
-			{
-				size = Array.resize(this, size, index, 1);
-				return array[index] = value;
-			}
-			return set(index, value);
+			int max= Math.max(index, size + 1);
+			
+			size = org.unirail.collections.Array.resize(values, values.length <= max ? values = array.copyOf(null, max + max / 2) : values, index, size, 1);
+			
+			return values[index] = value;
+		}
+		
+		public void add(int index, V[] src, int src_index, int len) {
+			int max = Math.max( index , size) + len;
+			
+			size = org.unirail.collections.Array.resize(values, values.length < max ? values = array.copyOf(null, max + max / 2) : values, index, size, len);
+			
+			System.arraycopy(src, src_index, values, index, len);
 		}
 		
 		public void remove()          {remove(size - 1);}
 		
-		public void remove(int index) {size = Array.resize(this, size, index, -1);}
+		public void remove(int index) {size = org.unirail.collections.Array.resize(values, values, index, size, -1);}
 		
 		public void remove_fast(int index) {
 			if (size < 1 || size <= index) return;
 			size--;
-			array[index] = array[size];
-			array[size] = null;
+			values[index] = values[size];
+			values[size] = null;
 		}
 		
 		public V set(V value) {return set(size, value);}
 		
 		
 		@SafeVarargs
-		public final void set(int index, V... values) {
-			int len = values.length;
+		public final void set(int index, V... src) {
+			int len = src.length;
+			int max   = index + len;
 			
-			if (size <= index + len) size = Array.resize(this, size, size, index + len - size);
+			if (size < max)
+			{
+				if (values.length < max) org.unirail.collections.Array.copy(values, index, len, size, values = array.copyOf(null, max + max / 2));
+				size = max;
+			}
 			
-			System.arraycopy(values, 0, array, index, len);
+			System.arraycopy(src, 0, values, index, len);
 		}
 		
 		
 		public V set(int index, V value) {
-			if (size <= index) size = Array.resize(this, size, index, 1);
-			return array[index] = value;
+			if (size <= index)
+			{
+				if (values.length <= index) values = Arrays.copyOf(values, index + index / 2);
+				size = index+1;
+			}
+			return values[index] = value;
 		}
 		
-		public void addAll(R<V> src, int count) {
-			final int s = size;
-			size = Array.resize(this, size, size, count);
-			
-			for (int i = 0, max = src.size(); i < max; i++)
-				array[s + i] = src.get(i);
-		}
-		
-		public void addAll(R<V> src, int index, int count) {
-			count = Math.min(src.size(), count);
-			size = Array.resize(this, size, index, count);
-			for (int i = 0; i < count; i++) array[index + i] = src.get(i);
-		}
 		
 		public void removeAll(R<V> src)   {for (int i = 0, max = src.size(), p; i < max; i++) removeAll(src.get(i));}
 		
@@ -195,14 +181,12 @@ public interface ObjectList {
 		public void retainAll(R<V> chk) {
 			for (int i = 0; i < size; i++)
 			{
-				final V val = array[i];
+				final V val = values[i];
 				if (chk.indexOf(val) == -1) removeAll(val);
 			}
 		}
 		
-		
 		public RW<V> clone() {return (RW<V>) super.clone();}
-		
 	}
 }
 	

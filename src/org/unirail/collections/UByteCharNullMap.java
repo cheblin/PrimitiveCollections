@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import org.unirail.collections.Array.HashEqual;
+import org.unirail.collections.Array;
 
 public interface UByteCharNullMap {
 	
@@ -63,7 +63,7 @@ public interface UByteCharNullMap {
 		char nullKeyValue = 0;
 		
 		public int hashCode() {
-			return HashEqual.hash(HashEqual.hash(hasNullKey == Positive_Values.NULL ? 553735009 : hasNullKey == Positive_Values.NONE ? 10019689 : HashEqual.hash(nullKeyValue), keys), values);
+			return Array.hash(Array.hash(hasNullKey == Positive_Values.NULL ? 553735009 : hasNullKey == Positive_Values.NONE ? 10019689 : Array.hash(nullKeyValue), keys), values);
 		}
 		
 		public boolean equals(Object obj) {

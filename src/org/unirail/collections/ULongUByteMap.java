@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface ULongUByteMap {
 	

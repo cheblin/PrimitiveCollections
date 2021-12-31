@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface UByteSet {
 	
@@ -9,11 +9,11 @@ public interface UByteSet {
 		
 		int INIT = -1;
 		
-		static int key( R src, int token )   {return token & 0xFF;}
+		static int key(R src, int token)   {return token & 0xFF;}
 		
-		static int index( R src, int token ) {return token >>> 8 & 0xFF;}
+		static int index(R src, int token) {return token >>> 8 & 0xFF;}
 		
-		static int token( R src, int token ) {
+		static int token(R src, int token) {
 			token += 0x100;
 			if (src.size << 8 == (token & 0x1FF00)) return INIT;
 			
@@ -27,19 +27,19 @@ public interface UByteSet {
 				if (key < 64)
 				{
 					if ((l = src._1 >>> key) == 0)
-						return (src._2 != 0 ? 64 + Long.numberOfTrailingZeros( src._2 ) :
-						        src._3 != 0 ? 128 + Long.numberOfTrailingZeros( src._3 ) : 192 + Long.numberOfTrailingZeros( src._4 )) | index;
+						return (src._2 != 0 ? 64 + Long.numberOfTrailingZeros(src._2) :
+						        src._3 != 0 ? 128 + Long.numberOfTrailingZeros(src._3) : 192 + Long.numberOfTrailingZeros(src._4)) | index;
 				}
 				else if ((l = src._2 >>> key) == 0)
-					return (src._3 != 0 ? 128 + Long.numberOfTrailingZeros( src._3 ) : 192 + Long.numberOfTrailingZeros( src._4 )) | index;
+					return (src._3 != 0 ? 128 + Long.numberOfTrailingZeros(src._3) : 192 + Long.numberOfTrailingZeros(src._4)) | index;
 			}
 			else if (key < 192)
 			{
-				if ((l = src._3 >>> key) == 0) return 192 + Long.numberOfTrailingZeros( src._4 ) | index;
+				if ((l = src._3 >>> key) == 0) return 192 + Long.numberOfTrailingZeros(src._4) | index;
 			}
 			else l = src._4 >>> key;
 			
-			return key + Long.numberOfTrailingZeros( l ) | index;
+			return key + Long.numberOfTrailingZeros(l) | index;
 		}
 	}
 	
@@ -54,35 +54,41 @@ public interface UByteSet {
 		
 		protected boolean hasNullKey;
 		
-		protected boolean add( final int value ) {
+		protected boolean add(final int value) {
 			
 			final int  val = value & 0xFF;
 			final long bit = 1L << val;
-			
-			if (val < 128)
-				if (val < 64)
+			switch (val & 0b1100_0000)
+			{
+				case 0b1100_0000:
+					if ((_4 & bit) == 0) _4 |= bit;
+					else return false;
+					break;
+				case 0b1000_0000:
+					if ((_3 & bit) == 0) _3 |= bit;
+					else return false;
+					break;
+				case 0b0100_0000:
+					if ((_2 & bit) == 0) _2 |= bit;
+					else return false;
+					break;
+				default:
 					if ((_1 & bit) == 0) _1 |= bit;
 					else return false;
-				else if ((_2 & bit) == 0) _2 |= bit;
-				else return false;
-			else if (val < 192)
-				if ((_3 & bit) == 0) _3 |= bit;
-				else return false;
-			else if ((_4 & bit) == 0) _4 |= bit;
-			else return false;
+			}
 			
 			size++;
 			return true;
 		}
 		
 		
-		public int size()                           {return hasNullKey ? size + 1 : size;}
+		public int size()                         {return hasNullKey ? size + 1 : size;}
 		
-		public boolean isEmpty()                    {return size < 1;}
+		public boolean isEmpty()                  {return size < 1;}
 		
-		public boolean contains(  Character key ) {return key == null ? hasNullKey : contains( (char) (key + 0) );}
+		public boolean contains( Character key) {return key == null ? hasNullKey : contains((char) (key + 0));}
 		
-		public boolean contains( byte key ) {
+		public boolean contains(byte key) {
 			if (size() == 0) return false;
 			
 			final int val = key & 0xFF;
@@ -92,7 +98,7 @@ public interface UByteSet {
 		
 		//Rank returns the number of integers that are smaller or equal to x
 		//return inversed value if key does not exists
-		protected int rank( char key ) {
+		protected int rank(char key) {
 			final int val = key & 0xFF;
 			
 			int  ret  = 0;
@@ -101,22 +107,22 @@ public interface UByteSet {
 a:
 			{
 				if (val < 64) break a;
-				if (l != 0) ret += Long.bitCount( l );
+				if (l != 0) ret += Long.bitCount(l);
 				base = 64;
-				l    = _2;
+				l = _2;
 				if (val < 128) break a;
-				if (l != 0) ret += Long.bitCount( l );
+				if (l != 0) ret += Long.bitCount(l);
 				base = 128;
-				l    = _3;
+				l = _3;
 				if (val < 192) break a;
-				if (l != 0) ret += Long.bitCount( l );
+				if (l != 0) ret += Long.bitCount(l);
 				base = 192;
-				l    = _4;
+				l = _4;
 			}
 			
 			while (l != 0)
 			{
-				final int s = Long.numberOfTrailingZeros( l );
+				final int s = Long.numberOfTrailingZeros(l);
 				
 				if ((base += s) == val) return ret + 1;
 				if (val < base) return ~ret;
@@ -130,30 +136,48 @@ a:
 		}
 		
 		//Returns true if this set contains all of the elements of the specified collection.
-		public boolean containsAll( R subset ) {
+		public boolean containsAll(R subset) {
 			
 			if (
 					size() < subset.size() ||
 					!hasNullKey && subset.hasNullKey ||
-					Long.bitCount( _1 ) < Long.bitCount( _1 | subset._1 ) &&
-					64 < size && Long.bitCount( _2 ) < Long.bitCount( _2 | subset._2 ) &&
-					128 < size && Long.bitCount( _3 ) < Long.bitCount( _3 | subset._3 ) &&
-					192 < size && Long.bitCount( _4 ) < Long.bitCount( _4 | subset._4 )
+					Long.bitCount(_1) < Long.bitCount(_1 | subset._1) &&
+					64 < size && Long.bitCount(_2) < Long.bitCount(_2 | subset._2) &&
+					128 < size && Long.bitCount(_3) < Long.bitCount(_3 | subset._3) &&
+					192 < size && Long.bitCount(_4) < Long.bitCount(_4 | subset._4)
 			) return false;
 			
 			return true;
 		}
 		
-		public int hashCode() {return hash( hash( hash( hash(hasNullKey ? 184889743 : 22633363, _1 ), _2 ), _3 ), _4 );}
+		public int hashCode() {return hash(hash(hash(hash(hasNullKey ? 184889743 : 22633363, _1), _2), _3), _4);}
 		
-		public boolean equals( Object obj ) {
+		public boolean equals(Object obj) {
 			
 			return obj != null &&
 			       getClass() == obj.getClass() &&
-			       equals( getClass().cast( obj ) );
+			       equals(getClass().cast(obj));
 		}
 		
-		public boolean equals( R other )  {return size != other.size || _1 != other._1 || _2 != other._2 || _3 != other._3 || _4 != other._4 ;}
+		public boolean equals(R other) {
+			
+			if (size != other.size) return false;
+			int s = 63 - size & 0b0011_1111;
+			
+			
+			switch (size & 0b1100_0000)
+			{
+				case 0b1100_0000:
+					return _4 << s == other._4 << s && _3 == other._3 && _2 == other._2 && _1 == other._1;
+				
+				case 0b1000_0000:
+					return _3 << s == other._3 << s && _2 == other._2 && _1 == other._1;
+				
+				case 0b0100_0000:
+					return _2 << s == other._2 << s && _1 == other._1;
+			}
+			return _1 << s == other._1 << s;
+		}
 		
 		public R clone() {
 			try
@@ -164,18 +188,18 @@ a:
 		}
 		
 		
-		public String toString() {return toString( null ).toString();}
+		public String toString() {return toString(null).toString();}
 		
-		public StringBuilder toString( StringBuilder dst ) {
+		public StringBuilder toString(StringBuilder dst) {
 			int size = size();
-			if (dst == null) dst = new StringBuilder( size * 10 );
-			else dst.ensureCapacity( dst.length() + size * 10 );
+			if (dst == null) dst = new StringBuilder(size * 10);
+			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append( "null\n" );
+			if (hasNullKey) dst.append("null\n");
 			
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			     dst.append( NonNullKeysIterator.key( this, token ) ).append( '\n' );
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				dst.append(NonNullKeysIterator.key(this, token)).append('\n');
 			
 			return dst;
 		}
@@ -183,18 +207,18 @@ a:
 	
 	class RW extends R {
 		
-		public RW()                            {}
+		public RW()                          {}
 		
-		public RW( char... items )     {for (char i : items) this.add( i );}
+		public RW(char... items)     {for (char i : items) this.add(i);}
 		
-		public RW(  Character... items )     {for ( Character key : items) add( key );}
+		public RW( Character... items)     {for ( Character key : items) add(key);}
 		
-		public boolean add(  Character key ) {return key == null ? !hasNullKey && (hasNullKey = true) : super.add( (char) (key + 0) );}
+		public boolean add( Character key) {return key == null ? !hasNullKey && (hasNullKey = true) : super.add((char) (key + 0));}
 		
-		public boolean add( char key ) {return super.add( key );}
+		public boolean add(char key) {return super.add(key);}
 		
 		//Retains only the elements in this set that are contained in the specified collection (optional operation).
-		public boolean retainAll( R src ) {
+		public boolean retainAll(R src) {
 			boolean ret = false;
 			
 			if (_1 != src._1)
@@ -218,12 +242,12 @@ a:
 				ret = true;
 			}
 			
-			if (ret) size = Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 ) + Long.bitCount( _4 );
+			if (ret) size = Long.bitCount(_1) + Long.bitCount(_2) + Long.bitCount(_3) + Long.bitCount(_4);
 			return ret;
 		}
 		
 		
-		public boolean remove(  Character key ) {
+		public boolean remove( Character key) {
 			if (key == null)
 			{
 				boolean ret = hasNullKey;
@@ -231,26 +255,33 @@ a:
 				return ret;
 			}
 			
-			return remove( (char) (key + 0) );
+			return remove((char) (key + 0));
 		}
 		
-		public boolean remove( char value ) {
+		public boolean remove(char value) {
 			if (size == 0) return false;
 			
 			final int  val = value & 0xFF;
 			final long bit = 1L << val;
 			
-			if (val < 128)
-				if (val < 64)
+			switch (val & 0b1100_0000)
+			{
+				case 0b1100_0000:
+					if ((_4 & bit) == 0) return false;
+					else _4 &= ~bit;
+					break;
+				case 0b1000_0000:
+					if ((_3 & bit) == 0) return false;
+					else _3 &= ~bit;
+					break;
+				case 0b0100_0000:
+					if ((_2 & bit) == 0) return false;
+					else _2 &= ~bit;
+					break;
+				default:
 					if ((_1 & 1L << val) == 0) return false;
 					else _1 &= ~(1L << val);
-				else if ((_2 & bit) == 0) return false;
-				else _2 &= ~bit;
-			else if (val < 192)
-				if ((_3 & bit) == 0) return false;
-				else _3 &= ~bit;
-			else if ((_4 & bit) == 0) return false;
-			else _4 &= ~bit;
+			}
 			
 			size--;
 			return true;
@@ -258,18 +289,18 @@ a:
 		
 		
 		public void clear() {
-			_1         = 0;
-			_2         = 0;
-			_3         = 0;
-			_4         = 0;
-			size       = 0;
+			_1 = 0;
+			_2 = 0;
+			_3 = 0;
+			_4 = 0;
+			size = 0;
 			hasNullKey = false;
 		}
 		
-		public void addAll( R src ) {
+		public void addAll(R src) {
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( src, token )) != NonNullKeysIterator.INIT; )
-			     add( NonNullKeysIterator.key( this, token ) );
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(src, token)) != NonNullKeysIterator.INIT; )
+				add(NonNullKeysIterator.key(this, token));
 			
 		}
 		

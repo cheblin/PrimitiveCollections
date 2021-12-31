@@ -3,7 +3,7 @@ package org.unirail.collections;
 
 
 
-import org.unirail.collections.Array.HashEqual;
+import org.unirail.collections.Array;
 
 import java.util.Arrays;
 
@@ -16,7 +16,7 @@ public interface BitList {
 		
 		public int size() {return size;}
 		
-		long[] array = Array.longs0;
+		long[] values = org.unirail.collections.Array.longs0;
 		
 		static int len4bits( int bits ) {return 1 + (bits >> LEN);}
 		
@@ -41,7 +41,7 @@ public interface BitList {
 			used &= OI;
 			
 			int i = used - 1;
-			while (-1 < i && array[i] == 0) i--;
+			while (-1 < i && values[i] == 0) i--;
 			
 			return used = i + 1;
 		}
@@ -52,7 +52,7 @@ public interface BitList {
 			final int index = bit >> LEN;
 			if (index < used()) return index;
 			
-			if (array.length < (used = index + 1)) array = Arrays.copyOf( array, Math.max( 2 * array.length, used ) );
+			if (values.length < (used = index + 1)) values = Arrays.copyOf(values, Math.max(2 * values.length, used ) );
 			
 			return index;
 		}
@@ -60,12 +60,12 @@ public interface BitList {
 		
 		public boolean get( int bit ) {
 			final int index = bit >> LEN;
-			return index < used() && (array[index] & 1L << bit) != 0 ;
+			return index < used() && (values[index] & 1L << bit) != 0 ;
 		}
 		
 		public int get( int bit, int FALSE, int TRUE ) {
 			final int index = bit >> LEN;
-			return index < used() && (array[index] & 1L << bit) != 0 ? TRUE : FALSE;
+			return index < used() && (values[index] & 1L << bit) != 0 ? TRUE : FALSE;
 		}
 		
 		public int get( long[] dst, int from_bit, int to_bit ) {
@@ -74,18 +74,18 @@ public interface BitList {
 			
 			int index = from_bit >> LEN;
 			
-			if ((from_bit & MASK) == 0) System.arraycopy( array, index, dst, 0, ret - 1 );
+			if ((from_bit & MASK) == 0) System.arraycopy(values, index, dst, 0, ret - 1 );
 			else
 				for (int i = 0; i < ret - 1; i++, index++)
-				     dst[i] = array[index] >>> from_bit | array[index + 1] << -from_bit;
+				     dst[i] = values[index] >>> from_bit | values[index + 1] << -from_bit;
 			
 			
 			long mask = FFFFFFFFFFFFFFFF >>> -to_bit;
 			dst[ret - 1] =
 					(to_bit - 1 & MASK) < (from_bit & MASK) ?
-					array[index] >>> from_bit | (array[index + 1] & mask) << -from_bit
+					values[index] >>> from_bit | (values[index + 1] & mask) << -from_bit
 					                                        :
-					(array[index] & mask) >>> from_bit;
+					(values[index] & mask) >>> from_bit;
 			
 			return ret;
 		}
@@ -96,7 +96,7 @@ public interface BitList {
 			int index = bit >> LEN;
 			if (used() <= index) return -1;
 			
-			for (long i = array[index] & FFFFFFFFFFFFFFFF << bit; ; i = array[index])
+			for (long i = values[index] & FFFFFFFFFFFFFFFF << bit; ; i = values[index])
 			{
 				if (i != 0) return index * BITS + Long.numberOfTrailingZeros( i );
 				if (++index == used) return -1;
@@ -109,7 +109,7 @@ public interface BitList {
 			int index = bit >> LEN;
 			if (used() <= index) return bit;
 			
-			for (long i = ~array[index] & FFFFFFFFFFFFFFFF << bit; ; i = ~array[index])
+			for (long i = ~values[index] & FFFFFFFFFFFFFFFF << bit; ; i = ~values[index])
 			{
 				if (i != 0) return index * BITS + Long.numberOfTrailingZeros( i );
 				if (++index == used) return used * BITS;
@@ -122,7 +122,7 @@ public interface BitList {
 			if (used() <= index) return last1() - 1;
 			
 			
-			for (long i = array[index] & FFFFFFFFFFFFFFFF >>> -(bit + 1); ; i = array[index])
+			for (long i = values[index] & FFFFFFFFFFFFFFFF >>> -(bit + 1); ; i = values[index])
 			{
 				if (i != 0) return (index + 1) * BITS - 1 - Long.numberOfLeadingZeros( i );
 				if (index-- == 0) return -1;
@@ -134,7 +134,7 @@ public interface BitList {
 			int index = bit >> LEN;
 			if (used() <= index) return bit;
 			
-			for (long i = ~array[index] & FFFFFFFFFFFFFFFF >>> -(bit + 1); ; i = ~array[index])
+			for (long i = ~values[index] & FFFFFFFFFFFFFFFF >>> -(bit + 1); ; i = ~values[index])
 			{
 				if (i != 0) return (index + 1) * BITS - 1 - Long.numberOfLeadingZeros( i );
 				if (index-- == 0) return -1;
@@ -142,7 +142,7 @@ public interface BitList {
 		}
 		
 		
-		public int last1()       {return used() == 0 ? 0 : BITS * (used - 1) + BITS - Long.numberOfLeadingZeros( array[used - 1] );}
+		public int last1()       {return used() == 0 ? 0 : BITS * (used - 1) + BITS - Long.numberOfLeadingZeros( values[used - 1] );}
 		
 		
 		public boolean isEmpty() {return used == 0;}
@@ -153,8 +153,8 @@ public interface BitList {
 			
 			if (max < used())
 				for (int i = 0, sum = 0; ; i++)
-					if (i < max) sum += Long.bitCount( array[i] );
-					else return sum + Long.bitCount( array[i] & FFFFFFFFFFFFFFFF >>> BITS - (bit + 1) );
+					if (i < max) sum += Long.bitCount( values[i] );
+					else return sum + Long.bitCount(values[i] & FFFFFFFFFFFFFFFF >>> BITS - (bit + 1) );
 			
 			return cardinality();
 		}
@@ -162,16 +162,16 @@ public interface BitList {
 		
 		public int cardinality() {
 			for (int i = 0, sum = 0; ; i++)
-				if (i < used()) sum += Long.bitCount( array[i] );
+				if (i < used()) sum += Long.bitCount( values[i] );
 				else return sum;
 		}
 		
 		public int bit( int cardinality ) {
 			
 			int i = 0, c = 0;
-			while ((c += Long.bitCount( array[i] )) < cardinality) i++;
+			while ((c += Long.bitCount( values[i] )) < cardinality) i++;
 			
-			long v = array[i];
+			long v = values[i];
 			int  z = Long.numberOfLeadingZeros( v );
 			
 			for (long p = 1L << BITS - 1; cardinality < c; z++) if ((v & p >>> z) != 0) c--;
@@ -183,12 +183,12 @@ public interface BitList {
 		public int hashCode() {
 			int hash = 197;
 			for (int i = used; --i >= 0; )
-			     hash = HashEqual.hash( hash , array[i] );
+			     hash = Array.hash( hash , values[i] );
 			
 			return hash;
 		}
 		
-		public int length() {return array.length * BITS;}
+		public int length() {return values.length * BITS;}
 		
 		
 		public R clone() {
@@ -196,7 +196,7 @@ public interface BitList {
 			try
 			{
 				R dst = (R) super.clone();
-				dst.array = array.length == 0 ? array : array.clone();
+				dst.values = values.length == 0 ? values : values.clone();
 				return dst;
 			} catch (CloneNotSupportedException e) {e.printStackTrace();}
 			
@@ -209,7 +209,7 @@ public interface BitList {
 		public boolean equals( R other ) {
 			int i = size();
 			if (i != other.size()) return false;
-			for (i >>>= 6; -1 < i; i--) if (array[i] != other.array[i]) return false;
+			for (i >>>= 6; -1 < i; i--) if (values[i] != other.values[i]) return false;
 			return true;
 		}
 		
@@ -229,7 +229,7 @@ public interface BitList {
 			
 			for (int i = 0; i < max; i++)
 			{
-				final long v = array[i];
+				final long v = values[i];
 				for (int s = 0; s < 64; s++)
 				     dst.append( (v & 1L << s) == 0 ? '.' : '*' );
 				dst.append( i * 64 );
@@ -238,7 +238,7 @@ public interface BitList {
 			
 			if (0 < (size &= 63))
 			{
-				final long v = array[max];
+				final long v = values[max];
 				for (int s = 0; s < size; s++)
 				     dst.append( (v & 1L << s) == 0 ? '.' : '*' );
 			}
@@ -250,12 +250,12 @@ public interface BitList {
 	
 	class RW extends R {
 		
-		public RW( int length ) {if (0 < length) array = new long[len4bits( length )];}
+		public RW( int length ) {if (0 < length) values = new long[len4bits( length )];}
 		
 		public RW( boolean fill_value, int size ) {
 			
 			int len = len4bits( this.size = size );
-			array = new long[len];
+			values = new long[len];
 			
 			used = len | IO;
 			
@@ -271,8 +271,8 @@ public interface BitList {
 			
 			if (i2 == -1) return;
 			
-			array = new long[(i2 - 1 >> LEN) + 1];
-			used  = array.length | IO;
+			values = new long[(i2 - 1 >> LEN) + 1];
+			used  = values.length | IO;
 			
 			int
 					i1 = src.get( from_bit ) ? from_bit : src.next1( from_bit ),
@@ -280,12 +280,12 @@ public interface BitList {
 					max = (i2 >>> LEN) + 1,
 					i = 0;
 			
-			for (long v = src.array[index] >>> i1; ; v >>>= i1, i++)
+			for (long v = src.values[index] >>> i1; ; v >>>= i1, i++)
 				if (index + 1 < max)
-					array[i] = v | (v = src.array[index + i]) << BITS - i1;
+					values[i] = v | (v = src.values[index + i]) << BITS - i1;
 				else
 				{
-					array[i] = v;
+					values[i] = v;
 					return;
 				}
 		}
@@ -295,9 +295,9 @@ public interface BitList {
 			if (this == and) return;
 			
 			if (and.used() < used())
-				while (used > and.used) array[--used] = 0;
+				while (used > and.used) values[--used] = 0;
 			
-			for (int i = 0; i < used; i++) array[i] &= and.array[i];
+			for (int i = 0; i < used; i++) values[i] &= and.values[i];
 			
 			used |= IO;
 		}
@@ -309,17 +309,17 @@ public interface BitList {
 			int u = used;
 			if (used() < or.used())
 			{
-				if (array.length < or.used) array = Arrays.copyOf( array, Math.max( 2 * array.length, or.used ) );
+				if (values.length < or.used) values = Arrays.copyOf(values, Math.max(2 * values.length, or.used ) );
 				used = or.used;
 			}
 			
 			int min = Math.min( u, or.used );
 			
 			for (int i = 0; i < min; i++)
-			     array[i] |= or.array[i];
+				values[i] |= or.values[i];
 			
-			if (min < or.used) System.arraycopy( or.array, min, array, min, or.used - min );
-			else if (min < u) System.arraycopy( array, min, or.array, min, u - min );
+			if (min < or.used) System.arraycopy( or.values, min, values, min, or.used - min );
+			else if (min < u) System.arraycopy(values, min, or.values, min, u - min );
 		}
 		
 		
@@ -329,29 +329,29 @@ public interface BitList {
 			int u = used;
 			if (used() < xor.used())
 			{
-				if (array.length < xor.used) array = Arrays.copyOf( array, Math.max( 2 * array.length, xor.used ) );
+				if (values.length < xor.used) values = Arrays.copyOf(values, Math.max(2 * values.length, xor.used ) );
 				used = xor.used;
 			}
 			
 			final int min = Math.min( u, xor.used );
 			for (int i = 0; i < min; i++)
-			     array[i] ^= xor.array[i];
+				values[i] ^= xor.values[i];
 			
-			if (min < xor.used) System.arraycopy( xor.array, min, array, min, xor.used - min );
-			else if (min < u) System.arraycopy( array, min, xor.array, min, u - min );
+			if (min < xor.used) System.arraycopy( xor.values, min, values, min, xor.used - min );
+			else if (min < u) System.arraycopy(values, min, xor.values, min, u - min );
 			
 			used |= IO;
 		}
 		
 		public void andNot( R not ) {
-			for (int i = Math.min( used(), not.used() ) - 1; -1 < i; i--) array[i] &= ~not.array[i];
+			for (int i = Math.min( used(), not.used() ) - 1; -1 < i; i--) values[i] &= ~not.values[i];
 			
 			used |= IO;
 		}
 		
 		public boolean intersects( R set ) {
 			for (int i = Math.min( used, set.used ) - 1; i >= 0; i--)
-				if ((array[i] & set.array[i]) != 0) return true;
+				if ((values[i] & set.values[i]) != 0) return true;
 			
 			return false;
 		}
@@ -366,7 +366,7 @@ public interface BitList {
 					set0( bits, size + 1 );
 					size = bits;
 				}
-				array = Arrays.copyOf( array, index( bits ) + 1 );
+				values = Arrays.copyOf(values, index( bits ) + 1 );
 				
 				used |= IO;
 				return;
@@ -374,12 +374,12 @@ public interface BitList {
 			
 			size  = 0;
 			used  = 0;
-			array = bits == 0 ? Array.longs0 : new long[index( -bits ) + 1];
+			values = bits == 0 ? org.unirail.collections.Array.longs0 : new long[index( -bits ) + 1];
 		}
 		
 		public void flip( int bit ) {
 			final int index = used( bit );
-			if ((array[index] ^= 1L << bit) == 0 && index + 1 == used) used |= IO;
+			if ((values[index] ^= 1L << bit) == 0 && index + 1 == used) used |= IO;
 		}
 		
 		
@@ -394,15 +394,15 @@ public interface BitList {
 			
 			if (from_index == to_index)
 			{
-				if ((array[from_index] ^= from_mask & to_mask) == 0 && from_index + 1 == used) used |= IO;
+				if ((values[from_index] ^= from_mask & to_mask) == 0 && from_index + 1 == used) used |= IO;
 			}
 			else
 			{
-				array[from_index] ^= from_mask;
+				values[from_index] ^= from_mask;
 				
-				for (int i = from_index + 1; i < to_index; i++) array[i] ^= FFFFFFFFFFFFFFFF;
+				for (int i = from_index + 1; i < to_index; i++) values[i] ^= FFFFFFFFFFFFFFFF;
 				
-				array[to_index] ^= to_mask;
+				values[to_index] ^= to_mask;
 				                   used |= IO;
 			}
 		}
@@ -416,7 +416,7 @@ public interface BitList {
 		
 		public void set1( int bit ) {
 			final int index = used( bit );//!!!
-			array[index] |= 1L << bit;
+			values[index] |= 1L << bit;
 		}
 		
 		
@@ -454,15 +454,15 @@ public interface BitList {
 			long from_mask = FFFFFFFFFFFFFFFF << from_bit;
 			long to_mask   = FFFFFFFFFFFFFFFF >>> -to_bit;
 			
-			if (from_index == to_index) array[from_index] |= from_mask & to_mask;
+			if (from_index == to_index) values[from_index] |= from_mask & to_mask;
 			else
 			{
-				array[from_index] |= from_mask;
+				values[from_index] |= from_mask;
 				
 				for (int i = from_index + 1; i < to_index; i++)
-				     array[i] = FFFFFFFFFFFFFFFF;
+					values[i] = FFFFFFFFFFFFFFFF;
 				
-				array[to_index] |= to_mask;
+				values[to_index] |= to_mask;
 			}
 		}
 		
@@ -481,9 +481,9 @@ public interface BitList {
 			final int index = bit >> LEN;
 			
 			if (index < used())
-				if (index + 1 == used && (array[index] &= ~(1L << bit)) == 0) used |= IO;
+				if (index + 1 == used && (values[index] &= ~(1L << bit)) == 0) used |= IO;
 				else
-					array[index] &= ~(1L << bit);
+					values[index] &= ~(1L << bit);
 		}
 		
 		
@@ -507,15 +507,15 @@ public interface BitList {
 			
 			if (from_index == to_index)
 			{
-				if ((array[from_index] &= ~(from_mask & to_mask)) == 0) if (from_index + 1 == used) used |= IO;
+				if ((values[from_index] &= ~(from_mask & to_mask)) == 0) if (from_index + 1 == used) used |= IO;
 			}
 			else
 			{
-				array[from_index] &= ~from_mask;
+				values[from_index] &= ~from_mask;
 				
-				for (int i = from_index + 1; i < to_index; i++) array[i] = 0;
+				for (int i = from_index + 1; i < to_index; i++) values[i] = 0;
 				
-				array[to_index] &= ~to_mask;
+				values[to_index] &= ~to_mask;
 				
 				used |= IO;
 			}
@@ -535,11 +535,11 @@ public interface BitList {
 			
 			int bit = _size & 63;
 			
-			if (bit == 0) array[index( size )] = src;
+			if (bit == 0) values[index( size )] = src;
 			else
 			{
-				array[index( _size )] &= src << bit | mask( bit );
-				if (index( _size ) < index( size )) array[index( size )] = src >> bit;
+				values[index( _size )] &= src << bit | mask( bit );
+				if (index( _size ) < index( size )) values[index( size )] = src >> bit;
 			}
 		}
 		
@@ -548,7 +548,7 @@ public interface BitList {
 			{
 				int index = key >> LEN;
 				
-				long m = FFFFFFFFFFFFFFFF << key, v = array[index];
+				long m = FFFFFFFFFFFFFFFF << key, v = values[index];
 				
 				m = (v & m) << 1 | v & ~m;
 				
@@ -556,24 +556,24 @@ public interface BitList {
 				
 				while (++index < used)
 				{
-					array[index - 1] = m;
+					values[index - 1] = m;
 					final int t = (int) (v >>> BITS - 1);
-					v = array[index];
+					v = values[index];
 					m = v << 1 | t;
 				}
-				array[index - 1] = m;
+				values[index - 1] = m;
 				                   used |= IO;
 			}
 			else if (value){
 				final int index = used(key);  //!!!
-				array[index] |= 1L << key;
+				values[index] |= 1L << key;
 			}
 			
 			size++;
 		}
 		
 		public void clear() {
-			for (used(); used > 0; ) array[--used] = 0;
+			for (used(); used > 0; ) values[--used] = 0;
 			size = 0;
 		}
 		
@@ -591,18 +591,18 @@ public interface BitList {
 			if (bit == last) set0( bit );
 			else if (bit < last)
 			{
-				long m = FFFFFFFFFFFFFFFF << bit, v = array[index];
+				long m = FFFFFFFFFFFFFFFF << bit, v = values[index];
 				
 				v = v >>> 1 & m | v & ~m;
 				
 				while (++index < used)
 				{
-					m = array[index];
+					m = values[index];
 					
-					array[index - 1] = (m & 1) << BITS - 1 | v;
+					values[index - 1] = (m & 1) << BITS - 1 | v;
 					v                = m >>> 1;
 				}
-				array[index - 1] = v;
+				values[index - 1] = v;
 				                   used |= IO;
 			}
 		}

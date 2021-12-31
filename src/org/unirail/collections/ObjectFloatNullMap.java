@@ -1,7 +1,9 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import java.util.Arrays;
+
+import static org.unirail.collections.Array.hash;
 
 public interface ObjectFloatNullMap {
 	interface NonNullKeysIterator {
@@ -22,9 +24,9 @@ public interface ObjectFloatNullMap {
 	
 	abstract class R<K> implements Cloneable {
 		
-		protected final Array.HashEqual<K> hash_equal;
+		protected final Array<K> array;
 		
-		protected R(Class<K> clazz) {hash_equal = Array.HashEqual.get(clazz);}
+		protected R(Class<K> clazz) {array = Array.get(clazz);}
 		
 		K[]                    keys;
 		FloatNullList.RW values;
@@ -46,10 +48,10 @@ public interface ObjectFloatNullMap {
 			
 			if (key == null) return hasNullKey;
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (keys.equals(key)) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
+				if (array.equals(k,key)) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
 			
 			return Positive_Values.NONE;
 		}
@@ -67,7 +69,7 @@ public interface ObjectFloatNullMap {
 			int hash = hash(hasNullKey == Positive_Values.NONE ? 719281 : hasNullKey == Positive_Values.NULL ? 401101 : hash(NullKeyValue));
 			
 			for (int token = NonNullKeysIterator.INIT, h = 719281; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash, hash(hash_equal.hashCode(NonNullKeysIterator.key(this, token)),
+				hash = (h++) + hash(hash, hash(array.hashCode(NonNullKeysIterator.key(this, token)),
 						NonNullKeysIterator.hasValue(this, token) ? NonNullKeysIterator.value(this, token) : h++));
 			
 			return hash;
@@ -153,11 +155,11 @@ public interface ObjectFloatNullMap {
 			
 			long length = (long) Math.ceil(expectedItems / loadFactor);
 			
-			int size = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			int size = (int) (length == expectedItems ? length + 1 : Math.max(4, org.unirail.collections.Array.nextPowerOf2(length)));
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys = hash_equal.copyOf(null, size);
+			keys = array.copyOf(null, size);
 			values = new FloatNullList.RW(size);
 		}
 		
@@ -173,11 +175,11 @@ public interface ObjectFloatNullMap {
 				return true;
 			}
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (hash_equal.equals(k, key))
+				if (array.equals(k, key))
 				{
 					values.set(slot, ( Float    ) null);
 					return true;
@@ -201,11 +203,11 @@ public interface ObjectFloatNullMap {
 				return h != Positive_Values.VALUE;
 			}
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (hash_equal.equals(k, key))
+				if (array.equals(k, key))
 				{
 					values.set(slot, value);
 					return true;
@@ -233,10 +235,10 @@ public interface ObjectFloatNullMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length < size)keys = hash_equal.copyOf(null, size);
+				if (keys.length < size) keys = array.copyOf(null, size);
 				
 				if (values.nulls.length() < size) values.nulls.length(-size);
-				if (values.values.length() < size) values.values.length(-size);
+				if (values.values.values.length < size) values.values.values = Arrays.copyOf(values.values.values, size);
 				
 				return;
 			}
@@ -244,14 +246,14 @@ public interface ObjectFloatNullMap {
 			final K[]              k    = keys;
 			FloatNullList.RW vals = values;
 			
-			keys = hash_equal.copyOf(null, size);
+			keys = array.copyOf(null, size);
 			values = new FloatNullList.RW(-size);
 			
 			K key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = hash_equal.hashCode(key) & mask;
+					int slot = array.hashCode(key) & mask;
 					while (!(keys[slot] == null)) slot = slot + 1 & mask;
 					
 					keys[slot] = key;
@@ -270,16 +272,16 @@ public interface ObjectFloatNullMap {
 				return h != Positive_Values.NONE;
 			}
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (hash_equal.equals(k, key))
+				if (array.equals(k, key))
 				{
 					int gapSlot = slot;
 					
 					K kk;
 					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != null; )
-						if ((s - hash_equal.hashCode(kk) & mask) >= distance)
+						if ((s - array.hashCode(kk) & mask) >= distance)
 						{
 							keys[gapSlot] = kk;
 							

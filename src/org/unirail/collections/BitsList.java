@@ -3,7 +3,7 @@ package org.unirail.collections;
 
 
 
-import org.unirail.collections.Array.HashEqual;
+import org.unirail.collections.Array;
 
 import java.util.Arrays;
 
@@ -33,20 +33,20 @@ public interface BitsList {
 	
 	abstract class R implements Cloneable {
 		
-		protected long[] array = Array.longs0;
-		protected int    size  = 0;
+		protected long[] values = org.unirail.collections.Array.longs0;
+		protected int    size   = 0;
 		
 		protected void length( int items ) {
 			if (0 < items)
 			{
 				if (items < size) size = items;
 				
-				array = Arrays.copyOf( array, len4bits( items * bits ) );
+				values = Arrays.copyOf(values, len4bits(items * bits ) );
 				return;
 			}
 			
 			size  = 0;
-			array = items == 0 ? Array.longs0 : new long[len4bits( -items * bits )];
+			values = items == 0 ? org.unirail.collections.Array.longs0 : new long[len4bits(-items * bits )];
 		}
 		
 		public int size()        {return size;}
@@ -63,7 +63,7 @@ public interface BitsList {
 		
 		protected R( int bits_per_item, int items ) {
 			mask  = mask( bits = bits_per_item );
-			array = new long[len4bits( items * bits )];
+			values = new long[len4bits(items * bits )];
 		}
 		
 		protected R( int bits_per_item, int fill_value, int size ) {
@@ -74,16 +74,16 @@ public interface BitsList {
 		}
 		
 		protected void clear() {
-			for (int i = index( bits * size ) + 1; -1 < --i; ) array[i] = 0;
+			for (int i = index( bits * size ) + 1; -1 < --i; ) values[i] = 0;
 			size = 0;
 		}
 		
 		public int hashCode() {
 			int i = index( size );
 			
-			int hash = HashEqual.hash( 149989999 , (array[i] & (1L << bit( size )) - 1) );
+			int hash = Array.hash( 149989999 , (values[i] & (1L << bit( size )) - 1) );
 			
-			while (-1 < --i) hash = HashEqual.hash( hash, array[i] );
+			while (-1 < --i) hash = Array.hash( hash, values[i] );
 			
 			return hash;
 		}
@@ -100,16 +100,16 @@ public interface BitsList {
 			int i = index( size );
 			
 			long m = (1L << bit( size )) - 1;
-			if ((array[i] & m) != (other.array[i] & m)) return false;
+			if ((values[i] & m) != (other.values[i] & m)) return false;
 			
 			while (-1 < --i)
-				if (array[i] != other.array[i]) return false;
+				if (values[i] != other.values[i]) return false;
 			
 			return true;
 		}
 		
 		
-		public int length()                          {return array.length * BITS / bits;}
+		public int length()                          {return values.length * BITS / bits;}
 		
 		
 		protected static void add( R dst, long src ) {set( dst, dst.size, src );}
@@ -126,8 +126,8 @@ public interface BitsList {
 			
 			item = index( p );
 			
-			final long[] src  = dst.array;
-			long[]       dst_ = dst.array;
+			final long[] src  = dst.values;
+			long[]       dst_ = dst.values;
 			
 			if (dst.length() * BITS < p) dst.length( Math.max( dst.length() + dst.length() / 2, len4bits( p ) ) );
 			
@@ -165,7 +165,7 @@ public interface BitsList {
 			final int index = index( item *= bits );
 			final int bit   = bit( item );
 			
-			return (int) (BITS < bit + bits ? value( array[index], array[index + 1], bit, bits ) : value( array[index], bit, bits ));
+			return (int) (BITS < bit + bits ? value( values[index], values[index + 1], bit, bits ) : value( values[index], bit, bits ));
 		}
 		
 		protected static void set( R dst, int from, byte... src )  {for (int i = src.length; -1 < --i; ) set( dst, from + i, src[i] );}
@@ -186,16 +186,16 @@ public interface BitsList {
 					bit = bit( p );
 			
 			final int  k = BITS - bit;
-			final long i = dst.array[index];
+			final long i = dst.values[index];
 			
 			if (item < dst.size)
 			{
 				if (k < dst.bits)
 				{
-					dst.array[index]     = i << k >>> k | v << bit;
-					dst.array[index + 1] = dst.array[index + 1] >>> dst.bits - k << dst.bits - k | v >> k;
+					dst.values[index]     = i << k >>> k | v << bit;
+					dst.values[index + 1] = dst.values[index + 1] >>> dst.bits - k << dst.bits - k | v >> k;
 				}
-				else dst.array[index] = ~(~0L >>> BITS - dst.bits << bit) & i | v << bit;
+				else dst.values[index] = ~(~0L >>> BITS - dst.bits << bit) & i | v << bit;
 				return;
 			}
 			
@@ -203,10 +203,10 @@ public interface BitsList {
 			
 			if (k < dst.bits)
 			{
-				dst.array[index]     = i << k >>> k | v << bit;
-				dst.array[index + 1] = v >> k;
+				dst.values[index]     = i << k >>> k | v << bit;
+				dst.values[index + 1] = v >> k;
 			}
-			else dst.array[index] = ~(~0L << bit) & i | v << bit;
+			else dst.values[index] = ~(~0L << bit) & i | v << bit;
 			
 			dst.size = item + 1;
 		}
@@ -224,47 +224,47 @@ public interface BitsList {
 			final int bit   = bit( item );
 			
 			final int k = BITS - bit;
-			long      i = dst.array[index];
+			long      i = dst.values[index];
 			
 			if (index + 1 == dst.length())
 			{
-				if (bit == 0) dst.array[index] = i >>> dst.bits;
-				else if (k < dst.bits) dst.array[index] = i << k >>> k;
-				else if (dst.bits < k) dst.array[index] = i << k >>> k | i >>> bit + dst.bits << bit;
+				if (bit == 0) dst.values[index] = i >>> dst.bits;
+				else if (k < dst.bits) dst.values[index] = i << k >>> k;
+				else if (dst.bits < k) dst.values[index] = i << k >>> k | i >>> bit + dst.bits << bit;
 				
 				dst.size--;
 				return;
 			}
 			
-			if (bit == 0) dst.array[index] = i >>>= dst.bits;
+			if (bit == 0) dst.values[index] = i >>>= dst.bits;
 			else if (k < dst.bits)
 			{
-				long ii = dst.array[index + 1];
+				long ii = dst.values[index + 1];
 				
-				dst.array[index]   = i << k >>> k | ii >>> bit + dst.bits - BITS << bit;
-				dst.array[++index] = i = ii >>> dst.bits;
+				dst.values[index]   = i << k >>> k | ii >>> bit + dst.bits - BITS << bit;
+				dst.values[++index] = i = ii >>> dst.bits;
 			}
 			else if (dst.bits < k)
-				if (index + 1 == dst.array.length)
+				if (index + 1 == dst.values.length)
 				{
-					dst.array[index] = i << k >>> k | i >>> bit + dst.bits << bit;
+					dst.values[index] = i << k >>> k | i >>> bit + dst.bits << bit;
 					dst.size--;
 					return;
 				}
 				else
 				{
-					long ii = dst.array[index + 1];
+					long ii = dst.values[index + 1];
 					
-					dst.array[index]   = i << k >>> k | i >>> bit + dst.bits << bit | ii << BITS - dst.bits;
-					dst.array[++index] = i = ii >>> dst.bits;
+					dst.values[index]   = i << k >>> k | i >>> bit + dst.bits << bit | ii << BITS - dst.bits;
+					dst.values[++index] = i = ii >>> dst.bits;
 				}
 			
 			int f = index;
 			for (final int max = dst.size * dst.bits >>> LEN; index < max; )
 			{
-				long ii = dst.array[index + 1];
-				dst.array[index]   = i << dst.bits >>> dst.bits | ii << BITS - dst.bits;
-				dst.array[++index] = i = ii >>> dst.bits;
+				long ii = dst.values[index + 1];
+				dst.values[index]   = i << dst.bits >>> dst.bits | ii << BITS - dst.bits;
+				dst.values[++index] = i = ii >>> dst.bits;
 			}
 			
 			
@@ -276,7 +276,7 @@ public interface BitsList {
 			try
 			{
 				R dst = (R) super.clone();
-				if (0 < dst.length()) dst.array = array.clone();
+				if (0 < dst.length()) dst.values = values.clone();
 				return dst;
 				
 			} catch (CloneNotSupportedException e) {e.printStackTrace();}
@@ -290,11 +290,11 @@ public interface BitsList {
 			if (dst == null) dst = new StringBuilder( size * 4 );
 			else dst.ensureCapacity( dst.length() + size * 4 );
 			
-			long src = array[0];
+			long src = values[0];
 			for (int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++)
 			{
 				final int bit   = bit( bp );
-				long      value = (BITS < bit + bits ? value( src, src = array[index( bp ) + 1], bit, bits ) : src >>> bit & mask);
+				long      value = (BITS < bit + bits ? value( src, src = values[index( bp ) + 1], bit, bits ) : src >>> bit & mask);
 				
 				dst.append( value ).append( '\t' );
 				

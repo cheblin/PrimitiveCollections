@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface UShortFloatNullMap {
 	
@@ -193,8 +193,7 @@ public interface UShortFloatNullMap {
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
 			keys = new char[size];
-			values.nulls.length(size);
-			values.values.length(size);
+			values.length(size);
 		}
 		
 		
@@ -290,19 +289,18 @@ public interface UShortFloatNullMap {
 			
 			final char key_ =  key ;
 			
-			final char[] array = keys;
-			for (char k; (k = array[slot]) != 0; slot = slot + 1 & mask)
+			for (char k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
 				{
 					int gapSlot = slot;
 					
 					char kk;
 					
-					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != 0; )
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							array[gapSlot] = kk;
+							keys[gapSlot] = kk;
 							
 							if (values.nulls.get(s))
 								values.set(gapSlot, values.get(s));
@@ -313,7 +311,7 @@ public interface UShortFloatNullMap {
 							distance = 0;
 						}
 					
-					array[gapSlot] = 0;
+					keys[gapSlot] = 0;
 					values.set(gapSlot, ( Float    ) null);
 					assigned--;
 					return true;
@@ -329,8 +327,7 @@ public interface UShortFloatNullMap {
 				mask = size - 1;
 				
 				if (keys.length < size) keys = new char[size];
-				if (values.nulls.length() < size) values.nulls.length(-size);
-				if (values.values.length() < size) values.values.length(-size);
+				if (values.nulls.length() < size|| values.values.values.length < size) values.length (size);
 				
 				return;
 			}

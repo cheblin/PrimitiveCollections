@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface ObjectIntMap {
 	
@@ -21,9 +21,9 @@ public interface ObjectIntMap {
 	
 	abstract class R<K> implements Cloneable {
 		
-		protected final Array.HashEqual<K> hash_equal;
+		protected final Array<K> array;
 		
-		protected R(Class<K> clazz) {hash_equal = Array.HashEqual.get(clazz);}
+		protected R(Class<K> clazz) {array = Array.get(clazz);}
 		
 		K[] keys;
 		public int[] values;
@@ -41,10 +41,10 @@ public interface ObjectIntMap {
 		public @Positive_Values int token(K key) {
 			if (key == null) return hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE;
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (hash_equal.equals(k, key)) return slot;
+				if (array.equals(k, key)) return slot;
 			
 			return Positive_Values.NONE;
 		}
@@ -64,7 +64,7 @@ public interface ObjectIntMap {
 		public int hashCode() {
 			int hash = hash(hasNullKey ? hash(NullKeyValue) : 719717, keys);
 			for (int token = NonNullKeysIterator.INIT, h = 719717; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash, hash_equal.hashCode(NonNullKeysIterator.key(this, token)));
+				hash = (h++) + hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
 			
 			return hash;
 		}
@@ -129,11 +129,11 @@ public interface ObjectIntMap {
 			
 			long length = (long) Math.ceil(expectedItems / loadFactor);
 			
-			int size = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			int size = (int) (length == expectedItems ? length + 1 : Math.max(4, org.unirail.collections.Array.nextPowerOf2(length)));
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys = hash_equal.copyOf(null, size);
+			keys = array.copyOf(null, size);
 			values = new int[size];
 		}
 		
@@ -145,11 +145,11 @@ public interface ObjectIntMap {
 				return !hasNullKey && (hasNullKey = true);
 			}
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (hash_equal.equals(k, key))
+				if (array.equals(k, key))
 				{
 					values[slot] = (int) value;
 					return false;
@@ -167,12 +167,10 @@ public interface ObjectIntMap {
 		public boolean remove(K key) {
 			if (key == null) return hasNullKey && !(hasNullKey = false);
 			
-			int slot = hash_equal.hashCode(key) & mask;
+			int slot = array.hashCode(key) & mask;
 			
-			final K[] array = keys;
-			
-			for (K k; (k = array[slot]) != null; slot = slot + 1 & mask)
-				if (hash_equal.equals(k,key))
+			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
+				if (array.equals(k,key))
 				{
 					int[] vals = values;
 					
@@ -180,16 +178,16 @@ public interface ObjectIntMap {
 					int gapSlot = slot;
 					
 					K kk;
-					for (int distance = 0, s; (kk = array[s = gapSlot + ++distance & mask]) != null; )
-						if ((s - hash_equal.hashCode(kk) & mask) >= distance)
+					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != null; )
+						if ((s - array.hashCode(kk) & mask) >= distance)
 						{
 							vals[gapSlot] = vals[s];
-							array[gapSlot] = kk;
+							keys[gapSlot] = kk;
 							gapSlot = s;
 							distance = 0;
 						}
 					
-					array[gapSlot] = null;
+					keys[gapSlot] = null;
 					vals[gapSlot] = (int) 0;
 					assigned--;
 					return true;
@@ -211,7 +209,7 @@ public interface ObjectIntMap {
 			
 			if (assigned < 1)
 			{
-				if (keys.length < size) keys = hash_equal.copyOf(null, size);
+				if (keys.length < size) keys = array.copyOf(null, size);
 				if (values.length < size) values =new int[size];
 				return;
 			}
@@ -219,14 +217,14 @@ public interface ObjectIntMap {
 			final K[]           k = keys;
 			final int[] v = values;
 			
-			keys = hash_equal.copyOf(null, size);
+			keys = array.copyOf(null, size);
 			values =new int[size];
 			
 			K key;
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != null)
 				{
-					int slot = hash_equal.hashCode(key) & mask;
+					int slot = array.hashCode(key) & mask;
 					while (!(keys[slot] == null)) slot = slot + 1 & mask;
 					
 					keys[slot] = key;

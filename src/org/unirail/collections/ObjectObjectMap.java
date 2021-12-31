@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface ObjectObjectMap {
 	
@@ -22,14 +22,14 @@ public interface ObjectObjectMap {
 	abstract class R<K, V> implements Cloneable {
 		
 		public          K[]                keys;
-		public          V[]                values;
-		protected final Array.HashEqual<K> hash_equalK;
-		protected final Array.HashEqual<V> hash_equalV;
+		public          V[]            values;
+		protected final Array<K> hash_equalK;
+		protected final Array<V> hash_equalV;
 		
 		protected R(Class<K> clazzK, Class<V> clazzV) {
 			
-			hash_equalK = Array.HashEqual.get(clazzK);
-			hash_equalV = Array.HashEqual.get(clazzV);
+			hash_equalK = Array.get(clazzK);
+			hash_equalV = Array.get(clazzV);
 		}
 		
 		protected int assigned;
@@ -89,10 +89,9 @@ public interface ObjectObjectMap {
 			
 			
 			K key;
-			
-			for (int i = keys.length, token = 0; -1 < --i; )
-				if ((key = keys[i]) != null && (token = other.token(key)) == -1 ||
-				    !hash_equalV.equals(values[i], other.value(token))) return false;
+			for(int i = keys.length, token = 0; -1 < --i;)
+				if((key = keys[i]) != null &&
+				   ((token = other.token(key)) == -1 || !hash_equalV.equals(values[i], other.value(token)))) return false;
 			
 			return true;
 		}
@@ -143,7 +142,7 @@ public interface ObjectObjectMap {
 			this.loadFactor = Math.min(Math.max(loadFactor, 1 / 100.0D), 99 / 100.0D);
 			
 			long length = (long) Math.ceil(expectedItems / this.loadFactor);
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, Array.nextPowerOf2(length)));
+			int  size   = (int) (length == expectedItems ? length + 1 : Math.max(4, org.unirail.collections.Array.nextPowerOf2(length)));
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			

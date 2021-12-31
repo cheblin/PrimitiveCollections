@@ -1,9 +1,9 @@
 package org.unirail.collections;
 
 
-import org.unirail.collections.Array.HashEqual;
+import org.unirail.collections.Array;
 
-import static org.unirail.collections.Array.HashEqual.hash;
+import static org.unirail.collections.Array.hash;
 
 public interface UByteObjectMap {
 	
@@ -22,10 +22,10 @@ public interface UByteObjectMap {
 	abstract class R<V> implements Cloneable {
 		
 		public          ByteSet.RW   keys = new ByteSet.RW();
-		public          V[]          values;
-		protected final HashEqual<V> hash_equal;
+		public          V[]      values;
+		protected final Array<V> array;
 		
-		protected R(Class<V> clazz)               {hash_equal = HashEqual.get(clazz);}
+		protected R(Class<V> clazz)               {array = Array.get(clazz);}
 		
 		public int size()                         {return keys.size();}
 		
@@ -42,12 +42,12 @@ public interface UByteObjectMap {
 		
 		V NullKeyValue = null;
 		
-		public int hashCode() {return hash(HashEqual.hash(HashEqual.hash(keys.contains(null) ? hash(NullKeyValue) : 29399999), keys), hash_equal.hashCode(values, size()));}
+		public int hashCode() {return hash(Array.hash(Array.hash(keys.contains(null) ? hash(NullKeyValue) : 29399999), keys), array.hashCode(values, size()));}
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}
 		
-		public boolean equals(R<V> other) {return other != null && keys.equals(other.keys) && hash_equal.equals(values, other.values, size()) && (!keys.hasNullKey || NullKeyValue == other.NullKeyValue);}
+		public boolean equals(R<V> other) {return other != null && keys.equals(other.keys) && array.equals(values, other.values, size()) && (!keys.hasNullKey || NullKeyValue == other.NullKeyValue);}
 		
 		
 		@SuppressWarnings("unchecked")
@@ -84,11 +84,11 @@ public interface UByteObjectMap {
 		}
 	}
 	
-	class RW<V> extends R<V> implements Array {
+	class RW<V> extends R<V>  {
 		
 		public RW(Class<V> clazz, int length) {
 			super(clazz);
-			values = hash_equal.copyOf(null, 265 < length ? 256 : length);
+			values = array.copyOf(null, 265 < length ? 256 : length);
 		}
 		
 		public void clear() {
@@ -126,7 +126,8 @@ public interface UByteObjectMap {
 			final byte k = (byte) key;
 			if (!keys.contains(k)) return false;
 			
-			Array.resize(this, size(), keys.rank(k) - 1, -1);
+			org.unirail.collections.Array.resize(values,values, keys.rank(k) - 1, size(), -1);
+			
 			keys.remove(k);
 			
 			return true;
@@ -135,17 +136,6 @@ public interface UByteObjectMap {
 		
 		public RW<V> clone() {return (RW<V>) super.clone();}
 		
-		@SuppressWarnings("unchecked")
-		public Object[] length(int length) {
-			if (0 < length) return values = hash_equal.copyOf(values, length);
-			
-			return values = hash_equal.copyOf(null, -length);
-		}
-		
-		@Override public int length() {return values.length;}
-		@Override public Object array() {
-			return values;
-		}
 	}
 	
 	
