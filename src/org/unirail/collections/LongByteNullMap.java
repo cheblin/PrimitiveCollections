@@ -11,16 +11,16 @@ public interface LongByteNullMap {
 		static int token(R src, int token) {
 			int len = src.keys.length;
 			for (token++, token &= Integer.MAX_VALUE; ; token++)
-				if (token == len) return src.has0key == Positive_Values.NONE ? INIT : -2;
-				else if (token == 0x7FFF_FFFF) return INIT;
+				if (token == len) return src.has0Key == Positive_Values.NONE ? INIT : Positive_Values.VALUE - 1;
+				else if (token == Positive_Values.VALUE) return INIT;
 				else if (src.keys[token] != 0) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
 		}
 		
-		static long key(R src, int token) {return token == -2 ? 0 : src.keys[token & Integer.MAX_VALUE];}
+		static long key(R src, int token) {return token == Positive_Values.VALUE - 1 ? 0 : src.keys[token & Integer.MAX_VALUE];}
 		
-		static boolean hasValue(R src, int token) {return (token == -2 && src.has0key == Positive_Values.VALUE) || -1 < token;}
+		static boolean hasValue(R src, int token) {return -1 < token;}
 		
-		static byte value(R src, int token) {return token == -2 ? src.OkeyValue :    src.values.get(token);}
+		static byte value(R src, int token) {return token == Positive_Values.VALUE - 1 ? src.OKeyValue :    src.values.get(token);}
 	}
 	
 	abstract class R implements Cloneable {
@@ -33,20 +33,19 @@ public interface LongByteNullMap {
 		int mask;
 		int resizeAt;
 		
-		
 		@Positive_Values int hasNullKey = Positive_Values.NONE;
 		byte nullKeyValue = 0;
 		
 		
-		@Positive_Values int has0key = Positive_Values.NONE;
-		byte       OkeyValue;
+		@Positive_Values int has0Key = Positive_Values.NONE;
+		byte       OKeyValue;
 		
 		
 		protected double loadFactor;
 		
 		public boolean isEmpty() {return size() == 0;}
 		
-		public int size()        {return assigned + (has0key == Positive_Values.NONE ? 0 : 1) + (hasNullKey == Positive_Values.NONE ? 0 : 1);}
+		public int size()        {return assigned + (has0Key == Positive_Values.NONE ? 0 : 1) + (hasNullKey == Positive_Values.NONE ? 0 : 1);}
 		
 		
 		public int hashCode() {
@@ -69,7 +68,7 @@ public interface LongByteNullMap {
 		
 		public @Positive_Values int token(long key) {
 			
-			if (key == 0) return has0key == Positive_Values.VALUE ? Positive_Values.VALUE - 1 : has0key;
+			if (key == 0) return has0Key == Positive_Values.VALUE ? Positive_Values.VALUE - 1 : has0Key;
 			
 			final long key_ =  key ;
 			
@@ -89,7 +88,7 @@ public interface LongByteNullMap {
 		
 		public byte value(@Positive_ONLY int token) {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
-			if (token == Positive_Values.VALUE - 1) return OkeyValue;
+			if (token == Positive_Values.VALUE - 1) return OKeyValue;
 			return values.get(token);
 		}
 		
@@ -108,7 +107,7 @@ public interface LongByteNullMap {
 		
 		public boolean equals(R other) {
 			if (other == null || hasNullKey != other.hasNullKey || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue
-			    || has0key != other.has0key || has0key == Positive_Values.VALUE && OkeyValue != other.OkeyValue || size() != other.size()) return false;
+			    || has0Key != other.has0Key || has0Key == Positive_Values.VALUE && OKeyValue != other.OKeyValue || size() != other.size()) return false;
 			
 			
 			long           key;
@@ -130,7 +129,7 @@ public interface LongByteNullMap {
 			{
 				R dst = (R) super.clone();
 				
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -152,26 +151,60 @@ public interface LongByteNullMap {
 			switch (hasNullKey)
 			{
 				case Positive_Values.VALUE:
-					dst.append("null -> ").append(nullKeyValue).append('\n');
+					dst.append("Ø -> ").append(nullKeyValue).append('\n');
 					break;
 				case Positive_Values.NULL:
-					dst.append("null -> null\n");
+					dst.append("Ø -> Ø\n");
 			}
 			
-			switch (has0key)
+			switch (has0Key)
 			{
 				case Positive_Values.VALUE:
-					dst.append("0 -> ").append(OkeyValue).append('\n');
+					dst.append("0 -> ").append(OKeyValue).append('\n');
 					break;
 				case Positive_Values.NULL:
-					dst.append("0 -> null\n");
+					dst.append("0 -> Ø\n");
 			}
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; dst.append('\n'))
+			final int[] indexes = new int[assigned];
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) indexes[k++] = i;
+			
+			Array.ISort sorter = new Array.ISort() {
+				
+				int more = 1, less = -1;
+				@Override public void asc() {less = -(more = 1);}
+				@Override public void desc() {more = -(less = 1);}
+				
+				@Override public int compare(int ia, int ib) {
+					final long x = keys[indexes[ia]], y = keys[indexes[ib]];
+					return x < y ? less : x == y ? 0 : more;
+				}
+				@Override public void swap(int ia, int ib) {
+					final int t = indexes[ia];
+					indexes[ia] = indexes[ib];
+					indexes[ib] = t;
+				}
+				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
+				@Override public int compare(int isrc) {
+					final long x = fix, y = keys[indexes[isrc]];
+					return x < y ? less : x == y ? 0 : more;
+				}
+				
+				long fix = 0;
+				int fixi = 0;
+				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]];}
+				@Override public void set(int idst) {indexes[idst] = fixi;}
+			};
+			
+			Array.ISort.sort(sorter, 0, assigned - 1);
+			
+			for (int i = 0, j; i < assigned; i++)
 			{
-				dst.append(NonNullKeysIterator.key(this, token)).append(" -> ");
-				if (NonNullKeysIterator.hasValue(this, token)) dst.append(NonNullKeysIterator.value(this, token));
-				else dst.append("null");
+				dst.append(keys[j = indexes[i]]).append(" -> ");
+				if (values.hasValue(j)) dst.append(values.get(j));
+				else dst.append('Ø');
+				
+				dst.append('\n');
 			}
 			
 			return dst;
@@ -201,7 +234,7 @@ public interface LongByteNullMap {
 			if (key != null) return put((long) (key + 0), value);
 			
 			int h = hasNullKey;
-			hasNullKey = Positive_Values.VALUE;
+			hasNullKey   = Positive_Values.VALUE;
 			nullKeyValue = value;
 			return h != Positive_Values.VALUE;
 		}
@@ -217,7 +250,7 @@ public interface LongByteNullMap {
 				return h == Positive_Values.NULL;
 			}
 			
-			hasNullKey = Positive_Values.VALUE;
+			hasNullKey   = Positive_Values.VALUE;
 			nullKeyValue = value;
 			return h == Positive_Values.VALUE;
 		}
@@ -227,8 +260,8 @@ public interface LongByteNullMap {
 			
 			if (key == 0)
 			{
-				int h = has0key;
-				has0key = Positive_Values.NULL;
+				int h = has0Key;
+				has0Key = Positive_Values.NULL;
 				return h == Positive_Values.NONE;
 			}
 			
@@ -254,9 +287,9 @@ public interface LongByteNullMap {
 		public boolean put(long key, byte value) {
 			if (key == 0)
 			{
-				int h = has0key;
-				has0key = Positive_Values.VALUE;
-				OkeyValue = value;
+				int h = has0Key;
+				has0Key   = Positive_Values.VALUE;
+				OKeyValue = value;
 				return h == Positive_Values.NONE;
 			}
 			
@@ -280,7 +313,7 @@ public interface LongByteNullMap {
 		}
 		
 		
-		public boolean remove() {return has0key != Positive_Values.NONE && (has0key = Positive_Values.NONE) == Positive_Values.NONE;}
+		public boolean remove() {return has0Key != Positive_Values.NONE && (has0Key = Positive_Values.NONE) == Positive_Values.NONE;}
 		
 		public boolean remove(long key) {
 			if (key == 0) return remove();
@@ -307,7 +340,7 @@ public interface LongByteNullMap {
 							else
 								values.set(gapSlot, ( Byte     ) null);
 							
-							gapSlot = s;
+							gapSlot  = s;
 							distance = 0;
 						}
 					
@@ -324,10 +357,10 @@ public interface LongByteNullMap {
 			if (assigned < 1)
 			{
 				resizeAt = Math.min(size - 1, (int) Math.ceil(size * loadFactor));
-				mask = size - 1;
+				mask     = size - 1;
 				
 				if (keys.length < size) keys = new long[size];
-				if (values.nulls.length() < size|| values.values.values.length < size) values.length (size);
+				if (values.nulls.length() < size || values.values.values.length < size) values.length(size);
 				
 				return;
 			}
@@ -342,17 +375,17 @@ public interface LongByteNullMap {
 					if (values.nulls.get(i)) tmp.put( key, values.get(i));
 					else tmp.put( key, null);
 			
-			keys = tmp.keys;
+			keys   = tmp.keys;
 			values = tmp.values;
 			
 			assigned = tmp.assigned;
-			mask = tmp.mask;
+			mask     = tmp.mask;
 			resizeAt = tmp.resizeAt;
 		}
 		
 		public void clear() {
 			assigned = 0;
-			has0key = Positive_Values.NONE;
+			has0Key  = Positive_Values.NONE;
 			values.clear();
 		}
 		

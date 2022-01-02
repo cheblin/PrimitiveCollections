@@ -123,10 +123,48 @@ public interface ObjectObjectMap {
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append("null -> ").append(NullKeyValue);
+			if (hasNullKey) dst.append("Ø -> ").append(NullKeyValue);
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				dst.append(NonNullKeysIterator.key(this, token)).append(" -> ").append(NonNullKeysIterator.value(this, token));
+			final int[] indexes = new int[assigned];
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) indexes[k++] = i;
+			
+			Array.ISort sorter = new Array.ISort() {
+				
+				int more = 1, less = -1;
+				@Override public void asc() {less = -(more = 1);}
+				@Override public void desc() {more = -(less = 1);}
+				
+				@Override public int compare(int ia, int ib) {
+					final int x = keys[indexes[ia]].hashCode(), y = keys[indexes[ib]].hashCode();
+					return x < y ? less : x == y ? 0 : more;
+				}
+				@Override public void swap(int ia, int ib) {
+					final int t = indexes[ia];
+					indexes[ia] = indexes[ib];
+					indexes[ib] = t;
+				}
+				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
+				@Override public int compare(int isrc) {
+					final int x = fix, y = keys[indexes[isrc]].hashCode();
+					return x < y ? less : x == y ? 0 : more;
+				}
+				
+				int fix = 0;
+				int fixi = 0;
+				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]].hashCode();}
+				@Override public void set(int idst) {indexes[idst] = fixi;}
+			};
+			
+			Array.ISort.sort(sorter, 0, assigned - 1);
+			
+			for (int i = 0, j; i < assigned; i++)
+			{
+				dst.append(keys[j = indexes[i]]).append(" -> ");
+				
+				if (values[j]==null) dst.append('Ø');
+				else dst.append(values[j]);
+				dst.append('\n');
+			}
 			return dst;
 		}
 	}

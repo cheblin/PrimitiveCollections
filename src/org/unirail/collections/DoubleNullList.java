@@ -81,10 +81,10 @@ public interface DoubleNullList {
 				if ((ii = nextValueIndex(i)) == i) dst.append(get(i++)).append('\n');
 				else if (ii == -1 || size <= ii)
 				{
-					while (i++ < size) dst.append("null\n");
+					while (i++ < size) dst.append("Ø\n");
 					break;
 				}
-				else for (; i < ii; i++) dst.append("null\n");
+				else for (; i < ii; i++) dst.append("Ø\n");
 			
 			return dst;
 		}

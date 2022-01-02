@@ -68,7 +68,7 @@ public interface ByteLongMap {
 		}
 		
 		
-		//endregion
+		
 		public String toString() {return toString(null).toString();}
 		
 		public StringBuilder toString(StringBuilder dst) {
@@ -76,7 +76,7 @@ public interface ByteLongMap {
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (keys.hasNullKey) dst.append("null -> ").append(NullKeyValue).append('\n');
+			if (keys.hasNullKey) dst.append("Ø -> ").append(NullKeyValue).append('\n');
 			
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )

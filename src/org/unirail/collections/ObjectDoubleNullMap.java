@@ -51,7 +51,7 @@ public interface ObjectDoubleNullMap {
 			int slot = array.hashCode(key) & mask;
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (array.equals(k,key)) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
+				if (array.equals(k, key)) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
 			
 			return Positive_Values.NONE;
 		}
@@ -69,8 +69,8 @@ public interface ObjectDoubleNullMap {
 			int hash = hash(hasNullKey == Positive_Values.NONE ? 719281 : hasNullKey == Positive_Values.NULL ? 401101 : hash(NullKeyValue));
 			
 			for (int token = NonNullKeysIterator.INIT, h = 719281; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash, hash(array.hashCode(NonNullKeysIterator.key(this, token)),
-						NonNullKeysIterator.hasValue(this, token) ? NonNullKeysIterator.value(this, token) : h++));
+			     hash = (h++) + hash(hash, hash(array.hashCode(NonNullKeysIterator.key(this, token)),
+			                                    NonNullKeysIterator.hasValue(this, token) ? NonNullKeysIterator.value(this, token) : h++));
 			
 			return hash;
 		}
@@ -102,7 +102,7 @@ public interface ObjectDoubleNullMap {
 			{
 				R<K> dst = (R<K>) super.clone();
 				
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -127,19 +127,52 @@ public interface ObjectDoubleNullMap {
 			switch (hasNullKey)
 			{
 				case Positive_Values.NULL:
-					dst.append("null -> null\n");
+					dst.append("Ø -> Ø\n");
 					break;
 				case Positive_Values.VALUE:
-					dst.append("null -> ").append(NullKeyValue).append('\n');
-			}
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; dst.append('\n'))
-			{
-				dst.append(NonNullKeysIterator.key(this, token)).append(" -> ");
-				
-				if (NonNullKeysIterator.hasValue(this, token)) dst.append(NonNullKeysIterator.value(this, token));
-				else dst.append("null");
+					dst.append("Ø -> ").append(NullKeyValue).append('\n');
 			}
 			
+			final int[] indexes = new int[assigned];
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) indexes[k++] = i;
+			
+			Array.ISort sorter = new Array.ISort() {
+				
+				int more = 1, less = -1;
+				@Override public void asc() {less = -(more = 1);}
+				@Override public void desc() {more = -(less = 1);}
+				
+				@Override public int compare(int ia, int ib) {
+					final int x = keys[indexes[ia]].hashCode(), y = keys[indexes[ib]].hashCode();
+					return x < y ? less : x == y ? 0 : more;
+				}
+				@Override public void swap(int ia, int ib) {
+					final int t = indexes[ia];
+					indexes[ia] = indexes[ib];
+					indexes[ib] = t;
+				}
+				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
+				@Override public int compare(int isrc) {
+					final int x = fix, y = keys[indexes[isrc]].hashCode();
+					return x < y ? less : x == y ? 0 : more;
+				}
+				
+				int fix = 0;
+				int fixi = 0;
+				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]].hashCode();}
+				@Override public void set(int idst) {indexes[idst] = fixi;}
+			};
+			
+			Array.ISort.sort(sorter, 0, assigned - 1);
+			
+			for (int i = 0, j; i < assigned; i++)
+			{
+				dst.append(keys[j = indexes[i]]).append(" -> ");
+				
+				if (values.hasValue(j)) dst.append(values.get(j));
+				else dst.append('Ø');
+				dst.append('\n');
+			}
 			return dst;
 		}
 	}
@@ -159,7 +192,7 @@ public interface ObjectDoubleNullMap {
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys = array.copyOf(null, size);
+			keys   = array.copyOf(null, size);
 			values = new DoubleNullList.RW(size);
 		}
 		
@@ -198,7 +231,7 @@ public interface ObjectDoubleNullMap {
 			if (key == null)
 			{
 				int h = hasNullKey;
-				hasNullKey = Positive_Values.VALUE;
+				hasNullKey   = Positive_Values.VALUE;
 				NullKeyValue = value;
 				return h != Positive_Values.VALUE;
 			}
@@ -222,7 +255,7 @@ public interface ObjectDoubleNullMap {
 		}
 		
 		public void clear() {
-			assigned = 0;
+			assigned   = 0;
 			hasNullKey = Positive_Values.NONE;
 			for (int i = keys.length - 1; i >= 0; i--) keys[i] = null;
 			values.clear();
@@ -246,7 +279,7 @@ public interface ObjectDoubleNullMap {
 			final K[]              k    = keys;
 			DoubleNullList.RW vals = values;
 			
-			keys = array.copyOf(null, size);
+			keys   = array.copyOf(null, size);
 			values = new DoubleNullList.RW(-size);
 			
 			K key;
@@ -290,7 +323,7 @@ public interface ObjectDoubleNullMap {
 							else
 								values.set(gapSlot, ( Double   ) null);
 							
-							gapSlot = s;
+							gapSlot  = s;
 							distance = 0;
 						}
 					

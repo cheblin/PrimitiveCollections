@@ -107,10 +107,10 @@ public interface UByteFloatNullMap {
 			switch (hasNullKey)
 			{
 				case Positive_Values.NULL:
-					dst.append("null -> null\n");
+					dst.append("Ø -> Ø\n");
 					break;
 				case Positive_Values.VALUE:
-					dst.append("null -> ").append(nullKeyValue).append('\n');
+					dst.append("Ø -> ").append(nullKeyValue).append('\n');
 			}
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; dst.append('\n'))
@@ -118,7 +118,7 @@ public interface UByteFloatNullMap {
 				dst.append(NonNullKeysIterator.key(this, token)).append(" -> ");
 				
 				if (NonNullKeysIterator.hasValue(this, token)) dst.append(NonNullKeysIterator.value(this, token));
-				else dst.append("null");
+				else dst.append('Ø');
 			}
 			
 			return dst;

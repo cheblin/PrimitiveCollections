@@ -14,32 +14,36 @@ public interface ByteSet {
 		static int index(R src, int token) {return token >>> 8 & 0xFF;}
 		
 		static int token(R src, int token) {
-			token += 0x100;
-			if (src.size << 8 == (token & 0x1FF00)) return INIT;
+			token += 0b1_0000_0000;
+			// index bits                   ___________
+			if (src.size << 8 == (token & 0b1_1111_1111_0000_0000)) return INIT;
 			
-			final int key   = token + 1 & 0xFF;
-			final int index = token & 0xFFFFFF00;
+			final int info = token & ~0xFF;
+			//key bits                      _________
+			final int key   = token + 1 & 0b1111_1111;
 			
 			long l;
 			
-			if (key < 128)
+			switch (key & 0b1100_0000)
 			{
-				if (key < 64)
-				{
+				case 0b1100_0000:
+					l = src._4 >>> key;
+					break;
+				case 0b1000_0000:
+					if ((l = src._3 >>> key) == 0) return info | 192 + Long.numberOfTrailingZeros(src._4);
+					break;
+				case 0b0100_0000:
+					if ((l = src._2 >>> key) == 0)
+						return info | (src._3 != 0 ? 128 + Long.numberOfTrailingZeros(src._3) : 192 + Long.numberOfTrailingZeros(src._4));
+					break;
+				default:
 					if ((l = src._1 >>> key) == 0)
-						return (src._2 != 0 ? 64 + Long.numberOfTrailingZeros(src._2) :
-						        src._3 != 0 ? 128 + Long.numberOfTrailingZeros(src._3) : 192 + Long.numberOfTrailingZeros(src._4)) | index;
-				}
-				else if ((l = src._2 >>> key) == 0)
-					return (src._3 != 0 ? 128 + Long.numberOfTrailingZeros(src._3) : 192 + Long.numberOfTrailingZeros(src._4)) | index;
+						return info | (src._2 != 0 ? 64 + Long.numberOfTrailingZeros(src._2) :
+						                src._3 != 0 ? 128 + Long.numberOfTrailingZeros(src._3) : 192 + Long.numberOfTrailingZeros(src._4));
 			}
-			else if (key < 192)
-			{
-				if ((l = src._3 >>> key) == 0) return 192 + Long.numberOfTrailingZeros(src._4) | index;
-			}
-			else l = src._4 >>> key;
 			
-			return key + Long.numberOfTrailingZeros(l) | index;
+			
+			return info | key + Long.numberOfTrailingZeros(l);
 		}
 	}
 	
@@ -195,7 +199,7 @@ a:
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append("null\n");
+			if (hasNullKey) dst.append("Ø\n");
 			
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )

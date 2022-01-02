@@ -50,7 +50,7 @@ public interface BitsNullList {
 				final int bit   = bit( bp );
 				long      value = (BITS < bit + bits ? value( src, src = values[index( bp ) + 1], bit, bits ) : value( src, bit, bits ));
 				
-				if (value == null_val) dst.append( "null" );
+				if (value == null_val) dst.append( 'Ø' );
 				else dst.append( value );
 				
 				dst.append( '\t' );

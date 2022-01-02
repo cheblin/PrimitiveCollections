@@ -64,7 +64,7 @@ public interface ObjectUIntMap {
 		public int hashCode() {
 			int hash = hash(hasNullKey ? hash(NullKeyValue) : 719717, keys);
 			for (int token = NonNullKeysIterator.INIT, h = 719717; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
+			     hash = (h++) + hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
 			
 			return hash;
 		}
@@ -88,7 +88,7 @@ public interface ObjectUIntMap {
 			{
 				R<K> dst = (R<K>) super.clone();
 				
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -107,13 +107,45 @@ public interface ObjectUIntMap {
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append("null -> ").append(NullKeyValue).append('\n');
+			if (hasNullKey) dst.append("Ø -> ").append(NullKeyValue).append('\n');
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				dst.append(NonNullKeysIterator.key(this, token))
-						.append(" -> ")
-						.append(NonNullKeysIterator.value(this, token))
-						.append('\n');
+			final int[] indexes = new int[assigned];
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) indexes[k++] = i;
+			
+			Array.ISort sorter = new Array.ISort() {
+				
+				int more = 1, less = -1;
+				@Override public void asc() {less = -(more = 1);}
+				@Override public void desc() {more = -(less = 1);}
+				
+				@Override public int compare(int ia, int ib) {
+					final int x = keys[indexes[ia]].hashCode(), y = keys[indexes[ib]].hashCode();
+					return x < y ? less : x == y ? 0 : more;
+				}
+				@Override public void swap(int ia, int ib) {
+					final int t = indexes[ia];
+					indexes[ia] = indexes[ib];
+					indexes[ib] = t;
+				}
+				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
+				@Override public int compare(int isrc) {
+					final int x = fix, y = keys[indexes[isrc]].hashCode();
+					return x < y ? less : x == y ? 0 : more;
+				}
+				
+				int fix = 0;
+				int fixi = 0;
+				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]].hashCode();}
+				@Override public void set(int idst) {indexes[idst] = fixi;}
+			};
+			
+			Array.ISort.sort(sorter, 0, assigned - 1);
+			
+			for (int i = 0, j; i < assigned; i++)
+			     dst.append(keys[j = indexes[i]])
+					     .append(" -> ")
+					     .append(values[j])
+					     .append('\n');
 			return dst;
 		}
 	}
@@ -133,7 +165,7 @@ public interface ObjectUIntMap {
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys = array.copyOf(null, size);
+			keys   = array.copyOf(null, size);
 			values = new int[size];
 		}
 		
@@ -155,7 +187,7 @@ public interface ObjectUIntMap {
 					return false;
 				}
 			
-			keys[slot] = key;
+			keys[slot]   = key;
 			values[slot] = (int) value;
 			
 			if (assigned++ == resizeAt) allocate(mask + 1 << 1);
@@ -170,7 +202,7 @@ public interface ObjectUIntMap {
 			int slot = array.hashCode(key) & mask;
 			
 			for (K k; (k = keys[slot]) != null; slot = slot + 1 & mask)
-				if (array.equals(k,key))
+				if (array.equals(k, key))
 				{
 					int[] vals = values;
 					
@@ -183,8 +215,8 @@ public interface ObjectUIntMap {
 						{
 							vals[gapSlot] = vals[s];
 							keys[gapSlot] = kk;
-							gapSlot = s;
-							distance = 0;
+							                gapSlot = s;
+							                distance = 0;
 						}
 					
 					keys[gapSlot] = null;
@@ -197,7 +229,7 @@ public interface ObjectUIntMap {
 		}
 		
 		public void clear() {
-			assigned = 0;
+			assigned   = 0;
 			hasNullKey = false;
 			for (int i = keys.length - 1; i >= 0; i--) keys[i] = null;
 		}
@@ -210,15 +242,15 @@ public interface ObjectUIntMap {
 			if (assigned < 1)
 			{
 				if (keys.length < size) keys = array.copyOf(null, size);
-				if (values.length < size) values =new int[size];
+				if (values.length < size) values = new int[size];
 				return;
 			}
 			
 			final K[]           k = keys;
 			final int[] v = values;
 			
-			keys = array.copyOf(null, size);
-			values =new int[size];
+			keys   = array.copyOf(null, size);
+			values = new int[size];
 			
 			K key;
 			for (int i = k.length; -1 < --i; )
@@ -227,7 +259,7 @@ public interface ObjectUIntMap {
 					int slot = array.hashCode(key) & mask;
 					while (!(keys[slot] == null)) slot = slot + 1 & mask;
 					
-					keys[slot] = key;
+					keys[slot]   = key;
 					values[slot] = v[i];
 				}
 		}

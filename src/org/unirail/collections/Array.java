@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Objects;
 
-public class Array<V> {
+public class Array<T> {
 	
 	public static int resize(Object src, Object dst, int index, int size, final int resize) {
 		if (resize < 0)
@@ -102,29 +102,29 @@ public class Array<V> {
 	}
 	
 	
-	public int hashCode(V src)        {return hash(src);}
+	public int hashCode(T src)        {return hash(src);}
 	
-	public boolean equals(V v1, V v2) {return Objects.equals(v1, v2);}
+	public boolean equals(T v1, T v2) {return Objects.equals(v1, v2);}
 	
-	public int hashCode(V[] src, int len) {
+	public int hashCode(T[] src, int len) {
 		int hash = Array.class.hashCode();
 		while (-1 < --len) hash = (len + 10153331) + hash(hash, hashCode(src[len]));
 		return hash;
 	}
 	
-	public boolean equals(V[] O, V[] X, int len) {
+	public boolean equals(T[] O, T[] X, int len) {
 		if (O.length < len || X.length < len) return false;
-		for (V o, x; -1 < --len; )
+		for (T o, x; -1 < --len; )
 			if ((o = O[len]) != (x = X[len]))
 				if (o == null || x == null || !equals(o, x)) return false;
 		return true;
 	}
 	
-	public final V[] zeroid;
+	public final T[] zeroid;
 	@SuppressWarnings("unchecked")
-	private Array(Class<V> clazz) {zeroid = (V[]) java.lang.reflect.Array.newInstance(clazz, 0);}
+	private Array(Class<T> clazz) {zeroid = (T[]) java.lang.reflect.Array.newInstance(clazz, 0);}
 	
-	public V[] copyOf(V[] current, int len) {return len < 1 ? zeroid : Arrays.copyOf(current == null ? zeroid : current, len);}
+	public T[] copyOf(T[] current, int len) {return len < 1 ? zeroid : Arrays.copyOf(current == null ? zeroid : current, len);}
 	
 	private static final Array<boolean[]> booleans = new Array<boolean[]>(boolean[].class) {
 		@Override public int hashCode(boolean[] src) {return Arrays.hashCode(src);}
@@ -167,25 +167,168 @@ public class Array<V> {
 	private static final HashMap<Class<?>, Object> pool = new HashMap<>(8);
 	
 	@SuppressWarnings("unchecked")
-	public static <R> Array<R> get(Class<R> clazz) {
+	public static <T> Array<T> get(Class<T> clazz) {
 		final Object c = clazz;
-		if (c == boolean[].class) return (Array<R>) booleans;
-		if (c == byte[].class) return (Array<R>) bytes;
-		if (c == short[].class) return (Array<R>) shorts;
-		if (c == int[].class) return (Array<R>) ints;
-		if (c == long[].class) return (Array<R>) longs;
-		if (c == char[].class) return (Array<R>) chars;
-		if (c == float[].class) return (Array<R>) floats;
-		if (c == double[].class) return (Array<R>) doubles;
-		if (c == Object[].class) return (Array<R>) objects;
-		if (pool.containsKey(clazz)) return (Array<R>) pool.get(clazz);
+		if (c == boolean[].class) return (Array<T>) booleans;
+		if (c == byte[].class) return (Array<T>) bytes;
+		if (c == short[].class) return (Array<T>) shorts;
+		if (c == int[].class) return (Array<T>) ints;
+		if (c == long[].class) return (Array<T>) longs;
+		if (c == char[].class) return (Array<T>) chars;
+		if (c == float[].class) return (Array<T>) floats;
+		if (c == double[].class) return (Array<T>) doubles;
+		if (c == Object[].class) return (Array<T>) objects;
+		if (pool.containsKey(clazz)) return (Array<T>) pool.get(clazz);
 		synchronized (pool)
 		{
-			if (pool.containsKey(clazz)) return (Array<R>) pool.get(clazz);
-			Array<R> ret = new Array<>(clazz);
+			if (pool.containsKey(clazz)) return (Array<T>) pool.get(clazz);
+			Array<T> ret = new Array<>(clazz);
 			pool.put(clazz, ret);
 			return ret;
 		}
 	}
 	
+	
+	public interface ISort {
+		
+		int compare(int ia, int ib);//array[ia] < array[ib] ? -1 : array[ia] == array[ib] ? 0 : 1;
+		
+		/**
+		 var t = indexes[ia];
+		 indexes[ia] = indexes[ib];
+		 indexes[ib] = t;
+		 */
+		void swap(int ia, int ib);
+		
+		void set(int dst_index, int src_index);//replace element at dst_index with element at src_index
+		
+		void asc();//ascending sort order
+		
+		void desc();//descending order
+		
+		int compare(int src_index);// compare fixed element with element at index;
+		
+		void get(int src_index);//fix a value at index
+		
+		void set(int dst_index);//put fixed value at index
+		
+		//binary search in sorted array index of the element that value is equal to the fixed element
+		static int search(ISort dst, int lo, int hi) {
+			while (lo <= hi)
+			{
+				final int o = lo + (hi - lo >> 1), dir = dst.compare(o);
+				
+				if (dir == 0) return o;
+				if (0 < dir) lo = o + 1;
+				else hi = o - 1;
+			}
+			return ~lo;
+		}
+		
+		
+		static void sort(ISort dst, int lo, int hi) {
+			
+			int len = hi - lo + 1;
+			if (len < 2) return;
+			
+			int pow2 = 0;
+			while (0 < len)
+			{
+				pow2++;
+				len >>>= 1;
+			}
+			
+			sort(dst, lo, hi, 2 * pow2);
+		}
+		
+		static void sort(ISort dst, final int lo, int hi, int limit) {
+			
+			while (hi > lo)
+			{
+				int size = hi - lo + 1;
+				
+				if (size < 17)
+					switch (size)
+					{
+						case 1:
+							return;
+						case 2:
+							if (dst.compare(lo, hi) > 0) dst.swap(lo, hi);
+							return;
+						case 3:
+							if (dst.compare(lo, hi - 1) > 0) dst.swap(lo, hi - 1);
+							if (dst.compare(lo, hi) > 0) dst.swap(lo, hi);
+							if (dst.compare(hi - 1, hi) > 0) dst.swap(hi - 1, hi);
+							return;
+						default:
+							for (int i = lo; i < hi; i++)
+							{
+								dst.get(i + 1);
+								
+								int j = i;
+								while (lo <= j && dst.compare(j) < 0) dst.set(j + 1, j--);
+								
+								dst.set(j + 1);
+							}
+							return;
+					}
+				
+				if (limit == 0)
+				{
+					final int w = hi - lo + 1;
+					for (int i = w >>> 1; 0 < i; i--) heapify(dst, i, w, lo);
+					
+					for (int i = w; 1 < i; i--)
+					{
+						dst.swap(lo, lo + i - 1);
+						heapify(dst, 1, i - 1, lo);
+					}
+					return;
+				}
+				
+				limit--;
+				
+				final int o = lo + (hi - lo >> 1);
+				
+				if (dst.compare(lo, o) > 0) dst.swap(lo, o);
+				if (dst.compare(lo, hi) > 0) dst.swap(lo, hi);
+				if (dst.compare(o, hi) > 0) dst.swap(o, hi);
+				
+				dst.get(o);
+				dst.swap(o, hi - 1);
+				int l = lo, h = hi - 1;
+				
+				while (l < h)
+				{
+					while (-1 < dst.compare(++l)) ;
+					while (dst.compare(--h) < 0) ;
+					
+					if (h <= l) break;
+					
+					dst.swap(l, h);
+				}
+				
+				if (l != hi - 1) dst.swap(l, hi - 1);
+				sort(dst, l + 1, hi, limit);
+				hi = l - 1;
+			}
+		}
+		
+		static void heapify(ISort dst, int i, final int w, int lo) {
+			dst.get(--lo + i);
+			
+			while (i <= w >>> 1)
+			{
+				int child = i << 1;
+				if (child < w && dst.compare(lo + child, lo + child + 1) < 0) child++;
+				
+				if (-1 < dst.compare(lo + child)) break;
+				
+				dst.set(lo + i, lo + child);
+				i = child;
+			}
+			
+			dst.set(lo + i);
+		}
+	}
 }

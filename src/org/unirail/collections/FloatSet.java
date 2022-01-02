@@ -10,12 +10,12 @@ public interface FloatSet {
 		
 		static int token(R src, int token) {
 			for (int len = src.keys.length; ; )
-				if (++token == len) return src.has0Key ? -2 : INIT;
-				else if (token == 0x7FFF_FFFF) return INIT;
+				if (++token == len) return src.has0Key ? Positive_Values.VALUE - 1 : INIT;
+				else if (token == Positive_Values.VALUE) return INIT;
 				else if (src.keys[token] != 0) return token;
 		}
 		
-		static float key(R src, int token) {return token == -2 ? 0 :   src.keys[token];}
+		static float key(R src, int token) {return token == Positive_Values.VALUE - 1 ? 0 :   src.keys[token];}
 	}
 	
 	abstract class R implements Cloneable {
@@ -57,7 +57,7 @@ public interface FloatSet {
 			int hash = hasNullKey ? 10910099 : 97654321;
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = hash(hash, NonNullKeysIterator.key(this, token));
+			     hash = hash(hash, NonNullKeysIterator.key(this, token));
 			
 			return hash(hash, keys);
 		}
@@ -113,10 +113,42 @@ public interface FloatSet {
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append("null\n");
+			if (hasNullKey) dst.append("Ø\n");
+			final int[] indexes = new int[assigned];
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) indexes[k++] = i;
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				dst.append(NonNullKeysIterator.key(this, token)).append('\n');
+			Array.ISort sorter = new Array.ISort() {
+				
+				int more = 1, less = -1;
+				@Override public void asc() {less = -(more = 1);}
+				@Override public void desc() {more = -(less = 1);}
+				
+				@Override public int compare(int ia, int ib) {
+					final float x = keys[indexes[ia]], y = keys[indexes[ib]];
+					return x < y ? less : x == y ? 0 : more;
+				}
+				@Override public void swap(int ia, int ib) {
+					final int t = indexes[ia];
+					indexes[ia] = indexes[ib];
+					indexes[ib] = t;
+				}
+				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
+				@Override public int compare(int isrc) {
+					final float x = fix, y = keys[indexes[isrc]];
+					return x < y ? less : x == y ? 0 : more;
+				}
+				
+				float fix = 0;
+				int fixi = 0;
+				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]];}
+				@Override public void set(int idst) {indexes[idst] = fixi;}
+			};
+			
+			Array.ISort.sort(sorter, 0, assigned - 1);
+			
+			for (int i = 0, j; i < assigned; i++)
+			     dst.append(keys[indexes[i]]).append('\n');
+			
 			return dst;
 		}
 	}
@@ -173,13 +205,13 @@ public interface FloatSet {
 			
 			if (assigned < 1)
 			{
-				if (keys.length < size)keys =  new float[size] ;
+				if (keys.length < size) keys = new float[size];
 				return;
 			}
 			
 			final float[] k = keys;
 			
-			keys =  new float[size] ;
+			keys = new float[size];
 			
 			float key;
 			for (int i = k.length; -1 < --i; )
@@ -210,8 +242,8 @@ public interface FloatSet {
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							keys[gapSlot] =  kk;
-							gapSlot = s;
-							distance = 0;
+							                           gapSlot = s;
+							                           distance = 0;
 						}
 					
 					keys[gapSlot] = 0;
@@ -222,8 +254,8 @@ public interface FloatSet {
 		}
 		
 		public void clear() {
-			assigned = 0;
-			has0Key = false;
+			assigned   = 0;
+			has0Key    = false;
 			hasNullKey = false;
 		}
 		

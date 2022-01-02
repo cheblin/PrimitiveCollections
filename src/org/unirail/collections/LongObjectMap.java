@@ -11,22 +11,22 @@ public interface LongObjectMap {
 		
 		static <V> int token(R<V> src, int token) {
 			for (int len = src.keys.length; ; )
-				if (++token == len) return src.has0Key ? -2 : INIT;
-				else if (token == 0x7FFF_FFFF) return INIT;
+				if (++token == len) return src.has0Key ? Positive_Values.VALUE - 1 : INIT;
+				else if (token == Positive_Values.VALUE) return INIT;
 				else if (src.keys[token] != 0) return token;
 		}
 		
-		static <V> long key(R<V> src, int token) {return token == -2 ? 0 :  src.keys[token];}
+		static <V> long key(R<V> src, int token) {return token == Positive_Values.VALUE - 1 ? 0 :  src.keys[token];}
 		
-		static <V> V value(R<V> src, int token) {return token == -2 ? src.OkeyValue : src.values[token];}
+		static <V> V value(R<V> src, int token) {return token == Positive_Values.VALUE - 1 ? src.OKeyValue : src.values[token];}
 	}
 	
 	abstract class R<V> implements Cloneable {
 		
 		
-		public          long[]      keys;
-		public          V[]            values;
-		protected final Array<V> array;
+		public          long[] keys;
+		public          V[]           values;
+		protected final Array<V>      array;
 		
 		protected R(Class<V> clazz) {array = Array.get(clazz);}
 		
@@ -44,7 +44,7 @@ public interface LongObjectMap {
 		
 		
 		boolean has0Key;
-		V       OkeyValue;
+		V       OKeyValue;
 		
 		
 		protected double loadFactor;
@@ -71,7 +71,7 @@ public interface LongObjectMap {
 		
 		public V value(@Positive_ONLY int token) {
 			if (token == Positive_Values.VALUE) return nullKeyValue;
-			if (token == Positive_Values.VALUE - 1) return OkeyValue;
+			if (token == Positive_Values.VALUE - 1) return OKeyValue;
 			
 			return values[token];
 		}
@@ -86,7 +86,7 @@ public interface LongObjectMap {
 			int hash = hasNullKey ? hash(nullKeyValue) : 997651;
 			
 			for (int token = NonNullKeysIterator.INIT, h = 0xc2b2ae35; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash(hash, NonNullKeysIterator.key(this, token)), array.hashCode(NonNullKeysIterator.value(this, token)));
+			     hash = (h++) + hash(hash(hash, NonNullKeysIterator.key(this, token)), array.hashCode(NonNullKeysIterator.value(this, token)));
 			return hash;
 		}
 		
@@ -104,7 +104,7 @@ public interface LongObjectMap {
 			    assigned != other.assigned ||
 			    has0Key != other.has0Key ||
 			    hasNullKey != other.hasNullKey ||
-			    has0Key && !array.equals(OkeyValue, other.OkeyValue) ||
+			    has0Key && !array.equals(OKeyValue, other.OKeyValue) ||
 			    hasNullKey && nullKeyValue != other.nullKeyValue &&
 			    (nullKeyValue == null || other.nullKeyValue == null || !array.equals(nullKeyValue, other.nullKeyValue))) return false;
 			
@@ -129,7 +129,7 @@ public interface LongObjectMap {
 			try
 			{
 				R<V> dst = (R<V>) super.clone();
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -148,13 +148,48 @@ public interface LongObjectMap {
 			if (dst == null) dst = new StringBuilder(size * 10);
 			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			if (hasNullKey) dst.append("null -> ").append(nullKeyValue).append('\n');
+			if (hasNullKey) dst.append("Ø -> ").append(nullKeyValue).append('\n');
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				dst.append(NonNullKeysIterator.key(this, token))
-						.append(" -> ")
-						.append(NonNullKeysIterator.value(this, token))
-						.append('\n');
+			final int[] indexes = new int[assigned];
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) indexes[k++] = i;
+			
+			Array.ISort sorter = new Array.ISort() {
+				
+				int more = 1, less = -1;
+				@Override public void asc() {less = -(more = 1);}
+				@Override public void desc() {more = -(less = 1);}
+				
+				@Override public int compare(int ia, int ib) {
+					final long x = keys[indexes[ia]], y = keys[indexes[ib]];
+					return x < y ? less : x == y ? 0 : more;
+				}
+				@Override public void swap(int ia, int ib) {
+					final int t = indexes[ia];
+					indexes[ia] = indexes[ib];
+					indexes[ib] = t;
+				}
+				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
+				@Override public int compare(int isrc) {
+					final long x = fix, y = keys[indexes[isrc]];
+					return x < y ? less : x == y ? 0 : more;
+				}
+				
+				long fix = 0;
+				int fixi = 0;
+				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]];}
+				@Override public void set(int idst) {indexes[idst] = fixi;}
+			};
+			
+			Array.ISort.sort(sorter, 0, assigned - 1);
+			
+			for (int i = 0, j; i < assigned; i++)
+			{
+				dst.append(keys[j = indexes[i]]).append(" -> ");
+				if (values[j] == null) dst.append('Ø');
+				else dst.append(values[j]);
+				
+				dst.append('\n');
+			}
 			
 			return dst;
 		}
@@ -174,7 +209,7 @@ public interface LongObjectMap {
 			
 			resizeAt = Math.min(mask = size - 1, (int) Math.ceil(size * loadFactor));
 			
-			keys = new long[size];
+			keys   = new long[size];
 			values = array.copyOf(null, size);
 		}
 		
@@ -182,7 +217,7 @@ public interface LongObjectMap {
 		public boolean put( Long      key, V value) {
 			if (key != null) return put((long) key, value);
 			
-			hasNullKey = true;
+			hasNullKey   = true;
 			nullKeyValue = value;
 			
 			return true;
@@ -191,8 +226,8 @@ public interface LongObjectMap {
 		public boolean put(long key, V value) {
 			if (key == 0)
 			{
-				has0Key = true;
-				OkeyValue = value;
+				has0Key   = true;
+				OKeyValue = value;
 				return true;
 			}
 			
@@ -206,8 +241,8 @@ public interface LongObjectMap {
 					return true;
 				}
 			
-			keys[slot] =  key;
-			values[slot] = value;
+			keys[slot]   =  key;
+			values[slot] =            value;
 			
 			if (++assigned == resizeAt) allocate(mask + 1 << 1);
 			
@@ -238,13 +273,13 @@ public interface LongObjectMap {
 						if ((s - hash(kk) & mask) >= distance)
 						{
 							
-							keys[gapSlot] =  kk;
+							keys[gapSlot]   =  kk;
 							values[gapSlot] = values[s];
-							gapSlot = s;
-							distance = 0;
+							                             gapSlot = s;
+							                             distance = 0;
 						}
 					
-					keys[gapSlot] = 0;
+					keys[gapSlot]   = 0;
 					values[gapSlot] = null;
 					assigned--;
 					return true;
@@ -256,10 +291,10 @@ public interface LongObjectMap {
 		public void clear() {
 			assigned = 0;
 			
-			has0Key = false;
-			OkeyValue = null;
+			has0Key   = false;
+			OKeyValue = null;
 			
-			hasNullKey = false;
+			hasNullKey   = false;
 			nullKeyValue = null;
 			
 			for (int i = keys.length - 1; i >= 0; i--) values[i] = null;
@@ -274,7 +309,7 @@ public interface LongObjectMap {
 			{
 				if (keys.length < size)
 				{
-					keys = new long[size];
+					keys   = new long[size];
 					values = array.copyOf(null, size);
 				}
 				return;
@@ -284,7 +319,7 @@ public interface LongObjectMap {
 			final long[] k = keys;
 			final V[]           v = values;
 			
-			keys = new long[size];
+			keys   = new long[size];
 			values = array.copyOf(null, size);
 			
 			long key;
@@ -293,7 +328,7 @@ public interface LongObjectMap {
 				{
 					int slot = hash(key) & mask;
 					while (keys[slot] != 0) slot = slot + 1 & mask;
-					keys[slot] =  key;
+					keys[slot]   =  key;
 					values[slot] = v[i];
 				}
 		}
