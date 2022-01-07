@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import java.util.Arrays;
 
 import static org.unirail.collections.Array.hash;
@@ -8,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface ByteNullList {
 	
 	
-	abstract class R {
+	abstract class R  implements Cloneable{
 		
 		BitList.RW         nulls;
 		ByteList.RW values;
@@ -70,24 +72,28 @@ public interface ByteNullList {
 			return null;
 		}
 		
-		public String toString() {return toString(null).toString();}
 		
-		public StringBuilder toString(StringBuilder dst) {
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterArray();
 			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 4);
-			else dst.ensureCapacity(dst.length() + size * 64);
-			
-			for (int i = 0, ii; i < size; )
-				if ((ii = nextValueIndex(i)) == i) dst.append(get(i++)).append('\n');
-				else if (ii == -1 || size <= ii)
-				{
-					while (i++ < size) dst.append("Ø\n");
-					break;
-				}
-				else for (; i < ii; i++) dst.append("Ø\n");
-			
-			return dst;
+			if (0 < size)
+			{
+				json.preallocate(size * 10);
+				for (int i = 0, ii; i < size; )
+					if ((ii = nextValueIndex(i)) == i) json.value(get(i++));
+					else if (ii == -1 || size <= ii)
+					{
+						while (i++ < size) json.value();
+						break;
+					}
+					else for (; i < ii; i++) json.value();
+			}
+			json.exitArray();
+			return json.exit(config);
 		}
+	
 		
 		protected static void set(R dst, int index,  Byte      value) {
 			

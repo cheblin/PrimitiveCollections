@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import org.unirail.collections.Array;
+import org.unirail.JsonWriter;
 
 public interface UByteUByteMap {
 	
@@ -56,7 +56,7 @@ public interface UByteUByteMap {
 			try
 			{
 				R dst = (R) super.clone();
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -67,24 +67,26 @@ public interface UByteUByteMap {
 			return null;
 		}
 		
-		
-		
-		public String toString() {return toString(null).toString();}
-		
-		public StringBuilder toString(StringBuilder dst) {
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterObject();
+			
 			int size = keys.size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+			if (0 < size)
+			{
+				json.preallocate(size * 10);
+				
+				if (keys.hasNullKey) json.name(null).value(NullKeyValue);
+				
+				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				     json.
+						     name(NonNullKeysIterator.key(this, token)).
+						     value(NonNullKeysIterator.value(this, token));
+			}
 			
-			if (keys.hasNullKey) dst.append("Ø -> ").append(NullKeyValue).append('\n');
-			
-			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				dst.append(NonNullKeysIterator.key(this, token))
-						.append(" -> ")
-						.append(NonNullKeysIterator.value(this, token))
-						.append('\n');
-			return dst;
+			json.exitObject();
+			return json.exit(config);
 		}
 	}
 	

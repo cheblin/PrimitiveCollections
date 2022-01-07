@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import static org.unirail.collections.Array.hash;
 
 public interface UIntIntMap {
@@ -11,20 +13,20 @@ public interface UIntIntMap {
 		
 		static int token(R src, int token) {
 			for (int len = src.keys.length; ; )
-				if (++token == len) return src.has0Key ? Positive_Values.VALUE - 1 : INIT;
-				else if (token == Positive_Values.VALUE) return INIT;
+				if (++token == len) return src.has0Key ? len : INIT;
+				else if (token == len + 1) return INIT;
 				else if (src.keys[token] != 0) return token;
 		}
 		
-		static long key(R src, int token) {return token == Positive_Values.VALUE - 1 ? 0 :   src.keys[token];}
+		static long key(R src, int token) {return token == src.keys.length ? 0 :   src.keys[token];}
 		
-		static int value(R src, int token) {return token == Positive_Values.VALUE - 1 ? src.OKeyValue :   src.values[token];}
+		static int value(R src, int token) {return token == src.keys.length ? src.OKeyValue :   src.values[token];}
 	}
 	
 	
 	abstract class R implements Cloneable {
-		int[] keys   = Array.ints0     ;
-		int[] values = Array.ints0     ;
+		int[] keys   = Array.Of.ints     .O;
+		int[] values = Array.Of.ints     .O;
 		
 		int assigned;
 		
@@ -50,10 +52,10 @@ public interface UIntIntMap {
 		
 		public boolean contains(long key)               {return !hasNone(token(key));}
 		
-		public @Positive_Values int token( Integer   key) {return key == null ? hasNullKey ? Positive_Values.VALUE : Positive_Values.NONE : token((long) (key + 0));}
+		public @Positive_Values int token( Integer   key) {return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token((long) (key + 0));}
 		
 		public @Positive_Values int token(long key) {
-			if (key == 0) return has0Key ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
+			if (key == 0) return has0Key ? keys.length : Positive_Values.NONE;
 			
 			int slot = hash(key) & mask;
 			
@@ -69,8 +71,8 @@ public interface UIntIntMap {
 		public boolean hasNone(int token)  {return token == Positive_Values.NONE;}
 		
 		public int value(@Positive_ONLY int token) {
-			if (token == Positive_Values.VALUE) return nullKeyValue;
-			if (token == Positive_Values.VALUE - 1) return OKeyValue;
+			if (token == keys.length + 1) return nullKeyValue;
+			if (token == keys.length) return OKeyValue;
 			return  values[token];
 		}
 		
@@ -123,57 +125,60 @@ public interface UIntIntMap {
 			return null;
 		}
 		
+		private Array.ISort.Primitives getK = null;
+		private Array.ISort.Primitives getV = null;
 		
-		public String toString() {return toString(null).toString();}
-		
-		public StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		public void build(Array.ISort.Primitives.Index dst, boolean K) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new char[assigned];
+			dst.size = assigned;
 			
-			if (hasNullKey) dst.append("Ø -> ").append(nullKeyValue).append('\n');
-			if (has0Key) dst.append("0 -> ").append(OKeyValue).append('\n');
+			dst.src = K ?
+			          getK == null ? getK = index ->  keys[index] : getK :
+			          getV == null ? getV = index ->  values[index] : getV;
 			
-			
-			final int[] indexes = new int[assigned];
-			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) indexes[k++] = i;
-			
-			Array.ISort sorter = new Array.ISort() {
-				
-				int more = 1, less = -1;
-				@Override public void asc() {less = -(more = 1);}
-				@Override public void desc() {more = -(less = 1);}
-				
-				@Override public int compare(int ia, int ib) {
-					final int x = keys[indexes[ia]], y = keys[indexes[ib]];
-					return x < y ? less : x == y ? 0 : more;
-				}
-				@Override public void swap(int ia, int ib) {
-					final int t = indexes[ia];
-					indexes[ia] = indexes[ib];
-					indexes[ib] = t;
-				}
-				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
-				@Override public int compare(int isrc) {
-					final int x = fix, y = keys[indexes[isrc]];
-					return x < y ? less : x == y ? 0 : more;
-				}
-				
-				int fix = 0;
-				int fixi = 0;
-				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]];}
-				@Override public void set(int idst) {indexes[idst] = fixi;}
-			};
-			
-			Array.ISort.sort(sorter, 0, assigned - 1);
-			
-			for (int i = 0, j; i < assigned; i++)
-			     dst.append(keys[j = indexes[i]])
-					     .append(" -> ")
-					     .append(values[j])
-					     .append('\n');
-			return dst;
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
 		}
+		
+		public void build(Array.ISort.Primitives.Index2 dst, boolean K) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new int[assigned];
+			dst.size = assigned;
+			
+			dst.src = K ?
+			          getK == null ? getK = index ->  keys[index] : getK :
+			          getV == null ? getV = index ->  values[index] : getV;
+			
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterObject();
+			
+			int size = size(), i = 0, token = NonNullKeysIterator.INIT;
+			if (0 < size)
+			{
+				json.preallocate(size * 10);
+				
+				if (json.orderByKey())
+					for (build(json.primitiveIndex, true); i < json.primitiveIndex.size; i++)
+					     json.
+							     name(NonNullKeysIterator.key(this, token = json.primitiveIndex.dst[i])).
+							     value(NonNullKeysIterator.value(this, token));
+				else
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+						json.
+								name(NonNullKeysIterator.key(this, token)).
+								value(NonNullKeysIterator.value(this, token));
+			}
+			
+			json.exitObject();
+			return json.exit(config);
+		}
+		
 	}
 	
 	
@@ -212,11 +217,11 @@ public interface UIntIntMap {
 				if (has0Key)
 				{
 					OKeyValue = value;
-					return true;
+					return false;
 				}
 				has0Key   = true;
 				OKeyValue = value;
-				return false;
+				return true;
 			}
 			
 			

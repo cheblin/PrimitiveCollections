@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import org.unirail.collections.Array;
+import org.unirail.JsonWriter;
 
 import static org.unirail.collections.Array.hash;
 
@@ -21,11 +21,14 @@ public interface UByteObjectMap {
 	
 	abstract class R<V> implements Cloneable {
 		
-		public          ByteSet.RW   keys = new ByteSet.RW();
-		public          V[]      values;
-		protected final Array<V> array;
-		
-		protected R(Class<V> clazz)               {array = Array.get(clazz);}
+		public          ByteSet.RW  keys = new ByteSet.RW();
+		public          V[]         values;
+		protected final Array.Of<V> array;
+		private final   char        s;
+		protected R(Class<V> clazz) {
+			array = Array.get(clazz);
+			s     = clazz == String.class ? '"' : '\0';
+		}
 		
 		public int size()                         {return keys.size();}
 		
@@ -42,20 +45,18 @@ public interface UByteObjectMap {
 		
 		V NullKeyValue = null;
 		
-		public int hashCode() {return hash(Array.hash(Array.hash(keys.contains(null) ? hash(NullKeyValue) : 29399999), keys), array.hashCode(values, size()));}
+		public int hashCode()                                            {return hash(Array.hash(Array.hash(keys.contains(null) ? hash(NullKeyValue) : 29399999), keys), array.hashCode(values, size()));}
 		
-		@SuppressWarnings("unchecked")
-		public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}
+		@SuppressWarnings("unchecked") public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}
 		
-		public boolean equals(R<V> other) {return other != null && keys.equals(other.keys) && array.equals(values, other.values, size()) && (!keys.hasNullKey || NullKeyValue == other.NullKeyValue);}
+		public boolean equals(R<V> other)                                {return other != null && keys.equals(other.keys) && array.equals(values, other.values, size()) && (!keys.hasNullKey || NullKeyValue == other.NullKeyValue);}
 		
 		
-		@SuppressWarnings("unchecked")
-		public R<V> clone() {
+		@SuppressWarnings("unchecked") public R<V> clone() {
 			try
 			{
 				R<V> dst = (R<V>) super.clone();
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -63,28 +64,61 @@ public interface UByteObjectMap {
 			return null;
 		}
 		
+		public Array.ISort.Objects<V> getV = null;
 		
-		public String toString() {return toString(null).toString();}
 		
-		public StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		public void build(Array.ISort.Anything.Index dst) {
+			if (dst.dst == null || dst.dst.length < size()) dst.dst = new char[size()];
+			dst.size = size();
 			
-			if (keys.hasNullKey) dst.append("Ø -> ").append(NullKeyValue).append('\n');
+			dst.src = getV == null ? getV = new Array.ISort.Objects<V>() {
+				@Override V get(int index) {return values[index];}
+			} : getV;
 			
+			for (int token = NonNullKeysIterator.INIT, i = 0, k=0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			     dst.dst[k++] = (char) token;
 			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				dst.append(NonNullKeysIterator.key(this, token))
-						.append(" -> ")
-						.append(NonNullKeysIterator.value(this, token))
-						.append('\n');
+			Array.ISort.sort(dst, 0, dst.size - 1);
+		}
+		
+		public void build(Array.ISort.Anything.Index2 dst) {
+			if (dst.dst == null || dst.dst.length < size()) dst.dst = new int[size()];
+			dst.size = size();
 			
-			return dst;
+			dst.src = getV == null ? getV = new Array.ISort.Objects<V>() {
+				@Override V get(int index) {return values[index];}
+			} : getV;
+			
+			for (int token = NonNullKeysIterator.INIT, i = 0, k=0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			     dst.dst[k++] = (char) token;
+			
+			Array.ISort.sort(dst, 0, dst.size - 1);
+		}
+		
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterObject();
+			
+			int size = keys.size();
+			if (0 < size)
+			{
+				json.preallocate(size * 10);
+				
+				if (keys.hasNullKey) json.name(null).value(NullKeyValue);
+				
+				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				     json.
+						     name(NonNullKeysIterator.key(this, token)).
+						     value(NonNullKeysIterator.value(this, token));
+			}
+			
+			json.exitObject();
+			return json.exit(config);
 		}
 	}
 	
-	class RW<V> extends R<V>  {
+	class RW<V> extends R<V> {
 		
 		public RW(Class<V> clazz, int length) {
 			super(clazz);
@@ -126,7 +160,7 @@ public interface UByteObjectMap {
 			final byte k = (byte) key;
 			if (!keys.contains(k)) return false;
 			
-			org.unirail.collections.Array.resize(values,values, keys.rank(k) - 1, size(), -1);
+			org.unirail.collections.Array.resize(values, values, keys.rank(k) - 1, size(), -1);
 			
 			keys.remove(k);
 			

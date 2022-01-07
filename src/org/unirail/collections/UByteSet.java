@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import static org.unirail.collections.Array.hash;
 
 public interface UByteSet {
@@ -19,8 +21,8 @@ public interface UByteSet {
 			if (src.size << 8 == (token & 0b1_1111_1111_0000_0000)) return INIT;
 			
 			final int info = token & ~0xFF;
-			//key bits                      _________
-			final int key   = token + 1 & 0b1111_1111;
+			//key bits                    _________
+			final int key = token + 1 & 0b1111_1111;
 			
 			long l;
 			
@@ -39,7 +41,7 @@ public interface UByteSet {
 				default:
 					if ((l = src._1 >>> key) == 0)
 						return info | (src._2 != 0 ? 64 + Long.numberOfTrailingZeros(src._2) :
-						                src._3 != 0 ? 128 + Long.numberOfTrailingZeros(src._3) : 192 + Long.numberOfTrailingZeros(src._4));
+						               src._3 != 0 ? 128 + Long.numberOfTrailingZeros(src._3) : 192 + Long.numberOfTrailingZeros(src._4));
 			}
 			
 			
@@ -113,15 +115,15 @@ a:
 				if (val < 64) break a;
 				if (l != 0) ret += Long.bitCount(l);
 				base = 64;
-				l = _2;
+				l    = _2;
 				if (val < 128) break a;
 				if (l != 0) ret += Long.bitCount(l);
 				base = 128;
-				l = _3;
+				l    = _3;
 				if (val < 192) break a;
 				if (l != 0) ret += Long.bitCount(l);
 				base = 192;
-				l = _4;
+				l    = _4;
 			}
 			
 			while (l != 0)
@@ -192,20 +194,23 @@ a:
 		}
 		
 		
-		public String toString() {return toString(null).toString();}
-		
-		public StringBuilder toString(StringBuilder dst) {
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterArray();
+			if (hasNullKey) json.value();
+			
 			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+			if (0 < size)
+			{
+				json.preallocate(size * 10);
+				
+				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				     json.value(NonNullKeysIterator.key(this, token));
+			}
 			
-			if (hasNullKey) dst.append("Ø\n");
-			
-			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				dst.append(NonNullKeysIterator.key(this, token)).append('\n');
-			
-			return dst;
+			json.exitArray();
+			return json.exit(config);
 		}
 	}
 	
@@ -293,18 +298,18 @@ a:
 		
 		
 		public void clear() {
-			_1 = 0;
-			_2 = 0;
-			_3 = 0;
-			_4 = 0;
-			size = 0;
+			_1         = 0;
+			_2         = 0;
+			_3         = 0;
+			_4         = 0;
+			size       = 0;
 			hasNullKey = false;
 		}
 		
 		public void addAll(R src) {
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(src, token)) != NonNullKeysIterator.INIT; )
-				add(NonNullKeysIterator.key(this, token));
+			     add(NonNullKeysIterator.key(this, token));
 			
 		}
 		

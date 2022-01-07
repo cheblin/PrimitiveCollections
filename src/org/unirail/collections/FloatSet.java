@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import static org.unirail.collections.Array.hash;
 
 public interface FloatSet {
@@ -10,12 +12,12 @@ public interface FloatSet {
 		
 		static int token(R src, int token) {
 			for (int len = src.keys.length; ; )
-				if (++token == len) return src.has0Key ? Positive_Values.VALUE - 1 : INIT;
-				else if (token == Positive_Values.VALUE) return INIT;
+				if (++token == len) return src.has0Key ? len : INIT;
+				else if (token == len + 1) return INIT;
 				else if (src.keys[token] != 0) return token;
 		}
 		
-		static float key(R src, int token) {return token == Positive_Values.VALUE - 1 ? 0 :   src.keys[token];}
+		static float key(R src, int token) {return token == src.keys.length ? 0 :   src.keys[token];}
 	}
 	
 	abstract class R implements Cloneable {
@@ -105,51 +107,50 @@ public interface FloatSet {
 			return null;
 		}
 		
+		private Array.ISort.Primitives getK = null;
 		
-		public String toString() {return toString(null).toString();}
+		public void build(Array.ISort.Primitives.Index dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new char[assigned];
+			dst.size = assigned;
+			
+			dst.src = getK == null ? getK = (Array.ISort.Primitives.floats) index  ->  keys[index] : getK;
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
 		
-		public StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		public void build(Array.ISort.Primitives.Index2 dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new int[assigned];
+			dst.size = assigned;
 			
-			if (hasNullKey) dst.append("Ø\n");
-			final int[] indexes = new int[assigned];
-			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) indexes[k++] = i;
+			dst.src = getK == null ? getK = (Array.ISort.Primitives.floats) index  ->  keys[index] : getK;
 			
-			Array.ISort sorter = new Array.ISort() {
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterArray();
+			
+			if (hasNullKey) json.value();
+			
+			int size = size(), i = 0, token = NonNullKeysIterator.INIT;
+			if (0 < size)
+			{
+				json.preallocate(size * 10);
 				
-				int more = 1, less = -1;
-				@Override public void asc() {less = -(more = 1);}
-				@Override public void desc() {more = -(less = 1);}
-				
-				@Override public int compare(int ia, int ib) {
-					final float x = keys[indexes[ia]], y = keys[indexes[ib]];
-					return x < y ? less : x == y ? 0 : more;
-				}
-				@Override public void swap(int ia, int ib) {
-					final int t = indexes[ia];
-					indexes[ia] = indexes[ib];
-					indexes[ib] = t;
-				}
-				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
-				@Override public int compare(int isrc) {
-					final float x = fix, y = keys[indexes[isrc]];
-					return x < y ? less : x == y ? 0 : more;
-				}
-				
-				float fix = 0;
-				int fixi = 0;
-				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]];}
-				@Override public void set(int idst) {indexes[idst] = fixi;}
-			};
+				if (json.orderByKey())
+					for (build(json.primitiveIndex); i < json.primitiveIndex.size; i++)
+					     json.value(NonNullKeysIterator.key(this, json.primitiveIndex.dst[i]));
+				else
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT) json.value(NonNullKeysIterator.key(this, token));
+			}
 			
-			Array.ISort.sort(sorter, 0, assigned - 1);
-			
-			for (int i = 0, j; i < assigned; i++)
-			     dst.append(keys[indexes[i]]).append('\n');
-			
-			return dst;
+			json.exitArray();
+			return json.exit(config);
 		}
 	}
 	

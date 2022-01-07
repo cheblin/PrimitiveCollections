@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import java.util.Arrays;
 
 import static org.unirail.collections.Array.hash;
@@ -8,8 +10,8 @@ import static org.unirail.collections.Array.hash;
 public interface UIntList {
 	
 	
-	abstract class R {
-		int[] values = Array.ints0     ;
+	abstract class R implements Cloneable {
+		int[] values = Array.Of.ints     .O;
 		
 		int size = 0;
 		
@@ -76,7 +78,7 @@ public interface UIntList {
 				R dst = (R) super.clone();
 				
 				dst.values = values.clone();
-				dst.size = size;
+				dst.size   = size;
 				
 				return dst;
 				
@@ -88,21 +90,19 @@ public interface UIntList {
 			
 		}
 		
-		public String toString() {return toString(null).toString();}
-		
-		public StringBuilder toString(StringBuilder dst) {
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterArray();
 			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
-			
-			for (int i = 0; i < size; i++)
+			if (0 < size)
 			{
-				dst.append(get(i)).append('\t');
-				if (i % 10 == 0) dst.append('\t').append(i).append('\n');
+				json.preallocate(size * 10);
+				for (int i = 0; i < size; i++) json.value(get(i));
 			}
-			return dst;
+			json.exitArray();
+			return json.exit(config);
 		}
-		
 	}
 	
 	
@@ -116,7 +116,7 @@ public interface UIntList {
 			{
 				size = items.length;
 				for (int i = 0; i < size; i++)
-					values[i] = (int) items[i];
+				     values[i] = (int) items[i];
 			}
 		}
 		
@@ -140,7 +140,7 @@ public interface UIntList {
 			
 			int max = Math.max(index, size + 1);
 			
-			size = Array.resize(values, values.length <= max ? values = new int[max + max / 2] : values, index, size, 1);
+			size          = Array.resize(values, values.length <= max ? values = new int[max + max / 2] : values, index, size, 1);
 			values[index] = (int) value;
 		}
 		
@@ -177,7 +177,7 @@ public interface UIntList {
 			}
 			
 			for (int i = 0; i < len; i++)
-				values[index + i] = (int) src[i];
+			     values[index + i] = (int) src[i];
 		}
 		
 		public void set(long value) {set(size, value);}

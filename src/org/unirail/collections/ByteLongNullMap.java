@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import org.unirail.collections.Array;
+import org.unirail.JsonWriter;
 
 public interface ByteLongNullMap {
 	
@@ -52,18 +52,18 @@ public interface ByteLongNullMap {
 		
 		public boolean hasNull(int token)  {return token == Positive_Values.NULL;}
 		
-		
+		protected static final char nullKeyValueToken = 257;
 		public long value(@Positive_ONLY int token) {
-			if (token == Positive_Values.VALUE) return nullKeyValue;
+			if (token == nullKeyValueToken) return NullKeyValue;
 			return    values.get((byte) token);
 		}
 		
 		
 		@Positive_Values int hasNullKey = Positive_Values.NONE;
-		long nullKeyValue = 0;
+		long NullKeyValue = 0;
 		
 		public int hashCode() {
-			return Array.hash(Array.hash(hasNullKey == Positive_Values.NULL ? 553735009 : hasNullKey == Positive_Values.NONE ? 10019689 : Array.hash(nullKeyValue), keys), values);
+			return Array.hash(Array.hash(hasNullKey == Positive_Values.NULL ? 553735009 : hasNullKey == Positive_Values.NONE ? 10019689 : Array.hash(NullKeyValue), keys), values);
 		}
 		
 		public boolean equals(Object obj) {
@@ -75,7 +75,7 @@ public interface ByteLongNullMap {
 		
 		public boolean equals(R other) {
 			return other != null && hasNullKey == other.hasNullKey &&
-			       (hasNullKey != Positive_Values.VALUE || nullKeyValue == other.nullKeyValue)
+			       (hasNullKey != nullKeyValueToken || NullKeyValue == other.NullKeyValue)
 			       && other.keys.equals(keys) && other.values.equals(values);
 		}
 		
@@ -84,7 +84,7 @@ public interface ByteLongNullMap {
 			try
 			{
 				R dst = (R) super.clone();
-				dst.keys = keys.clone();
+				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
@@ -96,32 +96,35 @@ public interface ByteLongNullMap {
 		}
 		
 		
-		//endregion
-		public String toString() {return toString(null).toString();}
-		
-		StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterObject();
 			
-			switch (hasNullKey)
+			int size = keys.size();
+			if (0 < size)
 			{
-				case Positive_Values.NULL:
-					dst.append("Ø -> Ø\n");
-					break;
-				case Positive_Values.VALUE:
-					dst.append("Ø -> ").append(nullKeyValue).append('\n');
-			}
-			
-			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; dst.append('\n'))
-			{
-				dst.append(NonNullKeysIterator.key(this, token)).append(" -> ");
+				json.preallocate(size * 10);
 				
-				if (NonNullKeysIterator.hasValue(this, token)) dst.append(NonNullKeysIterator.value(this, token));
-				else dst.append('Ø');
+				switch (hasNullKey)
+				{
+					case Positive_Values.NULL:
+						json.name(null).value();
+						break;
+					case nullKeyValueToken:
+						if (keys.hasNullKey) json.name(null).value(NullKeyValue);
+				}
+				
+				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				{
+					json.name(NonNullKeysIterator.key(this, token));
+					if (NonNullKeysIterator.hasValue(this, token)) json.value();
+					else json.value(NonNullKeysIterator.value(this, token));
+				}
 			}
 			
-			return dst;
+			json.exitObject();
+			return json.exit(config);
 		}
 	}
 	
@@ -141,9 +144,9 @@ public interface ByteLongNullMap {
 			
 			keys.add(null);
 			int h = hasNullKey;
-			hasNullKey = Positive_Values.VALUE;
-			nullKeyValue = value;
-			return h != Positive_Values.VALUE;
+			hasNullKey   = nullKeyValueToken;
+			NullKeyValue = value;
+			return h != nullKeyValueToken;
 		}
 		
 		public boolean put( Byte      key,  Long      value) {
@@ -158,9 +161,9 @@ public interface ByteLongNullMap {
 				return h == Positive_Values.NULL;
 			}
 			
-			hasNullKey = Positive_Values.VALUE;
-			nullKeyValue = value;
-			return h == Positive_Values.VALUE;
+			hasNullKey   = nullKeyValueToken;
+			NullKeyValue = value;
+			return h == nullKeyValueToken;
 		}
 		
 		

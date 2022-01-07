@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import static org.unirail.collections.Array.hash;
 
 public interface ObjectSet {
@@ -32,9 +34,13 @@ public interface ObjectSet {
 		
 		protected double loadFactor;
 		
-		protected final Array<K> array;
+		protected final Array.Of<K> array;
+		private final   char        s;
 		
-		protected R(Class<K> clazz) {array = Array.get(clazz);}
+		protected R(Class<K> clazz) {
+			array = Array.get(clazz);
+			s     = clazz == String.class ? '"' : '\0';
+		}
 		
 		public K[] keys;
 		
@@ -57,7 +63,7 @@ public interface ObjectSet {
 		public int hashCode() {
 			int hash = hash(hasNullKey ? 10153331 : 888888883);
 			for (int token = NonNullKeysIterator.INIT, h = 888888883; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				hash = (h++) + hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
+			     hash = (h++) + hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
 			return hash;
 		}
 		
@@ -88,53 +94,57 @@ public interface ObjectSet {
 			return null;
 		}
 		
+		public Array.ISort.Objects<K> getK = null;
 		
-		public String toString() {return toString(null).toString();}
+		public void build(Array.ISort.Anything.Index dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new char[assigned];
+			dst.size = assigned;
+			
+			dst.src = getK == null ? getK = new Array.ISort.Objects<K>() {
+				@Override K get(int index) {return keys[index];}
+			} : getK;
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
 		
-		public StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		
+		public void build(Array.ISort.Anything.Index2 dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new int[assigned];
+			dst.size = assigned;
 			
-			if (hasNullKey) dst.append("Ø\n");
+			dst.src = getK == null ? getK = new Array.ISort.Objects<K>() {
+				@Override K get(int index) {return keys[index];}
+			} : getK;
 			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterArray();
 			
-			final int[] indexes = new int[assigned];
-			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) indexes[k++] = i;
+			if (hasNullKey) json.value();
 			
-			Array.ISort sorter = new Array.ISort() {
+			int size = size(), token = ObjectObjectMap.NonNullKeysIterator.INIT, i = 0;
+			;
+			if (0 < size)
+			{
+				json.preallocate(size * 10);
 				
-				int more = 1, less = -1;
-				@Override public void asc() {less = -(more = 1);}
-				@Override public void desc() {more = -(less = 1);}
-				
-				@Override public int compare(int ia, int ib) {
-					final int x = keys[indexes[ia]].hashCode(), y = keys[indexes[ib]].hashCode();
-					return x < y ? less : x == y ? 0 : more;
-				}
-				@Override public void swap(int ia, int ib) {
-					final int t = indexes[ia];
-					indexes[ia] = indexes[ib];
-					indexes[ib] = t;
-				}
-				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
-				@Override public int compare(int isrc) {
-					final int x = fix, y = keys[indexes[isrc]].hashCode();
-					return x < y ? less : x == y ? 0 : more;
-				}
-				
-				int fix = 0;
-				int fixi = 0;
-				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]].hashCode();}
-				@Override public void set(int idst) {indexes[idst] = fixi;}
-			};
+				if (json.orderByKey())
+					for (build(json.anythingIndex); i < json.anythingIndex.size; i++)
+					     json.value(NonNullKeysIterator.key(this, json.anythingIndex.dst[i]));
+				else
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+						json.value(NonNullKeysIterator.key(this, token));
+			}
 			
-			Array.ISort.sort(sorter, 0, assigned - 1);
-			
-			for (int i = 0, j; i < assigned; i++)
-			     dst.append(keys[j = indexes[i]]).append('\n');
-			
-			return dst;
+			json.exitArray();
+			return json.exit(config);
 		}
 	}
 	
@@ -176,7 +186,7 @@ public interface ObjectSet {
 		}
 		
 		public void clear() {
-			assigned = 0;
+			assigned   = 0;
 			hasNullKey = false;
 			for (int i = keys.length - 1; i >= 0; i--) keys[i] = null;
 		}
@@ -223,8 +233,8 @@ public interface ObjectSet {
 						if ((slot1 - array.hashCode(kk) & mask) >= distance)
 						{
 							keys[gapSlot] = kk;
-							gapSlot = slot1;
-							distance = 0;
+							                gapSlot = slot1;
+							                distance = 0;
 						}
 					
 					keys[gapSlot] = null;

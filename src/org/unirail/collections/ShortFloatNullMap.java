@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import static org.unirail.collections.Array.hash;
 
 public interface ShortFloatNullMap {
@@ -10,23 +12,23 @@ public interface ShortFloatNullMap {
 		
 		static int token(R src, int token) {
 			int len = src.keys.length;
-			for (token++, token &= Integer.MAX_VALUE; ; token++)
-				if (token == len) return src.has0Key == Positive_Values.NONE ? INIT : Positive_Values.VALUE - 1;
-				else if (token == Positive_Values.VALUE) return INIT;
-				else if (src.keys[token] != 0) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
+			for (token++; ; token++)
+				if (token == len) return src.has0Key == Positive_Values.NONE ? INIT : len;
+				else if (token == len + 1) return INIT;
+				else if (src.keys[token] != 0) return token;
 		}
 		
-		static short key(R src, int token) {return token == Positive_Values.VALUE - 1 ? 0 :(short) src.keys[token & Integer.MAX_VALUE];}
+		static short key(R src, int token) {return token == src.keys.length ? 0 :(short) src.keys[token];}
 		
-		static boolean hasValue(R src, int token) {return -1 < token;}
+		static boolean hasValue(R src, int token) {return src.values.hasValue(token);}
 		
-		static float value(R src, int token) {return token == Positive_Values.VALUE - 1 ? src.OKeyValue :    src.values.get(token);}
+		static float value(R src, int token) {return token == src.keys.length ? src.OKeyValue :    src.values.get(token);}
 	}
 	
 	abstract class R implements Cloneable {
 		
 		
-		public short[]          keys   = Array.shorts0     ;
+		public short[]          keys   = Array.Of.shorts     .O;
 		public FloatNullList.RW values = new FloatNullList.RW(0);
 		
 		int assigned;
@@ -34,7 +36,7 @@ public interface ShortFloatNullMap {
 		int resizeAt;
 		
 		@Positive_Values int hasNullKey = Positive_Values.NONE;
-		float nullKeyValue = 0;
+		float NullKeyValue = 0;
 		
 		
 		@Positive_Values int has0Key = Positive_Values.NONE;
@@ -49,7 +51,7 @@ public interface ShortFloatNullMap {
 		
 		
 		public int hashCode() {
-			int hash = hasNullKey == Positive_Values.VALUE ? hash(nullKeyValue) : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887;
+			int hash = hasNullKey == Positive_Values.VALUE ? hash(NullKeyValue) : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887;
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 			{
@@ -68,9 +70,9 @@ public interface ShortFloatNullMap {
 		
 		public @Positive_Values int token(short key) {
 			
-			if (key == 0) return has0Key == Positive_Values.VALUE ? Positive_Values.VALUE - 1 : has0Key;
+			if (key == 0) return has0Key == Positive_Values.VALUE ? keys.length : has0Key;
 			
-			final short key_ =  key ;
+			final short key_ =  key;
 			
 			int slot = hash(key) & mask;
 			
@@ -87,15 +89,15 @@ public interface ShortFloatNullMap {
 		public boolean hasNull(int token)  {return token == Positive_Values.NULL;}
 		
 		public float value(@Positive_ONLY int token) {
-			if (token == Positive_Values.VALUE) return nullKeyValue;
-			if (token == Positive_Values.VALUE - 1) return OKeyValue;
+			if (token == keys.length + 1) return NullKeyValue;
+			if (token == keys.length) return OKeyValue;
 			return values.get(token);
 		}
 		
 		
 		public @Positive_Values int hasNullKey() {return hasNullKey;}
 		
-		public float nullKeyValue() {return nullKeyValue;}
+		public float nullKeyValue() {return NullKeyValue;}
 		
 		
 		public boolean equals(Object obj) {
@@ -106,7 +108,7 @@ public interface ShortFloatNullMap {
 		}
 		
 		public boolean equals(R other) {
-			if (other == null || hasNullKey != other.hasNullKey || hasNullKey == Positive_Values.VALUE && nullKeyValue != other.nullKeyValue
+			if (other == null || hasNullKey != other.hasNullKey || hasNullKey == Positive_Values.VALUE && NullKeyValue != other.NullKeyValue
 			    || has0Key != other.has0Key || has0Key == Positive_Values.VALUE && OKeyValue != other.OKeyValue || size() != other.size()) return false;
 			
 			
@@ -141,74 +143,73 @@ public interface ShortFloatNullMap {
 		}
 		
 		
-		public String toString() {return toString(null).toString();}
+		private Array.ISort.Primitives getK = null;
+		private Array.ISort.Primitives getV = null;
 		
-		public StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		public void build(Array.ISort.Primitives.Index dst, boolean K) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new char[assigned];
+			dst.size = assigned;
+			
+			dst.src = K ?
+			          getK == null ? getK = index -> (short) keys[index] : getK :
+			          getV == null ? getV = (Array.ISort.Primitives.floats) index  -> values.hasValue(index) ?  value(index) : 0 : getV;
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public void build(Array.ISort.Primitives.Index2 dst, boolean K) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new int[assigned];
+			dst.size = assigned;
+			
+			dst.src = K ?
+			          getK == null ? getK = index -> (short) keys[index] : getK :
+			          getV == null ? getV = (Array.ISort.Primitives.floats) index  -> values.hasValue(index) ?  value(index) : 0 : getV;
+			
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterObject();
 			
 			switch (hasNullKey)
 			{
 				case Positive_Values.VALUE:
-					dst.append("Ø -> ").append(nullKeyValue).append('\n');
+					json.name(null).value(NullKeyValue);
 					break;
 				case Positive_Values.NULL:
-					dst.append("Ø -> Ø\n");
+					json.name(null).value();
 			}
 			
-			switch (has0Key)
+			int size = size(), i=0,token = NonNullKeysIterator.INIT;
+			if (0 < size)
 			{
-				case Positive_Values.VALUE:
-					dst.append("0 -> ").append(OKeyValue).append('\n');
-					break;
-				case Positive_Values.NULL:
-					dst.append("0 -> Ø\n");
+				json.preallocate(size * 10);
+				
+				if (json.orderByKey())
+					for (build(json.primitiveIndex, true); i < json.primitiveIndex.size; i++)
+					{
+						json.name(NonNullKeysIterator.key(this, token = json.primitiveIndex.dst[i]));
+						if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+						else json.value();
+					}
+				else
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+					{
+						json.name(NonNullKeysIterator.key(this, token));
+						if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+						else json.value();
+					}
 			}
 			
-			final int[] indexes = new int[assigned];
-			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) indexes[k++] = i;
-			
-			Array.ISort sorter = new Array.ISort() {
-				
-				int more = 1, less = -1;
-				@Override public void asc() {less = -(more = 1);}
-				@Override public void desc() {more = -(less = 1);}
-				
-				@Override public int compare(int ia, int ib) {
-					final short x = keys[indexes[ia]], y = keys[indexes[ib]];
-					return x < y ? less : x == y ? 0 : more;
-				}
-				@Override public void swap(int ia, int ib) {
-					final int t = indexes[ia];
-					indexes[ia] = indexes[ib];
-					indexes[ib] = t;
-				}
-				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
-				@Override public int compare(int isrc) {
-					final short x = fix, y = keys[indexes[isrc]];
-					return x < y ? less : x == y ? 0 : more;
-				}
-				
-				short fix = 0;
-				int fixi = 0;
-				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]];}
-				@Override public void set(int idst) {indexes[idst] = fixi;}
-			};
-			
-			Array.ISort.sort(sorter, 0, assigned - 1);
-			
-			for (int i = 0, j; i < assigned; i++)
-			{
-				dst.append(keys[j = indexes[i]]).append(" -> ");
-				if (values.hasValue(j)) dst.append(values.get(j));
-				else dst.append('Ø');
-				
-				dst.append('\n');
-			}
-			
-			return dst;
+			json.exitObject();
+			return json.exit(config);
 		}
+		
 	}
 	
 	class RW extends R {
@@ -235,7 +236,7 @@ public interface ShortFloatNullMap {
 			
 			int h = hasNullKey;
 			hasNullKey   = Positive_Values.VALUE;
-			nullKeyValue = value;
+			NullKeyValue = value;
 			return h != Positive_Values.VALUE;
 		}
 		
@@ -251,7 +252,7 @@ public interface ShortFloatNullMap {
 			}
 			
 			hasNullKey   = Positive_Values.VALUE;
-			nullKeyValue = value;
+			NullKeyValue = value;
 			return h == Positive_Values.VALUE;
 		}
 		
@@ -295,7 +296,7 @@ public interface ShortFloatNullMap {
 			
 			int slot = hash(key) & mask;
 			
-			final short key_ =  key ;
+			final short key_ =  key;
 			
 			for (short k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)
@@ -320,7 +321,7 @@ public interface ShortFloatNullMap {
 			
 			int slot = hash(key) & mask;
 			
-			final short key_ =  key ;
+			final short key_ =  key;
 			
 			for (short k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_)

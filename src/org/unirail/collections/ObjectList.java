@@ -1,7 +1,7 @@
 package org.unirail.collections;
 
 
-import org.unirail.collections.Array;
+import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 
@@ -11,9 +11,13 @@ public interface ObjectList {
 		
 		
 		protected       V[]      values;
-		protected final Array<V> array;
+		protected final Array.Of<V> array;
+		private final   char     s;
 		
-		protected R(Class<V> clazz) {array = Array.get(clazz);}
+		protected R(Class<V> clazz) {
+			array = Array.get(clazz);
+			s     = clazz == String.class ? '"' : '\0';
+		}
 		
 		
 		int size = 0;
@@ -71,17 +75,22 @@ public interface ObjectList {
 		}
 		
 		
-		public String toString() {return toString(null).toString();}
-		
-		public StringBuilder toString(StringBuilder dst) {
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterArray();
+			
 			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
 			
-			for (int i = 0; i < size; i++)
-				dst.append(get(i)).append('\n');
+			if (0 < size)
+			{
+				json.preallocate(size * 10);
+				
+				for (int i = 0; i < size; i++) json.value(get(i));
+			}
 			
-			return dst;
+			json.exitArray();
+			return json.exit(config);
 		}
 	}
 	
@@ -90,14 +99,14 @@ public interface ObjectList {
 		@SuppressWarnings("unchecked")
 		public RW(Class<V> clazz, int length) {
 			super(clazz);
-			values = 0 < length ? array.copyOf(null, length) : array.zeroid;
+			values =  array.copyOf(null, length) ;
 		}
 		
 		@SafeVarargs public RW(Class<V> core_storage_class, V... items) {
 			this(core_storage_class, 0);
 			if (items == null) return;
 			values = items.clone();
-			size = items.length;
+			size   = items.length;
 		}
 		
 		public RW(Class<V> core_storage_class, V fill_value, int size) {
@@ -115,10 +124,10 @@ public interface ObjectList {
 		}
 		
 		
-		public V add(V value) {return add(size,value); }
+		public V add(V value) {return add(size, value);}
 		
 		public V add(int index, V value) {
-			int max= Math.max(index, size + 1);
+			int max = Math.max(index, size + 1);
 			
 			size = org.unirail.collections.Array.resize(values, values.length <= max ? values = array.copyOf(null, max + max / 2) : values, index, size, 1);
 			
@@ -126,7 +135,7 @@ public interface ObjectList {
 		}
 		
 		public void add(int index, V[] src, int src_index, int len) {
-			int max = Math.max( index , size) + len;
+			int max = Math.max(index, size) + len;
 			
 			size = org.unirail.collections.Array.resize(values, values.length < max ? values = array.copyOf(null, max + max / 2) : values, index, size, len);
 			
@@ -141,7 +150,7 @@ public interface ObjectList {
 			if (size < 1 || size <= index) return;
 			size--;
 			values[index] = values[size];
-			values[size] = null;
+			values[size]  = null;
 		}
 		
 		public V set(V value) {return set(size, value);}
@@ -150,7 +159,7 @@ public interface ObjectList {
 		@SafeVarargs
 		public final void set(int index, V... src) {
 			int len = src.length;
-			int max   = index + len;
+			int max = index + len;
 			
 			if (size < max)
 			{
@@ -165,8 +174,8 @@ public interface ObjectList {
 		public V set(int index, V value) {
 			if (size <= index)
 			{
-				if (values.length <= index) values = Arrays.copyOf(values, index + index / 2);
-				size = index+1;
+				if (values.length <= index) values = array.copyOf(values, index + index / 2);
+				size = index + 1;
 			}
 			return values[index] = value;
 		}

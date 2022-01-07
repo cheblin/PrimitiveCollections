@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import static org.unirail.collections.Array.hash;
 
 public interface LongObjectMap {
@@ -11,14 +13,14 @@ public interface LongObjectMap {
 		
 		static <V> int token(R<V> src, int token) {
 			for (int len = src.keys.length; ; )
-				if (++token == len) return src.has0Key ? Positive_Values.VALUE - 1 : INIT;
-				else if (token == Positive_Values.VALUE) return INIT;
+				if (++token == len) return src.has0Key ? len : INIT;
+				else if (token == len + 1) return INIT;
 				else if (src.keys[token] != 0) return token;
 		}
 		
-		static <V> long key(R<V> src, int token) {return token == Positive_Values.VALUE - 1 ? 0 :  src.keys[token];}
+		static <V> long key(R<V> src, int token) {return token == src.keys.length ? 0 :  src.keys[token];}
 		
-		static <V> V value(R<V> src, int token) {return token == Positive_Values.VALUE - 1 ? src.OKeyValue : src.values[token];}
+		static <V> V value(R<V> src, int token) {return token == src.keys.length ? src.OKeyValue : src.values[token];}
 	}
 	
 	abstract class R<V> implements Cloneable {
@@ -26,9 +28,13 @@ public interface LongObjectMap {
 		
 		public          long[] keys;
 		public          V[]           values;
-		protected final Array<V>      array;
+		protected final Array.Of<V>   array;
+		private final   char          s;
 		
-		protected R(Class<V> clazz) {array = Array.get(clazz);}
+		protected R(Class<V> clazz) {
+			array = Array.get(clazz);
+			s     = clazz == String.class ? '"' : '\0';
+		}
 		
 		
 		int assigned;
@@ -40,7 +46,7 @@ public interface LongObjectMap {
 		int resizeAt;
 		
 		boolean hasNullKey;
-		V       nullKeyValue;
+		V       NullKeyValue;
 		
 		
 		boolean has0Key;
@@ -56,10 +62,10 @@ public interface LongObjectMap {
 		public boolean hasNone(int token)                      {return token == Positive_Values.NONE;}
 		
 		
-		public @Positive_Values int token( Long      key) {return key == null ? hasNullKey ? Integer.MAX_VALUE : Positive_Values.NONE : token((long) (key + 0));}
+		public @Positive_Values int token( Long      key) {return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token((long) (key + 0));}
 		
 		public @Positive_Values int token(long key) {
-			if (key == 0) return has0Key ? Positive_Values.VALUE - 1 : Positive_Values.NONE;
+			if (key == 0) return has0Key ? keys.length : Positive_Values.NONE;
 			
 			int slot = hash(key) & mask;
 			
@@ -70,8 +76,8 @@ public interface LongObjectMap {
 		}
 		
 		public V value(@Positive_ONLY int token) {
-			if (token == Positive_Values.VALUE) return nullKeyValue;
-			if (token == Positive_Values.VALUE - 1) return OKeyValue;
+			if (token == keys.length + 1) return NullKeyValue;
+			if (token == keys.length) return OKeyValue;
 			
 			return values[token];
 		}
@@ -83,7 +89,7 @@ public interface LongObjectMap {
 		
 		
 		public int hashCode() {
-			int hash = hasNullKey ? hash(nullKeyValue) : 997651;
+			int hash = hasNullKey ? hash(NullKeyValue) : 997651;
 			
 			for (int token = NonNullKeysIterator.INIT, h = 0xc2b2ae35; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 			     hash = (h++) + hash(hash(hash, NonNullKeysIterator.key(this, token)), array.hashCode(NonNullKeysIterator.value(this, token)));
@@ -93,20 +99,15 @@ public interface LongObjectMap {
 		
 		@SuppressWarnings("unchecked") public boolean equals(Object obj) {
 			
-			return obj != null &&
-			       getClass() == obj.getClass() &&
-			       equals(getClass().cast(obj));
+			return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));
 		}
 		
 		public boolean equals(R<V> other) {
 			
-			if (other == null ||
-			    assigned != other.assigned ||
-			    has0Key != other.has0Key ||
-			    hasNullKey != other.hasNullKey ||
+			if (other == null || assigned != other.assigned ||
+			    has0Key != other.has0Key || hasNullKey != other.hasNullKey ||
 			    has0Key && !array.equals(OKeyValue, other.OKeyValue) ||
-			    hasNullKey && nullKeyValue != other.nullKeyValue &&
-			    (nullKeyValue == null || other.nullKeyValue == null || !array.equals(nullKeyValue, other.nullKeyValue))) return false;
+			    hasNullKey && NullKeyValue != other.NullKeyValue && (NullKeyValue == null || other.NullKeyValue == null || !array.equals(NullKeyValue, other.NullKeyValue))) return false;
 			
 			V           v;
 			long key;
@@ -117,8 +118,7 @@ public interface LongObjectMap {
 					if ((c = other.token(key)) < 0) return false;
 					v = other.value(c);
 					
-					if (values[i] != v)
-						if (v == null || values[i] == null || !array.equals(v, values[i])) return false;
+					if (values[i] != v) if (v == null || values[i] == null || !array.equals(v, values[i])) return false;
 				}
 			return true;
 		}
@@ -141,57 +141,79 @@ public interface LongObjectMap {
 		}
 		
 		
-		public String toString() {return toString(null).toString();}
+		private Array.ISort.Primitives getK = null;
+		private Array.ISort.Objects<V> getV = null;
 		
-		public StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		public void build_K(Array.ISort.Primitives.Index dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new char[assigned];
+			dst.size = assigned;
 			
-			if (hasNullKey) dst.append("Ø -> ").append(nullKeyValue).append('\n');
+			dst.src = getK == null ? getK = index ->  keys[index] : getK;
 			
-			final int[] indexes = new int[assigned];
-			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) indexes[k++] = i;
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public void build_V(Array.ISort.Anything.Index dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new char[assigned];
+			dst.size = assigned;
+			dst.src  = getV == null ? getV = new Array.ISort.Objects<V>() {
+				@Override V get(int index) {return values[index];}
+			} : getV;
 			
-			Array.ISort sorter = new Array.ISort() {
-				
-				int more = 1, less = -1;
-				@Override public void asc() {less = -(more = 1);}
-				@Override public void desc() {more = -(less = 1);}
-				
-				@Override public int compare(int ia, int ib) {
-					final long x = keys[indexes[ia]], y = keys[indexes[ib]];
-					return x < y ? less : x == y ? 0 : more;
-				}
-				@Override public void swap(int ia, int ib) {
-					final int t = indexes[ia];
-					indexes[ia] = indexes[ib];
-					indexes[ib] = t;
-				}
-				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
-				@Override public int compare(int isrc) {
-					final long x = fix, y = keys[indexes[isrc]];
-					return x < y ? less : x == y ? 0 : more;
-				}
-				
-				long fix = 0;
-				int fixi = 0;
-				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]];}
-				@Override public void set(int idst) {indexes[idst] = fixi;}
-			};
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public void build_K(Array.ISort.Primitives.Index2 dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new int[assigned];
+			dst.size = assigned;
 			
-			Array.ISort.sort(sorter, 0, assigned - 1);
+			dst.src = getK == null ? getK = index ->  keys[index] : getK;
 			
-			for (int i = 0, j; i < assigned; i++)
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		
+		public void build_V(Array.ISort.Anything.Index2 dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new int[assigned];
+			dst.size = assigned;
+			dst.src  = getV == null ? getV = new Array.ISort.Objects<V>() {
+				@Override V get(int index) {return values[index];}
+			} : getV;
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != 0) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			json.enterObject();
+			
+			if (hasNullKey) json.name(null).value(NullKeyValue);
+			
+			int size = size(), i = 0, token = NonNullKeysIterator.INIT;
+			if (0 < size)
 			{
-				dst.append(keys[j = indexes[i]]).append(" -> ");
-				if (values[j] == null) dst.append('Ø');
-				else dst.append(values[j]);
+				json.preallocate(size * 10);
 				
-				dst.append('\n');
+				if (json.orderByKey())
+					for (build_K(json.primitiveIndex); i < json.primitiveIndex.size; i++)
+					     json.
+							     name(NonNullKeysIterator.key(this, token = json.primitiveIndex.dst[i])).
+							     value(NonNullKeysIterator.value(this, token));
+				else
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+						json.
+								name(NonNullKeysIterator.key(this, token)).
+								value(NonNullKeysIterator.value(this, token));
 			}
 			
-			return dst;
+			json.exitObject();
+			return json.exit(config);
 		}
 	}
 	
@@ -218,7 +240,7 @@ public interface LongObjectMap {
 			if (key != null) return put((long) key, value);
 			
 			hasNullKey   = true;
-			nullKeyValue = value;
+			NullKeyValue = value;
 			
 			return true;
 		}
@@ -295,7 +317,7 @@ public interface LongObjectMap {
 			OKeyValue = null;
 			
 			hasNullKey   = false;
-			nullKeyValue = null;
+			NullKeyValue = null;
 			
 			for (int i = keys.length - 1; i >= 0; i--) values[i] = null;
 		}

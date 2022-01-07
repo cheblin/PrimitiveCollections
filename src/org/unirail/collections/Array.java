@@ -2,12 +2,323 @@ package org.unirail.collections;
 
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Objects;
 
-public class Array<T> {
+public interface Array {
+	public static class Of<T> {
+		public final T[] OO;
+		public T[] copyOf(T[] src, int len) {return len < 1 ? OO : Arrays.copyOf(src == null ? OO : src, len);}
+		private final boolean array;
+		@SuppressWarnings("unchecked")
+		private Of(Class<T> clazz) {
+			array = clazz.isArray();
+			OO    = (T[]) java.lang.reflect.Array.newInstance(clazz, 0);
+		}
+		
+		public int hashCode(T src)        {return hash(src);}
+		public boolean equals(T v1, T v2) {return Objects.equals(v1, v2);}
+		
+		@SuppressWarnings("unchecked")
+		public int hashCode(T[] src, int len) {
+			int hash = Array.class.hashCode();
+			if (array)
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.deepHashCode((T[]) src[len]));
+			else
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, hashCode(src[len]));
+			return hash;
+		}
+		public int hashCode(T[] src) {return src == null ? 10153331 : hashCode(src, src.length);}
+		
+		@SuppressWarnings("unchecked")
+		public boolean equals(T[] O, T[] X, int len) {
+			if (O != X)
+			{
+				if (O == null || X == null || O.length < len || X.length < len) return false;
+				if (array)
+				{
+					for (T o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.deepEquals((T[]) o, (T[]) x)) return false;
+				}
+				else
+					for (T o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !equals(o, x)) return false;
+			}
+			return true;
+		}
+		public boolean equals(T[] O, T[] X) {return O == X || O != null && X != null && O.length == X.length && equals(O, X, O.length);}
+		
+		public static final booleans booleans = new booleans();
+		
+		public static final class booleans extends Of<boolean[]> {
+			public static final boolean[] O = new boolean[0];
+			
+			
+			private booleans()                                          {super(boolean[].class);}
+			@Override public int hashCode(boolean[] src)                {return Arrays.hashCode(src);}
+			@Override public boolean equals(boolean[] v1, boolean[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(boolean[][] src, int len) {
+				int hash = boolean[][].class.hashCode();
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				return hash;
+			}
+			
+			@Override public boolean equals(boolean[][] O, boolean[][] X, int len) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length < len || X.length < len) return false;
+					for (boolean[] o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.equals(o, x)) return false;
+				}
+				return true;
+			}
+			
+			
+		}
+		
+		public static final bytes bytes = new bytes();
+		
+		public static final class bytes extends Of<byte[]> {
+			public static final byte[] O = new byte[0];
+			
+			private bytes()                                       {super(byte[].class);}
+			@Override public int hashCode(byte[] src)             {return Arrays.hashCode(src);}
+			@Override public boolean equals(byte[] v1, byte[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(byte[][] src, int len) {
+				int hash = byte[][].class.hashCode();
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				return hash;
+			}
+			
+			@Override public boolean equals(byte[][] O, byte[][] X, int len) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length < len || X.length < len) return false;
+					for (byte[] o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.equals(o, x)) return false;
+				}
+				return true;
+			}
+		}
+		
+		public static final shorts shorts = new shorts();
+		
+		public static final class shorts extends Of<short[]> {
+			public static final short[] O = new short[0];
+			
+			private shorts()                                        {super(short[].class);}
+			
+			@Override public int hashCode(short[] src)              {return Arrays.hashCode(src);}
+			@Override public boolean equals(short[] v1, short[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(short[][] src, int len) {
+				int hash = short[][].class.hashCode();
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				return hash;
+			}
+			
+			@Override public boolean equals(short[][] O, short[][] X, int len) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length < len || X.length < len) return false;
+					for (short[] o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.equals(o, x)) return false;
+				}
+				return true;
+			}
+		}
+		
+		public static final chars chars = new chars();
+		
+		public static final class chars extends Of<char[]> {
+			public static final char[] O = new char[0];
+			
+			private chars()                                       {super(char[].class);}
+			@Override public int hashCode(char[] src)             {return Arrays.hashCode(src);}
+			@Override public boolean equals(char[] v1, char[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(char[][] src, int len) {
+				int hash = char[][].class.hashCode();
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				return hash;
+			}
+			
+			@Override public boolean equals(char[][] O, char[][] X, int len) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length < len || X.length < len) return false;
+					for (char[] o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.equals(o, x)) return false;
+				}
+				return true;
+			}
+		}
+		
+		public static final ints ints = new ints();
+		
+		public static final class ints extends Of<int[]> {
+			public static final int[] O = new int[0];
+			
+			private ints()                                      {super(int[].class);}
+			@Override public int hashCode(int[] src)            {return Arrays.hashCode(src);}
+			@Override public boolean equals(int[] v1, int[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(int[][] src, int len) {
+				int hash = int[][].class.hashCode();
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				return hash;
+			}
+			
+			@Override public boolean equals(int[][] O, int[][] X, int len) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length < len || X.length < len) return false;
+					for (int[] o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.equals(o, x)) return false;
+				}
+				return true;
+			}
+		}
+		
+		public static final longs longs = new longs();
+		
+		public static final class longs extends Of<long[]> {
+			public static final long[] O = new long[0];
+			
+			private longs()                                       {super(long[].class);}
+			@Override public int hashCode(long[] src)             {return Arrays.hashCode(src);}
+			@Override public boolean equals(long[] v1, long[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(long[][] src, int len) {
+				int hash = long[][].class.hashCode();
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				return hash;
+			}
+			
+			@Override public boolean equals(long[][] O, long[][] X, int len) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length < len || X.length < len) return false;
+					for (long[] o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.equals(o, x)) return false;
+				}
+				return true;
+			}
+		}
+		
+		public static final floats floats = new floats();
+		
+		public static final class floats extends Of<float[]> {
+			public static final float[] O = new float[0];
+			
+			private floats()                                        {super(float[].class);}
+			@Override public int hashCode(float[] src)              {return Arrays.hashCode(src);}
+			@Override public boolean equals(float[] v1, float[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(float[][] src, int len) {
+				int hash = float[][].class.hashCode();
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				return hash;
+			}
+			
+			@Override public boolean equals(float[][] O, float[][] X, int len) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length < len || X.length < len) return false;
+					for (float[] o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.equals(o, x)) return false;
+				}
+				return true;
+			}
+		}
+		
+		public static final doubles doubles = new doubles();
+		
+		public static final class doubles extends Of<double[]> {
+			public static final double[] O = new double[0];
+			
+			private doubles()                                         {super(double[].class);}
+			@Override public int hashCode(double[] src)               {return Arrays.hashCode(src);}
+			@Override public boolean equals(double[] v1, double[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(double[][] src, int len) {
+				int hash = double[][].class.hashCode();
+				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				return hash;
+			}
+			
+			@Override public boolean equals(double[][] O, double[][] X, int len) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length < len || X.length < len) return false;
+					for (double[] o, x; -1 < --len; )
+						if ((o = O[len]) != (x = X[len])) if (o == null || x == null || !Arrays.equals(o, x)) return false;
+				}
+				return true;
+			}
+		}
+		
+		public interface objects {
+			Object[]   O  = new Object[0];
+			Object[][] OO = new Object[0][];
+			
+			static boolean equals(Object[][] O, Object[][] X) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length != X.length) return false;
+					for (int i = O.length; -1 < --i; ) if (!Arrays.equals(O[i], X[i])) return false;
+				}
+				return true;
+			}
+			
+			static int hash(int hash, Object[][] src) {
+				if (src == null) return hash ^ 10153331;
+				for (Object[] s : src) hash ^= Arrays.hashCode(s);
+				return hash;
+			}
+		}
+	}
 	
-	public static int resize(Object src, Object dst, int index, int size, final int resize) {
+	static Object[] copyOf(Object[] src, int len)     {return len < 1 ? Of.objects.O : Arrays.copyOf(src == null ? Of.objects.O : src, len);}
+	
+	static Object[][] copyOf(Object[][] src, int len) {return len < 1 ? Of.objects.OO : Arrays.copyOf(src == null ? Of.objects.OO : src, len);}
+	
+	static boolean[] copyOf(boolean[] src, int len)   {return len < 1 ? Of.booleans.O : Arrays.copyOf(src == null ? Of.booleans.O : src, len);}
+	
+	static byte[] copyOf(byte[] src, int len)         {return len < 1 ? Of.bytes.O : Arrays.copyOf(src == null ? Of.bytes.O : src, len);}
+	
+	static short[] copyOf(short[] src, int len)       {return len < 1 ? Of.shorts.O : Arrays.copyOf(src == null ? Of.shorts.O : src, len);}
+	
+	static char[] copyOf(char[] src, int len)         {return len < 1 ? Of.chars.O : Arrays.copyOf(src == null ? Of.chars.O : src, len);}
+	
+	static int[] copyOf(int[] src, int len)           {return len < 1 ? Of.ints.O : Arrays.copyOf(src == null ? Of.ints.O : src, len);}
+	
+	static long[] copyOf(long[] src, int len)         {return len < 1 ? Of.longs.O : Arrays.copyOf(src == null ? Of.longs.O : src, len);}
+	
+	static float[] copyOf(float[] src, int len)       {return len < 1 ? Of.floats.O : Arrays.copyOf(src == null ? Of.floats.O : src, len);}
+	
+	static double[] copyOf(double[] src, int len)     {return len < 1 ? Of.doubles.O : Arrays.copyOf(src == null ? Of.doubles.O : src, len);}
+	
+	HashMap<Class<?>, Object> pool = new HashMap<>(8);
+	
+	@SuppressWarnings("unchecked")
+	static <T> Of<T> get(Class<T> clazz) {
+		final Object c = clazz;
+		if (c == boolean[].class) return (Of<T>) Of.booleans;
+		if (c == byte[].class) return (Of<T>) Of.bytes;
+		if (c == short[].class) return (Of<T>) Of.shorts;
+		if (c == int[].class) return (Of<T>) Of.ints;
+		if (c == long[].class) return (Of<T>) Of.longs;
+		if (c == char[].class) return (Of<T>) Of.chars;
+		if (c == float[].class) return (Of<T>) Of.floats;
+		if (c == double[].class) return (Of<T>) Of.doubles;
+		
+		if (pool.containsKey(clazz)) return (Of<T>) pool.get(clazz);
+		synchronized (pool)
+		{
+			if (pool.containsKey(clazz)) return (Of<T>) pool.get(clazz);
+			Of<T> ret = new Of<>(clazz);
+			pool.put(clazz, ret);
+			return ret;
+		}
+	}
+	
+	static int resize(Object src, Object dst, int index, int size, final int resize) {
 		if (resize < 0)
 		{
 			if (index + (-resize) < size)
@@ -19,26 +330,23 @@ public class Array<T> {
 			return index;
 		}
 		final int new_size = Math.max(index, size) + resize;
-		if (0 < size)
-			if (index < size)
-				if (index == 0)
-					System.arraycopy(src, 0, dst, resize, size);
-				else
-				{
-					if (src != dst) System.arraycopy(src, 0, dst, 0, index);
-					System.arraycopy(src, index, dst, index + resize, size - index);
-				}
-			else if (src != dst) System.arraycopy(src, 0, dst, 0, size);
+		if (0 < size) if (index < size) if (index == 0) System.arraycopy(src, 0, dst, resize, size);
+		else
+		{
+			if (src != dst) System.arraycopy(src, 0, dst, 0, index);
+			System.arraycopy(src, index, dst, index + resize, size - index);
+		}
+		else if (src != dst) System.arraycopy(src, 0, dst, 0, size);
 		return new_size;
 	}
 	
-	public static void copy(Object src, int index, final int skip, int size, Object dst) {
+	static void copy(Object src, int index, final int skip, int size, Object dst) {
 		if (0 < index) System.arraycopy(src, 0, dst, 0, index);
 		if ((index += skip) < size) System.arraycopy(src, index, dst, index, size - index);
 	}
 	
 	
-	public static long nextPowerOf2(long v) {
+	static long nextPowerOf2(long v) {
 		v--;
 		v |= v >> 1;
 		v |= v >> 2;
@@ -51,145 +359,189 @@ public class Array<T> {
 	}
 	
 	
-	public static final byte[]   bytes0   = new byte[0];
-	public static final char[]   chars0   = new char[0];
-	public static final short[]  shorts0  = new short[0];
-	public static final int[]    ints0    = new int[0];
-	public static final long[]   longs0   = new long[0];
-	public static final float[]  floats0  = new float[0];
-	public static final double[] doubles0 = new double[0];
-	
-	
-	public static int hash(int hash, boolean[] val) {return hash ^ Arrays.hashCode(val);}
-	public static int hash(int hash, byte[] val)    {return hash ^ Arrays.hashCode(val);}
-	public static int hash(int hash, char[] val)    {return hash ^ Arrays.hashCode(val);}
-	public static int hash(int hash, short[] val)   {return hash ^ Arrays.hashCode(val);}
-	public static int hash(int hash, int[] val)     {return hash ^ Arrays.hashCode(val);}
-	public static int hash(int hash, long[] val)    {return hash ^ Arrays.hashCode(val);}
-	public static int hash(int hash, float[] val)   {return hash ^ Arrays.hashCode(val);}
-	public static int hash(int hash, double[] val)  {return hash ^ Arrays.hashCode(val);}
-	public static int hash(int hash, Object[] val)  {return hash ^ Arrays.hashCode(val);}
-	
-	public static int hash(boolean[] val)           {return Arrays.hashCode(val);}
-	public static int hash(byte[] val)              {return Arrays.hashCode(val);}
-	public static int hash(char[] val)              {return Arrays.hashCode(val);}
-	public static int hash(short[] val)             {return Arrays.hashCode(val);}
-	public static int hash(int[] val)               {return Arrays.hashCode(val);}
-	public static int hash(long[] val)              {return Arrays.hashCode(val);}
-	public static int hash(float[] val)             {return Arrays.hashCode(val);}
-	public static int hash(double[] val)            {return Arrays.hashCode(val);}
-	public static int hash(Object[] val)            {return Arrays.hashCode(val);}
-	
-	public static int hash(int hash, Object val)    {return hash ^ hash(val);}
-	public static int hash(int hash, double val)    {return hash ^ hash(val);}
-	public static int hash(int hash, float val)     {return hash ^ hash(val);}
-	public static int hash(int hash, int val)       {return hash ^ hash(val);}
-	public static int hash(int hash, long val)      {return hash ^ hash(val);}
-	
-	
-	public static int hash(Object val)              {return val == null ? 0x85ebca6b : hash(val.hashCode());}
-	public static int hash(double val)              {return hash(Double.doubleToLongBits(val));}
-	public static int hash(float val)               {return hash(Float.floatToIntBits(val));}
-	public static int hash(int val) {
-		val = (val ^ (val >>> 16)) * 0x85ebca6b;
-		val = (val ^ (val >>> 13)) * 0xc2b2ae35;
-		return val ^ (val >>> 16);
-	}
-	public static int hash(long val) {
-		val = (val ^ (val >>> 32)) * 0x4cd6944c5cc20b6dL;
-		val = (val ^ (val >>> 29)) * 0xfc12c5b19d3259e9L;
-		return (int) (val ^ (val >>> 32));
-	}
-	
-	
-	public int hashCode(T src)        {return hash(src);}
-	
-	public boolean equals(T v1, T v2) {return Objects.equals(v1, v2);}
-	
-	public int hashCode(T[] src, int len) {
-		int hash = Array.class.hashCode();
-		while (-1 < --len) hash = (len + 10153331) + hash(hash, hashCode(src[len]));
-		return hash;
-	}
-	
-	public boolean equals(T[] O, T[] X, int len) {
-		if (O.length < len || X.length < len) return false;
-		for (T o, x; -1 < --len; )
-			if ((o = O[len]) != (x = X[len]))
-				if (o == null || x == null || !equals(o, x)) return false;
+	static boolean equals(Object[][] O, Object[][] X) {
+		if (O != X)
+		{
+			if (O == null || X == null || O.length != X.length) return false;
+			for (int i = O.length; -1 < --i; ) if (!Arrays.equals(O[i], X[i])) return false;
+		}
 		return true;
 	}
 	
-	public final T[] zeroid;
-	@SuppressWarnings("unchecked")
-	private Array(Class<T> clazz) {zeroid = (T[]) java.lang.reflect.Array.newInstance(clazz, 0);}
-	
-	public T[] copyOf(T[] current, int len) {return len < 1 ? zeroid : Arrays.copyOf(current == null ? zeroid : current, len);}
-	
-	private static final Array<boolean[]> booleans = new Array<boolean[]>(boolean[].class) {
-		@Override public int hashCode(boolean[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(boolean[] v1, boolean[] v2) {return Arrays.equals(v1, v2);}
-	};
-	private static final Array<byte[]>    bytes    = new Array<byte[]>(byte[].class) {
-		@Override public int hashCode(byte[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(byte[] v1, byte[] v2) {return Arrays.equals(v1, v2);}
-	};
-	private static final Array<short[]>   shorts   = new Array<short[]>(short[].class) {
-		@Override public int hashCode(short[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(short[] v1, short[] v2) {return Arrays.equals(v1, v2);}
-	};
-	private static final Array<char[]>    chars    = new Array<char[]>(char[].class) {
-		@Override public int hashCode(char[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(char[] v1, char[] v2) {return Arrays.equals(v1, v2);}
-	};
-	private static final Array<int[]>     ints     = new Array<int[]>(int[].class) {
-		@Override public int hashCode(int[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(int[] v1, int[] v2) {return Arrays.equals(v1, v2);}
-	};
-	private static final Array<long[]>    longs    = new Array<long[]>(long[].class) {
-		@Override public int hashCode(long[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(long[] v1, long[] v2) {return Arrays.equals(v1, v2);}
-	};
-	private static final Array<float[]>   floats   = new Array<float[]>(float[].class) {
-		@Override public int hashCode(float[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(float[] v1, float[] v2) {return Arrays.equals(v1, v2);}
-	};
-	private static final Array<double[]>  doubles  = new Array<double[]>(double[].class) {
-		@Override public int hashCode(double[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(double[] v1, double[] v2) {return Arrays.equals(v1, v2);}
-	};
-	
-	private static final Array<Object[]> objects = new Array<Object[]>(Object[].class) {
-		@Override public int hashCode(Object[] src) {return Arrays.hashCode(src);}
-		@Override public boolean equals(Object[] v1, Object[] v2) {return Arrays.equals(v1, v2);}
-	};
-	
-	private static final HashMap<Class<?>, Object> pool = new HashMap<>(8);
-	
-	@SuppressWarnings("unchecked")
-	public static <T> Array<T> get(Class<T> clazz) {
-		final Object c = clazz;
-		if (c == boolean[].class) return (Array<T>) booleans;
-		if (c == byte[].class) return (Array<T>) bytes;
-		if (c == short[].class) return (Array<T>) shorts;
-		if (c == int[].class) return (Array<T>) ints;
-		if (c == long[].class) return (Array<T>) longs;
-		if (c == char[].class) return (Array<T>) chars;
-		if (c == float[].class) return (Array<T>) floats;
-		if (c == double[].class) return (Array<T>) doubles;
-		if (c == Object[].class) return (Array<T>) objects;
-		if (pool.containsKey(clazz)) return (Array<T>) pool.get(clazz);
-		synchronized (pool)
-		{
-			if (pool.containsKey(clazz)) return (Array<T>) pool.get(clazz);
-			Array<T> ret = new Array<>(clazz);
-			pool.put(clazz, ret);
-			return ret;
-		}
+	static int hash(int hash, Object[][] src) {
+		
+		if (src == null) return hash ^ 10153331;
+		for (Object[] s : src) hash ^= Arrays.hashCode(s);
+		
+		return hash;
 	}
 	
 	
-	public interface ISort {
+	static int hash(int hash, Object src) {return hash ^ hash(src);}
+	
+	static int hash(int hash, double src) {return hash ^ hash(src);}
+	
+	static int hash(int hash, float src)  {return hash ^ hash(src);}
+	
+	static int hash(int hash, int src)    {return hash ^ hash(src);}
+	
+	static int hash(int hash, long src)   {return hash ^ hash(src);}
+	
+	static int hash(Object src)           {return src == null ? 0x85ebca6b : hash(src.hashCode());}
+	
+	static int hash(double src)           {return hash(Double.doubleToLongBits(src));}
+	
+	static int hash(float src)            {return hash(Float.floatToIntBits(src));}
+	
+	static int hash(int src) {
+		src = (src ^ (src >>> 16)) * 0x85ebca6b;
+		src = (src ^ (src >>> 13)) * 0xc2b2ae35;
+		return src ^ (src >>> 16);
+	}
+	
+	static int hash(long src) {
+		src = (src ^ (src >>> 32)) * 0x4cd6944c5cc20b6dL;
+		src = (src ^ (src >>> 29)) * 0xfc12c5b19d3259e9L;
+		return (int) (src ^ (src >>> 32));
+	}
+	
+	interface ISort {
+		
+		abstract class Index implements ISort {
+			public char[] dst;
+			public int    size;
+			@Override public void swap(int ia, int ib) {
+				final char t = dst[ia];
+				dst[ia] = dst[ib];
+				dst[ib] = t;
+			}
+			@Override public void copy(int idst, int isrc) {dst[idst] = dst[isrc];}
+			char fixi = 0;
+			@Override public void drop(int idst) {dst[idst] = fixi;}
+		}
+		
+		abstract class Index2 implements ISort {
+			public int[] dst;
+			public int   size;
+			@Override public void swap(int ia, int ib) {
+				final int t = dst[ia];
+				dst[ia] = dst[ib];
+				dst[ib] = t;
+			}
+			@Override public void copy(int idst, int isrc) {dst[idst] = dst[isrc];}
+			int fixi = 0;
+			@Override public void drop(int idst) {dst[idst] = fixi;}
+		}
+		
+		interface Primitives {
+			long get(int index);
+			
+			default int compare(long x, long y) {return Long.compare(x, y);}
+			
+			interface floats extends Primitives {
+				float get2(int index);
+				
+				default long get(int index) {return Float.floatToIntBits(get2(index));}
+				
+				default int compare(long x, long y) {
+					final float X = Float.intBitsToFloat((int) x);
+					final float Y = Float.intBitsToFloat((int) y);
+					return X < Y ? -1 : Y < X ? 1 : (Long.compare(x, y));
+				}
+			}
+			
+			interface doubles extends Primitives {
+				double get2(int index);
+				
+				default long get(int index) {return Double.doubleToLongBits(get2(index));}
+				
+				default int compare(long x, long y) {
+					final double X = Double.longBitsToDouble(x);
+					final double Y = Double.longBitsToDouble(y);
+					return X < Y ? -1 : Y < X ? 1 : (Long.compare(x, y));
+				}
+			}
+			
+			
+			class Index extends ISort.Index {
+				public Primitives src;
+				
+				@Override public int compare(int ia, int ib) {return src.compare(src.get(dst[ia]), src.get(dst[ib]));}
+				@Override public int compare(int isrc)       {return src.compare(fix, src.get(dst[isrc]));}
+				long fix = 0;
+				@Override public void hold(int isrc) {fix = src.get(fixi = dst[isrc]);}
+			}
+			
+			class Index2 extends ISort.Index2 {
+				public Primitives src;
+				
+				@Override public int compare(int ia, int ib) {return src.compare(src.get(dst[ia]), src.get(dst[ib]));}
+				@Override public int compare(int isrc)       {return src.compare(fix, src.get(dst[isrc]));}
+				long fix = 0;
+				@Override public void hold(int isrc) {fix = src.get(fixi = dst[isrc]);}
+			}
+			
+			class Direct implements ISort {
+				
+				interface PrimitivesSet extends ISort.Primitives {
+					void set(int index, long value);
+				}
+				
+				public PrimitivesSet array;
+				
+				@Override public int compare(int ia, int ib) {return array.compare(array.get(ia), array.get(ib));}
+				@Override public int compare(int isrc)       {return array.compare(fix, array.get(isrc));}
+				long fix = 0;
+				@Override public void hold(int isrc) {fix = array.get(fixi = isrc);}
+				
+				@Override public void swap(int ia, int ib) {
+					final long t = array.get(ia);
+					array.set(ia, array.get(ib));
+					array.set(ib, t);
+				}
+				@Override public void copy(int idst, int isrc) {array.set(idst, array.get(isrc));}
+				int fixi = 0;
+				@Override public void drop(int idst) {array.set(idst, fixi);}
+			}
+		}
+		
+		interface Anything {
+			
+			void hold(int isrc);
+			
+			int compare(int ia, int ib);
+			
+			int compare(int ib);
+			
+			class Index extends ISort.Index {
+				public Anything src;
+				
+				@Override public int compare(int ia, int ib) {return src.compare(dst[ia], dst[ib]);}
+				@Override public int compare(int isrc)       {return src.compare(dst[isrc]);}
+				@Override public void hold(int isrc)         {src.hold(fixi = dst[isrc]);}
+			}
+			
+			class Index2 extends ISort.Index2 {
+				public Anything src;
+				
+				@Override public int compare(int ia, int ib) {return src.compare(dst[ia], dst[ib]);}
+				@Override public int compare(int isrc)       {return src.compare(dst[isrc]);}
+				@Override public void hold(int isrc)         {src.hold(fixi = dst[isrc]);}
+			}
+		}
+		
+		
+		abstract class Objects<T> implements Anything, Comparator<T> {
+			abstract T get(int index);
+			public int compare(T o1, T o2)               {return Integer.compare(hash(o1), hash(o2));}
+			
+			@Override public int compare(int ia, int ib) {return compare(get(ia), get(ib));}
+			@Override public int compare(int ib)         {return compare(fix, get(ib));}
+			
+			T fix;
+			@Override public void hold(int isrc) {fix = get(isrc);}
+		}
+		
 		
 		int compare(int ia, int ib);//array[ia] < array[ib] ? -1 : array[ia] == array[ib] ? 0 : 1;
 		
@@ -200,17 +552,13 @@ public class Array<T> {
 		 */
 		void swap(int ia, int ib);
 		
-		void set(int dst_index, int src_index);//replace element at dst_index with element at src_index
-		
-		void asc();//ascending sort order
-		
-		void desc();//descending order
+		void copy(int dst_index, int src_index);//replace element at dst_index with element at src_index
 		
 		int compare(int src_index);// compare fixed element with element at index;
 		
-		void get(int src_index);//fix a value at index
+		void hold(int src_index);//fix a value at index
 		
-		void set(int dst_index);//put fixed value at index
+		void drop(int dst_index);//put fixed value at index
 		
 		//binary search in sorted array index of the element that value is equal to the fixed element
 		static int search(ISort dst, int lo, int hi) {
@@ -247,31 +595,30 @@ public class Array<T> {
 			{
 				int size = hi - lo + 1;
 				
-				if (size < 17)
-					switch (size)
-					{
-						case 1:
-							return;
-						case 2:
-							if (dst.compare(lo, hi) > 0) dst.swap(lo, hi);
-							return;
-						case 3:
-							if (dst.compare(lo, hi - 1) > 0) dst.swap(lo, hi - 1);
-							if (dst.compare(lo, hi) > 0) dst.swap(lo, hi);
-							if (dst.compare(hi - 1, hi) > 0) dst.swap(hi - 1, hi);
-							return;
-						default:
-							for (int i = lo; i < hi; i++)
-							{
-								dst.get(i + 1);
-								
-								int j = i;
-								while (lo <= j && dst.compare(j) < 0) dst.set(j + 1, j--);
-								
-								dst.set(j + 1);
-							}
-							return;
-					}
+				if (size < 17) switch (size)
+				{
+					case 1:
+						return;
+					case 2:
+						if (dst.compare(lo, hi) > 0) dst.swap(lo, hi);
+						return;
+					case 3:
+						if (dst.compare(lo, hi - 1) > 0) dst.swap(lo, hi - 1);
+						if (dst.compare(lo, hi) > 0) dst.swap(lo, hi);
+						if (dst.compare(hi - 1, hi) > 0) dst.swap(hi - 1, hi);
+						return;
+					default:
+						for (int i = lo; i < hi; i++)
+						{
+							dst.hold(i + 1);
+							
+							int j = i;
+							while (lo <= j && dst.compare(j) < 0) dst.copy(j + 1, j--);
+							
+							dst.drop(j + 1);
+						}
+						return;
+				}
 				
 				if (limit == 0)
 				{
@@ -294,7 +641,7 @@ public class Array<T> {
 				if (dst.compare(lo, hi) > 0) dst.swap(lo, hi);
 				if (dst.compare(o, hi) > 0) dst.swap(o, hi);
 				
-				dst.get(o);
+				dst.hold(o);
 				dst.swap(o, hi - 1);
 				int l = lo, h = hi - 1;
 				
@@ -315,7 +662,7 @@ public class Array<T> {
 		}
 		
 		static void heapify(ISort dst, int i, final int w, int lo) {
-			dst.get(--lo + i);
+			dst.hold(--lo + i);
 			
 			while (i <= w >>> 1)
 			{
@@ -324,11 +671,11 @@ public class Array<T> {
 				
 				if (-1 < dst.compare(lo + child)) break;
 				
-				dst.set(lo + i, lo + child);
+				dst.copy(lo + i, lo + child);
 				i = child;
 			}
 			
-			dst.set(lo + i);
+			dst.drop(lo + i);
 		}
 	}
 }

@@ -1,6 +1,8 @@
 package org.unirail.collections;
 
 
+import org.unirail.JsonWriter;
+
 import java.util.Arrays;
 
 import static org.unirail.collections.Array.hash;
@@ -10,23 +12,27 @@ public interface ObjectLongNullMap {
 		int INIT = -1;
 		
 		static <K> int token(R<K> src, int token) {
-			for (token++, token &= Integer.MAX_VALUE; ; token++)
+			for (token++; ; token++)
 				if (token == src.keys.length) return INIT;
-				else if (src.keys[token] != null) return src.values.hasValue(token) ? token : token | Integer.MIN_VALUE;
+				else if (src.keys[token] != null) return token;
 		}
 		
-		static <K> K key(R<K> src, int token)            {return src.keys[token & Integer.MAX_VALUE];}
+		static <K> K key(R<K> src, int token)            {return src.keys[token];}
 		
-		static <K> boolean hasValue(R<K> src, int token) {return -1 < token;}
+		static <K> boolean hasValue(R<K> src, int token) {return src.values.hasValue(token);}
 		
 		static <K> long value(R<K> src, int token) {return src.values.get(token);}
 	}
 	
 	abstract class R<K> implements Cloneable {
 		
-		protected final Array<K> array;
+		protected final Array.Of<K> array;
+		private final   boolean     K_is_string;
 		
-		protected R(Class<K> clazz) {array = Array.get(clazz);}
+		protected R(Class<K> clazzK) {
+			array       = Array.get(clazzK);
+			K_is_string = clazzK == String.class;
+		}
 		
 		K[]                    keys;
 		LongNullList.RW values;
@@ -46,7 +52,7 @@ public interface ObjectLongNullMap {
 		
 		public @Positive_Values int token(K key) {
 			
-			if (key == null) return hasNullKey;
+			if (key == null) return hasNullKey == Positive_Values.NONE ? Positive_Values.NONE : keys.length;
 			
 			int slot = array.hashCode(key) & mask;
 			
@@ -60,9 +66,9 @@ public interface ObjectLongNullMap {
 		
 		public boolean hasNone(int token)  {return token == Positive_Values.NONE;}
 		
-		public boolean hasNull(int token)  {return token == Positive_Values.NULL;}
+		public boolean hasNull(int token)  {return token == keys.length;}
 		
-		public long value(@Positive_ONLY int token) {return token == Positive_Values.VALUE ? NullKeyValue : values.get(token);}
+		public long value(@Positive_ONLY int token) {return token == keys.length ? NullKeyValue : values.get(token);}
 		
 		
 		public int hashCode() {
@@ -117,63 +123,148 @@ public interface ObjectLongNullMap {
 		protected                  long NullKeyValue = 0;
 		
 		
-		public String toString() {return toString(null).toString();}
+		public Array.ISort.Objects<K> getK = null;
+		public Array.ISort.Primitives getV = null;
 		
-		public StringBuilder toString(StringBuilder dst) {
-			int size = size();
-			if (dst == null) dst = new StringBuilder(size * 10);
-			else dst.ensureCapacity(dst.length() + size * 10);
+		public void build_K(Array.ISort.Anything.Index dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new char[assigned];
+			dst.size = assigned;
 			
-			switch (hasNullKey)
+			dst.src = getK == null ? getK = new Array.ISort.Objects<K>() {
+				@Override K get(int index) {return keys[index];}
+			} : getK;
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public void build_V(Array.ISort.Primitives.Index dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new char[assigned];
+			dst.size = assigned;
+			
+			dst.src = getV == null ? getV = index -> values.hasValue(index) ?  value(index) : 0 : getV;
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public void build_K(Array.ISort.Anything.Index2 dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new int[assigned];
+			dst.size = assigned;
+			
+			dst.src = getK == null ? getK = new Array.ISort.Objects<K>() {
+				@Override K get(int index) {return keys[index];}
+			} : getK;
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public void build_V(Array.ISort.Primitives.Index2 dst) {
+			if (dst.dst == null || dst.dst.length < assigned) dst.dst = new int[assigned];
+			dst.size = assigned;
+			
+			dst.src = getV == null ? getV = index -> values.hasValue(index) ?  value(index) : 0 : getV;
+			
+			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) dst.dst[k++] = (char) i;
+			Array.ISort.sort(dst, 0, assigned - 1);
+		}
+		
+		public String toString() {
+			final JsonWriter        json   = JsonWriter.get();
+			final JsonWriter.Config config = json.enter();
+			
+			
+			if (0 < assigned)
 			{
-				case Positive_Values.NULL:
-					dst.append("Ø -> Ø\n");
-					break;
-				case Positive_Values.VALUE:
-					dst.append("Ø -> ").append(NullKeyValue).append('\n');
+				json.preallocate(assigned * 10);
+				int token = NonNullKeysIterator.INIT, i=0;
+				
+				if (K_is_string)
+				{
+					json.enterObject();
+					
+					switch (hasNullKey)
+					{
+						case Positive_Values.NULL:
+							json.name(null).value();
+							break;
+						case Positive_Values.VALUE:
+							json.name(null).value(NullKeyValue);
+					}
+					
+					
+					if (json.orderByKey())
+						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)
+						{
+							json.name(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i]).toString());
+							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+							else json.value();
+						}
+					else
+						while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+						{
+							json.name(NonNullKeysIterator.key(this, token).toString());
+							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+							else json.value();
+						}
+					
+					json.exitObject();
+				}
+				else
+				{
+					json.enterArray();
+					
+					switch (hasNullKey)
+					{
+						case Positive_Values.NULL:
+							json.name(null).value();
+							json.
+									name("Key").value().
+									name("Value").value();
+							
+							break;
+						case Positive_Values.VALUE:
+							json.
+									name("Key").value().
+									name("Value").value(NullKeyValue);
+					}
+					
+					if (json.orderByKey())
+						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)						{
+							json.
+									name("Key").value(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i])).
+									name("Value");
+							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+							else json.value();
+						}
+					else
+						while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+						{
+							json.
+									name("Key").value(NonNullKeysIterator.key(this, token)).
+									name("Value");
+							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+							else json.value();
+						}
+					json.exitArray();
+				}
+			}
+			else
+			{
+				json.enterObject();
+				switch (hasNullKey)
+				{
+					case Positive_Values.NULL:
+						json.name(null).value();
+						break;
+					case Positive_Values.VALUE:
+						json.name(null).value(NullKeyValue);
+				}
+				json.exitObject();
 			}
 			
-			final int[] indexes = new int[assigned];
-			for (int i = 0, k = 0; i < keys.length; i++) if (keys[i] != null) indexes[k++] = i;
-			
-			Array.ISort sorter = new Array.ISort() {
-				
-				int more = 1, less = -1;
-				@Override public void asc() {less = -(more = 1);}
-				@Override public void desc() {more = -(less = 1);}
-				
-				@Override public int compare(int ia, int ib) {
-					final int x = keys[indexes[ia]].hashCode(), y = keys[indexes[ib]].hashCode();
-					return x < y ? less : x == y ? 0 : more;
-				}
-				@Override public void swap(int ia, int ib) {
-					final int t = indexes[ia];
-					indexes[ia] = indexes[ib];
-					indexes[ib] = t;
-				}
-				@Override public void set(int idst, int isrc) {indexes[idst] = indexes[isrc];}
-				@Override public int compare(int isrc) {
-					final int x = fix, y = keys[indexes[isrc]].hashCode();
-					return x < y ? less : x == y ? 0 : more;
-				}
-				
-				int fix = 0;
-				int fixi = 0;
-				@Override public void get(int isrc) {fix = keys[fixi = indexes[isrc]].hashCode();}
-				@Override public void set(int idst) {indexes[idst] = fixi;}
-			};
-			
-			Array.ISort.sort(sorter, 0, assigned - 1);
-			
-			for (int i = 0, j; i < assigned; i++)
-			{
-				dst.append(keys[j = indexes[i]]).append(" -> ");
-				
-				if (values.hasValue(j)) dst.append(values.get(j));
-				else dst.append('Ø');
-				dst.append('\n');
-			}
-			return dst;
+			return json.exit(config);
 		}
 	}
 	
