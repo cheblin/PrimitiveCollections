@@ -35,7 +35,7 @@ public interface ByteShortNullMap {
 		public boolean contains(byte key)           {return !hasNone(token(key));}
 		
 		
-		public @Positive_Values int token( Byte      key) {return key == null ? hasNullKey : token((byte) (key + 0));}
+		public @Positive_Values int token( Byte      key) {return key == null ? hasNullKey == Positive_Values.VALUE ? 256 : hasNullKey : token((byte) (key + 0));}
 		
 		public @Positive_Values int token(byte key) {
 			if (keys.contains((byte) key))
@@ -52,12 +52,7 @@ public interface ByteShortNullMap {
 		
 		public boolean hasNull(int token)  {return token == Positive_Values.NULL;}
 		
-		protected static final char nullKeyValueToken = 257;
-		public short value(@Positive_ONLY int token) {
-			if (token == nullKeyValueToken) return NullKeyValue;
-			return    values.get((byte) token);
-		}
-		
+		public short value(@Positive_ONLY int token) {return token == 256 ? NullKeyValue :    values.get((byte) token);}
 		
 		@Positive_Values int hasNullKey = Positive_Values.NONE;
 		short NullKeyValue = 0;
@@ -75,7 +70,7 @@ public interface ByteShortNullMap {
 		
 		public boolean equals(R other) {
 			return other != null && hasNullKey == other.hasNullKey &&
-			       (hasNullKey != nullKeyValueToken || NullKeyValue == other.NullKeyValue)
+			       (hasNullKey != Positive_Values.VALUE || NullKeyValue == other.NullKeyValue)
 			       && other.keys.equals(keys) && other.values.equals(values);
 		}
 		
@@ -95,26 +90,24 @@ public interface ByteShortNullMap {
 			return null;
 		}
 		
-		
 		public String toString() {
 			final JsonWriter        json   = JsonWriter.get();
 			final JsonWriter.Config config = json.enter();
 			json.enterObject();
 			
-			int size = keys.size();
+			switch (hasNullKey)
+			{
+				case Positive_Values.NULL:
+					json.name(null).value();
+					break;
+				case Positive_Values.VALUE:
+					if (keys.hasNullKey) json.name(null).value(NullKeyValue);
+			}
+			
+			int size = keys.size;
 			if (0 < size)
 			{
 				json.preallocate(size * 10);
-				
-				switch (hasNullKey)
-				{
-					case Positive_Values.NULL:
-						json.name(null).value();
-						break;
-					case nullKeyValueToken:
-						if (keys.hasNullKey) json.name(null).value(NullKeyValue);
-				}
-				
 				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 				{
 					json.name(NonNullKeysIterator.key(this, token));
@@ -144,9 +137,9 @@ public interface ByteShortNullMap {
 			
 			keys.add(null);
 			int h = hasNullKey;
-			hasNullKey   = nullKeyValueToken;
+			hasNullKey   = Positive_Values.VALUE;
 			NullKeyValue = value;
-			return h != nullKeyValueToken;
+			return h != Positive_Values.VALUE;
 		}
 		
 		public boolean put( Byte      key,  Short     value) {
@@ -161,9 +154,9 @@ public interface ByteShortNullMap {
 				return h == Positive_Values.NULL;
 			}
 			
-			hasNullKey   = nullKeyValueToken;
+			hasNullKey   = Positive_Values.VALUE;
 			NullKeyValue = value;
-			return h == nullKeyValueToken;
+			return h == Positive_Values.VALUE;
 		}
 		
 		

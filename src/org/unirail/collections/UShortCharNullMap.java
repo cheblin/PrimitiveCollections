@@ -11,7 +11,7 @@ public interface UShortCharNullMap {
 		int INIT = -1;
 		
 		static int token(R src, int token) {
-			int len = src.keys.length;
+			final int len = src.keys.length;
 			for (token++; ; token++)
 				if (token == len) return src.has0Key == Positive_Values.NONE ? INIT : len;
 				else if (token == len + 1) return INIT;
@@ -66,7 +66,7 @@ public interface UShortCharNullMap {
 		
 		public boolean contains(char key)               {return !hasNone(token(key));}
 		
-		public @Positive_Values int token( Character key) {return key == null ? hasNullKey : token((char) (key + 0));}
+		public @Positive_Values int token( Character key) {return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token((char) (key + 0));}
 		
 		public @Positive_Values int token(char key) {
 			
@@ -82,17 +82,13 @@ public interface UShortCharNullMap {
 			return Positive_Values.NONE;//the key is not present
 		}
 		
-		public boolean hasValue(int token) {return -1 < token;}
+		public boolean hasValue(int token)       {return -1 < token;}
 		
-		public boolean hasNone(int token)  {return token == Positive_Values.NONE;}
+		public boolean hasNone(int token)        {return token == Positive_Values.NONE;}
 		
-		public boolean hasNull(int token)  {return token == Positive_Values.NULL;}
+		public boolean hasNull(int token)        {return token == Positive_Values.NULL;}
 		
-		public char value(@Positive_ONLY int token) {
-			if (token == keys.length + 1) return NullKeyValue;
-			if (token == keys.length) return OKeyValue;
-			return values.get(token);
-		}
+		public char value(@Positive_ONLY int token) {return token == keys.length + 1 ? NullKeyValue : token == keys.length ? OKeyValue : values.get(token);}
 		
 		
 		public @Positive_Values int hasNullKey() {return hasNullKey;}
@@ -185,7 +181,7 @@ public interface UShortCharNullMap {
 					json.name(null).value();
 			}
 			
-			int size = size(), i=0,token = NonNullKeysIterator.INIT;
+			int size = size(), i = 0, token = NonNullKeysIterator.INIT;
 			if (0 < size)
 			{
 				json.preallocate(size * 10);

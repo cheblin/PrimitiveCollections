@@ -52,7 +52,7 @@ public interface ObjectFloatNullMap {
 		
 		public @Positive_Values int token(K key) {
 			
-			if (key == null) return hasNullKey == Positive_Values.NONE ? Positive_Values.NONE : keys.length;
+			if (key == null) return hasNullKey == Positive_Values.VALUE ? keys.length : hasNullKey;
 			
 			int slot = array.hashCode(key) & mask;
 			
@@ -178,7 +178,7 @@ public interface ObjectFloatNullMap {
 			if (0 < assigned)
 			{
 				json.preallocate(assigned * 10);
-				int token = NonNullKeysIterator.INIT, i=0;
+				int token = NonNullKeysIterator.INIT, i = 0;
 				
 				if (K_is_string)
 				{
@@ -220,32 +220,45 @@ public interface ObjectFloatNullMap {
 						case Positive_Values.NULL:
 							json.name(null).value();
 							json.
-									name("Key").value().
-									name("Value").value();
+									enterObject()
+									.name("Key").value()
+									.name("Value").value().
+									exitObject();
 							
 							break;
 						case Positive_Values.VALUE:
 							json.
-									name("Key").value().
-									name("Value").value(NullKeyValue);
+									enterObject()
+									.name("Key").value()
+									.name("Value").value(NullKeyValue).
+									exitObject();
 					}
 					
 					if (json.orderByKey())
-						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)						{
+						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)
+						{
 							json.
-									name("Key").value(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i])).
-									name("Value");
+									enterObject()
+									.name("Key").value(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i]))
+									.name("Value");
+							
 							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
 							else json.value();
+							
+							json.exitObject();
 						}
 					else
 						while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
 						{
 							json.
-									name("Key").value(NonNullKeysIterator.key(this, token)).
-									name("Value");
+									enterObject()
+									.name("Key").value(NonNullKeysIterator.key(this, token))
+									.name("Value");
+							
 							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
 							else json.value();
+							
+							json.exitObject();
 						}
 					json.exitArray();
 				}

@@ -204,20 +204,27 @@ public interface ObjectObjectMap {
 				{
 					json.enterArray();
 					
-					if (hasNullKey) json.
-							name("Key").value().
-							name("Value").value(NullKeyValue);
+					if (hasNullKey)
+						json.
+								enterObject()
+								.name("Key").value()
+								.name("Value").value(NullKeyValue).
+								exitObject();
 					
 					if (json.orderByKey())
 						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)
 						     json.
-								     name("Key").value(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i])).
-								     name("Value").value(NonNullKeysIterator.value(this, token));
+								     enterObject()
+								     .name("Key").value(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i]))
+								     .name("Value").value(NonNullKeysIterator.value(this, token)).
+								     exitObject();
 					else
 						while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
 							json.
-									name("Key").value(NonNullKeysIterator.key(this, token)).
-									name("Value").value(NonNullKeysIterator.value(this, token));
+									enterObject()
+									.name("Key").value(NonNullKeysIterator.key(this, token))
+									.name("Value").value(NonNullKeysIterator.value(this, token)).
+									exitObject();
 					json.exitArray();
 					
 				}
