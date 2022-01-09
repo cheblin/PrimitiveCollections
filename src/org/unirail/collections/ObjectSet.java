@@ -22,7 +22,7 @@ public interface ObjectSet {
 	}
 	
 	
-	abstract class R<K> implements Cloneable {
+	abstract class R<K> implements Cloneable, JsonWriter.Client {
 		
 		protected int assigned;
 		
@@ -35,15 +35,14 @@ public interface ObjectSet {
 		protected double loadFactor;
 		
 		protected final Array.Of<K> array;
-		private final   char        s;
+		private final   boolean     K_is_string;
 		
-		protected R(Class<K> clazz) {
-			array = Array.get(clazz);
-			s     = clazz == String.class ? '"' : '\0';
+		protected R(Class<K> clazzK) {
+			array       = Array.get(clazzK);
+			K_is_string = clazzK == String.class;
 		}
 		
 		public K[] keys;
-		
 		
 		public boolean contains(K key) {
 			if (key == null) return hasNullKey;
@@ -122,29 +121,39 @@ public interface ObjectSet {
 		}
 		
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
+			int i = keys.length;
+			if (K_is_string)
+			{
+				json.enterObject();
+				
+				if (hasNullKey) json.name().value();
+				
+				if (0 < assigned)
+				{
+					json.preallocate(assigned * 10);
+					String[] strs = (String[]) keys;
+					String   str;
+					while (-1 < --i) if ((str = strs[i]) != null) json.name(str).value();
+				}
+				
+				json.exitObject();
+				return;
+			}
+			
 			json.enterArray();
 			
 			if (hasNullKey) json.value();
 			
-			int size = size(), token = ObjectObjectMap.NonNullKeysIterator.INIT, i = 0;
-			;
-			if (0 < size)
+			if (0 < assigned)
 			{
-				json.preallocate(size * 10);
-				
-				if (json.orderByKey())
-					for (build(json.anythingIndex); i < json.anythingIndex.size; i++)
-					     json.value(NonNullKeysIterator.key(this, json.anythingIndex.dst[i]));
-				else
-					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
-						json.value(NonNullKeysIterator.key(this, token));
+				json.preallocate(assigned * 10);
+				Object obj;
+				while (-1 < --i) if ((obj = keys[i]) != null) json.value(obj);
 			}
 			
 			json.exitArray();
-			return json.exit(config);
 		}
 	}
 	

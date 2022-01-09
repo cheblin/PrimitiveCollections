@@ -41,9 +41,10 @@ public interface BitsNullList {
 		
 		@Override public R clone()         {return (R) super.clone();}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+		public String toString()           {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
+			
 			json.enterArray();
 			
 			final int size = size();
@@ -61,11 +62,8 @@ public interface BitsNullList {
 					else json.value(value);
 				}
 			}
-			
 			json.exitArray();
-			return json.exit(config);
 		}
-		
 	}
 	
 	class RW extends R {

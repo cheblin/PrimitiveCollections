@@ -19,7 +19,7 @@ public interface UByteUIntNullMap {
 		static long value(R src, int token) {return  src.values.get(ByteSet.NonNullKeysIterator.index(null, token));}
 	}
 	
-	abstract class R implements Cloneable {
+	abstract class R implements Cloneable, JsonWriter.Client {
 		
 		ByteSet.RW             keys = new ByteSet.RW();
 		UIntNullList.RW values;
@@ -90,25 +90,25 @@ public interface UByteUIntNullMap {
 			return null;
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterObject();
 			
 			switch (hasNullKey)
 			{
 				case Positive_Values.NULL:
-					json.name(null).value();
+					json.name().value();
 					break;
 				case Positive_Values.VALUE:
-					if (keys.hasNullKey) json.name(null).value(NullKeyValue);
+					if (keys.hasNullKey) json.name().value(NullKeyValue);
 			}
 			
 			int size = keys.size;
 			if (0 < size)
 			{
 				json.preallocate(size * 10);
-				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 				{
 					json.name(NonNullKeysIterator.key(this, token));
 					if (NonNullKeysIterator.hasValue(this, token)) json.value();
@@ -117,7 +117,6 @@ public interface UByteUIntNullMap {
 			}
 			
 			json.exitObject();
-			return json.exit(config);
 		}
 	}
 	

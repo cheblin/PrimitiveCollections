@@ -24,7 +24,7 @@ public interface ObjectFloatNullMap {
 		static <K> float value(R<K> src, int token) {return src.values.get(token);}
 	}
 	
-	abstract class R<K> implements Cloneable {
+	abstract class R<K> implements Cloneable , JsonWriter.Client{
 		
 		protected final Array.Of<K> array;
 		private final   boolean     K_is_string;
@@ -170,15 +170,15 @@ public interface ObjectFloatNullMap {
 			Array.ISort.sort(dst, 0, assigned - 1);
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json)  {
 			
 			
 			if (0 < assigned)
 			{
 				json.preallocate(assigned * 10);
-				int token = NonNullKeysIterator.INIT, i = 0;
+				int token = NonNullKeysIterator.INIT;
 				
 				if (K_is_string)
 				{
@@ -187,27 +187,18 @@ public interface ObjectFloatNullMap {
 					switch (hasNullKey)
 					{
 						case Positive_Values.NULL:
-							json.name(null).value();
+							json.name().value();
 							break;
 						case Positive_Values.VALUE:
-							json.name(null).value(NullKeyValue);
+							json.name().value(NullKeyValue);
 					}
 					
-					
-					if (json.orderByKey())
-						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)
-						{
-							json.name(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i]).toString());
-							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
-							else json.value();
-						}
-					else
-						while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
-						{
-							json.name(NonNullKeysIterator.key(this, token).toString());
-							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
-							else json.value();
-						}
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+					{
+						json.name(NonNullKeysIterator.key(this, token).toString());
+						if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+						else json.value();
+					}
 					
 					json.exitObject();
 				}
@@ -218,7 +209,7 @@ public interface ObjectFloatNullMap {
 					switch (hasNullKey)
 					{
 						case Positive_Values.NULL:
-							json.name(null).value();
+							json.name().value();
 							json.
 									enterObject()
 									.name("Key").value()
@@ -234,32 +225,18 @@ public interface ObjectFloatNullMap {
 									exitObject();
 					}
 					
-					if (json.orderByKey())
-						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)
-						{
-							json.
-									enterObject()
-									.name("Key").value(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i]))
-									.name("Value");
-							
-							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
-							else json.value();
-							
-							json.exitObject();
-						}
-					else
-						while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
-						{
-							json.
-									enterObject()
-									.name("Key").value(NonNullKeysIterator.key(this, token))
-									.name("Value");
-							
-							if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
-							else json.value();
-							
-							json.exitObject();
-						}
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+					{
+						json.
+								enterObject()
+								.name("Key").value(NonNullKeysIterator.key(this, token))
+								.name("Value");
+						
+						if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+						else json.value();
+						
+						json.exitObject();
+					}
 					json.exitArray();
 				}
 			}
@@ -269,15 +246,13 @@ public interface ObjectFloatNullMap {
 				switch (hasNullKey)
 				{
 					case Positive_Values.NULL:
-						json.name(null).value();
+						json.name().value();
 						break;
 					case Positive_Values.VALUE:
-						json.name(null).value(NullKeyValue);
+						json.name().value(NullKeyValue);
 				}
 				json.exitObject();
 			}
-			
-			return json.exit(config);
 		}
 	}
 	

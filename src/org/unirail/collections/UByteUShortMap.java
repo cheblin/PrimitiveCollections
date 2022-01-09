@@ -17,7 +17,7 @@ public interface UByteUShortMap {
 	}
 	
 	
-	abstract class R implements Cloneable {
+	abstract class R implements Cloneable, JsonWriter.Client {
 		
 		ByteSet.RW    keys = new ByteSet.RW();
 		char[] values;
@@ -67,9 +67,9 @@ public interface UByteUShortMap {
 			return null;
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterObject();
 			
 			int size = keys.size();
@@ -77,16 +77,15 @@ public interface UByteUShortMap {
 			{
 				json.preallocate(size * 10);
 				
-				if (keys.hasNullKey) json.name(null).value(NullKeyValue);
+				if (keys.hasNullKey) json.name().value(NullKeyValue);
 				
-				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 				     json.
 						     name(NonNullKeysIterator.key(this, token)).
 						     value(NonNullKeysIterator.value(this, token));
 			}
 			
 			json.exitObject();
-			return json.exit(config);
 		}
 	}
 	

@@ -25,7 +25,7 @@ public interface CharDoubleNullMap {
 		static double value(R src, int token) {return token == src.keys.length ? src.OKeyValue :    src.values.get(token);}
 	}
 	
-	abstract class R implements Cloneable {
+	abstract class R implements Cloneable , JsonWriter.Client{
 		
 		
 		public char[]          keys   = Array.Of.chars     .O;
@@ -167,45 +167,35 @@ public interface CharDoubleNullMap {
 			Array.ISort.sort(dst, 0, assigned - 1);
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json)  {
 			json.enterObject();
 			
 			switch (hasNullKey)
 			{
 				case Positive_Values.VALUE:
-					json.name(null).value(NullKeyValue);
+					json.name().value(NullKeyValue);
 					break;
 				case Positive_Values.NULL:
-					json.name(null).value();
+					json.name().value();
 			}
 			
-			int size = size(), i = 0, token = NonNullKeysIterator.INIT;
+			int size = size(), token = NonNullKeysIterator.INIT;
 			if (0 < size)
 			{
 				json.preallocate(size * 10);
 				
-				if (json.orderByKey())
-					for (build(json.primitiveIndex, true); i < json.primitiveIndex.size; i++)
-					{
-						json.name(NonNullKeysIterator.key(this, token = json.primitiveIndex.dst[i]));
-						if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
-						else json.value();
-					}
-				else
-					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
-					{
-						json.name(NonNullKeysIterator.key(this, token));
-						if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
-						else json.value();
-					}
+				while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+				{
+					json.name(NonNullKeysIterator.key(this, token));
+					if (NonNullKeysIterator.hasValue(this, token)) json.value(NonNullKeysIterator.value(this, token));
+					else json.value();
+				}
 			}
 			
 			json.exitObject();
-			return json.exit(config);
 		}
-		
 	}
 	
 	class RW extends R {

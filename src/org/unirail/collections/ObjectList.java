@@ -7,16 +7,16 @@ import java.util.Arrays;
 
 public interface ObjectList {
 	
-	abstract class R<V> {
+	abstract class R<V> implements Cloneable, JsonWriter.Client {
 		
 		
-		protected       V[]      values;
+		protected       V[]         values;
 		protected final Array.Of<V> array;
-		private final   char     s;
+		private final   boolean     V_is_string;
 		
-		protected R(Class<V> clazz) {
-			array = Array.get(clazz);
-			s     = clazz == String.class ? '"' : '\0';
+		protected R(Class<V> clazzV) {
+			array       = Array.get(clazzV);
+			V_is_string = clazzV == String.class;
 		}
 		
 		
@@ -75,9 +75,8 @@ public interface ObjectList {
 		}
 		
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterArray();
 			
 			int size = size();
@@ -85,12 +84,13 @@ public interface ObjectList {
 			if (0 < size)
 			{
 				json.preallocate(size * 10);
-				
-				for (int i = 0; i < size; i++) json.value(get(i));
+				int i = 0;
+				if (V_is_string)
+					for (String[] strs = (String[]) values; i < size; i++) json.value(strs[i]);
+				else
+					for (; i < size; i++) json.value(values[i]);
 			}
-			
 			json.exitArray();
-			return json.exit(config);
 		}
 	}
 	
@@ -99,7 +99,7 @@ public interface ObjectList {
 		@SuppressWarnings("unchecked")
 		public RW(Class<V> clazz, int length) {
 			super(clazz);
-			values =  array.copyOf(null, length) ;
+			values = array.copyOf(null, length);
 		}
 		
 		@SafeVarargs public RW(Class<V> core_storage_class, V... items) {

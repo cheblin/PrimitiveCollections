@@ -27,7 +27,7 @@ public interface BitsList {
 	static int len4bits(int bits) {return (bits + BITS) >>> LEN;}
 	
 	
-	abstract class R implements Cloneable {
+	abstract class R implements Cloneable, JsonWriter.Client {
 		
 		protected long[] values = Array.Of.longs.O;
 		protected int    size   = 0;
@@ -280,9 +280,10 @@ public interface BitsList {
 			return null;
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
+			
 			json.enterArray();
 			
 			if (0 < size)
@@ -298,7 +299,6 @@ public interface BitsList {
 				}
 			}
 			json.exitArray();
-			return json.exit(config);
 		}
 		
 		

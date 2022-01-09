@@ -21,7 +21,7 @@ public interface ObjectObjectMap {
 		static <K, V> V value(R<K, V> src, int token) {return src.values[token];}
 	}
 	
-	abstract class R<K, V> implements Cloneable {
+	abstract class R<K, V> implements Cloneable, JsonWriter.Client {
 		
 		public          K[]         keys;
 		public          V[]         values;
@@ -172,32 +172,26 @@ public interface ObjectObjectMap {
 			Array.ISort.sort(dst, 0, assigned - 1);
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
-			
+		
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			
 			if (0 < assigned)
 			{
 				json.preallocate(assigned * 10);
-				int token = NonNullKeysIterator.INIT, i = 0;
+				int token = NonNullKeysIterator.INIT;
 				
 				if (K_is_string)
 				{
 					json.enterObject();
 					
-					if (hasNullKey) json.name(null).value(NullKeyValue);
+					if (hasNullKey) json.name().value(NullKeyValue);
 					
-					if (json.orderByKey())
-						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)
-						     json.
-								     name(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i]).toString()).
-								     value(NonNullKeysIterator.value(this, token));
-					else
-						while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
-							json.
-									name(NonNullKeysIterator.key(this, token).toString()).
-									value(NonNullKeysIterator.value(this, token));
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+						json.
+								name(NonNullKeysIterator.key(this, token).toString()).
+								value(NonNullKeysIterator.value(this, token));
+					
 					json.exitObject();
 				}
 				else
@@ -211,32 +205,22 @@ public interface ObjectObjectMap {
 								.name("Value").value(NullKeyValue).
 								exitObject();
 					
-					if (json.orderByKey())
-						for (build_K(json.anythingIndex); i < json.anythingIndex.size; i++)
-						     json.
-								     enterObject()
-								     .name("Key").value(NonNullKeysIterator.key(this, token = json.anythingIndex.dst[i]))
-								     .name("Value").value(NonNullKeysIterator.value(this, token)).
-								     exitObject();
-					else
-						while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
-							json.
-									enterObject()
-									.name("Key").value(NonNullKeysIterator.key(this, token))
-									.name("Value").value(NonNullKeysIterator.value(this, token)).
-									exitObject();
-					json.exitArray();
+					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+						json.
+								enterObject()
+								.name("Key").value(NonNullKeysIterator.key(this, token))
+								.name("Value").value(NonNullKeysIterator.value(this, token)).
+								exitObject();
 					
+					json.exitArray();
 				}
 			}
 			else
 			{
 				json.enterObject();
-				if (hasNullKey) json.name(null).value(NullKeyValue);
+				if (hasNullKey) json.name().value(NullKeyValue);
 				json.exitObject();
 			}
-			
-			return json.exit(config);
 		}
 	}
 	

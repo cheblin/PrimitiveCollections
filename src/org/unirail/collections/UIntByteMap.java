@@ -24,7 +24,7 @@ public interface UIntByteMap {
 	}
 	
 	
-	abstract class R implements Cloneable {
+	abstract class R implements Cloneable , JsonWriter.Client{
 		int[] keys   = Array.Of.ints     .O;
 		byte[] values = Array.Of.bytes     .O;
 		
@@ -153,32 +153,23 @@ public interface UIntByteMap {
 			Array.ISort.sort(dst, 0, assigned - 1);
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json)  {
 			json.enterObject();
 			
-			int size = size(), i = 0, token = NonNullKeysIterator.INIT;
+			int size = size(),  token = NonNullKeysIterator.INIT;
 			if (0 < size)
 			{
 				json.preallocate(size * 10);
-				
-				if (json.orderByKey())
-					for (build(json.primitiveIndex, true); i < json.primitiveIndex.size; i++)
-					     json.
-							     name(NonNullKeysIterator.key(this, token = json.primitiveIndex.dst[i])).
-							     value(NonNullKeysIterator.value(this, token));
-				else
-					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
-						json.
-								name(NonNullKeysIterator.key(this, token)).
-								value(NonNullKeysIterator.value(this, token));
+				while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+					json.
+							name(NonNullKeysIterator.key(this, token)).
+							value(NonNullKeysIterator.value(this, token));
 			}
 			
 			json.exitObject();
-			return json.exit(config);
 		}
-		
 	}
 	
 	

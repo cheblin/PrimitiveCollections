@@ -23,7 +23,7 @@ public interface FloatObjectMap {
 		static <V> V value(R<V> src, int token) {return token == src.keys.length ? src.OKeyValue : src.values[token];}
 	}
 	
-	abstract class R<V> implements Cloneable {
+	abstract class R<V> implements Cloneable, JsonWriter.Client {
 		
 		
 		public          float[] keys;
@@ -188,32 +188,24 @@ public interface FloatObjectMap {
 		}
 		
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterObject();
 			
-			if (hasNullKey) json.name(null).value(NullKeyValue);
+			if (hasNullKey) json.name().value(NullKeyValue);
 			
-			int size = size(), i = 0, token = NonNullKeysIterator.INIT;
+			int size = size(), token = NonNullKeysIterator.INIT;
 			if (0 < size)
 			{
 				json.preallocate(size * 10);
 				
-				if (json.orderByKey())
-					for (build_K(json.primitiveIndex); i < json.primitiveIndex.size; i++)
-					     json.
-							     name(NonNullKeysIterator.key(this, token = json.primitiveIndex.dst[i])).
-							     value(NonNullKeysIterator.value(this, token));
-				else
-					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
-						json.
-								name(NonNullKeysIterator.key(this, token)).
-								value(NonNullKeysIterator.value(this, token));
+				while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT)
+					json.
+							name(NonNullKeysIterator.key(this, token)).
+							value(NonNullKeysIterator.value(this, token));
 			}
 			
 			json.exitObject();
-			return json.exit(config);
 		}
 	}
 	

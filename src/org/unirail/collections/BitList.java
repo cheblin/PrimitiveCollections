@@ -6,7 +6,7 @@ import org.unirail.JsonWriter;
 public interface BitList {
 	
 	
-	abstract class R implements Cloneable {
+	abstract class R implements Cloneable, JsonWriter.Client {
 		
 		protected int size;
 		
@@ -210,35 +210,36 @@ public interface BitList {
 		}
 		
 		
-		public String toString() {
-			JsonWriter        json  = JsonWriter.get();
-			JsonWriter.Config config = json.enter();
-			
-			int size = size();
-			
-			int max = size >> LEN;
-			
-			json.preallocate((max + 1) * 68);
+		public String toString() {return toJSON();}
+		
+		@Override public void toJSON(JsonWriter json) {
 			
 			json.enterArray();
 			
-			for (int i = 0; i < max; i++)
+			int size = size();
+			if (0 < size)
 			{
-				final long v = values[i];
-				for (int s = 0; s < 64; s++)
-				     json.value((v & 1L << s) == 0 ? 0 : 1);
-			}
-			
-			if (0 < (size &= 63))
-			{
-				final long v = values[max];
-				for (int s = 0; s < size; s++)
-				     json.value((v & 1L << s) == 0 ? 0 : 1);
+				int max = size >> LEN;
+				
+				json.preallocate((max + 1) * 68);
+				
+				
+				for (int i = 0; i < max; i++)
+				{
+					final long v = values[i];
+					for (int s = 0; s < 64; s++)
+					     json.value((v & 1L << s) == 0 ? 0 : 1);
+				}
+				
+				if (0 < (size &= 63))
+				{
+					final long v = values[max];
+					for (int s = 0; s < size; s++)
+					     json.value((v & 1L << s) == 0 ? 0 : 1);
+				}
 			}
 			
 			json.exitArray();
-			
-			return json.exit(config);
 		}
 	}
 	

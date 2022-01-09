@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface LongNullList {
 	
 	
-	abstract class R  implements Cloneable{
+	abstract class R  implements Cloneable , JsonWriter.Client{
 		
 		BitList.RW         nulls;
 		LongList.RW values;
@@ -73,9 +73,10 @@ public interface LongNullList {
 		}
 		
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json)  {
+			
 			json.enterArray();
 			int size = size();
 			if (0 < size)
@@ -91,7 +92,6 @@ public interface LongNullList {
 					else for (; i < ii; i++) json.value();
 			}
 			json.exitArray();
-			return json.exit(config);
 		}
 	
 		

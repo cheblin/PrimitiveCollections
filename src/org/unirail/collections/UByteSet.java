@@ -49,7 +49,7 @@ public interface UByteSet {
 		}
 	}
 	
-	abstract class R implements Cloneable {
+	abstract class R implements Cloneable, JsonWriter.Client {
 		long
 				_1,
 				_2,
@@ -194,23 +194,22 @@ a:
 		}
 		
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
-			json.enterArray();
-			if (hasNullKey) json.value();
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			
-			int size = size();
+			json.enterObject();
+			
+			if (hasNullKey) json.name().value();
+			
 			if (0 < size)
 			{
 				json.preallocate(size * 10);
 				
-				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-				     json.value(NonNullKeysIterator.key(this, token));
+				for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				     json.name(NonNullKeysIterator.key(this, token)).value();
 			}
 			
-			json.exitArray();
-			return json.exit(config);
+			json.exitObject();
 		}
 	}
 	

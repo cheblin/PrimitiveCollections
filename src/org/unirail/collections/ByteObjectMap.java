@@ -19,7 +19,7 @@ public interface ByteObjectMap {
 		static <V> V value(R<V> src, int token)   {return src.values[ByteSet.NonNullKeysIterator.index(src.keys, token)];}
 	}
 	
-	abstract class R<V> implements Cloneable {
+	abstract class R<V> implements Cloneable , JsonWriter.Client{
 		
 		public          ByteSet.RW  keys = new ByteSet.RW();
 		public          V[]         values;
@@ -75,7 +75,7 @@ public interface ByteObjectMap {
 				@Override V get(int index) {return values[index];}
 			} : getV;
 			
-			for (int token = NonNullKeysIterator.INIT, i = 0, k=0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			for (int token = NonNullKeysIterator.INIT, k = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 			     dst.dst[k++] = (char) token;
 			
 			Array.ISort.sort(dst, 0, dst.size - 1);
@@ -89,15 +89,15 @@ public interface ByteObjectMap {
 				@Override V get(int index) {return values[index];}
 			} : getV;
 			
-			for (int token = NonNullKeysIterator.INIT, i = 0, k=0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			for (int token = NonNullKeysIterator.INIT, k = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 			     dst.dst[k++] = (char) token;
 			
 			Array.ISort.sort(dst, 0, dst.size - 1);
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterObject();
 			
 			int size = keys.size();
@@ -105,16 +105,15 @@ public interface ByteObjectMap {
 			{
 				json.preallocate(size * 10);
 				
-				if (keys.hasNullKey) json.name(null).value(NullKeyValue);
+				if (keys.hasNullKey) json.name().value(NullKeyValue);
 				
-				for (int token = NonNullKeysIterator.INIT, i = 0; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+				for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 				     json.
 						     name(NonNullKeysIterator.key(this, token)).
 						     value(NonNullKeysIterator.value(this, token));
 			}
 			
 			json.exitObject();
-			return json.exit(config);
 		}
 	}
 	

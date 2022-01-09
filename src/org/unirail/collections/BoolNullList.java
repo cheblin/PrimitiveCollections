@@ -25,9 +25,9 @@ public interface BoolNullList {
 			}
 			return null;
 		}
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
+		
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterArray();
 			
 			json.preallocate(size * 4);
@@ -44,7 +44,6 @@ public interface BoolNullList {
 				}
 			}
 			json.exitArray();
-			return json.exit(config);
 		}
 		
 		public R clone() {return (R) super.clone();}

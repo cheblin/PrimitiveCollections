@@ -20,7 +20,7 @@ public interface FloatSet {
 		static float key(R src, int token) {return token == src.keys.length ? 0 :   src.keys[token];}
 	}
 	
-	abstract class R implements Cloneable {
+	abstract class R implements Cloneable, JsonWriter.Client {
 		
 		public float[] keys = new float[0];
 		
@@ -130,27 +130,23 @@ public interface FloatSet {
 			Array.ISort.sort(dst, 0, assigned - 1);
 		}
 		
-		public String toString() {
-			final JsonWriter        json   = JsonWriter.get();
-			final JsonWriter.Config config = json.enter();
-			json.enterArray();
+		
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
+			json.enterObject();
 			
-			if (hasNullKey) json.value();
+			if (hasNullKey) json.name().value();
 			
-			int size = size(), i = 0, token = NonNullKeysIterator.INIT;
-			if (0 < size)
+			int i = keys.length;
+			if (0 < assigned)
 			{
-				json.preallocate(size * 10);
-				
-				if (json.orderByKey())
-					for (build(json.primitiveIndex); i < json.primitiveIndex.size; i++)
-					     json.value(NonNullKeysIterator.key(this, json.primitiveIndex.dst[i]));
-				else
-					while ((token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT) json.value(NonNullKeysIterator.key(this, token));
+				json.preallocate(assigned * 10);
+				float v;
+				while (-1 < --i)
+					if ((v = keys[i]) != 0) json.name(v).value();
 			}
 			
-			json.exitArray();
-			return json.exit(config);
+			json.exitObject();
 		}
 	}
 	

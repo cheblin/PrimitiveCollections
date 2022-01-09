@@ -4,6 +4,18 @@ import org.unirail.collections.Array;
 import org.unirail.collections.BitsList;
 
 public final class JsonWriter {
+	
+	public interface Client {
+		void toJSON(JsonWriter json);
+		
+		default String toJSON() {
+			final JsonWriter        json   = get();
+			final JsonWriter.Config config = json.enter();
+			toJSON(json);
+			return json.exit(config);
+		}
+	}
+	
 	/**
 	 An array with no elements requires no separators or newlines before
 	 it is closed.
@@ -44,7 +56,7 @@ public final class JsonWriter {
 	 */
 	private static final int NONEMPTY_DOCUMENT = 6;
 	
-	private BitsList.RW stack = new BitsList.RW(3, 32);
+	private final BitsList.RW stack = new BitsList.RW(3, 32);
 	
 	{stack.add(EMPTY_DOCUMENT);}
 	
@@ -84,11 +96,13 @@ public final class JsonWriter {
 		dst.append(bracket);
 		return this;
 	}
+	
 	private String null_name = "␀";
 	
 	public JsonWriter name(long name)   {return name(Long.toString(name));}
 	
 	public JsonWriter name(double name) {return name(Double.toString(name));}
+	public JsonWriter name()            {return name(null);}
 	
 	public JsonWriter name(String name) {
 		if (name == null) name = null_name;
@@ -247,10 +261,18 @@ public final class JsonWriter {
 			return this;
 		}
 		enterArray();
-		for (Object v : src) v.toString();
+		if (src instanceof String[]) for (String v : (String[]) src) value(v);
+		else if (src instanceof Client[])
+			for (Client v : (Client[]) src)
+				if (v == null) value();
+				else v.toJSON(this);
+		else
+			for (Object v : src) value(v);
+		
 		exitArray();
 		return this;
 	}
+	
 	public JsonWriter value(String[] src) {
 		if (src == null)
 		{
@@ -258,7 +280,7 @@ public final class JsonWriter {
 			return this;
 		}
 		enterArray();
-		for (String v : src) v.toString();
+		for (String v : src) value(v);
 		exitArray();
 		return this;
 	}
@@ -388,7 +410,19 @@ public final class JsonWriter {
 	
 	public JsonWriter value(Object value) {
 		if (value == null) return value();
-		value.toString();
+		if (value instanceof String) return value((String) value);
+		
+		if (value instanceof Client) ((Client) value).toJSON(this);
+		else
+		{
+			String str = value.toString().trim();
+			if (str.startsWith("{") && str.endsWith("}") ||
+			    str.startsWith("[") && str.endsWith("]"))
+				dst.append(str);
+			else
+				value(value.getClass() + ".toString() produce " + str + " instead of JSON.");
+		}
+		
 		return this;
 	}
 	
@@ -489,7 +523,7 @@ public final class JsonWriter {
 				dst.append(',');
 				break;
 			case DANGLING_NAME: // value for name
-				dst.append(separator);
+				dst.append(": ");
 				stack.set(NONEMPTY_OBJECT);
 				return;
 			default:
@@ -502,13 +536,7 @@ public final class JsonWriter {
 	 This has no impact on array elements. The default is true.
 	 */
 	private boolean writeWithNullValue = true;
-	/**
-	 The name/value separator; either ":" or ": ".
-	 */
-	private String  separator          = ": ";
 	
-	private boolean orderByKey = false;
-	public boolean orderByKey() {return orderByKey;}
 	public final Array.ISort.Primitives.Index2 primitiveIndex = new Array.ISort.Primitives.Index2();
 	public final Array.ISort.Anything.Index2   anythingIndex  = new Array.ISort.Anything.Index2();
 	
@@ -526,10 +554,7 @@ public final class JsonWriter {
 			JsonWriter.this.listener = listener;
 			return JsonWriter.this;
 		}
-		@Override public JsonWriter separator(String separator) {
-			JsonWriter.this.separator = separator;
-			return JsonWriter.this;
-		}
+		
 		@Override public JsonWriter indent(String indent) {
 			JsonWriter.this.indent = indent;
 			return JsonWriter.this;
@@ -538,8 +563,8 @@ public final class JsonWriter {
 			writeWithNullValue = write;
 			return JsonWriter.this;
 		}
-		@Override public JsonWriter sortHashed(boolean order) {
-			JsonWriter.this.orderByKey = order;
+		@Override public JsonWriter null_name(String null_name) {
+			JsonWriter.this.null_name = null_name;
 			return JsonWriter.this;
 		}
 	};
@@ -551,13 +576,11 @@ public final class JsonWriter {
 	public interface Config {
 		JsonWriter listener(Listener listener, int threshold);
 		
-		JsonWriter separator(String separator);
+		JsonWriter null_name(String null_name);
 		
 		JsonWriter indent(String indent);
 		
 		JsonWriter writeWithNullValue(boolean write);
-		
-		JsonWriter sortHashed(boolean sort);
 	}
 	
 	private static final ThreadLocal<JsonWriter> threadLocal = ThreadLocal.withInitial(JsonWriter::new);
