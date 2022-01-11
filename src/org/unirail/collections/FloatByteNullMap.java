@@ -25,7 +25,7 @@ public interface FloatByteNullMap {
 		static byte value(R src, int token) {return token == src.keys.length ? src.OKeyValue :    src.values.get(token);}
 	}
 	
-	abstract class R implements Cloneable , JsonWriter.Client{
+	abstract class R implements Cloneable , JsonWriter.Source {
 		
 		
 		public float[]          keys   = Array.Of.floats     .O;

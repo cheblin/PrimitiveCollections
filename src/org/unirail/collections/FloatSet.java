@@ -20,7 +20,7 @@ public interface FloatSet {
 		static float key(R src, int token) {return token == src.keys.length ? 0 :   src.keys[token];}
 	}
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		public float[] keys = new float[0];
 		

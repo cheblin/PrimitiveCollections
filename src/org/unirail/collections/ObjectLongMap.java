@@ -21,7 +21,7 @@ public interface ObjectLongMap {
 		static <K> long value(R<K> src, int token) {return   src.values[token];}
 	}
 	
-	abstract class R<K> implements Cloneable, JsonWriter.Client {
+	abstract class R<K> implements Cloneable, JsonWriter.Source {
 		
 		protected final Array.Of<K> array;
 		private final   boolean     K_is_string;

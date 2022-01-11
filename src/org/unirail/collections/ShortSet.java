@@ -20,7 +20,7 @@ public interface ShortSet {
 		static short key(R src, int token) {return token == src.keys.length ? 0 : (short)  src.keys[token];}
 	}
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		public short[] keys = new short[0];
 		

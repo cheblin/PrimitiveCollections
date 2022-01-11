@@ -21,7 +21,7 @@ public interface ObjectObjectMap {
 		static <K, V> V value(R<K, V> src, int token) {return src.values[token];}
 	}
 	
-	abstract class R<K, V> implements Cloneable, JsonWriter.Client {
+	abstract class R<K, V> implements Cloneable, JsonWriter.Source {
 		
 		public          K[]         keys;
 		public          V[]         values;

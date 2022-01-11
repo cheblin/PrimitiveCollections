@@ -19,7 +19,7 @@ public interface UByteByteNullMap {
 		static byte value(R src, int token) {return  src.values.get(ByteSet.NonNullKeysIterator.index(null, token));}
 	}
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		ByteSet.RW             keys = new ByteSet.RW();
 		ByteNullList.RW values;

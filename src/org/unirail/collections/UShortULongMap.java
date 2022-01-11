@@ -24,7 +24,7 @@ public interface UShortULongMap {
 	}
 	
 	
-	abstract class R implements Cloneable , JsonWriter.Client{
+	abstract class R implements Cloneable, JsonWriter.Source {
 		char[] keys   = Array.Of.chars     .O;
 		long[] values = Array.Of.longs     .O;
 		
@@ -154,11 +154,11 @@ public interface UShortULongMap {
 		}
 		
 		
-public String toString() {return toJSON();}
-		@Override public void toJSON(JsonWriter json)  {
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterObject();
 			
-			int size = size(),  token = NonNullKeysIterator.INIT;
+			int size = size(), token = NonNullKeysIterator.INIT;
 			if (0 < size)
 			{
 				json.preallocate(size * 10);

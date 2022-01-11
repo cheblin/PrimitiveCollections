@@ -17,7 +17,7 @@ public interface UByteLongMap {
 	}
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		ByteSet.RW    keys = new ByteSet.RW();
 		long[] values;

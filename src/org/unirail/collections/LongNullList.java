@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface LongNullList {
 	
 	
-	abstract class R  implements Cloneable , JsonWriter.Client{
+	abstract class R  implements Cloneable , JsonWriter.Source {
 		
 		BitList.RW         nulls;
 		LongList.RW values;

@@ -22,7 +22,7 @@ public interface ObjectSet {
 	}
 	
 	
-	abstract class R<K> implements Cloneable, JsonWriter.Client {
+	abstract class R<K> implements Cloneable, JsonWriter.Source {
 		
 		protected int assigned;
 		

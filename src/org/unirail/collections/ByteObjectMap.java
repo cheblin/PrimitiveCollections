@@ -19,7 +19,7 @@ public interface ByteObjectMap {
 		static <V> V value(R<V> src, int token)   {return src.values[ByteSet.NonNullKeysIterator.index(src.keys, token)];}
 	}
 	
-	abstract class R<V> implements Cloneable , JsonWriter.Client{
+	abstract class R<V> implements Cloneable , JsonWriter.Source {
 		
 		public          ByteSet.RW  keys = new ByteSet.RW();
 		public          V[]         values;

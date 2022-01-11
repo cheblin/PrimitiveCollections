@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface LongList {
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		long[] values = Array.Of.longs     .O;
 		
 		int size = 0;

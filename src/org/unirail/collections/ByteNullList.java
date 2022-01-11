@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface ByteNullList {
 	
 	
-	abstract class R  implements Cloneable , JsonWriter.Client{
+	abstract class R  implements Cloneable , JsonWriter.Source {
 		
 		BitList.RW         nulls;
 		ByteList.RW values;

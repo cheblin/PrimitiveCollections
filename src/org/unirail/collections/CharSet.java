@@ -20,7 +20,7 @@ public interface CharSet {
 		static char key(R src, int token) {return token == src.keys.length ? 0 : (char)  src.keys[token];}
 	}
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		public char[] keys = new char[0];
 		

@@ -7,7 +7,7 @@ import java.util.Arrays;
 
 public interface ObjectList {
 	
-	abstract class R<V> implements Cloneable, JsonWriter.Client {
+	abstract class R<V> implements Cloneable, JsonWriter.Source {
 		
 		
 		protected       V[]         values;

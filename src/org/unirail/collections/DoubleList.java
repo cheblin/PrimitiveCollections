@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface DoubleList {
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		double[] values = Array.Of.doubles     .O;
 		
 		int size = 0;

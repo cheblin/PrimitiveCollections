@@ -5,7 +5,7 @@ import org.unirail.collections.BitsList;
 
 public final class JsonWriter {
 	
-	public interface Client {
+	public interface Source {
 		void toJSON(JsonWriter json);
 		
 		default String toJSON() {
@@ -262,8 +262,8 @@ public final class JsonWriter {
 		}
 		enterArray();
 		if (src instanceof String[]) for (String v : (String[]) src) value(v);
-		else if (src instanceof Client[])
-			for (Client v : (Client[]) src)
+		else if (src instanceof Source[])
+			for (Source v : (Source[]) src)
 				if (v == null) value();
 				else v.toJSON(this);
 		else
@@ -412,7 +412,7 @@ public final class JsonWriter {
 		if (value == null) return value();
 		if (value instanceof String) return value((String) value);
 		
-		if (value instanceof Client) ((Client) value).toJSON(this);
+		if (value instanceof Source) ((Source) value).toJSON(this);
 		else
 		{
 			String str = value.toString().trim();

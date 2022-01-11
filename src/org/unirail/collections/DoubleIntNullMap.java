@@ -25,7 +25,7 @@ public interface DoubleIntNullMap {
 		static int value(R src, int token) {return token == src.keys.length ? src.OKeyValue :    src.values.get(token);}
 	}
 	
-	abstract class R implements Cloneable , JsonWriter.Client{
+	abstract class R implements Cloneable , JsonWriter.Source {
 		
 		
 		public double[]          keys   = Array.Of.doubles     .O;

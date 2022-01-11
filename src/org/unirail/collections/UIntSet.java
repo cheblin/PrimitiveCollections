@@ -20,7 +20,7 @@ public interface UIntSet {
 		static long key(R src, int token) {return token == src.keys.length ? 0 :   src.keys[token];}
 	}
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		public int[] keys = new int[0];
 		

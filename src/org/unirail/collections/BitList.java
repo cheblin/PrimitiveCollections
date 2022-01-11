@@ -6,7 +6,7 @@ import org.unirail.JsonWriter;
 public interface BitList {
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		protected int size;
 		

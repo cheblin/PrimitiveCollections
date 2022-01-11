@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface CharList {
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		char[] values = Array.Of.chars     .O;
 		
 		int size = 0;

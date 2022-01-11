@@ -23,7 +23,7 @@ public interface FloatObjectMap {
 		static <V> V value(R<V> src, int token) {return token == src.keys.length ? src.OKeyValue : src.values[token];}
 	}
 	
-	abstract class R<V> implements Cloneable, JsonWriter.Client {
+	abstract class R<V> implements Cloneable, JsonWriter.Source {
 		
 		
 		public          float[] keys;

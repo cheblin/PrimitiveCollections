@@ -25,7 +25,7 @@ public interface LongFloatNullMap {
 		static float value(R src, int token) {return token == src.keys.length ? src.OKeyValue :    src.values.get(token);}
 	}
 	
-	abstract class R implements Cloneable , JsonWriter.Client{
+	abstract class R implements Cloneable , JsonWriter.Source {
 		
 		
 		public long[]          keys   = Array.Of.longs     .O;

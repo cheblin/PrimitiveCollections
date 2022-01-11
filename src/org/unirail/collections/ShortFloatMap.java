@@ -24,7 +24,7 @@ public interface ShortFloatMap {
 	}
 	
 	
-	abstract class R implements Cloneable , JsonWriter.Client{
+	abstract class R implements Cloneable, JsonWriter.Source {
 		short[] keys   = Array.Of.shorts     .O;
 		float[] values = Array.Of.floats     .O;
 		
@@ -154,11 +154,11 @@ public interface ShortFloatMap {
 		}
 		
 		
-public String toString() {return toJSON();}
-		@Override public void toJSON(JsonWriter json)  {
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterObject();
 			
-			int size = size(),  token = NonNullKeysIterator.INIT;
+			int size = size(), token = NonNullKeysIterator.INIT;
 			if (0 < size)
 			{
 				json.preallocate(size * 10);

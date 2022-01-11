@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface UByteList {
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		byte[] values = Array.Of.bytes     .O;
 		
 		int size = 0;

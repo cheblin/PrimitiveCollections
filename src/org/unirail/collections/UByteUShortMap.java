@@ -17,7 +17,7 @@ public interface UByteUShortMap {
 	}
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		ByteSet.RW    keys = new ByteSet.RW();
 		char[] values;

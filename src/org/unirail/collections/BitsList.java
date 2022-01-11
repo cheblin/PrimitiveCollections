@@ -27,7 +27,7 @@ public interface BitsList {
 	static int len4bits(int bits) {return (bits + BITS) >>> LEN;}
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		protected long[] values = Array.Of.longs.O;
 		protected int    size   = 0;

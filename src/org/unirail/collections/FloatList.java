@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface FloatList {
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		float[] values = Array.Of.floats     .O;
 		
 		int size = 0;

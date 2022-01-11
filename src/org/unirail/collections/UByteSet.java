@@ -49,7 +49,7 @@ public interface UByteSet {
 		}
 	}
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		long
 				_1,
 				_2,

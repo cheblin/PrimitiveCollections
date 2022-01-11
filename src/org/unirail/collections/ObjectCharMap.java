@@ -21,7 +21,7 @@ public interface ObjectCharMap {
 		static <K> char value(R<K> src, int token) {return  (char) src.values[token];}
 	}
 	
-	abstract class R<K> implements Cloneable, JsonWriter.Client {
+	abstract class R<K> implements Cloneable, JsonWriter.Source {
 		
 		protected final Array.Of<K> array;
 		private final   boolean     K_is_string;

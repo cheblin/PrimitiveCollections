@@ -10,7 +10,7 @@ import static org.unirail.collections.Array.hash;
 public interface ShortList {
 	
 	
-	abstract class R implements Cloneable, JsonWriter.Client {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		short[] values = Array.Of.shorts     .O;
 		
 		int size = 0;

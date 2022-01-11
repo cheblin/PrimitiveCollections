@@ -21,7 +21,7 @@ public interface ObjectUByteMap {
 		static <K> char value(R<K> src, int token) {return  (char)( 0xFFFF &  src.values[token]);}
 	}
 	
-	abstract class R<K> implements Cloneable, JsonWriter.Client {
+	abstract class R<K> implements Cloneable, JsonWriter.Source {
 		
 		protected final Array.Of<K> array;
 		private final   boolean     K_is_string;
