@@ -3,7 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
 
 public interface ULongCharMap {
 	
@@ -36,7 +35,7 @@ public interface ULongCharMap {
 		
 		
 		boolean hasNullKey;
-		char       nullKeyValue;
+		char       NullKeyValue;
 		
 		boolean has0Key;
 		char       OKeyValue;
@@ -57,7 +56,7 @@ public interface ULongCharMap {
 		public @Positive_Values int token(long key) {
 			if (key == 0) return has0Key ? keys.length : Positive_Values.NONE;
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (long key_ =  key , k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return slot;
@@ -71,18 +70,45 @@ public interface ULongCharMap {
 		public boolean hasNone(int token)  {return token == Positive_Values.NONE;}
 		
 		public char value(@Positive_ONLY int token) {
-			if (token == keys.length + 1) return nullKeyValue;
+			if (token == keys.length + 1) return NullKeyValue;
 			if (token == keys.length) return OKeyValue;
 			return (char) values[token];
 		}
 		
+		
+		//Compute a hash that is symmetric in its arguments - that is a hash
+		//where the order of appearance of elements does not matter.
+		//This is useful for hashing sets, for example.
+		
 		public int hashCode() {
-			int hash = hasNullKey ? hash(nullKeyValue) : 331997;
+			int a = 0;
+			int b = 0;
+			int c = 1;
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-			     hash = hash(hash(hash, NonNullKeysIterator.key(this, token)), NonNullKeysIterator.value(this, token));
-			return hash;
+			{
+				int h = Array.mix(seed, Array.hash(NonNullKeysIterator.key(this, token)));
+				h = Array.mix(h, Array.hash(NonNullKeysIterator.value(this, token)));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			if (hasNullKey)
+			{
+				final int h = Array.finalizeHash(Array.mix(Array.hash(seed), Array.hash(NullKeyValue)), 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			return Array.finalizeHash(Array.mixLast(Array.mix(Array.mix(seed, a), b), c), size());
 		}
+		
+		private static final int seed = R.class.hashCode();
 		
 		
 		public boolean equals(Object obj) {
@@ -96,7 +122,7 @@ public interface ULongCharMap {
 			if (other == null ||
 			    has0Key != other.has0Key ||
 			    hasNullKey != other.hasNullKey || has0Key && OKeyValue != other.OKeyValue
-			    || hasNullKey && nullKeyValue != other.nullKeyValue || size() != other.size()) return false;
+			    || hasNullKey && NullKeyValue != other.NullKeyValue || size() != other.size()) return false;
 			
 			long           key;
 			for (int i = keys.length, c; -1 < --i; )
@@ -196,7 +222,7 @@ public interface ULongCharMap {
 			if (key != null) return put((long) key, value);
 			
 			hasNullKey   = true;
-			nullKeyValue = value;
+			NullKeyValue = value;
 			
 			return true;
 		}
@@ -216,7 +242,7 @@ public interface ULongCharMap {
 			}
 			
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			final long key_ =  key;
 			
@@ -245,7 +271,7 @@ public interface ULongCharMap {
 			
 			if (key == 0) return has0Key && !(has0Key = false);
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			final long key_ =  key;
 			
@@ -257,7 +283,7 @@ public interface ULongCharMap {
 					long kk;
 					
 					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hash(kk) & mask) >= distance)
+						if ((s - Array.hash(kk) & mask) >= distance)
 						{
 							
 							keys[gapSlot]   = kk;
@@ -303,7 +329,7 @@ public interface ULongCharMap {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = hash(key) & mask;
+					int slot = Array.hash(key) & mask;
 					while (keys[slot] != 0) slot = slot + 1 & mask;
 					keys[slot]   = key;
 					values[slot] = v[i];

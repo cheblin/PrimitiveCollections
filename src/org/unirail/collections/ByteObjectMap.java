@@ -3,8 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
-
 public interface ByteObjectMap {
 	
 	
@@ -24,10 +22,8 @@ public interface ByteObjectMap {
 		public          ByteSet.RW  keys = new ByteSet.RW();
 		public          V[]         values;
 		protected final Array.Of<V> array;
-		private final   char        s;
 		protected R(Class<V> clazz) {
 			array = Array.get(clazz);
-			s     = clazz == String.class ? '"' : '\0';
 		}
 		
 		public int size()                         {return keys.size();}
@@ -45,7 +41,7 @@ public interface ByteObjectMap {
 		
 		V NullKeyValue = null;
 		
-		public int hashCode()                                            {return hash(Array.hash(Array.hash(keys.contains(null) ? hash(NullKeyValue) : 29399999), keys), array.hashCode(values, size()));}
+		public int hashCode()                                            {return Array.hash(Array.hash(Array.hash(keys.contains(null) ? Array.hash(NullKeyValue) : 29399999), keys), array.hashCode(values, size()));}
 		
 		@SuppressWarnings("unchecked") public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}
 		

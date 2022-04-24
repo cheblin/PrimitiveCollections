@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Objects;
 
 public interface Array {
-	public static class Of<T> {
+	class Of<T> {
 		public final T[] OO;
 		public T[] copyOf(T[] src, int len) {return len < 1 ? OO : Arrays.copyOf(src == null ? OO : src, len);}
 		private final boolean array;
@@ -21,15 +21,46 @@ public interface Array {
 		public boolean equals(T v1, T v2) {return Objects.equals(v1, v2);}
 		
 		@SuppressWarnings("unchecked")
-		public int hashCode(T[] src, int len) {
-			int hash = Array.class.hashCode();
+		public int hashCode(T[] src, int size) {
+			int seed = Of.class.hashCode();
 			if (array)
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.deepHashCode((T[]) src[len]));
-			else
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, hashCode(src[len]));
-			return hash;
+			{
+				while (-1 < --size) seed = (size + 10153331) + hash(seed, Arrays.deepHashCode((T[]) src[size]));
+				return seed;
+			}
+			
+			switch (size)
+			{
+				case 0:
+					return Array.finalizeHash(seed, 0);
+				case 1:
+					return Array.finalizeHash(Array.mix(seed, Array.hash(src[0])), 1);
+			}
+			
+			final int initial   = Array.hash(src[0]);
+			int       prev      = Array.hash(src[1]);
+			final int rangeDiff = prev - initial;
+			int       h         = Array.mix(seed, initial);
+			
+			for (int i = 2; i < size; ++i)
+			{
+				h = Array.mix(h, prev);
+				final int hash = Array.hash(src[i]);
+				if (rangeDiff != hash - prev)
+				{
+					for (h = Array.mix(h, hash), ++i; i < size; ++i)
+					     h = Array.mix(h, Array.hash(src[i]));
+					
+					return Array.finalizeHash(h, size);
+				}
+				prev = hash;
+			}
+			
+			return Array.avalanche(Array.mix(Array.mix(h, rangeDiff), prev));
 		}
-		public int hashCode(T[] src) {return src == null ? 10153331 : hashCode(src, src.length);}
+		
+		public int hashCode(T[] src) {return src == null ? 0 : hashCode(src, src.length);}
+		
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals(T[] O, T[] X, int len) {
@@ -58,9 +89,9 @@ public interface Array {
 			private booleans()                                          {super(boolean[].class);}
 			@Override public int hashCode(boolean[] src)                {return Arrays.hashCode(src);}
 			@Override public boolean equals(boolean[] v1, boolean[] v2) {return Arrays.equals(v1, v2);}
-			@Override public int hashCode(boolean[][] src, int len) {
+			@Override public int hashCode(boolean[][] src, int size) {
 				int hash = boolean[][].class.hashCode();
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				while (-1 < --size) hash = (size + 10153331) + hash(hash, Arrays.hashCode(src[size]));
 				return hash;
 			}
 			
@@ -73,8 +104,6 @@ public interface Array {
 				}
 				return true;
 			}
-			
-			
 		}
 		
 		public static final bytes bytes = new bytes();
@@ -85,10 +114,33 @@ public interface Array {
 			private bytes()                                       {super(byte[].class);}
 			@Override public int hashCode(byte[] src)             {return Arrays.hashCode(src);}
 			@Override public boolean equals(byte[] v1, byte[] v2) {return Arrays.equals(v1, v2);}
-			@Override public int hashCode(byte[][] src, int len) {
+			@Override public int hashCode(byte[][] src, int size) {
 				int hash = byte[][].class.hashCode();
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
-				return hash;
+				while (-1 < --size)
+				{
+					final byte[] data = src[size];
+					int          len  = data.length, i, k = 0;
+					
+					for (i = 0; 3 < len; i += 4, len -= 4)
+					     hash = mix(hash, data[i] & 255
+					                      | (data[i + 1] & 255) << 8
+					                      | (data[i + 2] & 255) << 16
+					                      | (data[i + 3] & 255) << 24);
+					switch (len)
+					{
+						case 3:
+							k ^= (data[i + 2] & 255) << 16;
+						case 2:
+							k ^= (data[i + 1] & 255) << 8;
+					}
+					
+					k ^= data[i] & 255;
+					hash = mixLast(hash, k);
+					
+					hash = finalizeHash(hash, data.length);
+				}
+				
+				return finalizeHash(hash, src.length);
 			}
 			
 			@Override public boolean equals(byte[][] O, byte[][] X, int len) {
@@ -111,9 +163,9 @@ public interface Array {
 			
 			@Override public int hashCode(short[] src)              {return Arrays.hashCode(src);}
 			@Override public boolean equals(short[] v1, short[] v2) {return Arrays.equals(v1, v2);}
-			@Override public int hashCode(short[][] src, int len) {
+			@Override public int hashCode(short[][] src, int size) {
 				int hash = short[][].class.hashCode();
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				while (-1 < --size) hash = (size + 10153331) + hash(hash, Arrays.hashCode(src[size]));
 				return hash;
 			}
 			
@@ -136,9 +188,9 @@ public interface Array {
 			private chars()                                       {super(char[].class);}
 			@Override public int hashCode(char[] src)             {return Arrays.hashCode(src);}
 			@Override public boolean equals(char[] v1, char[] v2) {return Arrays.equals(v1, v2);}
-			@Override public int hashCode(char[][] src, int len) {
+			@Override public int hashCode(char[][] src, int size) {
 				int hash = char[][].class.hashCode();
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				while (-1 < --size) hash = (size + 10153331) + hash(hash, Arrays.hashCode(src[size]));
 				return hash;
 			}
 			
@@ -161,9 +213,9 @@ public interface Array {
 			private ints()                                      {super(int[].class);}
 			@Override public int hashCode(int[] src)            {return Arrays.hashCode(src);}
 			@Override public boolean equals(int[] v1, int[] v2) {return Arrays.equals(v1, v2);}
-			@Override public int hashCode(int[][] src, int len) {
+			@Override public int hashCode(int[][] src, int size) {
 				int hash = int[][].class.hashCode();
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				while (-1 < --size) hash = (size + 10153331) + hash(hash, Arrays.hashCode(src[size]));
 				return hash;
 			}
 			
@@ -186,9 +238,9 @@ public interface Array {
 			private longs()                                       {super(long[].class);}
 			@Override public int hashCode(long[] src)             {return Arrays.hashCode(src);}
 			@Override public boolean equals(long[] v1, long[] v2) {return Arrays.equals(v1, v2);}
-			@Override public int hashCode(long[][] src, int len) {
+			@Override public int hashCode(long[][] src, int size) {
 				int hash = long[][].class.hashCode();
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				while (-1 < --size) hash = (size + 10153331) + hash(hash, Arrays.hashCode(src[size]));
 				return hash;
 			}
 			
@@ -211,9 +263,9 @@ public interface Array {
 			private floats()                                        {super(float[].class);}
 			@Override public int hashCode(float[] src)              {return Arrays.hashCode(src);}
 			@Override public boolean equals(float[] v1, float[] v2) {return Arrays.equals(v1, v2);}
-			@Override public int hashCode(float[][] src, int len) {
+			@Override public int hashCode(float[][] src, int size) {
 				int hash = float[][].class.hashCode();
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				while (-1 < --size) hash = (size + 10153331) + hash(hash, Arrays.hashCode(src[size]));
 				return hash;
 			}
 			
@@ -236,9 +288,9 @@ public interface Array {
 			private doubles()                                         {super(double[].class);}
 			@Override public int hashCode(double[] src)               {return Arrays.hashCode(src);}
 			@Override public boolean equals(double[] v1, double[] v2) {return Arrays.equals(v1, v2);}
-			@Override public int hashCode(double[][] src, int len) {
+			@Override public int hashCode(double[][] src, int size) {
 				int hash = double[][].class.hashCode();
-				while (-1 < --len) hash = (len + 10153331) + hash(hash, Arrays.hashCode(src[len]));
+				while (-1 < --size) hash = (size + 10153331) + hash(hash, Arrays.hashCode(src[size]));
 				return hash;
 			}
 			
@@ -252,6 +304,38 @@ public interface Array {
 				return true;
 			}
 		}
+		
+		public static final strings strings = new strings();
+		
+		public static final class strings extends Of<String[]> {
+			public static final String[] O = new String[0];
+			String[][] OO = new String[0][];
+			
+			private strings()                                         {super(String[].class);}
+			@Override public int hashCode(String[] src)               {return Arrays.hashCode(src);}
+			@Override public boolean equals(String[] v1, String[] v2) {return Arrays.equals(v1, v2);}
+			@Override public int hashCode(String[][] src, int size) {
+				int hash = strings.class.hashCode();
+				if (src == null) return hash;
+				
+				int i = size;
+				for (String[] o; -1 < --i; )
+				     hash = mix(hash, hash(o = src[i], o.length));
+				
+				return finalizeHash(hash, size);
+			}
+			
+			@Override public boolean equals(String[][] O, String[][] X) {
+				if (O != X)
+				{
+					if (O == null || X == null || O.length != X.length) return false;
+					for (int i = O.length; -1 < --i; )
+						if (!Arrays.equals(O[i], X[i])) return false;
+				}
+				return true;
+			}
+		}
+		
 		
 		public interface objects {
 			Object[]   O  = new Object[0];
@@ -307,6 +391,7 @@ public interface Array {
 		if (c == char[].class) return (Of<T>) Of.chars;
 		if (c == float[].class) return (Of<T>) Of.floats;
 		if (c == double[].class) return (Of<T>) Of.doubles;
+		if (c == String[].class) return (Of<T>) Of.strings;
 		
 		if (pool.containsKey(clazz)) return (Of<T>) pool.get(clazz);
 		synchronized (pool)
@@ -376,6 +461,27 @@ public interface Array {
 		return hash;
 	}
 	
+	static int mix(int hash, int data) {
+		return Integer.rotateLeft(mixLast(hash, data), 13) * 5 + 0xe6546b64;
+	}
+	
+	
+	static int mixLast(int hash, int data) {
+		return hash ^ Integer.rotateLeft(data * 0xcc9e2d51, 15) * 0x1b873593;
+	}
+	
+	static int finalizeHash(int hash, int length) {
+		return avalanche(hash ^ length);
+	}
+	
+	static int avalanche(int size) {
+		size ^= size >>> 16;
+		size *= 0x85ebca6b;
+		size ^= size >>> 13;
+		size *= 0xc2b2ae35;
+		size ^= size >>> 16;
+		return size;
+	}
 	
 	static int hash(int hash, Object src) {return hash ^ hash(src);}
 	
@@ -387,22 +493,33 @@ public interface Array {
 	
 	static int hash(int hash, long src)   {return hash ^ hash(src);}
 	
-	static int hash(Object src)           {return src == null ? 0x85ebca6b : hash(src.hashCode());}
+	static int hash(Object src)           {return src == null ? 0 : src.hashCode();}
 	
-	static int hash(double src)           {return hash(Double.doubleToLongBits(src));}
+	static int hash(double src)           {return Double.hashCode(src);}
 	
-	static int hash(float src)            {return hash(Float.floatToIntBits(src));}
+	static int hash(float src)            {return Float.hashCode(src);}
 	
-	static int hash(int src) {
-		src = (src ^ (src >>> 16)) * 0x85ebca6b;
-		src = (src ^ (src >>> 13)) * 0xc2b2ae35;
-		return src ^ (src >>> 16);
+	static int hash(int src)              {return src;}
+	
+	static int hash(long src)             {return Long.hashCode(src);}
+	
+	static int hash(final String str) {
+		int h = String.class.hashCode();
+		
+		int i = str.length() - 1;
+		for (; 1 < i; i -= 2) h = mix(h, str.charAt(i) << 16 | str.charAt(i + 1));
+		
+		if (0 < i) h = mixLast(h, str.charAt(0));
+		
+		return finalizeHash(h, str.length());
 	}
 	
-	static int hash(long src) {
-		src = (src ^ (src >>> 32)) * 0x4cd6944c5cc20b6dL;
-		src = (src ^ (src >>> 29)) * 0xfc12c5b19d3259e9L;
-		return (int) (src ^ (src >>> 32));
+	static int hash(final String[] src, int size) {
+		int h = String[].class.hashCode();
+		
+		for (int i = src.length - 1; -1 < i; i--)
+		     h = mix(h, hash(src[i]));
+		return finalizeHash(h, size);
 	}
 	
 	interface ISort {

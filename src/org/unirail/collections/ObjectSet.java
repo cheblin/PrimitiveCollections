@@ -3,8 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
-
 public interface ObjectSet {
 	
 	
@@ -59,13 +57,34 @@ public interface ObjectSet {
 		
 		public int size()        {return assigned + (hasNullKey ? 1 : 0);}
 		
+		
+		//Compute a hash that is symmetric in its arguments - that is a hash
+		//where the order of appearance of elements does not matter.
+		//This is useful for hashing sets, for example.
 		public int hashCode() {
-			int hash = hash(hasNullKey ? 10153331 : 888888883);
-			for (int token = NonNullKeysIterator.INIT, h = 888888883; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-			     hash = (h++) + hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
-			return hash;
+			int a = 0;
+			int b = 0;
+			int c = 1;
+			
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			{
+				final int h = Array.hash(NonNullKeysIterator.key(this, token));
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			if (hasNullKey)
+			{
+				final int h = Array.hash(seed);
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			return Array.finalizeHash(Array.mixLast(Array.mix(Array.mix(seed, a), b), c), size());
 		}
 		
+		private static final int seed = R.class.hashCode();
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}

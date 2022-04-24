@@ -3,6 +3,8 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
+import java.util.Arrays;
+
 public interface BitsList {
 	
 	
@@ -32,17 +34,38 @@ public interface BitsList {
 		protected long[] values = Array.Of.longs.O;
 		protected int    size   = 0;
 		
+		//if 0 < items - fit storage space according `items` param
+		//if items < 0 - cleanup and allocate spase
 		protected void length(int items) {
 			if (0 < items)
 			{
 				if (items < size) size = items;
+				final int new_values_length = len4bits(items * bits);
 				
-				values = Array.copyOf(values, len4bits(items * bits));
+				values = new_values_length == 0 ? Array.Of.longs.O : Array.copyOf(values, new_values_length);
 				return;
 			}
 			
-			size   = 0;
-			values = Array.copyOf(values, len4bits(-items * bits));
+			
+			final int new_values_length = len4bits(-items * bits);
+			
+			if (values.length != new_values_length)
+			{
+				values = new_values_length == 0 ? Array.Of.longs.O : new long[new_values_length];
+				if (default_val == 0)
+				{
+					size = 0;
+					return;
+				}
+			}
+			
+			clear();
+		}
+		
+		protected void clear() {
+			if (default_val == 0)//can do it fast
+				Arrays.fill(values, 0, Math.min(index(bits * size), values.length - 1), 0);
+			size = 0;
 		}
 		
 		public int size()        {return size;}
@@ -51,28 +74,26 @@ public interface BitsList {
 		
 		protected final long mask;
 		public final    int  bits;
+		public final    int  default_val;
 		
-		public int bits()              {return bits;}
-		
-		
-		protected R(int bits_per_item) {mask = mask(bits = bits_per_item);}
+		protected R(int bits_per_item) {
+			mask        = mask(bits = bits_per_item);
+			default_val = 0;
+		}
 		
 		protected R(int bits_per_item, int items) {
-			mask   = mask(bits = bits_per_item);
-			values = new long[len4bits(items * bits)];
+			mask        = mask(bits = bits_per_item);
+			values      = new long[len4bits(items * bits)];
+			default_val = 0;
+		}
+		protected R(int bits_per_item, int default_val, int items) {
+			mask      = mask(bits = bits_per_item);
+			values    = new long[len4bits(items * bits)];
+			this.size = items;
+			if ((this.default_val = default_val & 0xFF) != 0)
+				for (int i = 0; i < items; i++) append(this, items, default_val);
 		}
 		
-		protected R(int bits_per_item, int fill_value, int size) {
-			this(bits_per_item, size);
-			this.size = size;
-			if ((fill_value & 0xFF) == 0) return;
-			while (-1 < --size) set(this, size, fill_value);
-		}
-		
-		protected void clear() {
-			for (int i = index(bits * size) + 1; -1 < --i; ) values[i] = 0;
-			size = 0;
-		}
 		
 		public int hashCode() {
 			int i = index(size);
@@ -105,8 +126,15 @@ public interface BitsList {
 		}
 		
 		
-		public int length()                        {return values.length * BITS / bits;}
+		public int length() {return values.length * BITS / bits;}
 		
+		public int get()    {return get(size - 1);}
+		public int get(int item) {
+			final int index = index(item *= bits);
+			final int bit   = bit(item);
+			
+			return (int) (BITS < bit + bits ? value(values[index], values[index + 1], bit, bits) : value(values[index], bit, bits));
+		}
 		
 		protected static void add(R dst, long src) {set(dst, dst.size, src);}
 		
@@ -157,13 +185,6 @@ public interface BitsList {
 			}
 		}
 		
-		public int get() {return get(size - 1);}
-		public int get(int item) {
-			final int index = index(item *= bits);
-			final int bit   = bit(item);
-			
-			return (int) (BITS < bit + bits ? value(values[index], values[index + 1], bit, bits) : value(values[index], bit, bits));
-		}
 		
 		protected static void set(R dst, int from, byte... src)  {for (int i = src.length; -1 < --i; ) set(dst, from + i, src[i]);}
 		
@@ -176,17 +197,16 @@ public interface BitsList {
 		protected static void set(R dst, int from, long... src)  {for (int i = src.length; -1 < --i; ) set(dst, from + i, src[i]);}
 		
 		protected static void set(R dst, int item, long src) {
-			final long v = src & dst.mask;
-			final int
-					p = item * dst.bits,
-					index = index(p),
-					bit = bit(p);
-			
-			final int  k = BITS - bit;
-			final long i = dst.values[index];
+			final int total_bits = item * dst.bits;
 			
 			if (item < dst.size)
 			{
+				final int
+						index = index(total_bits),
+						bit = bit(total_bits),
+						k = BITS - bit;
+				
+				final long i = dst.values[index], v = src & dst.mask;
 				if (k < dst.bits)
 				{
 					dst.values[index]     = i << k >>> k | v << bit;
@@ -196,16 +216,33 @@ public interface BitsList {
 				return;
 			}
 			
-			if (dst.length() <= item) dst.length(Math.max(dst.length() + dst.length() / 2, len4bits(p + dst.bits)));
+			if (dst.length() <= item) dst.length(Math.max(dst.length() + dst.length() / 2, len4bits(total_bits + dst.bits)));
+			
+			if (dst.default_val != 0)
+				for (int i = dst.size; i < item; i++) append(dst, i, dst.default_val);
+			
+			append(dst, item, src);
+			
+			dst.size = item + 1;
+		}
+		
+		private static void append(R dst, int item, long src) {
+			final long v = src & dst.mask;
+			final int
+					p = item * dst.bits,
+					index = index(p),
+					bit = bit(p);
+			
+			final int  k = BITS - bit;
+			final long i = dst.values[index];
 			
 			if (k < dst.bits)
 			{
 				dst.values[index]     = i << k >>> k | v << bit;
 				dst.values[index + 1] = v >> k;
 			}
-			else dst.values[index] = ~(~0L << bit) & i | v << bit;
-			
-			dst.size = item + 1;
+			else
+				dst.values[index] = ~(~0L << bit) & i | v << bit;
 		}
 		
 		
@@ -213,6 +250,7 @@ public interface BitsList {
 			
 			if (item + 1 == dst.size)
 			{
+				if (dst.default_val == 0) append(dst, item, 0);//zeroed place
 				dst.size--;
 				return;
 			}

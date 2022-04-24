@@ -5,13 +5,14 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 
-import static org.unirail.collections.Array.hash;
 
 public interface IntList {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
 		int[] values = Array.Of.ints     .O;
+		
+		public int[] array() {return values;}
 		
 		int size = 0;
 		
@@ -38,6 +39,16 @@ public interface IntList {
 		}
 		
 		public int get(int index) {return   values[index];}
+		
+		public int get(int[] dst, int dst_index, int src_index, int len) {
+			len = Math.min(Math.min(size - src_index, len), dst.length - dst_index);
+			if (len < 1) return 0;
+			
+			for (int i = 0; i < len; i++)
+			     dst[dst_index++] =  values[src_index++];
+			
+			return len;
+		}
 		
 		public int indexOf( int value) {
 			for (int i = 0; i < size; i++)
@@ -66,11 +77,37 @@ public interface IntList {
 			return true;
 		}
 		
-		public int hashCode() {
-			int hash = 999197497;
-			for (int i = size(); -1 < --i; ) hash = hash(hash, values[i]);
-			return hash;
+		public final int hashCode() {
+			switch (size)
+			{
+				case 0:
+					return Array.finalizeHash(seed, 0);
+				case 1:
+					return Array.finalizeHash(Array.mix(seed, Array.hash(values[0])), 1);
+			}
+			
+			final int initial   = Array.hash(values[0]);
+			int       prev      = Array.hash(values[1]);
+			final int rangeDiff = prev - initial;
+			int       h         = Array.mix(seed, initial);
+			
+			for (int i = 2; i < size; ++i)
+			{
+				h = Array.mix(h, prev);
+				final int hash = Array.hash(values[i]);
+				if (rangeDiff != hash - prev)
+				{
+					for (h = Array.mix(h, hash), ++i; i < size; ++i)
+					     h = Array.mix(h, Array.hash(values[i]));
+					
+					return Array.finalizeHash(h, size);
+				}
+				prev = hash;
+			}
+			
+			return Array.avalanche(Array.mix(Array.mix(h, rangeDiff), prev));
 		}
+		private static final int seed = R.class.hashCode();
 		
 		public R clone() {
 			try
@@ -191,6 +228,17 @@ public interface IntList {
 			
 			values[index] = (int) value;
 		}
+		
+		public int set(int[] src, int src_index, int dst_index, int len) {
+			len = Math.min(src.length - src_index, len);
+			if (len < 1) return 0;
+			
+			for (int i = 0; i < len; i++)
+			     set(dst_index++, src[src_index++]);
+			
+			return len;
+		}
+		
 		
 		public void swap(int index1, int index2) {
 			final int tmp = values[index1];

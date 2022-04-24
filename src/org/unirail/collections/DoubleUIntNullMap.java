@@ -3,8 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
-
 public interface DoubleUIntNullMap {
 	
 	interface NonNullKeysIterator {
@@ -25,7 +23,7 @@ public interface DoubleUIntNullMap {
 		static long value(R src, int token) {return token == src.keys.length ? src.OKeyValue :    src.values.get(token);}
 	}
 	
-	abstract class R implements Cloneable , JsonWriter.Source {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		
 		public double[]          keys   = Array.Of.doubles     .O;
@@ -50,17 +48,40 @@ public interface DoubleUIntNullMap {
 		public int size()        {return assigned + (has0Key == Positive_Values.NONE ? 0 : 1) + (hasNullKey == Positive_Values.NONE ? 0 : 1);}
 		
 		
+		//Compute a hash that is symmetric in its arguments - that is a hash
+		//where the order of appearance of elements does not matter.
+		//This is useful for hashing sets, for example.
 		public int hashCode() {
-			int hash = hasNullKey == Positive_Values.VALUE ? hash(NullKeyValue) : hasNullKey == Positive_Values.NONE ? 436195789 : 22121887;
+			int a = 0;
+			int b = 0;
+			int c = 1;
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
 			{
-				hash = hash(hash, NonNullKeysIterator.key(this, token));
-				if (NonNullKeysIterator.hasValue(this, token)) hash = hash(hash, hash((NonNullKeysIterator.value(this, token))));
+				int h = Array.mix(seed, Array.hash(NonNullKeysIterator.key(this, token)));
+				h = Array.mix(h, Array.hash(NonNullKeysIterator.hasValue(this, token) ? NonNullKeysIterator.value(this, token) : seed));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			
-			return hash;
+			if (hasNullKey != Positive_Values.NONE)
+			{
+				int h = Array.hash(seed);
+				h = Array.mix(h, Array.hash(hasNullKey == Positive_Values.VALUE ? Array.hash(NullKeyValue) : seed));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			return Array.finalizeHash(Array.mixLast(Array.mix(Array.mix(seed, a), b), c), size());
 		}
+		
+		private static final int seed = R.class.hashCode();
 		
 		public boolean contains( Double    key)           {return !hasNone(token(key));}
 		
@@ -74,7 +95,7 @@ public interface DoubleUIntNullMap {
 			
 			final double key_ =  key;
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (double k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key_) return (values.hasValue(slot)) ? slot : Positive_Values.NULL;
@@ -168,8 +189,8 @@ public interface DoubleUIntNullMap {
 		}
 		
 		
-public String toString() {return toJSON();}
-		@Override public void toJSON(JsonWriter json)  {
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			json.enterObject();
 			
 			switch (hasNullKey)
@@ -252,7 +273,7 @@ public String toString() {return toJSON();}
 				return h == Positive_Values.NONE;
 			}
 			
-			int               slot = hash(key) & mask;
+			int               slot = Array.hash(key) & mask;
 			final double key_ =  key ;
 			
 			for (double k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
@@ -280,7 +301,7 @@ public String toString() {return toJSON();}
 				return h == Positive_Values.NONE;
 			}
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			final double key_ =  key;
 			
@@ -305,7 +326,7 @@ public String toString() {return toJSON();}
 		public boolean remove(double key) {
 			if (key == 0) return remove();
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			final double key_ =  key;
 			
@@ -317,7 +338,7 @@ public String toString() {return toJSON();}
 					double kk;
 					
 					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hash(kk) & mask) >= distance)
+						if ((s - Array.hash(kk) & mask) >= distance)
 						{
 							
 							keys[gapSlot] = kk;

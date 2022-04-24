@@ -5,12 +5,10 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 
-import static org.unirail.collections.Array.hash;
-
 public interface ShortNullList {
 	
 	
-	abstract class R  implements Cloneable , JsonWriter.Source {
+	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		BitList.RW         nulls;
 		ShortList.RW values;
@@ -33,8 +31,6 @@ public interface ShortNullList {
 		public short get(@Positive_ONLY int index) {return (short) values.get(nulls.rank(index) - 1);}
 		
 		
-		public int indexOf()                              {return nulls.next0(0);}
-		
 		public int indexOf(short value) {
 			int i = values.indexOf(value);
 			return i < 0 ? i : nulls.bit(i);
@@ -53,7 +49,7 @@ public interface ShortNullList {
 			       equals(getClass().cast(obj));
 		}
 		
-		public int hashCode()          {return hash(hash(nulls), values);}
+		public int hashCode()          {return Array.hash(Array.hash(nulls), values);}
 		
 		
 		public boolean equals(R other) {return other != null && other.size() == size() && values.equals(other.values) && nulls.equals(other.nulls);}
@@ -63,7 +59,7 @@ public interface ShortNullList {
 			{
 				R dst = (R) super.clone();
 				dst.values = values.clone();
-				dst.nulls = nulls.clone();
+				dst.nulls  = nulls.clone();
 				return dst;
 			} catch (CloneNotSupportedException e)
 			{
@@ -73,9 +69,8 @@ public interface ShortNullList {
 		}
 		
 		
-		
-public String toString() {return toJSON();}
-		@Override public void toJSON(JsonWriter json)  {
+		public String toString() {return toJSON();}
+		@Override public void toJSON(JsonWriter json) {
 			
 			json.enterArray();
 			int size = size();
@@ -93,46 +88,43 @@ public String toString() {return toJSON();}
 			}
 			json.exitArray();
 		}
-	
+		
 		
 		protected static void set(R dst, int index,  Short     value) {
 			
 			if (value == null)
 			{
-				if (dst.size() <= index)
+				if (dst.size() <= index) dst.nulls.set0(index);//resize
+				else if (dst.nulls.get(index))
 				{
+					dst.values.remove(dst.nulls.rank(index));
 					dst.nulls.set0(index);
-					return;
 				}
-				
-				if (!dst.nulls.get(index)) return;
-				
-				dst.values.remove(dst.nulls.rank(index));
-				dst.nulls.remove(index);
 			}
 			else set(dst, index, (short) (value + 0));
 		}
 		
 		protected static void set(R dst, int index, short value) {
-			if (dst.nulls.get(index))
-			{
-				dst.values.set(dst.nulls.rank(index) - 1, value);
-				return;
-			}
 			
-			dst.nulls.set1(index);
-			dst.values.add(dst.nulls.rank(index) - 1, value);
+			if (dst.nulls.get(index)) dst.values.set(dst.nulls.rank(index) - 1, value);
+			else
+			{
+				dst.nulls.set1(index);
+				dst.values.add(dst.nulls.rank(index) - 1, value);
+			}
 		}
 	}
 	
 	
 	class RW extends R {
 		
-		public RW(int length) {
+		public RW(int size) {this(size, size);}
+		
+		public RW(int length, int size) {
 			nulls = new BitList.RW(length);
+			nulls.set0(size - 1);
 			values = new ShortList.RW(length);
 		}
-		
 		public RW( Short     fill_value, int size) {
 			this(size);
 			if (fill_value == null) nulls.size = size;
@@ -165,7 +157,7 @@ public String toString() {return toJSON();}
 		
 		public RW(R src, int fromIndex, int toIndex) {
 			
-			nulls = new BitList.RW(src.nulls, fromIndex, toIndex);
+			nulls  = new BitList.RW(src.nulls, fromIndex, toIndex);
 			values = nulls.values.length == 0 ?
 			         new ShortList.RW(0) :
 			         new ShortList.RW(src.values, src.nulls.rank(fromIndex), src.nulls.rank(toIndex));
@@ -173,13 +165,43 @@ public String toString() {return toJSON();}
 		}
 		
 		public void length(int length) {
+			boolean f = false;
+			if (this.nulls.length() < length)
+				this.nulls.length(length);
+			else if (length < this.nulls.length())
+			{
+				this.nulls.length(length);
+				f = true;
+			}
+			if (values.values.length == length)
+			{
+				if (f)
+				{
+					int c = nulls.cardinality();
+					if (c < values.size()) for (int i = c; i < this.values.size; i++) values.values[i] = 0;
+					values.size = c;
+				}
+				return;
+			}
+			
+			if (length < values.values.length && f)
+			{
+				int c = nulls.cardinality();
+				if (c < values.size())
+				{
+					short[] tmp = values.values;
+					
+					values.values = new short[length];
+					System.arraycopy(tmp, 0, values.values, 0, values.size = c);
+				}
+			}
 			values.values = Arrays.copyOf(values.values, length);
-			nulls.length(length);
+			
 		}
 		
 		public void fit() {
-			values.values = Arrays.copyOf(values.values, values.size);
 			nulls.fit();
+			values.values = Arrays.copyOf(values.values, values.size);
 		}
 		
 		public RW clone()    {return (RW) super.clone();}
@@ -219,9 +241,9 @@ public String toString() {return toJSON();}
 			else set(index, value);
 		}
 		
-		public void set( Short     value)            {set(this, size(), value);}
+		public void set( Short     value)            {set(this, size() - 1, value);}
 		
-		public void set(short value)                {set(this, size(), value);}
+		public void set(short value)                {set(this, size() - 1, value);}
 		
 		public void set(int index,  Short     value) {set(this, index, value);}
 		
@@ -229,12 +251,12 @@ public String toString() {return toJSON();}
 		
 		public void set(int index, short... values) {
 			for (int i = 0, max = values.length; i < max; i++)
-				set(this, index + i, (short) values[i]);
+			     set(this, index + i, (short) values[i]);
 		}
 		
 		public void set(int index,  Short    ... values) {
 			for (int i = 0, max = values.length; i < max; i++)
-				set(this, index + i, values[i]);
+			     set(this, index + i, values[i]);
 		}
 		
 		public void addAll(R src) {

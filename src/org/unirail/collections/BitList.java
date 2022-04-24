@@ -48,7 +48,7 @@ public interface BitList {
 			final int index = bit >> LEN;
 			if (index < used()) return index;
 			
-			if (values.length < (used = index + 1)) values = Array.copyOf(values, Math.max(2 * values.length, used));
+			if (values.length < (used = index + 1)) values = Array.copyOf(values, Math.max(values.length + values.length / 2, used));
 			
 			return index;
 		}
@@ -76,7 +76,7 @@ public interface BitList {
 				     dst[i] = values[index] >>> from_bit | values[index + 1] << -from_bit;
 			
 			
-			long mask = FFFFFFFFFFFFFFFF >>> -to_bit;
+			final long mask = FFFFFFFFFFFFFFFF >>> -to_bit;
 			dst[ret - 1] =
 					(to_bit - 1 & MASK) < (from_bit & MASK) ?
 					values[index] >>> from_bit | (values[index + 1] & mask) << -from_bit
@@ -157,9 +157,11 @@ public interface BitList {
 		
 		
 		public int cardinality() {
-			for (int i = 0, sum = 0; ; i++)
-				if (i < used()) sum += Long.bitCount(values[i]);
-				else return sum;
+			int sum = 0;
+			for (int i = 0, max = used(); i < max; i++)
+			     sum += Long.bitCount(values[i]);
+			
+			return sum;
 		}
 		
 		public int bit(int cardinality) {
@@ -227,11 +229,11 @@ public interface BitList {
 				for (int i = 0; i < max; i++)
 				{
 					final long v = values[i];
-					for (int s = 0; s < 64; s++)
+					for (int s = 0; s < BITS; s++)
 					     json.value((v & 1L << s) == 0 ? 0 : 1);
 				}
 				
-				if (0 < (size &= 63))
+				if (0 < (size &= MASK))
 				{
 					final long v = values[max];
 					for (int s = 0; s < size; s++)
@@ -416,8 +418,6 @@ public interface BitList {
 		}
 		
 		
-		public void add(boolean value) {set(size, value);}
-		
 		public void set(int bit, boolean value) {
 			if (value)
 				set1(bit);
@@ -517,10 +517,11 @@ public interface BitList {
 			}
 		}
 		
-		public void add(long src) {add(src, 64);}
+		public void add(boolean value) {set(size, value);}
+		public void add(long src)      {add(src, BITS);}
 		
 		public void add(long src, int bits) {
-			if (64 < bits) bits = 64;
+			if (BITS < bits) bits = BITS;
 			
 			int _size = size;
 			size += bits;
@@ -529,7 +530,7 @@ public interface BitList {
 			
 			used(_size + BITS - Long.numberOfLeadingZeros(src));
 			
-			int bit = _size & 63;
+			int bit = _size & MASK;
 			
 			if (bit == 0) values[index(size)] = src;
 			else

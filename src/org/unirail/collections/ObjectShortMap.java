@@ -3,8 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
-
 public interface ObjectShortMap {
 	
 	interface NonNullKeysIterator {
@@ -67,13 +65,46 @@ public interface ObjectShortMap {
 		public boolean isEmpty()          {return size() == 0;}
 		
 		
-		public int hashCode() {
-			int hash = hash(hasNullKey ? hash(NullKeyValue) : 719717, keys);
+		public int hashCodew() {
+			int hash = Array.hash(hasNullKey ? Array.hash(NullKeyValue) : 719717, keys);
 			for (int token = NonNullKeysIterator.INIT, h = 719717; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-			     hash = (h++) + hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
+			     hash = (h++) + Array.hash(hash, array.hashCode(NonNullKeysIterator.key(this, token)));
 			
 			return hash;
 		}
+		//Compute a hash that is symmetric in its arguments - that is a hash
+		//where the order of appearance of elements does not matter.
+		//This is useful for hashing sets, for example.
+		public int hashCode() {
+			int a = 0;
+			int b = 0;
+			int c = 1;
+			
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			{
+				int h = Array.mix(seed, Array.hash(NonNullKeysIterator.key(this, token)));
+				h = Array.mix(h, Array.hash(NonNullKeysIterator.value(this, token)));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			if(hasNullKey)
+			{
+				final int h = Array.finalizeHash(Array.mix(Array.hash(seed), Array.hash(NullKeyValue)), 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			return Array.finalizeHash(Array.mixLast(Array.mix(Array.mix(seed, a), b), c), size());
+		}
+		
+		private static final int seed = R.class.hashCode();
+		
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}

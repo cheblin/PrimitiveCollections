@@ -5,13 +5,14 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 
-import static org.unirail.collections.Array.hash;
 
 public interface ByteList {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
 		byte[] values = Array.Of.bytes     .O;
+		
+		public byte[] array() {return values;}
 		
 		int size = 0;
 		
@@ -38,6 +39,16 @@ public interface ByteList {
 		}
 		
 		public byte get(int index) {return  (byte) values[index];}
+		
+		public int get(byte[] dst, int dst_index, int src_index, int len) {
+			len = Math.min(Math.min(size - src_index, len), dst.length - dst_index);
+			if (len < 1) return 0;
+			
+			for (int i = 0; i < len; i++)
+			     dst[dst_index++] = (byte) values[src_index++];
+			
+			return len;
+		}
 		
 		public int indexOf( byte value) {
 			for (int i = 0; i < size; i++)
@@ -66,11 +77,37 @@ public interface ByteList {
 			return true;
 		}
 		
-		public int hashCode() {
-			int hash = 999197497;
-			for (int i = size(); -1 < --i; ) hash = hash(hash, values[i]);
-			return hash;
+		public final int hashCode() {
+			switch (size)
+			{
+				case 0:
+					return Array.finalizeHash(seed, 0);
+				case 1:
+					return Array.finalizeHash(Array.mix(seed, Array.hash(values[0])), 1);
+			}
+			
+			final int initial   = Array.hash(values[0]);
+			int       prev      = Array.hash(values[1]);
+			final int rangeDiff = prev - initial;
+			int       h         = Array.mix(seed, initial);
+			
+			for (int i = 2; i < size; ++i)
+			{
+				h = Array.mix(h, prev);
+				final int hash = Array.hash(values[i]);
+				if (rangeDiff != hash - prev)
+				{
+					for (h = Array.mix(h, hash), ++i; i < size; ++i)
+					     h = Array.mix(h, Array.hash(values[i]));
+					
+					return Array.finalizeHash(h, size);
+				}
+				prev = hash;
+			}
+			
+			return Array.avalanche(Array.mix(Array.mix(h, rangeDiff), prev));
 		}
+		private static final int seed = R.class.hashCode();
 		
 		public R clone() {
 			try
@@ -191,6 +228,17 @@ public interface ByteList {
 			
 			values[index] = (byte) value;
 		}
+		
+		public int set(byte[] src, int src_index, int dst_index, int len) {
+			len = Math.min(src.length - src_index, len);
+			if (len < 1) return 0;
+			
+			for (int i = 0; i < len; i++)
+			     set(dst_index++, src[src_index++]);
+			
+			return len;
+		}
+		
 		
 		public void swap(int index1, int index2) {
 			final byte tmp = values[index1];

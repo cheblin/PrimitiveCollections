@@ -12,28 +12,20 @@ public interface BitsNullList {
 		
 		public final int null_val;
 		
-		public int null_val() {return null_val;}
-		
 		protected R(int null_val, int bits_per_item) {
 			super(bits_per_item);
 			this.null_val = null_val;
 		}
 		
 		protected R(int null_val, int bits_per_item, int items) {
-			super(bits_per_item, items);
+			super(bits_per_item, null_val, items);
 			this.null_val = null_val;
-			
-			if (0 < items && null_val != 0) nulls(this, 0, items);
 		}
 		
-		protected static void nulls(R dst, int from, int upto) {while (from < upto) set(dst, from++, dst.null_val);}
-		
-		protected R(int null_val, int bits_per_item, int fill_value, int size) {
-			super(bits_per_item, size);
+		protected R(int null_val, int bits_per_item, int default_val, int size) {
+			super(bits_per_item,default_val, size);
 			this.null_val = null_val;
 			this.size     = size;
-			if (fill_value == 0) return;
-			while (-1 < --size) set(this, size, fill_value);
 		}
 		
 		
@@ -183,8 +175,6 @@ public interface BitsNullList {
 		public void set(int item, long value) {
 			final int fix = size;
 			set(this, item, value);
-			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		
@@ -194,7 +184,6 @@ public interface BitsNullList {
 			for (int i = values.length; -1 < --i; )
 			     set(this, item + i, values[i] == null ? null_val : values[i] & 0xFF);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, Character... values) {
@@ -203,7 +192,6 @@ public interface BitsNullList {
 			for (int i = values.length; -1 < --i; )
 			     set(this, item + i, values[i] == null ? null_val : values[i] & 0xFF);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, Short... values) {
@@ -212,7 +200,6 @@ public interface BitsNullList {
 			for (int i = values.length; -1 < --i; )
 			     set(this, item + i, values[i] == null ? null_val : values[i] & 0xFF);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, Integer... values) {
@@ -221,7 +208,6 @@ public interface BitsNullList {
 			for (int i = values.length; -1 < --i; )
 			     set(this, item + i, values[i] == null ? null_val : values[i] & 0xFF);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, Long... values) {
@@ -230,49 +216,38 @@ public interface BitsNullList {
 			for (int i = values.length; -1 < --i; )
 			     set(this, item + i, values[i] == null ? null_val : (int) (values[i] & 0xFF));
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, byte... values) {
 			final int fix = size;
 			set(this, item, values);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, char... values) {
 			final int fix = size;
 			set(this, item, values);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, short... values) {
 			final int fix = size;
 			set(this, item, values);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, int... values) {
 			final int fix = size;
 			set(this, item, values);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
 		public void set(int item, long... values) {
 			final int fix = size;
 			set(this, item, values);
 			
-			if (fix < item && null_val != 0) nulls(this, fix, item);
 		}
 		
-		public void clear() {
-			if (size < 1) return;
-			nulls(this, 0, size);
-			size = 0;
-		}
 		
 		@Override public RW clone() {return (RW) super.clone();}
 	}

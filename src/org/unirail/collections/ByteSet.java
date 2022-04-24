@@ -3,7 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
 
 public interface ByteSet {
 	
@@ -156,7 +155,7 @@ a:
 			return true;
 		}
 		
-		public int hashCode() {return hash(hash(hash(hash(hasNullKey ? 184889743 : 22633363, _1), _2), _3), _4);}
+		public int hashCode() {return Array.hash(Array.hash(Array.hash(Array.hash(hasNullKey ? 184889743 : 22633363, _1), _2), _3), _4);}
 		
 		public boolean equals(Object obj) {
 			

@@ -60,7 +60,7 @@ public interface ObjectList {
 		
 		public boolean equals(R<V> other) {return other != null && size == other.size && array.equals(values, other.values, size);}
 		
-		public int hashCode()             {return array.hashCode(values, size);}
+		public int hashCode()             {return V_is_string ? Array.hash((String[]) values, size) : array.hashCode(values, size);}
 		
 		@SuppressWarnings("unchecked")
 		public R<V> clone() {

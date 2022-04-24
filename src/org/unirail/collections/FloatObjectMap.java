@@ -3,8 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
-
 public interface FloatObjectMap {
 	
 	interface NonNullKeysIterator {
@@ -29,19 +27,12 @@ public interface FloatObjectMap {
 		public          float[] keys;
 		public          V[]           values;
 		protected final Array.Of<V>   array;
-		private final   char          s;
 		
-		protected R(Class<V> clazz) {
-			array = Array.get(clazz);
-			s     = clazz == String.class ? '"' : '\0';
-		}
-		
+		protected R(Class<V> clazz) {array = Array.get(clazz);}
 		
 		int assigned;
 		
-		
 		int mask;
-		
 		
 		int resizeAt;
 		
@@ -67,7 +58,7 @@ public interface FloatObjectMap {
 		public @Positive_Values int token(float key) {
 			if (key == 0) return has0Key ? keys.length : Positive_Values.NONE;
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return slot;
@@ -88,13 +79,48 @@ public interface FloatObjectMap {
 		public int size()        {return assigned + (has0Key ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
 		
-		public int hashCode() {
-			int hash = hasNullKey ? hash(NullKeyValue) : 997651;
+		public int hashCoder() {
+			int hash = hasNullKey ? Array.hash(NullKeyValue) : 997651;
 			
 			for (int token = NonNullKeysIterator.INIT, h = 0xc2b2ae35; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-			     hash = (h++) + hash(hash(hash, NonNullKeysIterator.key(this, token)), array.hashCode(NonNullKeysIterator.value(this, token)));
+			     hash = (h++) + Array.hash(Array.hash(hash, NonNullKeysIterator.key(this, token)), array.hashCode(NonNullKeysIterator.value(this, token)));
 			return hash;
 		}
+		
+		//Compute a hash that is symmetric in its arguments - that is a hash
+		//where the order of appearance of elements does not matter.
+		//This is useful for hashing sets, for example.
+		public int hashCode() {
+			int a = 0;
+			int b = 0;
+			int c = 1;
+			
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			{
+				int h = Array.mix(seed, Array.hash(NonNullKeysIterator.key(this, token)));
+				h = Array.mix(h, NonNullKeysIterator.value(this, token) == null ? seed : Array.hash(NonNullKeysIterator.value(this, token)));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			if (hasNullKey)
+			{
+				int h = Array.hash(seed);
+				h = Array.mix(h, NullKeyValue == null ? seed : Array.hash(Array.hash(NullKeyValue)));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			return Array.finalizeHash(Array.mixLast(Array.mix(Array.mix(seed, a), b), c), size());
+		}
+		
+		private static final int seed = R.class.hashCode();
 		
 		
 		@SuppressWarnings("unchecked") public boolean equals(Object obj) {
@@ -246,7 +272,7 @@ public interface FloatObjectMap {
 			}
 			
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -274,7 +300,7 @@ public interface FloatObjectMap {
 			
 			if (key == 0) return has0Key && !(has0Key = false);
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -284,7 +310,7 @@ public interface FloatObjectMap {
 					
 					float kk;
 					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hash(kk) & mask) >= distance)
+						if ((s - Array.hash(kk) & mask) >= distance)
 						{
 							
 							keys[gapSlot]   =  kk;
@@ -340,7 +366,7 @@ public interface FloatObjectMap {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = hash(key) & mask;
+					int slot = Array.hash(key) & mask;
 					while (keys[slot] != 0) slot = slot + 1 & mask;
 					keys[slot]   =  key;
 					values[slot] = v[i];

@@ -5,7 +5,6 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 
-import static org.unirail.collections.Array.hash;
 
 public interface ObjectIntNullMap {
 	interface NonNullKeysIterator {
@@ -71,15 +70,46 @@ public interface ObjectIntNullMap {
 		public int value(@Positive_ONLY int token) {return token == keys.length ? NullKeyValue : values.get(token);}
 		
 		
+		//Compute a hash that is symmetric in its arguments - that is a hash
+		//where the order of appearance of elements does not matter.
+		//This is useful for hashing sets, for example.
 		public int hashCode() {
-			int hash = hash(hasNullKey == Positive_Values.NONE ? 719281 : hasNullKey == Positive_Values.NULL ? 401101 : hash(NullKeyValue));
+			int a = 0;
+			int b = 0;
+			int c = 1;
 			
-			for (int token = NonNullKeysIterator.INIT, h = 719281; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-			     hash = (h++) + hash(hash, hash(array.hashCode(NonNullKeysIterator.key(this, token)),
-			                                    NonNullKeysIterator.hasValue(this, token) ? NonNullKeysIterator.value(this, token) : h++));
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			{
+				int h = Array.mix(seed, Array.hash(NonNullKeysIterator.key(this, token)));
+				h = Array.mix(h, Array.hash(NonNullKeysIterator.hasValue(this, token) ? NonNullKeysIterator.value(this, token) : seed));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
 			
-			return hash;
+			if (hasNullKey != Positive_Values.NONE)
+			{
+				int h = Array.hash(seed);
+				h = Array.mix(h, Array.hash(hasNullKey == Positive_Values.VALUE ? Array.hash(NullKeyValue) : seed));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			return Array.finalizeHash(Array.mixLast(Array.mix(Array.mix(seed, a), b), c), size());
 		}
+		
+		private static final int seed = R.class.hashCode();
+		
+		
+		
+		
+		
+		
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals(Object obj) {

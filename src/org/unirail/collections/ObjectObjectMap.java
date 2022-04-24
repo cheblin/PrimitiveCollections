@@ -3,7 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
 
 public interface ObjectObjectMap {
 	
@@ -28,14 +27,12 @@ public interface ObjectObjectMap {
 		protected final Array.Of<K> hash_equalK;
 		protected final Array.Of<V> hash_equalV;
 		private final   boolean     K_is_string;
-		private final   boolean     V_is_string;
 		
 		protected R(Class<K> clazzK, Class<V> clazzV) {
 			
 			hash_equalK = Array.get(clazzK);
 			hash_equalV = Array.get(clazzV);
 			K_is_string = clazzK == String.class;
-			V_is_string = clazzV == String.class;
 		}
 		
 		protected int assigned;
@@ -76,14 +73,40 @@ public interface ObjectObjectMap {
 		
 		public boolean isEmpty()                 {return size() == 0;}
 		
-		
+		//Compute a hash that is symmetric in its arguments - that is a hash
+		//where the order of appearance of elements does not matter.
+		//This is useful for hashing sets, for example.
 		public int hashCode() {
-			int hash = hash(hasNullKey ? hash_equalV.hashCode(NullKeyValue) : 10100011);
+			int a = 0;
+			int b = 0;
+			int c = 1;
 			
-			for (int token = NonNullKeysIterator.INIT, h = 10100011; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-			     hash = (h++) + hash(hash(hash, hash_equalK.hashCode(NonNullKeysIterator.key(this, token))), hash_equalV.hashCode(NonNullKeysIterator.value(this, token)));
-			return hash;
+			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
+			{
+				int h = Array.mix(seed, hash_equalK.hashCode(NonNullKeysIterator.key(this, token)));
+				h = Array.mix(h, NonNullKeysIterator.value(this, token) == null ? seed :  hash_equalV.hashCode(NonNullKeysIterator.value(this, token)));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			if (hasNullKey)
+			{
+				int h = Array.hash(seed);
+				h = Array.mix(h, NullKeyValue == null ? seed : hash_equalV.hashCode(NullKeyValue));
+				h = Array.finalizeHash(h, 2);
+				
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			
+			return Array.finalizeHash(Array.mixLast(Array.mix(Array.mix(seed, a), b), c), size());
 		}
+		
+		private static final int seed = R.class.hashCode();
 		
 		@SuppressWarnings("unchecked")
 		public boolean equals(Object obj) {return obj != null && getClass() == obj.getClass() && equals(getClass().cast(obj));}

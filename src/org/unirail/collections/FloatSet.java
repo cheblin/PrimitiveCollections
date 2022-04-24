@@ -3,8 +3,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import static org.unirail.collections.Array.hash;
-
 public interface FloatSet {
 	
 	interface NonNullKeysIterator {
@@ -41,7 +39,7 @@ public interface FloatSet {
 		public boolean contains(float key) {
 			if (key == 0) return has0Key;
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return true;
@@ -54,16 +52,32 @@ public interface FloatSet {
 		
 		public int size()        {return assigned + (has0Key ? 1 : 0) + (hasNullKey ? 1 : 0);}
 		
-		
+		//Compute a hash that is symmetric in its arguments - that is a hash
+		//where the order of appearance of elements does not matter.
+		//This is useful for hashing sets, for example.
 		public int hashCode() {
-			int hash = hasNullKey ? 10910099 : 97654321;
+			int a = 0;
+			int b = 0;
+			int c = 1;
 			
 			for (int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token(this, token)) != NonNullKeysIterator.INIT; )
-			     hash = hash(hash, NonNullKeysIterator.key(this, token));
+			{
+				final int h = Array.hash(NonNullKeysIterator.key(this, token));
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
 			
-			return hash(hash, keys);
+			if(hasNullKey)
+			{
+				final int h = Array.hash(seed);
+				a += h;
+				b ^= h;
+				c *= h | 1;
+			}
+			return Array.finalizeHash(Array.mixLast(Array.mix(Array.mix(seed, a), b), c), size());
 		}
-		
+		private static final int seed = R.class.hashCode();
 		
 		public float[] toArray(float[] dst) {
 			final int size = size();
@@ -185,7 +199,7 @@ public interface FloatSet {
 			
 			if (key == 0) return !has0Key && (has0Key = true);
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key) return false;
@@ -214,7 +228,7 @@ public interface FloatSet {
 			for (int i = k.length; -1 < --i; )
 				if ((key = k[i]) != 0)
 				{
-					int slot = hash(key) & mask;
+					int slot = Array.hash(key) & mask;
 					while (keys[slot] != 0) slot = slot + 1 & mask;
 					keys[slot] = key;
 				}
@@ -227,7 +241,7 @@ public interface FloatSet {
 			
 			if (key == 0) return has0Key && !(has0Key = false);
 			
-			int slot = hash(key) & mask;
+			int slot = Array.hash(key) & mask;
 			
 			for (float k; (k = keys[slot]) != 0; slot = slot + 1 & mask)
 				if (k == key)
@@ -236,7 +250,7 @@ public interface FloatSet {
 					
 					float kk;
 					for (int distance = 0, s; (kk = keys[s = gapSlot + ++distance & mask]) != 0; )
-						if ((s - hash(kk) & mask) >= distance)
+						if ((s - Array.hash(kk) & mask) >= distance)
 						{
 							keys[gapSlot] =  kk;
 							                           gapSlot = s;
