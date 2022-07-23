@@ -1,35 +1,49 @@
 package org.unirail.collections;
 
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class LongRingBuffer {
-	private final long[] buffer;
-	private final long          mask;
-	private final AtomicLong    read  = new AtomicLong();
-	private final AtomicLong    write = new AtomicLong();
+	private final    long[] buffer;
+	private final    int           mask;
+	private final    AtomicBoolean lock = new AtomicBoolean();
+	private volatile long          get  = Long.MIN_VALUE;
+	private volatile long          put  = Long.MIN_VALUE;
 	
-	public LongRingBuffer(int power_of_2) { buffer = new long[(int) ((mask = (1L << power_of_2) - 1) + 1)]; }
+	public LongRingBuffer(int power_of_2) {buffer = new long[(mask = (1 << power_of_2) - 1) + 1];}
 	
-	public int length()                 {return buffer.length;}
+	public int length() {return buffer.length;}
 	
-	public int size()                   {return (int) ((write.get() - read.get()) & mask); }
+	public int size()   {return (int) (put - get);}
 	
-	public long get()                   { return size() == 0 ? Long.MIN_VALUE :  buffer[(int) (read.getAndIncrement() & mask)]; }
+	public long get_multithreaded(long if_empty_then_return_value) {
+		
+		while (!lock.compareAndSet(false, true)) Thread.yield();
+		
+		long ret = get(if_empty_then_return_value);
+		
+		lock.set(false);
+		return ret;
+	}
+	public long get(long if_empty_then_return_value) {return get == put ? if_empty_then_return_value : buffer[(int) (get++) & mask] & (~0L);}
 	
-	public synchronized long get_sync() { return get(); }
-	
+	public boolean put_multithreaded(long value) {
+		if (size() + 1 == buffer.length) return false;
+		
+		while (!lock.compareAndSet(false, true)) Thread.yield();
+		boolean ret = put(value);
+		lock.set(false);
+		return ret;
+	}
 	public boolean put(long value) {
-		if (available() < 1) return false;
-		buffer[(int) (write.getAndIncrement() & mask)] = (long) value;
+		if (size() + 1 == buffer.length) return false;
+		
+		buffer[(int) (put++) & mask] = (long) value;
+		
 		return true;
 	}
 	
-	public synchronized boolean put_sync(long value) {return put(value);}
-	
-	public int available()                                  { return (int) (mask + 1 - (write.get() - read.get()));}
-	
-	public void reset() {
-		read.set(0);
-		write.set(0);
+	public void clear() {
+		get = Long.MIN_VALUE;
+		put = Long.MIN_VALUE;
 	}
 }

@@ -62,6 +62,7 @@ public interface ObjectList {
 		
 		public int hashCode()             {return V_is_string ? Array.hash((String[]) values, size) : array.hashCode(values, size);}
 		
+		
 		@SuppressWarnings("unchecked")
 		public R<V> clone() {
 			try

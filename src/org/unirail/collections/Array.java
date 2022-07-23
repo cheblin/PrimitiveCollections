@@ -122,22 +122,19 @@ public interface Array {
 					int          len  = data.length, i, k = 0;
 					
 					for (i = 0; 3 < len; i += 4, len -= 4)
-					     hash = mix(hash, data[i] & 255
-					                      | (data[i + 1] & 255) << 8
-					                      | (data[i + 2] & 255) << 16
-					                      | (data[i + 3] & 255) << 24);
+					     hash = mix(hash, data[i] & 0xFF
+					                      | (data[i + 1] & 0xFF) << 8
+					                      | (data[i + 2] & 0xFF) << 16
+					                      | (data[i + 3] & 0xFF) << 24);
 					switch (len)
 					{
 						case 3:
-							k ^= (data[i + 2] & 255) << 16;
+							k ^= (data[i + 2] & 0xFF) << 16;
 						case 2:
-							k ^= (data[i + 1] & 255) << 8;
+							k ^= (data[i + 1] & 0xFF) << 8;
 					}
 					
-					k ^= data[i] & 255;
-					hash = mixLast(hash, k);
-					
-					hash = finalizeHash(hash, data.length);
+					hash = finalizeHash(mixLast(hash, k ^ data[i] & 0xFF), data.length);
 				}
 				
 				return finalizeHash(hash, src.length);
@@ -443,7 +440,6 @@ public interface Array {
 		return v;
 	}
 	
-	
 	static boolean equals(Object[][] O, Object[][] X) {
 		if (O != X)
 		{
@@ -453,18 +449,9 @@ public interface Array {
 		return true;
 	}
 	
-	static int hash(int hash, Object[][] src) {
-		
-		if (src == null) return hash ^ 10153331;
-		for (Object[] s : src) hash ^= Arrays.hashCode(s);
-		
-		return hash;
-	}
-	
 	static int mix(int hash, int data) {
 		return Integer.rotateLeft(mixLast(hash, data), 13) * 5 + 0xe6546b64;
 	}
-	
 	
 	static int mixLast(int hash, int data) {
 		return hash ^ Integer.rotateLeft(data * 0xcc9e2d51, 15) * 0x1b873593;
@@ -475,12 +462,18 @@ public interface Array {
 	}
 	
 	static int avalanche(int size) {
-		size ^= size >>> 16;
-		size *= 0x85ebca6b;
-		size ^= size >>> 13;
-		size *= 0xc2b2ae35;
-		size ^= size >>> 16;
-		return size;
+		
+		size = (size ^ size >>> 16) * 0x85ebca6b;
+		size = (size ^ size >>> 13) * 0xc2b2ae35;
+		return size ^ size >>> 16;
+	}
+	
+	static int hash(int hash, Object[][] src) {
+		
+		if (src == null) return 0;
+		for (Object[] s : src) hash ^= Arrays.hashCode(s);
+		
+		return hash;
 	}
 	
 	static int hash(int hash, Object src) {return hash ^ hash(src);}

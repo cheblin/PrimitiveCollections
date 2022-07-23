@@ -207,7 +207,7 @@ public interface BitList {
 		public boolean equals(R other) {
 			int i = size();
 			if (i != other.size()) return false;
-			for (i >>>= 6; -1 < i; i--) if (values[i] != other.values[i]) return false;
+			for (i >>>= LEN; -1 < i; i--) if (values[i] != other.values[i]) return false;
 			return true;
 		}
 		

@@ -121,9 +121,12 @@ public interface DoubleNullList {
 		public RW(int size) {this(size, size);}
 		
 		public RW(int length, int size) {
-			nulls = new BitList.RW(length);
-			nulls.set0(size - 1);
+			nulls  = new BitList.RW(length);
 			values = new DoubleList.RW(length);
+			
+			if (length < size) size = length;
+			
+			if (0 < size) nulls.set0(size - 1);
 		}
 		public RW( Double    fill_value, int size) {
 			this(size);
