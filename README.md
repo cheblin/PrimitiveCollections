@@ -1,17 +1,29 @@
-# Java Primitive Collections: Cutting-Edge Nightly Release
+# AdHoc Java Primitive Collections:
 
-Introducing a bleeding-edge nightly release of Java primitive collections, now with support for unsigned and nullable types.
 
-This project draws inspiration from top-tier libraries:
+
+This project introduces a set of collection classes for primitive data types in Java. 
+The goal is to provide an efficient and convenient alternative to the standard Java generic collections that only hold 
+object references. 
+This project is inspired by some of the top-tier libraries for primitive collections, such as 
+- [Eclipse Collections](https://www.baeldung.com/java-eclipse-primitive-collections), 
+- [Primitive Collections for Java](https://pcj.sourceforge.net/)
 - [Trove](https://bitbucket.org/trove4j/trove)
 - [HPPC](https://labs.carrotsearch.com/hppc.html)
 - [HPPC-RT](https://github.com/vsonnier/hppcrt)
 - [fastutil](https://fastutil.di.unimi.it/)
 - [Koloboke](https://github.com/leventov/Koloboke)
 
-It introduces new features, including support for unsigned and nullable primitive types.
+Some of the features of this project are:
 
-Performance and memory efficiency were paramount considerations. Compatibility with the existing Java Collections API was a secondary concern, given the unique challenges of the primitive realm.
+-  Support for all the primitive types, including unsigned and nullable variants
+-  Memory-optimized lists, sets and maps for each primitive type
+-  Polymorphic algorithms that operate on primitive collections
+-  Dynamic type safety and interoperability with generic collections
+-  Customizable hashing, equality, and ordering strategies for primitive elements
+
+This project aims to offer a comprehensive and consistent solution for working with primitive data types in Java. 
+It leverages the benefits of primitive collections, such as performance, memory usage, and expressiveness, 
 
 Each collection type offers two interfaces: **R** for read-only and **RW** for read-write. The **RW** extends **R**, facilitating seamless transition between read-only (**R**) and read-write (**RW**) collection interfaces.
 
