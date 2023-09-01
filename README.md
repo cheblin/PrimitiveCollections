@@ -259,7 +259,7 @@ printout
 
 But if you need to construct a typed collection based on another typed collection, consider employing the following workaround:
 ```java
-    ObjectObjectMap.RW< String, ObjectList.RW< String > > Map_str_List_of_str = new ObjectObjectMap.RW<>( Array.get( String.class ), ObjectList.of(), 4 );
+   ObjectObjectMap.RW< String, ObjectList.RW< String > > Map_str_List_of_str = new ObjectObjectMap.RW<>( String.class, ObjectList.of(), 4 );
     
     Map_str_List_of_str.put( "Key0", new ObjectList.RW<>( String.class, "item0", "item1", "item12" ) );
     Map_str_List_of_str.put( "Key1", new ObjectList.RW<>( String.class, "item0", "item1", "item12" ) );

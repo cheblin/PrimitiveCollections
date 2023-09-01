@@ -266,10 +266,18 @@ public interface ObjectObjectMap {
 		
 		public RW( Class< K > clazzK, Class< V > clazzV, int expectedItems )                    { this( clazzK, clazzV, expectedItems, 0.75 ); }
 		
+		public RW( Class< K > clazzK, Array.Of< V > ofV, int expectedItems )                    { this( Array.get( clazzK ), ofV, expectedItems, 0.75 ); }
+		
+		public RW( Array.Of< K > ofK, Class< V > clazzV, int expectedItems )                    { this( ofK, Array.get( clazzV ), expectedItems, 0.75 ); }
+		
 		public RW( Array.Of< K > ofK, Array.Of< V > ofV, int expectedItems )                    { this( ofK, ofV, expectedItems, 0.75 ); }
 		
 		
 		public RW( Class< K > clazzK, Class< V > clazzV, int expectedItems, double loadFactor ) { this( Array.get( clazzK ), Array.get( clazzV ), expectedItems, loadFactor ); }
+		
+		public RW( Class< K > clazzK, Array.Of< V > ofV, int expectedItems, double loadFactor ) { this( Array.get( clazzK ), ofV, expectedItems, loadFactor ); }
+		
+		public RW( Array.Of< K > ofK, Class< V > clazzV, int expectedItems, double loadFactor ) { this( ofK, Array.get( clazzV ), expectedItems, loadFactor ); }
 		
 		public RW( Array.Of< K > ofK, Array.Of< V > ofV, int expectedItems, double loadFactor ) {
 			super( ofK, ofV );
