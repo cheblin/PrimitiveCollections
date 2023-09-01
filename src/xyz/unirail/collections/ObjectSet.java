@@ -10,17 +10,17 @@ public interface ObjectSet {
 		
 		int INIT = -1;
 		
-		static <K> int token( R<K> src, int token ) {
+		static < K > int token( R< K > src, int token ) {
 			for( ; ; )
 				if( ++token == src.keys.length ) return INIT;
-				else if( src.keys[token] != null ) return token;
+				else if( src.keys[ token ] != null ) return token;
 		}
 		
-		static <K> K key( R<K> src, int token ) { return src.keys[token]; }
+		static < K > K key( R< K > src, int token ) { return src.keys[ token ]; }
 	}
 	
 	
-	abstract class R<K> implements Cloneable, JsonWriter.Source {
+	abstract class R< K > implements Cloneable, JsonWriter.Source {
 		
 		protected int assigned;
 		
@@ -32,22 +32,27 @@ public interface ObjectSet {
 		
 		protected double loadFactor;
 		
-		protected final Array.Of<K> array;
-		private final   boolean     K_is_string;
+		protected final Array.Of< K > ofK;
+		private final   boolean       K_is_string;
 		
-		protected R( Class<K> clazzK ) {
-			array       = Array.get( clazzK );
+		protected R( Class< K > clazzK ) {
+			ofK         = Array.get( clazzK );
 			K_is_string = clazzK == String.class;
+		}
+		
+		public R( Array.Of< K > ofK ) {
+			this.ofK    = ofK;
+			K_is_string = false;
 		}
 		
 		public K[] keys;
 		
 		public boolean contains( K key ) {
 			if( key == null ) return hasNullKey;
-			int slot = array.hashCode( key ) & mask;
+			int slot = ofK.hashCode( key ) & mask;
 			
-			for( K k; (k = keys[slot]) != null; slot = slot + 1 & mask )
-				if( array.equals( k, key ) ) return true;
+			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
+				if( ofK.equals( k, key ) ) return true;
 			
 			return false;
 		}
@@ -55,7 +60,7 @@ public interface ObjectSet {
 		
 		public boolean isEmpty() { return size() == 0; }
 		
-		public int size()        { return assigned + (hasNullKey ? 1 : 0); }
+		public int size()        { return assigned + ( hasNullKey ? 1 : 0 ); }
 		
 		
 		//Compute a hash that is symmetric in its arguments - that is a hash
@@ -66,15 +71,13 @@ public interface ObjectSet {
 			int b = 0;
 			int c = 1;
 			
-			for( int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			{
+			for( int token = NonNullKeysIterator.INIT; ( token = NonNullKeysIterator.token( this, token ) ) != NonNullKeysIterator.INIT; ) {
 				final int h = Array.hash( NonNullKeysIterator.key( this, token ) );
 				a += h;
 				b ^= h;
 				c *= h | 1;
 			}
-			if( hasNullKey )
-			{
+			if( hasNullKey ) {
 				final int h = Array.hash( seed );
 				a += h;
 				b ^= h;
@@ -89,7 +92,7 @@ public interface ObjectSet {
 		@SuppressWarnings( "unchecked" )
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( getClass().cast( obj ) ); }
 		
-		public boolean equals( R<K> other ) {
+		public boolean equals( R< K > other ) {
 			if( other == null || other.assigned != assigned || other.hasNullKey != hasNullKey ) return false;
 			
 			for( K k : keys ) if( k != null && !other.contains( k ) ) return false;
@@ -98,63 +101,60 @@ public interface ObjectSet {
 		}
 		
 		@SuppressWarnings( "unchecked" )
-		public R<K> clone() {
-			try
-			{
-				R<K> dst = (R<K>) super.clone();
+		public R< K > clone() {
+			try {
+				R< K > dst = ( R< K > ) super.clone();
 				dst.keys = keys.clone();
 				
-			} catch( CloneNotSupportedException e )
-			{
+			} catch( CloneNotSupportedException e ) {
 				e.printStackTrace();
 			}
 			
 			return null;
 		}
 		
-		public Array.ISort.Objects<K> getK = null;
+		public Array.ISort.Objects< K > getK = null;
 		
 		public void build( Array.ISort.Anything.Index dst ) {
-			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new char[assigned];
+			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new char[ assigned ];
 			dst.size = assigned;
 			
-			dst.src = getK == null ? getK = new Array.ISort.Objects<K>() {
-				@Override K get( int index ) { return keys[index]; }
+			dst.src = getK == null ? getK = new Array.ISort.Objects< K >() {
+				@Override K get( int index ) { return keys[ index ]; }
 			} : getK;
 			
-			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[i] != null ) dst.dst[k++] = (char) i;
+			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[ i ] != null ) dst.dst[ k++ ] = ( char ) i;
 			Array.ISort.sort( dst, 0, assigned - 1 );
 		}
 		
 		
 		public void build( Array.ISort.Anything.Index2 dst ) {
-			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new int[assigned];
+			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new int[ assigned ];
 			dst.size = assigned;
 			
-			dst.src = getK == null ? getK = new Array.ISort.Objects<K>() {
-				@Override K get( int index ) { return keys[index]; }
+			dst.src = getK == null ? getK = new Array.ISort.Objects< K >() {
+				@Override K get( int index ) { return keys[ index ]; }
 			} : getK;
 			
-			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[i] != null ) dst.dst[k++] = (char) i;
+			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[ i ] != null ) dst.dst[ k++ ] = ( char ) i;
 			Array.ISort.sort( dst, 0, assigned - 1 );
 		}
 		
 		
 		public String toString() { return toJSON(); }
+		
 		@Override public void toJSON( JsonWriter json ) {
 			int i = keys.length;
-			if( K_is_string )
-			{
+			if( K_is_string ) {
 				json.enterObject();
 				
 				if( hasNullKey ) json.name().value();
 				
-				if( 0 < assigned )
-				{
+				if( 0 < assigned ) {
 					json.preallocate( assigned * 10 );
-					String[] strs = (String[]) keys;
+					String[] strs = ( String[] ) keys;
 					String   str;
-					while( -1 < --i ) if( (str = strs[i]) != null ) json.name( str ).value();
+					while( -1 < --i ) if( ( str = strs[ i ] ) != null ) json.name( str ).value();
 				}
 				
 				json.exitObject();
@@ -165,53 +165,58 @@ public interface ObjectSet {
 			
 			if( hasNullKey ) json.value();
 			
-			if( 0 < assigned )
-			{
+			if( 0 < assigned ) {
 				json.preallocate( assigned * 10 );
 				Object obj;
-				while( -1 < --i ) if( (obj = keys[i]) != null ) json.value( obj );
+				while( -1 < --i ) if( ( obj = keys[ i ] ) != null ) json.value( obj );
 			}
 			
 			json.exitArray();
 		}
 	}
-	interface Interface<K> {
+	
+	interface Interface< K > {
 		int size();
+		
 		boolean contains( K key );
+		
 		boolean add( K key );
 	}
 	
-	class RW<K> extends R<K> implements Interface<K> {
+	class RW< K > extends R< K > implements Interface< K > {
 		
 		
-		public RW( Class<K> clazz, int expectedItems ) { this( clazz, expectedItems, 0.75f ); }
+		public RW( Class< K > clazz, int expectedItems )                    { this( clazz, expectedItems, 0.75f ); }
+		public RW( Array.Of< K > ofK, int expectedItems )                    { this( ofK, expectedItems, 0.75f ); }
 		
-		public RW( Class<K> clazz, int expectedItems, double loadFactor ) {
-			super( clazz );
+		public RW( Class< K > clazz, int expectedItems, double loadFactor ) { this( Array.get( clazz ), expectedItems, loadFactor ); }
+		
+		public RW( Array.Of< K > ofK, int expectedItems, double loadFactor ) {
+			super( ofK );
 			
 			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
 			
-			long length = (long) Math.ceil( expectedItems / loadFactor );
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
+			long length = ( long ) Math.ceil( expectedItems / loadFactor );
+			int  size   = ( int ) ( length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ) );
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
-			keys = array.copyOf( null, size );
+			keys = ofK.copyOf( null, size );
 		}
 		
-		@SafeVarargs public RW( Class<K> clazz, K... items ) {
+		@SafeVarargs public RW( Class< K > clazz, K... items ) {
 			this( clazz, items.length );
 			for( K key : items ) add( key );
 		}
 		
 		public boolean add( K key ) {
-			if( key == null ) return !hasNullKey && (hasNullKey = true);
+			if( key == null ) return !hasNullKey && ( hasNullKey = true );
 			
-			int slot = array.hashCode( key ) & mask;
-			for( K k; (k = keys[slot]) != null; slot = slot + 1 & mask )
-				if( array.equals( k, key ) ) return false;
+			int slot = ofK.hashCode( key ) & mask;
+			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
+				if( ofK.equals( k, key ) ) return false;
 			
-			keys[slot] = key;
+			keys[ slot ] = key;
 			if( assigned == resizeAt ) this.allocate( mask + 1 << 1 );
 			
 			assigned++;
@@ -221,56 +226,52 @@ public interface ObjectSet {
 		public void clear() {
 			assigned   = 0;
 			hasNullKey = false;
-			for( int i = keys.length - 1; i >= 0; i-- ) keys[i] = null;
+			for( int i = keys.length - 1; i >= 0; i-- ) keys[ i ] = null;
 		}
 		
 		
 		protected void allocate( int size ) {
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
-			if( assigned < 1 )
-			{
-				if( keys.length < size ) keys = array.copyOf( null, size );
+			if( assigned < 1 ) {
+				if( keys.length < size ) keys = ofK.copyOf( null, size );
 				return;
 			}
 			
 			final K[] k = keys;
-			keys = array.copyOf( null, size );
+			keys = ofK.copyOf( null, size );
 			
 			K key;
 			for( int i = k.length; -1 < --i; )
-				if( (key = k[i]) != null )
-				{
-					int slot = array.hashCode( key ) & mask;
+				if( ( key = k[ i ] ) != null ) {
+					int slot = ofK.hashCode( key ) & mask;
 					
-					while( keys[slot] != null ) slot = slot + 1 & mask;
+					while( keys[ slot ] != null ) slot = slot + 1 & mask;
 					
-					keys[slot] = key;
+					keys[ slot ] = key;
 				}
 			
 		}
 		
 		
 		public boolean remove( K key ) {
-			if( key == null ) return hasNullKey && !(hasNullKey = false);
+			if( key == null ) return hasNullKey && !( hasNullKey = false );
 			
-			int slot = array.hashCode( key ) & mask;
-			for( K k; (k = keys[slot]) != null; slot = slot + 1 & mask )
-				if( array.equals( k, key ) )
-				{
+			int slot = ofK.hashCode( key ) & mask;
+			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
+				if( ofK.equals( k, key ) ) {
 					int gapSlot = slot;
 					
 					K kk;
-					for( int distance = 0, slot1; (kk = keys[slot1 = gapSlot + ++distance & mask]) != null; )
-						if( (slot1 - array.hashCode( kk ) & mask) >= distance )
-						{
-							keys[gapSlot] = kk;
-							                gapSlot = slot1;
-							                distance = 0;
+					for( int distance = 0, slot1; ( kk = keys[ slot1 = gapSlot + ++distance & mask ] ) != null; )
+						if( ( slot1 - ofK.hashCode( kk ) & mask ) >= distance ) {
+							keys[ gapSlot ] = kk;
+							                  gapSlot = slot1;
+							                  distance = 0;
 						}
 					
-					keys[gapSlot] = null;
+					keys[ gapSlot ] = null;
 					assigned--;
 					return true;
 				}
@@ -278,8 +279,11 @@ public interface ObjectSet {
 			return false;
 		}
 		
-		public RW<K> clone() { return (RW<K>) super.clone(); }
-		
+		public RW< K > clone() { return ( RW< K > ) super.clone(); }
+		private static final Object OBJECT = new Array.Of<>( RW.class );
 	}
+	
+	@SuppressWarnings( "unchecked" )
+	static < K > Array.Of< RW< K > > of() { return ( Array.Of< RW< K > > ) RW.OBJECT; }
 }
 	

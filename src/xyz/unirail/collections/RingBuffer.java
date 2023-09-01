@@ -1,11 +1,12 @@
 package xyz.unirail.collections;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 public class RingBuffer<T> {
 	private final    T[]           buffer;
 	private final    int           mask;
-	private final    AtomicBoolean lock = new AtomicBoolean();
+	private volatile int    lock = 0;
 	private volatile long          get  = Long.MIN_VALUE;
 	private volatile long          put  = Long.MIN_VALUE;
 	
@@ -19,11 +20,11 @@ public class RingBuffer<T> {
 	
 	public T get_multithreaded( T return_this_value_if_no_items ) {
 		
-		while( !lock.compareAndSet( false, true ) ) Thread.yield();
+		while( !lock_update.compareAndSet( this, 0, 1 ) ) Thread.onSpinWait();
 		
 		T ret = get( return_this_value_if_no_items );
 		
-		lock.set( false );
+		lock_update.set( this, 0 );
 		return ret;
 	}
 	public T get( T return_this_value_if_no_items ) { return get == put ? return_this_value_if_no_items : buffer[(int) (get++) & mask]; }
@@ -31,9 +32,9 @@ public class RingBuffer<T> {
 	public boolean put_multithreaded( T value ) {
 		if( size() + 1 == buffer.length ) return false;
 		
-		while( !lock.compareAndSet( false, true ) ) Thread.yield();
+		while( !lock_update.compareAndSet( this, 0, 1 ) ) Thread.onSpinWait();
 		boolean ret = put( value );
-		lock.set( false );
+		lock_update.set( this, 0 );
 		return ret;
 	}
 	public boolean put( T value ) {
@@ -42,7 +43,7 @@ public class RingBuffer<T> {
 		buffer[(int) (put++) & mask] = value;
 		return true;
 	}
-	
+	static final AtomicIntegerFieldUpdater<RingBuffer > lock_update = AtomicIntegerFieldUpdater.newUpdater( RingBuffer .class, "lock" );
 	public void clear() {
 		get = Long.MIN_VALUE;
 		put = Long.MIN_VALUE;

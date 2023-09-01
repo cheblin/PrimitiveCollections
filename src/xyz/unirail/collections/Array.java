@@ -12,13 +12,13 @@ public interface Array {
 		public T[] copyOf( T[] src, int len ) { return len < 1 ? OO : Arrays.copyOf( src == null ? OO : src, len ); }
 		private final boolean array;
 		@SuppressWarnings( "unchecked" )
-		private Of( Class<T> clazz ) {
+		public Of( Class<T> clazz ) {
 			array = clazz.isArray();
 			OO    = (T[]) java.lang.reflect.Array.newInstance( clazz, 0 );
 		}
 		
 		public int hashCode( T src )        { return hash( src ); }
-		public boolean equals( T v1, T v2 ) { return Objects.equals( v1, v2 ); }
+		public boolean equals( T v1, T v2 ) { return Objects.deepEquals( v1, v2 ); }
 		
 		@SuppressWarnings( "unchecked" )
 		public int hashCode( T[] src, int size ) {
@@ -496,15 +496,26 @@ public interface Array {
 	
 	static int hash( long src )             { return Long.hashCode( src ); }
 	
-	static int hash( final String str ) {
-		int h = String.class.hashCode();
+	static int hash(final String str) {
+		if (str == null) return 52861;
+		if (str.isEmpty()) return 37607;
 		
-		int i = str.length() - 1;
-		for( ; 1 < i; i -= 2 ) h = mix( h, str.charAt( i ) << 16 | str.charAt( i + 1 ) );
+		int h = 61667;
 		
-		if( 0 < i ) h = mixLast( h, str.charAt( 0 ) );
+		long x = 0;
+		for (int i = 0, b = 0; i < str.length(); i++) {
+			long ch = str.charAt(i);
+			x |= ch << b;
+			if ((b += ch < 0x100 ? 8 : 16) < 32) continue;
+			
+			h = mix(h, (int) x);
+			x >>>= 32;
+			b -= 32;
+		}
 		
-		return finalizeHash( h, str.length() );
+		h = mixLast(h, (int) x);
+		
+		return finalizeHash(h, str.length());
 	}
 	
 	static int hash( final String[] src, int size ) {

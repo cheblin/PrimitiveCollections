@@ -10,7 +10,7 @@ public interface ByteSet {
 		
 		int INIT = -1;
 		
-		static int key( R src, int token )   { return token & 0xFF; }
+		static byte key( R src, int token )   { return (byte) token; }
 		
 		static int index( R src, int token ) { return token >>> 8 & 0xFF; }
 		

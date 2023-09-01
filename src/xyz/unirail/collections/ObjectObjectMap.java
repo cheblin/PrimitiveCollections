@@ -9,30 +9,36 @@ public interface ObjectObjectMap {
 	interface NonNullKeysIterator {
 		int INIT = -1;
 		
-		static <K, V> int token( R<K, V> src, int token ) {
+		static < K, V > int token( R< K, V > src, int token ) {
 			for( ; ; )
 				if( ++token == src.keys.length ) return INIT;
-				else if( src.keys[token] != null ) return token;
+				else if( src.keys[ token ] != null ) return token;
 		}
 		
-		static <K, V> K key( R<K, V> src, int token )   { return src.keys[token]; }
+		static < K, V > K key( R< K, V > src, int token )   { return src.keys[ token ]; }
 		
-		static <K, V> V value( R<K, V> src, int token ) { return src.values[token]; }
+		static < K, V > V value( R< K, V > src, int token ) { return src.values[ token ]; }
 	}
 	
-	abstract class R<K, V> implements Cloneable, JsonWriter.Source {
+	abstract class R< K, V > implements Cloneable, JsonWriter.Source {
 		
-		public          K[]         keys;
-		public          V[]         values;
-		protected final Array.Of<K> hash_equalK;
-		protected final Array.Of<V> hash_equalV;
-		private final   boolean     K_is_string;
+		public          K[]           keys;
+		public          V[]           values;
+		protected final Array.Of< K > ofK;
+		protected final Array.Of< V > ofV;
+		private final   boolean       K_is_string;
 		
-		protected R( Class<K> clazzK, Class<V> clazzV ) {
+		protected R( Class< K > clazzK, Class< V > clazzV ) {
 			
-			hash_equalK = Array.get( clazzK );
-			hash_equalV = Array.get( clazzV );
+			ofK         = Array.get( clazzK );
+			ofV         = Array.get( clazzV );
 			K_is_string = clazzK == String.class;
+		}
+		
+		public R( Array.Of< K > ofK, Array.Of< V > ofV ) {
+			this.ofK    = ofK;
+			this.ofV    = ofV;
+			K_is_string = false;
 		}
 		
 		protected int assigned;
@@ -53,9 +59,9 @@ public interface ObjectObjectMap {
 		public @Positive_Values int token( K key ) {
 			if( key == null ) return hasNullKey ? keys.length : Positive_Values.NONE;
 			
-			int slot = hash_equalK.hashCode( key ) & mask;
+			int slot = ofK.hashCode( key ) & mask;
 			
-			for( K k; (k = keys[slot]) != null; slot = slot + 1 & mask )
+			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
 				if( k.equals( key ) ) return slot;
 			
 			return Positive_Values.NONE;
@@ -65,10 +71,10 @@ public interface ObjectObjectMap {
 		
 		public boolean hasNone( int token )        { return token == Positive_Values.NONE; }
 		
-		public V value( @Positive_ONLY int token ) { return token == keys.length ? NullKeyValue : values[token]; }
+		public V value( @Positive_ONLY int token ) { return token == keys.length ? NullKeyValue : values[ token ]; }
 		
 		
-		public int size()                          { return assigned + (hasNullKey ? 1 : 0); }
+		public int size()                          { return assigned + ( hasNullKey ? 1 : 0 ); }
 		
 		
 		public boolean isEmpty()                   { return size() == 0; }
@@ -81,10 +87,9 @@ public interface ObjectObjectMap {
 			int b = 0;
 			int c = 1;
 			
-			for( int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT; )
-			{
-				int h = Array.mix( seed, hash_equalK.hashCode( NonNullKeysIterator.key( this, token ) ) );
-				h = Array.mix( h, NonNullKeysIterator.value( this, token ) == null ? seed : hash_equalV.hashCode( NonNullKeysIterator.value( this, token ) ) );
+			for( int token = NonNullKeysIterator.INIT; ( token = NonNullKeysIterator.token( this, token ) ) != NonNullKeysIterator.INIT; ) {
+				int h = Array.mix( seed, ofK.hashCode( NonNullKeysIterator.key( this, token ) ) );
+				h = Array.mix( h, NonNullKeysIterator.value( this, token ) == null ? seed : ofV.hashCode( NonNullKeysIterator.value( this, token ) ) );
 				h = Array.finalizeHash( h, 2 );
 				
 				a += h;
@@ -92,10 +97,9 @@ public interface ObjectObjectMap {
 				c *= h | 1;
 			}
 			
-			if( hasNullKey )
-			{
+			if( hasNullKey ) {
 				int h = Array.hash( seed );
-				h = Array.mix( h, NullKeyValue == null ? seed : hash_equalV.hashCode( NullKeyValue ) );
+				h = Array.mix( h, NullKeyValue == null ? seed : ofV.hashCode( NullKeyValue ) );
 				h = Array.finalizeHash( h, 2 );
 				
 				a += h;
@@ -111,114 +115,112 @@ public interface ObjectObjectMap {
 		@SuppressWarnings( "unchecked" )
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( getClass().cast( obj ) ); }
 		
-		public boolean equals( R<K, V> other ) {
+		public boolean equals( R< K, V > other ) {
 			if( other == null || size() != other.size() || hasNullKey != other.hasNullKey ||
-			    (hasNullKey && NullKeyValue != other.NullKeyValue && (NullKeyValue == null || other.NullKeyValue == null || !NullKeyValue.equals( other.NullKeyValue ))) ) return false;
+					( hasNullKey && NullKeyValue != other.NullKeyValue &&
+							( NullKeyValue == null || other.NullKeyValue == null || !ofV.equals( NullKeyValue, other.NullKeyValue ) ) ) )
+				return false;
 			
 			
 			K key;
 			for( int i = keys.length, token = 0; -1 < --i; )
-				if( (key = keys[i]) != null &&
-				    ((token = other.token( key )) == -1 || !hash_equalV.equals( values[i], other.value( token ) )) ) return false;
+				if( ( key = keys[ i ] ) != null &&
+						( ( token = other.token( key ) ) == -1 || !ofV.equals( values[ i ], other.value( token ) ) ) )
+					return false;
 			
 			return true;
 		}
 		
 		
 		@SuppressWarnings( "unchecked" )
-		public R<K, V> clone() {
+		public R< K, V > clone() {
 			
-			try
-			{
-				R<K, V> dst = (R<K, V>) super.clone();
+			try {
+				R< K, V > dst = ( R< K, V > ) super.clone();
 				
 				dst.keys   = keys.clone();
 				dst.values = values.clone();
 				return dst;
 				
-			} catch( CloneNotSupportedException e )
-			{
+			} catch( CloneNotSupportedException e ) {
 				e.printStackTrace();
 			}
 			return null;
 		}
 		
-		public Array.ISort.Objects<K> getK = null;
-		public Array.ISort.Objects<V> getV = null;
+		public Array.ISort.Objects< K > getK = null;
+		public Array.ISort.Objects< V > getV = null;
 		
 		
 		public void build_K( Array.ISort.Anything.Index dst ) {
-			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new char[assigned];
+			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new char[ assigned ];
 			dst.size = assigned;
 			
-			dst.src = getK == null ? getK = new Array.ISort.Objects<K>() {
-				@Override K get( int index ) { return keys[index]; }
+			dst.src = getK == null ? getK = new Array.ISort.Objects< K >() {
+				@Override K get( int index ) { return keys[ index ]; }
 			} : getK;
 			
-			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[i] != null ) dst.dst[k++] = (char) i;
+			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[ i ] != null ) dst.dst[ k++ ] = ( char ) i;
 			Array.ISort.sort( dst, 0, assigned - 1 );
 		}
 		
 		public void build_V( Array.ISort.Anything.Index dst ) {
-			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new char[assigned];
+			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new char[ assigned ];
 			dst.size = assigned;
 			
-			dst.src = getV == null ? getV = new Array.ISort.Objects<V>() {
-				@Override V get( int index ) { return values[index]; }
+			dst.src = getV == null ? getV = new Array.ISort.Objects< V >() {
+				@Override V get( int index ) { return values[ index ]; }
 			} : getV;
 			
-			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[i] != null ) dst.dst[k++] = (char) i;
+			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[ i ] != null ) dst.dst[ k++ ] = ( char ) i;
 			Array.ISort.sort( dst, 0, assigned - 1 );
 		}
 		
 		public void build_K( Array.ISort.Anything.Index2 dst ) {
-			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new int[assigned];
+			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new int[ assigned ];
 			dst.size = assigned;
 			
-			dst.src = getK == null ? getK = new Array.ISort.Objects<K>() {
-				@Override K get( int index ) { return keys[index]; }
+			dst.src = getK == null ? getK = new Array.ISort.Objects< K >() {
+				@Override K get( int index ) { return keys[ index ]; }
 			} : getK;
 			
-			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[i] != null ) dst.dst[k++] = (char) i;
+			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[ i ] != null ) dst.dst[ k++ ] = ( char ) i;
 			Array.ISort.sort( dst, 0, assigned - 1 );
 		}
 		
 		public void build_V( Array.ISort.Anything.Index2 dst ) {
-			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new int[assigned];
+			if( dst.dst == null || dst.dst.length < assigned ) dst.dst = new int[ assigned ];
 			dst.size = assigned;
 			
-			dst.src = getV == null ? getV = new Array.ISort.Objects<V>() {
-				@Override V get( int index ) { return values[index]; }
+			dst.src = getV == null ? getV = new Array.ISort.Objects< V >() {
+				@Override V get( int index ) { return values[ index ]; }
 			} : getV;
 			
-			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[i] != null ) dst.dst[k++] = (char) i;
+			for( int i = 0, k = 0; i < keys.length; i++ ) if( keys[ i ] != null ) dst.dst[ k++ ] = ( char ) i;
 			Array.ISort.sort( dst, 0, assigned - 1 );
 		}
 		
 		
 		public String toString() { return toJSON(); }
+		
 		@Override public void toJSON( JsonWriter json ) {
 			
-			if( 0 < assigned )
-			{
+			if( 0 < assigned ) {
 				json.preallocate( assigned * 10 );
 				int token = NonNullKeysIterator.INIT;
 				
-				if( K_is_string )
-				{
+				if( K_is_string ) {
 					json.enterObject();
 					
 					if( hasNullKey ) json.name().value( NullKeyValue );
 					
-					while( (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT )
+					while( ( token = NonNullKeysIterator.token( this, token ) ) != NonNullKeysIterator.INIT )
 						json.
 								name( NonNullKeysIterator.key( this, token ).toString() ).
 								value( NonNullKeysIterator.value( this, token ) );
 					
 					json.exitObject();
-				}
-				else
-				{
+				} else {
 					json.enterArray();
 					
 					if( hasNullKey )
@@ -228,7 +230,7 @@ public interface ObjectObjectMap {
 								.name( "Value" ).value( NullKeyValue ).
 								exitObject();
 					
-					while( (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT )
+					while( ( token = NonNullKeysIterator.token( this, token ) ) != NonNullKeysIterator.INIT )
 						json.
 								enterObject()
 								.name( "Key" ).value( NonNullKeysIterator.key( this, token ) )
@@ -237,48 +239,55 @@ public interface ObjectObjectMap {
 					
 					json.exitArray();
 				}
-			}
-			else
-			{
+			} else {
 				json.enterObject();
 				if( hasNullKey ) json.name().value( NullKeyValue );
 				json.exitObject();
 			}
 		}
 	}
-	interface Interface<K, V>  {
+	
+	interface Interface< K, V > {
 		int size();
+		
 		boolean contains( K key );
+		
 		boolean hasNone( int token );
+		
 		V value( @Positive_ONLY int token );
+		
 		@Positive_Values int token( K key );
+		
 		boolean put( K key, V value );
 	}
 	
-	class RW<K, V> extends R<K, V> implements Interface<K, V> {
+	class RW< K, V > extends R< K, V > implements Interface< K, V > {
 		
 		
-		public RW( Class<K> k, Class<V> v, int expectedItems ) { this( k, v, expectedItems, 0.75 ); }
+		public RW( Class< K > clazzK, Class< V > clazzV, int expectedItems )                    { this( clazzK, clazzV, expectedItems, 0.75 ); }
+		
+		public RW( Array.Of< K > ofK, Array.Of< V > ofV, int expectedItems )                    { this( ofK, ofV, expectedItems, 0.75 ); }
 		
 		
-		public RW( Class<K> k, Class<V> v, int expectedItems, double loadFactor ) {
-			super( k, v );
+		public RW( Class< K > clazzK, Class< V > clazzV, int expectedItems, double loadFactor ) { this( Array.get( clazzK ), Array.get( clazzV ), expectedItems, loadFactor ); }
+		
+		public RW( Array.Of< K > ofK, Array.Of< V > ofV, int expectedItems, double loadFactor ) {
+			super( ofK, ofV );
 			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
 			
-			long length = (long) Math.ceil( expectedItems / this.loadFactor );
-			int  size   = (int) (length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ));
+			long length = ( long ) Math.ceil( expectedItems / this.loadFactor );
+			int  size   = ( int ) ( length == expectedItems ? length + 1 : Math.max( 4, Array.nextPowerOf2( length ) ) );
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
-			keys   = hash_equalK.copyOf( null, size );
-			values = hash_equalV.copyOf( null, size );
+			keys   = ofK.copyOf( null, size );
+			values = ofV.copyOf( null, size );
 		}
 		
 		
 		public boolean put( K key, V value ) {
 			
-			if( key == null )
-			{
+			if( key == null ) {
 				boolean h = hasNullKey;
 				hasNullKey   = true;
 				NullKeyValue = value;
@@ -286,18 +295,17 @@ public interface ObjectObjectMap {
 			}
 			
 			
-			int slot = hash_equalK.hashCode( key ) & mask;
+			int slot = ofK.hashCode( key ) & mask;
 			
 			
-			for( K k; (k = keys[slot]) != null; slot = slot + 1 & mask )
-				if( hash_equalK.equals( k, key ) )
-				{
-					values[slot] = value;
+			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
+				if( ofK.equals( k, key ) ) {
+					values[ slot ] = value;
 					return true;
 				}
 			
-			keys[slot]   = key;
-			values[slot] = value;
+			keys[ slot ]   = key;
+			values[ slot ] = value;
 			
 			if( assigned++ == resizeAt ) allocate( mask + 1 << 1 );
 			
@@ -309,67 +317,62 @@ public interface ObjectObjectMap {
 			assigned   = 0;
 			hasNullKey = false;
 			
-			for( int i = keys.length - 1; i >= 0; i--, keys[i] = null, values[i] = null ) ;
+			for( int i = keys.length - 1; i >= 0; i--, keys[ i ] = null, values[ i ] = null ) ;
 		}
 		
 		
 		protected void allocate( int size ) {
 			
-			resizeAt = Math.min( mask = size - 1, (int) Math.ceil( size * loadFactor ) );
+			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
-			if( assigned < 1 )
-			{
-				if( keys.length < size ) keys = hash_equalK.copyOf( null, size );
-				if( values.length < size ) values = hash_equalV.copyOf( null, size );
+			if( assigned < 1 ) {
+				if( keys.length < size ) keys = ofK.copyOf( null, size );
+				if( values.length < size ) values = ofV.copyOf( null, size );
 				return;
 			}
 			
 			final K[] ks = this.keys;
 			final V[] vs = this.values;
 			
-			keys   = hash_equalK.copyOf( null, size );
-			values = hash_equalV.copyOf( null, size );
+			keys   = ofK.copyOf( null, size );
+			values = ofV.copyOf( null, size );
 			
 			K k;
 			for( int i = ks.length; -1 < --i; )
-				if( (k = ks[i]) != null )
-				{
-					int slot = hash_equalK.hashCode( k ) & mask;
-					while( !(keys[slot] == null) ) slot = slot + 1 & mask;
+				if( ( k = ks[ i ] ) != null ) {
+					int slot = ofK.hashCode( k ) & mask;
+					while( !( keys[ slot ] == null ) ) slot = slot + 1 & mask;
 					
-					keys[slot]   = k;
-					values[slot] = vs[i];
+					keys[ slot ]   = k;
+					values[ slot ] = vs[ i ];
 				}
 		}
 		
 		public boolean remove( K key ) {
-			if( key == null )
-			{
+			if( key == null ) {
 				boolean h = hasNullKey;
 				hasNullKey = false;
 				return h != hasNullKey;
 			}
 			
-			int slot = hash_equalK.hashCode( key ) & mask;
+			int slot = ofK.hashCode( key ) & mask;
 			
-			for( K k; (k = keys[slot]) != null; slot = slot + 1 & mask )
-				if( hash_equalK.equals( k, key ) )
-				{
-					final V v       = values[slot];
+			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
+				if( ofK.equals( k, key ) ) {
+					final V v       = values[ slot ];
 					int     gapSlot = slot;
 					
 					K kk;
-					for( int distance = 0, slot1; (kk = keys[slot1 = gapSlot + ++distance & mask]) != null; )
-						if( (slot1 - hash_equalK.hashCode( kk ) & mask) >= distance )
-						{
-							values[gapSlot] = values[slot1];
-							keys[gapSlot] = kk;
-							                gapSlot = slot1;
-							                distance = 0;
+					for( int distance = 0, slot1; ( kk = keys[ slot1 = gapSlot + ++distance & mask ] ) != null; )
+						if( ( slot1 - ofK.hashCode( kk ) & mask ) >= distance ) {
+							values[ gapSlot ] = values[ slot1 ];
+							keys[ gapSlot ] = kk;
+							                  gapSlot = slot1;
+							                  distance = 0;
 						}
 					
-					keys[gapSlot]   = null;
-					values[gapSlot] = null;
+					keys[ gapSlot ]   = null;
+					values[ gapSlot ] = null;
 					assigned--;
 					return true;
 				}
@@ -377,7 +380,12 @@ public interface ObjectObjectMap {
 			return false;
 		}
 		
-		public RW<K, V> clone() { return (RW<K, V>) super.clone(); }
+		public RW< K, V > clone() { return ( RW< K, V > ) super.clone(); }
+		
+		private static final Object OBJECT = new Array.Of<>( RW.class );
 	}
+	
+	@SuppressWarnings( "unchecked" )
+	static < K, V > Array.Of< RW< K, V > > of() { return ( Array.Of< RW< K, V > > ) RW.OBJECT; }
 }
 	

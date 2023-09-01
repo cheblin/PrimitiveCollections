@@ -1,11 +1,11 @@
 package xyz.unirail.collections;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 public class ShortRingBuffer {
 	private final    short[] buffer;
 	private final    int           mask;
-	private final    AtomicBoolean lock = new AtomicBoolean();
+	private volatile int    lock = 0;
 	private volatile long          get  = Long.MIN_VALUE;
 	private volatile long          put  = Long.MIN_VALUE;
 	
@@ -17,11 +17,11 @@ public class ShortRingBuffer {
 	
 	public long get_multithreaded( long return_this_value_if_no_items ) {
 		
-		while( !lock.compareAndSet( false, true ) ) Thread.yield();
+		while( !lock_update.compareAndSet( this, 0, 1 ) ) Thread.onSpinWait();
 		
 		long ret = get( return_this_value_if_no_items );
 		
-		lock.set( false );
+		lock_update.set( this, 0 );
 		return ret;
 	}
 	public long get( long return_this_value_if_no_items ) { return get == put ? return_this_value_if_no_items : buffer[(int) (get++) & mask] & (~0L); }
@@ -29,9 +29,9 @@ public class ShortRingBuffer {
 	public boolean put_multithreaded( short value ) {
 		if( size() + 1 == buffer.length ) return false;
 		
-		while( !lock.compareAndSet( false, true ) ) Thread.yield();
+		while( !lock_update.compareAndSet( this, 0, 1 ) ) Thread.onSpinWait();
 		boolean ret = put( value );
-		lock.set( false );
+		lock_update.set( this, 0 );
 		return ret;
 	}
 	public boolean put( short value ) {
@@ -41,7 +41,7 @@ public class ShortRingBuffer {
 		
 		return true;
 	}
-	
+	static final AtomicIntegerFieldUpdater<ShortRingBuffer > lock_update = AtomicIntegerFieldUpdater.newUpdater( ShortRingBuffer .class, "lock" );
 	public void clear() {
 		get = Long.MIN_VALUE;
 		put = Long.MIN_VALUE;
