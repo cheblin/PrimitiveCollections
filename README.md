@@ -19,8 +19,10 @@ In order to uphold efficiency for the garbage collector during iteration, the [H
 > Pooled, recyclable iterators: Use iterators conventionally, without dynamic instance creation at runtime. This includes enhanced for loops without underlying dynamic allocation.
 
 This project leverages a specialized iterator "protocol" based on the `long` primitive type `token`, completely eradicating heap garbage generation.
-As samples of using this iterators take a look at collections `toString()` methods.  
-For example `ObjectObjectMap`:
+
+Here are some examples of using these iterators. Take a look at the `toString()` methods of collections. 
+For instance, consider the `ObjectObjectMap`.
+
 ```java
     public String toString() { return toJSON(); }
     

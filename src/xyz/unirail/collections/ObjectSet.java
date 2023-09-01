@@ -187,7 +187,8 @@ public interface ObjectSet {
 		
 		
 		public RW( Class< K > clazz, int expectedItems )                    { this( clazz, expectedItems, 0.75f ); }
-		public RW( Array.Of< K > ofK, int expectedItems )                    { this( ofK, expectedItems, 0.75f ); }
+		
+		public RW( Array.Of< K > ofK, int expectedItems )                   { this( ofK, expectedItems, 0.75f ); }
 		
 		public RW( Class< K > clazz, int expectedItems, double loadFactor ) { this( Array.get( clazz ), expectedItems, loadFactor ); }
 		
@@ -280,6 +281,7 @@ public interface ObjectSet {
 		}
 		
 		public RW< K > clone() { return ( RW< K > ) super.clone(); }
+		
 		private static final Object OBJECT = new Array.Of<>( RW.class );
 	}
 	
