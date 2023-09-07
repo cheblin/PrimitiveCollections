@@ -51,7 +51,7 @@ public interface DoubleCharMap {
 		
 		public boolean contains( double key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Double    key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( (double) (key + 0) ); }
+		public @Positive_Values int token(  Double    key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( key. doubleValue      () ); }
 		
 		public @Positive_Values int token( double key ) {
 			if( key == 0 ) return has0Key ? keys.length : Positive_Values.NONE;

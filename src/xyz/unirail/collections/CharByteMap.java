@@ -51,7 +51,7 @@ public interface CharByteMap {
 		
 		public boolean contains( char key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Character key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( (char) (key + 0) ); }
+		public @Positive_Values int token(  Character key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( key. charValue      () ); }
 		
 		public @Positive_Values int token( char key ) {
 			if( key == 0 ) return has0Key ? keys.length : Positive_Values.NONE;

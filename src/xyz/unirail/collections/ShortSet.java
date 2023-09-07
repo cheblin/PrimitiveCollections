@@ -34,7 +34,7 @@ public interface ShortSet {
 		protected double loadFactor;
 		
 		
-		public boolean contains(  Short     key ) { return key == null ? hasNullKey : contains( (short) (key + 0) ); }
+		public boolean contains(  Short     key ) { return key == null ? hasNullKey : contains( key. shortValue      () ); }
 		
 		public boolean contains( short key ) {
 			if( key == 0 ) return has0Key;

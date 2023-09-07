@@ -10,6 +10,9 @@ public interface ShortList {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
+		public final short default_value;
+		protected R( short default_value ) { this.default_value = default_value; }
+		
 		short[] values = Array.Of.shorts     .O;
 		
 		public short[] array() { return values; }
@@ -153,7 +156,10 @@ public interface ShortList {
 	
 	class RW extends R implements Interface {
 		
-		public RW( int length ) { if( 0 < length ) values = new short[length]; }
+		public RW( int length ) {
+			super( (short) 0 );
+			values = 0 < length ? new short[length] : Array.Of.shorts     .O;
+		}
 		
 		public RW( short... items ) {
 			this( items == null ? 0 : items.length );
@@ -164,17 +170,34 @@ public interface ShortList {
 				     values[i] = (short) items[i];
 			}
 		}
-		
 		public RW( short default_value, int size ) {
-			this( size );
-			this.size = size;
+			super( default_value );
+			
+			values = 0 < (this.size = size) ? new short[size] : Array.Of.shorts     .O;
+			
 			if( default_value == 0 ) return;
 			
 			while( -1 < --size ) values[size] = (short) default_value;
 		}
 		
+		public RW( short default_value, short... items ) {
+			super( default_value );
+			if( items == null ) return;
+			
+			if( (this.size = items.length) < 1)
+			{
+				values = Array.Of.shorts     .O;
+				return;
+			}
+			
+			values = new short[size];
+			
+			for( int i = size; -1 < --i; ) values[i] = (short) items[i];
+		}
+		
 		public RW( R src, int fromIndex, int toIndex ) {
-			this( toIndex - fromIndex );
+			super( src.default_value );
+			values = 0 < toIndex - fromIndex ? new short[toIndex - fromIndex] : Array.Of.shorts     .O;
 			System.arraycopy( src.values, fromIndex, values, 0, toIndex - fromIndex );
 		}
 		
@@ -232,6 +255,9 @@ public interface ShortList {
 			if( size <= index )
 			{
 				if( values.length <= index ) values = Arrays.copyOf( values, index + index / 2 );
+				
+				if( default_value != 0 ) Arrays.fill( values, size, index, (short) default_value );
+				
 				size = index + 1;
 			}
 			
@@ -291,8 +317,36 @@ public interface ShortList {
 		
 		public void clear() {
 			if( size < 1 ) return;
-			Arrays.fill( values, 0, size - 1, (short) 0 );
+			Arrays.fill( values, 0, size - 1, (short) default_value );
 			size = 0;
+		}
+		
+		public RW fit() {
+			length( size() );
+			return this;
+		}
+		
+		public RW length( int items ) {
+			if( values.length != items )
+				if( items < 1 )
+				{
+					values = Array.Of.shorts     .O;
+					size   = 0;
+				}
+				else
+				{
+					Arrays.copyOf( values, items );
+					if( items < size ) size = items;
+				}
+			
+			return this;
+		}
+		
+		public RW size( int size ) {
+			if( size < 1 ) clear();
+			else if( size() < size ) set( size - 1, default_value );
+			else this.size = size;
+			return this;
 		}
 		
 		

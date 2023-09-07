@@ -55,7 +55,7 @@ public interface LongObjectMap {
 		public boolean hasNone( int token )                      { return token == Positive_Values.NONE; }
 		
 		
-		public @Positive_Values int token(  Long      key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( ( long ) ( key + 0 ) ); }
+		public @Positive_Values int token(  Long      key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( key. longValue      ()  ); }
 		
 		public @Positive_Values int token( long key ) {
 			if( key == 0 ) return has0Key ? keys.length : Positive_Values.NONE;

@@ -87,7 +87,7 @@ public interface UShortLongNullMap {
 		
 		public boolean contains( char key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Character key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( (char) (key + 0) ); }
+		public @Positive_Values int token(  Character key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( key. charValue      () ); }
 		
 		public @Positive_Values int token( char key ) {
 			
@@ -271,7 +271,7 @@ public interface UShortLongNullMap {
 		
 		
 		public boolean put(  Character key, long value ) {
-			if( key != null ) return put( (char) (key + 0), value );
+			if( key != null ) return put( key. charValue      (), value );
 			
 			int h = hasNullKey;
 			hasNullKey   = Positive_Values.VALUE;
@@ -280,7 +280,7 @@ public interface UShortLongNullMap {
 		}
 		
 		public boolean put(  Character key,  Long      value ) {
-			if( key != null ) return put( (char) (key + 0), value );
+			if( key != null ) return put( key. charValue      (), value );
 			
 			int h = hasNullKey;
 			

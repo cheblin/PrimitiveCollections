@@ -17,15 +17,17 @@ public interface Array {
 			OO    = (T[]) java.lang.reflect.Array.newInstance( clazz, 0 );
 		}
 		
-		public int hashCode( T src )        { return hash( src ); }
+		@SuppressWarnings( "unchecked" )
+		public int hashCode( T src ) { return array ? hashCode( (T[]) src ) : hash( src ); }
 		public boolean equals( T v1, T v2 ) { return Objects.deepEquals( v1, v2 ); }
 		
+		public int hashCode( T[] src )      { return src == null ? 0 : hashCode( src, src.length ); }
 		@SuppressWarnings( "unchecked" )
 		public int hashCode( T[] src, int size ) {
 			int seed = Of.class.hashCode();
 			if( array )
 			{
-				while( -1 < --size ) seed = (size + 10153331) + hash( seed, Arrays.deepHashCode( (T[]) src[size] ) );
+				while( -1 < --size ) seed = (size + 10153331) + hash( seed, hash( src[size])  );
 				return seed;
 			}
 			
@@ -58,8 +60,6 @@ public interface Array {
 			
 			return Array.avalanche( Array.mix( Array.mix( h, rangeDiff ), prev ) );
 		}
-		
-		public int hashCode( T[] src ) { return src == null ? 0 : hashCode( src, src.length ); }
 		
 		
 		@SuppressWarnings( "unchecked" )

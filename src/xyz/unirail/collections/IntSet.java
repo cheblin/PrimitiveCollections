@@ -34,7 +34,7 @@ public interface IntSet {
 		protected double loadFactor;
 		
 		
-		public boolean contains(  Integer   key ) { return key == null ? hasNullKey : contains( (int) (key + 0) ); }
+		public boolean contains(  Integer   key ) { return key == null ? hasNullKey : contains( key. intValue      () ); }
 		
 		public boolean contains( int key ) {
 			if( key == 0 ) return has0Key;

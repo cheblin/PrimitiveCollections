@@ -7,19 +7,19 @@ import java.util.Arrays;
 
 public interface ObjectList {
 	
-	abstract class R< V > implements Cloneable, JsonWriter.Source {
+	abstract class R<V> implements Cloneable, JsonWriter.Source {
 		
 		
-		protected       V[]           values;
-		protected final Array.Of< V > ofV;
-		private final   boolean       V_is_string;
+		protected       V[]         values;
+		protected final Array.Of<V> ofV;
+		private final   boolean     V_is_string;
 		
-		protected R( Class< V > clazzV ) {
+		protected R( Class<V> clazzV ) {
 			ofV         = Array.get( clazzV );
 			V_is_string = clazzV == String.class;
 		}
 		
-		public R( Array.Of< V > ofV ) {
+		public R( Array.Of<V> ofV ) {
 			this.ofV    = ofV;
 			V_is_string = false;
 		}
@@ -35,42 +35,43 @@ public interface ObjectList {
 			return dst;
 		}
 		
-		public boolean containsAll( R< V > src ) {
+		public boolean containsAll( R<V> src ) {
 			
 			for( int i = 0, s = src.size(); i < s; i++ )
 				if( -1 < indexOf( src.get( i ) ) ) return false;
 			return true;
 		}
 		
-		public boolean hasValue( int index ) { return index < size && values[ index ] != null; }
+		public boolean hasValue( int index ) { return index < size && values[index] != null; }
 		
-		public V get( int index )            { return values[ index ]; }
+		public V get( int index )            { return values[index]; }
 		
 		
 		public int indexOf( V value ) {
 			for( int i = 0; i < size; i++ )
-				if( ofV.equals( values[ i ], value ) ) return i;
+				if( ofV.equals( values[i], value ) ) return i;
 			return -1;
 		}
 		
 		public int lastIndexOf( V value ) {
 			for( int i = size; -1 < --i; )
-				if( ofV.equals( values[ i ], value ) ) return i;
+				if( ofV.equals( values[i], value ) ) return i;
 			return -1;
 		}
 		
 		@SuppressWarnings( "unchecked" )
-		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj ); }
+		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( (R<V>) obj ); }
 		
-		public boolean equals( R< V > other ) { return other != null && size == other.size && ofV.equals( values, other.values, size ); }
+		public boolean equals( R<V> other ) { return other != null && size == other.size && ofV.equals( values, other.values, size ); }
 		
-		public int hashCode()                 { return Array.finalizeHash( V_is_string ? Array.hash( ( String[] ) values, size ) : ofV.hashCode( values, size ), size() ); }
+		public int hashCode()               { return Array.finalizeHash( V_is_string ? Array.hash( (String[]) values, size ) : ofV.hashCode( values, size ), size() ); }
 		
 		
 		@SuppressWarnings( "unchecked" )
-		public R< V > clone() {
-			try {
-				R< V > dst = ( R< V > ) super.clone();
+		public R<V> clone() {
+			try
+			{
+				R<V> dst = (R<V>) super.clone();
 				if( dst.values != null ) dst.values = values.clone();
 				
 			} catch( CloneNotSupportedException e ) { e.printStackTrace(); }
@@ -86,13 +87,14 @@ public interface ObjectList {
 			
 			int size = size();
 			
-			if( 0 < size ) {
+			if( 0 < size )
+			{
 				json.preallocate( size * 10 );
 				int i = 0;
 				if( V_is_string )
-					for( String[] strs = ( String[] ) values; i < size; i++ ) json.value( strs[ i ] );
+					for( String[] strs = (String[]) values; i < size; i++ ) json.value( strs[i] );
 				else
-					for( ; i < size; i++ ) json.value( values[ i ] );
+					for( ; i < size; i++ ) json.value( values[i] );
 			}
 			json.exitArray();
 		}
@@ -101,7 +103,7 @@ public interface ObjectList {
 	}
 	
 	
-	interface Interface< V > {
+	interface Interface<V> {
 		int size();
 		
 		boolean hasValue( int index );
@@ -113,38 +115,49 @@ public interface ObjectList {
 		V set( int index, V value );
 	}
 	
-	class RW< V > extends R< V > implements Interface< V > {
+	class RW<V> extends R<V> implements Interface<V> {
+		public final V default_value;
+		
 		@SuppressWarnings( "unchecked" )
-		public RW( Class< V > clazz, int length ) { this( Array.get( clazz ), length ); }
+		public RW( Class<V> clazz, int length ) { this( Array.get( clazz ), length ); }
 		
-		public RW( Array.Of< V > ofV, int length ) {
+		public RW( Array.Of<V> ofV, int length ) {
 			super( ofV );
-			values = ofV.copyOf( null, length );
+			default_value = null;
+			
+			values = length == 0 ? ofV.OO : ofV.copyOf( null, length );
 		}
 		
-		@SafeVarargs public RW( Array.Of< V > ofV, V... items ) {
-			this( ofV, 0 );
-			if( items == null ) return;
-			values = items.clone();
-			size   = items.length;
-		}
+		@SafeVarargs public RW( Array.Of<V> ofV, V... items )  { this( ofV, null, items ); }
 		
-		@SafeVarargs public RW( Class< V > clazz, V... items ) { this( Array.get( clazz ), items ); }
+		@SafeVarargs public RW( Class<V> clazz, V... items )   { this( Array.get( clazz ), items ); }
 		
-		public RW( Array.Of< V > ofV, V default_value, int size ) {
-			this( ofV, size );
-			this.size = size;
+		public RW( Class<V> clazz, V default_value, int size ) { this( Array.get( clazz ), default_value, size ); }
+		
+		public RW( Array.Of<V> ofV, V default_value, int size ) {
+			super( ofV );
+			this.default_value = default_value;
+			
+			if( (this.size = size) == 0 )
+			{
+				values = ofV.OO;
+				return;
+			}
+			
+			values = ofV.copyOf( null, size );
+			
 			if( default_value == null ) return;
-			while( -1 < --size ) values[ size ] = default_value;
+			while( -1 < --size ) values[size] = default_value;
 		}
 		
-		public RW( Class< V > clazz, V default_value, int size ) { this( Array.get( clazz ), default_value, size ); }
 		
+		@SafeVarargs public RW( Class<V> clazz, V default_value, V... items ) { this( Array.get( clazz ), default_value, items ); }
 		
-		public void clear() {
-			if( size < 1 ) return;
-			Arrays.fill( values, 0, size - 1, null );
-			size = 0;
+		@SafeVarargs public RW( Array.Of<V> ofV, V default_value, V... items ) {
+			super( ofV );
+			this.default_value = default_value;
+			
+			values = items == null || (this.size = items.length) == 0 ? ofV.OO : items.clone();
 		}
 		
 		
@@ -155,7 +168,7 @@ public interface ObjectList {
 			
 			size = Array.resize( values, values.length <= max ? values = ofV.copyOf( null, max + max / 2 ) : values, index, size, 1 );
 			
-			return values[ index ] = value;
+			return values[index] = value;
 		}
 		
 		public void add( int index, V[] src, int src_index, int len ) {
@@ -173,8 +186,8 @@ public interface ObjectList {
 		public void remove_fast( int index ) {
 			if( size < 1 || size <= index ) return;
 			size--;
-			values[ index ] = values[ size ];
-			values[ size ]  = null;
+			values[index] = values[size];
+			values[size]  = null;
 		}
 		
 		public V set( V value ) { return set( size, value ); }
@@ -185,7 +198,8 @@ public interface ObjectList {
 			int len = src.length;
 			int max = index + len;
 			
-			if( size < max ) {
+			if( size < max )
+			{
 				if( values.length < max )
 					Array.copy( values, index, len, size, values = ofV.copyOf( null, max + max / 2 ) );
 				size = max;
@@ -196,37 +210,78 @@ public interface ObjectList {
 		
 		
 		public V set( int index, V value ) {
-			if( size <= index ) {
+			if( size <= index )
+			{
 				if( values.length <= index ) values = ofV.copyOf( values, index + index / 2 );
 				size = index + 1;
 			}
-			return values[ index ] = value;
+			return values[index] = value;
 		}
 		
 		
-		public void removeAll( R< V > src ) {
+		public void removeAll( R<V> src ) {
 			for( int i = 0, max = src.size(), p; i < max; i++ )
 			     removeAll( src.get( i ) );
 		}
 		
-		public void removeAll( V src )      { for( int k; -1 < ( k = indexOf( src ) ); ) remove( k ); }
+		public void removeAll( V src )      { for( int k; -1 < (k = indexOf( src )); ) remove( k ); }
 		
-		public void removeAll_fast( V src ) { for( int k; -1 < ( k = indexOf( src ) ); ) remove_fast( k ); }
+		public void removeAll_fast( V src ) { for( int k; -1 < (k = indexOf( src )); ) remove_fast( k ); }
 		
-		public void retainAll( R< V > chk ) {
-			for( int i = 0; i < size; i++ ) {
-				final V val = values[ i ];
+		public void retainAll( R<V> chk ) {
+			for( int i = 0; i < size; i++ )
+			{
+				final V val = values[i];
 				if( chk.indexOf( val ) == -1 ) removeAll( val );
 			}
 		}
 		
-		public RW< V > clone() { return ( RW< V > ) super.clone(); }
+		public RW<V> clone() { return (RW<V>) super.clone(); }
+		
+		public void clear() {
+			if( size < 1 ) return;
+			Arrays.fill( values, 0, size - 1, default_value );//release objects
+			size = 0;
+		}
+		
+		public RW<V> length( int items ) {
+			if( items < 1 )
+			{
+				values = ofV.OO;
+				size   = 0;
+				return this;
+			}
+			
+			ofV.copyOf( values, items );
+			
+			if( items < size ) size = items;
+			return this;
+		}
+		
+		public RW<V> size( int size ) {
+			if( size < 1 )
+			{
+				clear();
+				return this;
+			}
+			
+			if( values.length < size )
+			{
+				ofV.copyOf( values, size );
+				if( default_value != null ) Arrays.fill( values, this.size, (this.size = size) - 1, default_value );
+				return this;
+			}
+			
+			if( this.size < size && default_value != null ) Arrays.fill( values, this.size, (this.size = size) - 1, default_value );
+			
+			return this;
+		}
 		
 		private static final Object OBJECT = new Array.Of<>( RW.class );
 	}
 	
 	
 	@SuppressWarnings( "unchecked" )
-	static < V > Array.Of< RW< V > > of() { return ( Array.Of< RW< V > > ) RW.OBJECT; }
+	static <V> Array.Of<RW<V>> of() { return (Array.Of<RW<V>>) RW.OBJECT; }
 }
 	

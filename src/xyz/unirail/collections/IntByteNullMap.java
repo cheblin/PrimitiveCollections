@@ -87,7 +87,7 @@ public interface IntByteNullMap {
 		
 		public boolean contains( int key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Integer   key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( (int) (key + 0) ); }
+		public @Positive_Values int token(  Integer   key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( key. intValue      () ); }
 		
 		public @Positive_Values int token( int key ) {
 			
@@ -271,7 +271,7 @@ public interface IntByteNullMap {
 		
 		
 		public boolean put(  Integer   key, byte value ) {
-			if( key != null ) return put( (int) (key + 0), value );
+			if( key != null ) return put( key. intValue      (), value );
 			
 			int h = hasNullKey;
 			hasNullKey   = Positive_Values.VALUE;
@@ -280,7 +280,7 @@ public interface IntByteNullMap {
 		}
 		
 		public boolean put(  Integer   key,  Byte      value ) {
-			if( key != null ) return put( (int) (key + 0), value );
+			if( key != null ) return put( key. intValue      (), value );
 			
 			int h = hasNullKey;
 			

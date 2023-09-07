@@ -10,6 +10,9 @@ public interface UIntList {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
+		public final long default_value;
+		protected R( long default_value ) { this.default_value = default_value; }
+		
 		int[] values = Array.Of.ints     .O;
 		
 		public int[] array() { return values; }
@@ -153,7 +156,10 @@ public interface UIntList {
 	
 	class RW extends R implements Interface {
 		
-		public RW( int length ) { if( 0 < length ) values = new int[length]; }
+		public RW( int length ) {
+			super( (long) 0 );
+			values = 0 < length ? new int[length] : Array.Of.ints     .O;
+		}
 		
 		public RW( long... items ) {
 			this( items == null ? 0 : items.length );
@@ -164,17 +170,34 @@ public interface UIntList {
 				     values[i] = (int) items[i];
 			}
 		}
-		
 		public RW( long default_value, int size ) {
-			this( size );
-			this.size = size;
+			super( default_value );
+			
+			values = 0 < (this.size = size) ? new int[size] : Array.Of.ints     .O;
+			
 			if( default_value == 0 ) return;
 			
 			while( -1 < --size ) values[size] = (int) default_value;
 		}
 		
+		public RW( long default_value, long... items ) {
+			super( default_value );
+			if( items == null ) return;
+			
+			if( (this.size = items.length) < 1)
+			{
+				values = Array.Of.ints     .O;
+				return;
+			}
+			
+			values = new int[size];
+			
+			for( int i = size; -1 < --i; ) values[i] = (int) items[i];
+		}
+		
 		public RW( R src, int fromIndex, int toIndex ) {
-			this( toIndex - fromIndex );
+			super( src.default_value );
+			values = 0 < toIndex - fromIndex ? new int[toIndex - fromIndex] : Array.Of.ints     .O;
 			System.arraycopy( src.values, fromIndex, values, 0, toIndex - fromIndex );
 		}
 		
@@ -232,6 +255,9 @@ public interface UIntList {
 			if( size <= index )
 			{
 				if( values.length <= index ) values = Arrays.copyOf( values, index + index / 2 );
+				
+				if( default_value != 0 ) Arrays.fill( values, size, index, (int) default_value );
+				
 				size = index + 1;
 			}
 			
@@ -291,8 +317,36 @@ public interface UIntList {
 		
 		public void clear() {
 			if( size < 1 ) return;
-			Arrays.fill( values, 0, size - 1, (int) 0 );
+			Arrays.fill( values, 0, size - 1, (int) default_value );
 			size = 0;
+		}
+		
+		public RW fit() {
+			length( size() );
+			return this;
+		}
+		
+		public RW length( int items ) {
+			if( values.length != items )
+				if( items < 1 )
+				{
+					values = Array.Of.ints     .O;
+					size   = 0;
+				}
+				else
+				{
+					Arrays.copyOf( values, items );
+					if( items < size ) size = items;
+				}
+			
+			return this;
+		}
+		
+		public RW size( int size ) {
+			if( size < 1 ) clear();
+			else if( size() < size ) set( size - 1, default_value );
+			else this.size = size;
+			return this;
 		}
 		
 		

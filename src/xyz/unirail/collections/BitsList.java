@@ -41,24 +41,24 @@ public interface BitsList {
 			default_value = 0;
 		}
 		
-		protected R( int bits_per_item, int items ) {
+		protected R( int bits_per_item, int length ) {
 			mask          = mask( bits = bits_per_item );
-			values        = new long[len4bits( items * bits )];
+			values        = new long[len4bits( length * bits )];
 			default_value = 0;
 		}
-		protected R( int bits_per_item, int default_value, int items ) {
+		protected R( int bits_per_item, int default_value, int size ) {
 			mask      = mask( bits = bits_per_item );
-			values    = new long[len4bits( items * bits )];
-			this.size = items;
+			values    = new long[len4bits( size * bits )];
+			this.size = size;
 			if( (this.default_value = default_value & 0xFF) != 0 )
-				for( int i = 0; i < items; i++ ) append( this, i, default_value );
+				for( int i = 0; i < size; i++ ) append( this, i, default_value );
 		}
 		
 		public int length() { return values.length * BITS / bits; }
 		
 		//if 0 < items - fit storage space according `items` param
 		//if items < 0 - cleanup and allocate spase
-		protected void length( int items ) {
+		protected void length_( int items ) {
 			if( 0 < items )
 			{
 				if( items < size ) size = items;
@@ -152,7 +152,7 @@ public interface BitsList {
 			
 			final long[] src  = dst.values;
 			long[]       dst_ = dst.values;
-			if( dst.length() * BITS < p ) dst.length( Math.max( dst.length() + dst.length() / 2, len4bits( p ) ) );
+			if( dst.length() * BITS < p ) dst.length_( Math.max( dst.length() + dst.length() / 2, len4bits( p ) ) );
 			long      v   = value & dst.mask;
 			final int bit = bit( p );
 			if( 0 < bit )
@@ -214,7 +214,7 @@ public interface BitsList {
 				return;
 			}
 			
-			if( dst.length() <= item ) dst.length( Math.max( dst.length() + dst.length() / 2, len4bits( total_bits + dst.bits ) ) );
+			if( dst.length() <= item ) dst.length_( Math.max( dst.length() + dst.length() / 2, len4bits( total_bits + dst.bits ) ) );
 			
 			if( dst.default_value != 0 )
 				for( int i = dst.size; i < item; i++ ) append( dst, i, dst.default_value );
@@ -372,22 +372,24 @@ public interface BitsList {
 	
 	interface Interface {
 		int size();
+		
 		int get( int item );
 		
 		void set( int item, int value );
 		
 		void add( long value );
 	}
-	class RW extends R implements Interface  {
+	
+	class RW extends R implements Interface {
 		
 		
-		public RW( int bits_per_item )                              { super( bits_per_item ); }
+		public RW( int bits_per_item )                             { super( bits_per_item ); }
 		
 		
-		public RW( int bits_per_item, int items )                   { super( bits_per_item, items ); }
+		public RW( int bits_per_item, int length )                 { super( bits_per_item, length ); }
 		
 		
-		public RW( int bits_per_item, int defaultValue, int items ) { super( bits_per_item, defaultValue, items ); }
+		public RW( int bits_per_item, int defaultValue, int size ) { super( bits_per_item, defaultValue, size ); }
 		
 		public RW( int bits_per_item, byte... values ) {
 			super( bits_per_item, values.length );
@@ -448,9 +450,23 @@ public interface BitsList {
 			return fix != size;
 		}
 		
-		public void clear()         { super.clear(); }
+		public RW fit() {
+			length_( -size );
+			return this;
+		}
 		
-		public void fit()           { length( -size ); }
+		public RW length( int items ) {
+			if( items < 0 ) values = Array.Of.longs.O;
+			else length_( -items );
+			return this;
+		}
+		
+		public RW size( int size ) {
+			if( size < 1 ) clear();
+			else if( this.size < size ) set( size - 1, default_value );
+			else this.size = size;
+			return this;
+		}
 		
 		@Override public RW clone() { return (RW) super.clone(); }
 	}

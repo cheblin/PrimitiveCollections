@@ -51,7 +51,7 @@ public interface IntULongMap {
 		
 		public boolean contains( int key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Integer   key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( (int) (key + 0) ); }
+		public @Positive_Values int token(  Integer   key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( key. intValue      () ); }
 		
 		public @Positive_Values int token( int key ) {
 			if( key == 0 ) return has0Key ? keys.length : Positive_Values.NONE;

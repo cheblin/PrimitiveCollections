@@ -10,6 +10,9 @@ public interface UByteList {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
+		public final char default_value;
+		protected R( char default_value ) { this.default_value = default_value; }
+		
 		byte[] values = Array.Of.bytes     .O;
 		
 		public byte[] array() { return values; }
@@ -153,7 +156,10 @@ public interface UByteList {
 	
 	class RW extends R implements Interface {
 		
-		public RW( int length ) { if( 0 < length ) values = new byte[length]; }
+		public RW( int length ) {
+			super( (char) 0 );
+			values = 0 < length ? new byte[length] : Array.Of.bytes     .O;
+		}
 		
 		public RW( char... items ) {
 			this( items == null ? 0 : items.length );
@@ -164,17 +170,34 @@ public interface UByteList {
 				     values[i] = (byte) items[i];
 			}
 		}
-		
 		public RW( char default_value, int size ) {
-			this( size );
-			this.size = size;
+			super( default_value );
+			
+			values = 0 < (this.size = size) ? new byte[size] : Array.Of.bytes     .O;
+			
 			if( default_value == 0 ) return;
 			
 			while( -1 < --size ) values[size] = (byte) default_value;
 		}
 		
+		public RW( char default_value, char... items ) {
+			super( default_value );
+			if( items == null ) return;
+			
+			if( (this.size = items.length) < 1)
+			{
+				values = Array.Of.bytes     .O;
+				return;
+			}
+			
+			values = new byte[size];
+			
+			for( int i = size; -1 < --i; ) values[i] = (byte) items[i];
+		}
+		
 		public RW( R src, int fromIndex, int toIndex ) {
-			this( toIndex - fromIndex );
+			super( src.default_value );
+			values = 0 < toIndex - fromIndex ? new byte[toIndex - fromIndex] : Array.Of.bytes     .O;
 			System.arraycopy( src.values, fromIndex, values, 0, toIndex - fromIndex );
 		}
 		
@@ -232,6 +255,9 @@ public interface UByteList {
 			if( size <= index )
 			{
 				if( values.length <= index ) values = Arrays.copyOf( values, index + index / 2 );
+				
+				if( default_value != 0 ) Arrays.fill( values, size, index, (byte) default_value );
+				
 				size = index + 1;
 			}
 			
@@ -291,8 +317,36 @@ public interface UByteList {
 		
 		public void clear() {
 			if( size < 1 ) return;
-			Arrays.fill( values, 0, size - 1, (byte) 0 );
+			Arrays.fill( values, 0, size - 1, (byte) default_value );
 			size = 0;
+		}
+		
+		public RW fit() {
+			length( size() );
+			return this;
+		}
+		
+		public RW length( int items ) {
+			if( values.length != items )
+				if( items < 1 )
+				{
+					values = Array.Of.bytes     .O;
+					size   = 0;
+				}
+				else
+				{
+					Arrays.copyOf( values, items );
+					if( items < size ) size = items;
+				}
+			
+			return this;
+		}
+		
+		public RW size( int size ) {
+			if( size < 1 ) clear();
+			else if( size() < size ) set( size - 1, default_value );
+			else this.size = size;
+			return this;
 		}
 		
 		

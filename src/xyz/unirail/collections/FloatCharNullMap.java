@@ -87,7 +87,7 @@ public interface FloatCharNullMap {
 		
 		public boolean contains( float key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Float     key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( (float) (key + 0) ); }
+		public @Positive_Values int token(  Float     key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( key. floatValue      () ); }
 		
 		public @Positive_Values int token( float key ) {
 			
@@ -271,7 +271,7 @@ public interface FloatCharNullMap {
 		
 		
 		public boolean put(  Float     key, char value ) {
-			if( key != null ) return put( (float) (key + 0), value );
+			if( key != null ) return put( key. floatValue      (), value );
 			
 			int h = hasNullKey;
 			hasNullKey   = Positive_Values.VALUE;
@@ -280,7 +280,7 @@ public interface FloatCharNullMap {
 		}
 		
 		public boolean put(  Float     key,  Character value ) {
-			if( key != null ) return put( (float) (key + 0), value );
+			if( key != null ) return put( key. floatValue      (), value );
 			
 			int h = hasNullKey;
 			

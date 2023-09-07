@@ -34,7 +34,7 @@ public interface DoubleSet {
 		protected double loadFactor;
 		
 		
-		public boolean contains(  Double    key ) { return key == null ? hasNullKey : contains( (double) (key + 0) ); }
+		public boolean contains(  Double    key ) { return key == null ? hasNullKey : contains( key. doubleValue      () ); }
 		
 		public boolean contains( double key ) {
 			if( key == 0 ) return has0Key;

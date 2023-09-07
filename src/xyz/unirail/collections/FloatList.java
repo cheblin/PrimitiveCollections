@@ -10,6 +10,9 @@ public interface FloatList {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
+		public final float default_value;
+		protected R( float default_value ) { this.default_value = default_value; }
+		
 		float[] values = Array.Of.floats     .O;
 		
 		public float[] array() { return values; }
@@ -153,7 +156,10 @@ public interface FloatList {
 	
 	class RW extends R implements Interface {
 		
-		public RW( int length ) { if( 0 < length ) values = new float[length]; }
+		public RW( int length ) {
+			super( (float) 0 );
+			values = 0 < length ? new float[length] : Array.Of.floats     .O;
+		}
 		
 		public RW( float... items ) {
 			this( items == null ? 0 : items.length );
@@ -164,17 +170,34 @@ public interface FloatList {
 				     values[i] = (float) items[i];
 			}
 		}
-		
 		public RW( float default_value, int size ) {
-			this( size );
-			this.size = size;
+			super( default_value );
+			
+			values = 0 < (this.size = size) ? new float[size] : Array.Of.floats     .O;
+			
 			if( default_value == 0 ) return;
 			
 			while( -1 < --size ) values[size] = (float) default_value;
 		}
 		
+		public RW( float default_value, float... items ) {
+			super( default_value );
+			if( items == null ) return;
+			
+			if( (this.size = items.length) < 1)
+			{
+				values = Array.Of.floats     .O;
+				return;
+			}
+			
+			values = new float[size];
+			
+			for( int i = size; -1 < --i; ) values[i] = (float) items[i];
+		}
+		
 		public RW( R src, int fromIndex, int toIndex ) {
-			this( toIndex - fromIndex );
+			super( src.default_value );
+			values = 0 < toIndex - fromIndex ? new float[toIndex - fromIndex] : Array.Of.floats     .O;
 			System.arraycopy( src.values, fromIndex, values, 0, toIndex - fromIndex );
 		}
 		
@@ -232,6 +255,9 @@ public interface FloatList {
 			if( size <= index )
 			{
 				if( values.length <= index ) values = Arrays.copyOf( values, index + index / 2 );
+				
+				if( default_value != 0 ) Arrays.fill( values, size, index, (float) default_value );
+				
 				size = index + 1;
 			}
 			
@@ -291,8 +317,36 @@ public interface FloatList {
 		
 		public void clear() {
 			if( size < 1 ) return;
-			Arrays.fill( values, 0, size - 1, (float) 0 );
+			Arrays.fill( values, 0, size - 1, (float) default_value );
 			size = 0;
+		}
+		
+		public RW fit() {
+			length( size() );
+			return this;
+		}
+		
+		public RW length( int items ) {
+			if( values.length != items )
+				if( items < 1 )
+				{
+					values = Array.Of.floats     .O;
+					size   = 0;
+				}
+				else
+				{
+					Arrays.copyOf( values, items );
+					if( items < size ) size = items;
+				}
+			
+			return this;
+		}
+		
+		public RW size( int size ) {
+			if( size < 1 ) clear();
+			else if( size() < size ) set( size - 1, default_value );
+			else this.size = size;
+			return this;
 		}
 		
 		

@@ -34,7 +34,7 @@ public interface CharSet {
 		protected double loadFactor;
 		
 		
-		public boolean contains(  Character key ) { return key == null ? hasNullKey : contains( (char) (key + 0) ); }
+		public boolean contains(  Character key ) { return key == null ? hasNullKey : contains( key. charValue      () ); }
 		
 		public boolean contains( char key ) {
 			if( key == 0 ) return has0Key;

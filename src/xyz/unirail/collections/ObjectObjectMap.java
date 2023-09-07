@@ -62,7 +62,7 @@ public interface ObjectObjectMap {
 			int slot = ofK.hashCode( key ) & mask;
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( k.equals( key ) ) return slot;
+				if( ofK.equals( k, key ) ) return slot;
 			
 			return Positive_Values.NONE;
 		}

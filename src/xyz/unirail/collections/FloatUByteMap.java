@@ -51,7 +51,7 @@ public interface FloatUByteMap {
 		
 		public boolean contains( float key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Float     key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( (float) (key + 0) ); }
+		public @Positive_Values int token(  Float     key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( key. floatValue      () ); }
 		
 		public @Positive_Values int token( float key ) {
 			if( key == 0 ) return has0Key ? keys.length : Positive_Values.NONE;

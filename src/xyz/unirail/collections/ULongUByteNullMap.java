@@ -87,7 +87,7 @@ public interface ULongUByteNullMap {
 		
 		public boolean contains( long key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Long      key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( (long) (key + 0) ); }
+		public @Positive_Values int token(  Long      key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( key. longValue      () ); }
 		
 		public @Positive_Values int token( long key ) {
 			
@@ -271,7 +271,7 @@ public interface ULongUByteNullMap {
 		
 		
 		public boolean put(  Long      key, char value ) {
-			if( key != null ) return put( (long) (key + 0), value );
+			if( key != null ) return put( key. longValue      (), value );
 			
 			int h = hasNullKey;
 			hasNullKey   = Positive_Values.VALUE;
@@ -280,7 +280,7 @@ public interface ULongUByteNullMap {
 		}
 		
 		public boolean put(  Long      key,  Character value ) {
-			if( key != null ) return put( (long) (key + 0), value );
+			if( key != null ) return put( key. longValue      (), value );
 			
 			int h = hasNullKey;
 			

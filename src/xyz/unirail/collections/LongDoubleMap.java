@@ -51,7 +51,7 @@ public interface LongDoubleMap {
 		
 		public boolean contains( long key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Long      key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( (long) (key + 0) ); }
+		public @Positive_Values int token(  Long      key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( key. longValue      () ); }
 		
 		public @Positive_Values int token( long key ) {
 			if( key == 0 ) return has0Key ? keys.length : Positive_Values.NONE;

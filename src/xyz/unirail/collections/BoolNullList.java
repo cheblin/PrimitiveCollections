@@ -7,9 +7,9 @@ public interface BoolNullList {
 	
 	abstract class R extends BitsList.R {
 		
-		protected R( int items )                        { super( 2, items ); }
+		protected R( int length )                        { super( 2, length ); }
 		
-		protected R( Boolean default_value, int items ) { super( 2, default_value == null ? 0 : default_value ? 1 : 2, items ); }
+		protected R( Boolean default_value, int size ) { super( 2, default_value == null ? 0 : default_value ? 1 : 2, size ); }
 		
 		public boolean hasValue( int index )            { return get( index ) != 0; }
 		public Boolean get_Boolean( int index ) {
@@ -63,9 +63,9 @@ public interface BoolNullList {
 	
 	class RW extends R implements Interface {
 		
-		public RW( int items )                        { super( items ); }
+		public RW( int length )                        { super( length ); }
 		
-		public RW( Boolean default_value, int items ) { super( default_value, items ); }
+		public RW( Boolean default_value, int size ) { super( default_value, size ); }
 		
 		public RW( boolean... values ) {
 			super( values.length );
@@ -112,7 +112,24 @@ public interface BoolNullList {
 			     set( index + i, values[i] );
 		}
 		
-		public void clear() { super.clear(); }
+		
+		public RW fit() {
+			length_( -size );
+			return this;
+		}
+		
+		public RW length( int items ) {
+			if( items < 0 ) values = Array.Of.longs.O;
+			else length_( -items );
+			return this;
+		}
+		
+		public RW size( int size ) {
+			if( size < 1 ) clear();
+			else if( this.size < size ) set( size - 1, default_value );
+			else this.size = size;
+			return this;
+		}
 		
 		
 		public RW clone()   { return (RW) super.clone(); }

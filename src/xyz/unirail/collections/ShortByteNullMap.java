@@ -87,7 +87,7 @@ public interface ShortByteNullMap {
 		
 		public boolean contains( short key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Short     key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( (short) (key + 0) ); }
+		public @Positive_Values int token(  Short     key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( key. shortValue      () ); }
 		
 		public @Positive_Values int token( short key ) {
 			
@@ -271,7 +271,7 @@ public interface ShortByteNullMap {
 		
 		
 		public boolean put(  Short     key, byte value ) {
-			if( key != null ) return put( (short) (key + 0), value );
+			if( key != null ) return put( key. shortValue      (), value );
 			
 			int h = hasNullKey;
 			hasNullKey   = Positive_Values.VALUE;
@@ -280,7 +280,7 @@ public interface ShortByteNullMap {
 		}
 		
 		public boolean put(  Short     key,  Byte      value ) {
-			if( key != null ) return put( (short) (key + 0), value );
+			if( key != null ) return put( key. shortValue      (), value );
 			
 			int h = hasNullKey;
 			

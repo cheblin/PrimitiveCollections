@@ -55,7 +55,7 @@ public interface ShortObjectMap {
 		public boolean hasNone( int token )                      { return token == Positive_Values.NONE; }
 		
 		
-		public @Positive_Values int token(  Short     key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( ( short ) ( key + 0 ) ); }
+		public @Positive_Values int token(  Short     key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( key. shortValue      ()  ); }
 		
 		public @Positive_Values int token( short key ) {
 			if( key == 0 ) return has0Key ? keys.length : Positive_Values.NONE;

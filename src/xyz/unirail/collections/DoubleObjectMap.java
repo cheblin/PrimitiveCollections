@@ -55,7 +55,7 @@ public interface DoubleObjectMap {
 		public boolean hasNone( int token )                      { return token == Positive_Values.NONE; }
 		
 		
-		public @Positive_Values int token(  Double    key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( ( double ) ( key + 0 ) ); }
+		public @Positive_Values int token(  Double    key ) { return key == null ? hasNullKey ? keys.length + 1 : Positive_Values.NONE : token( key. doubleValue      ()  ); }
 		
 		public @Positive_Values int token( double key ) {
 			if( key == 0 ) return has0Key ? keys.length : Positive_Values.NONE;

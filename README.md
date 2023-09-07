@@ -88,7 +88,7 @@ Presenting a standard list of primitives accompanied by "nulls info," stored wit
 Interacting with a nullable list is uncomplicated and intuitive.
 
 ```java
-    IntNullList.RW list = new IntNullList.RW( 1, 2, null, 4, 5, null, null, null, 9);
+    IntNullList.RW list = new IntNullList.RW( new Integer[]{ 1, 2, null, 4, 5, null, null, null, 9 } );
 		
     System.out.println(list.toString());
     
@@ -234,11 +234,12 @@ key -> null -> null
 ```
 
 ```java
-    ObjectObjectMap.RW< String,  String[]  > Map_str_array_of_str = new ObjectObjectMap.RW<>(  String.class , String[].class , 4 );
+    ObjectObjectMap.RW<String, String[]> Map_str_array_of_str = new ObjectObjectMap.RW<>( String.class, String[].class, 4 );
     Map_str_array_of_str.put( "Key0", new String[]{ "item0", "item1", "item12" } );
     Map_str_array_of_str.put( "Key1", new String[]{ "item0", "item1", "item12" } );
     Map_str_array_of_str.put( "Key2", new String[]{ "item0", "item1", "item12" } );
-    System.out.println(Map_str_array_of_str);
+		
+    System.out.println( Map_str_array_of_str );
 ```
 printout
 ```javascript
@@ -273,11 +274,12 @@ printout
 
 But if you need to construct a typed collection based on another typed collection, consider employing the following workaround:
 ```java
-   ObjectObjectMap.RW< String, ObjectList.RW< String > > Map_str_List_of_str = new ObjectObjectMap.RW<>( String.class, ObjectList.of(), 4 );
-    
-    Map_str_List_of_str.put( "Key0", new ObjectList.RW<>( String.class, "item0", "item1", "item12" ) );
-    Map_str_List_of_str.put( "Key1", new ObjectList.RW<>( String.class, "item0", "item1", "item12" ) );
-    Map_str_List_of_str.put( "Key2", new ObjectList.RW<>( String.class, "item0", "item1", "item12" ) );
+   ObjectObjectMap.RW<String, ObjectList.RW<String>> Map_str_List_of_str = new ObjectObjectMap.RW<>( String.class, ObjectList.of(), 4 );
+
+   Map_str_List_of_str.put( "Key0", new ObjectList.RW<>( String.class, new String[]{ "item0", "item1", "item12" } ) );
+   Map_str_List_of_str.put( "Key1", new ObjectList.RW<>( String.class, new String[]{ "item0", "item1", "item12" } ) );
+   Map_str_List_of_str.put( "Key2", new ObjectList.RW<>( String.class, new String[]{ "item0", "item1", "item12" } ) );
+   
     
     System.out.println(Map_str_List_of_str);
 ```

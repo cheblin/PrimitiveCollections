@@ -34,7 +34,7 @@ public interface FloatSet {
 		protected double loadFactor;
 		
 		
-		public boolean contains(  Float     key ) { return key == null ? hasNullKey : contains( (float) (key + 0) ); }
+		public boolean contains(  Float     key ) { return key == null ? hasNullKey : contains( key. floatValue      () ); }
 		
 		public boolean contains( float key ) {
 			if( key == 0 ) return has0Key;

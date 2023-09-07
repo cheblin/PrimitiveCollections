@@ -213,25 +213,29 @@ public interface BitList {
 		
 		@Override public void toJSON( JsonWriter json ) {
 			
-			json.enterArray( );
+			json.enterArray();
 			
-			int size = size( );
-			if( 0 < size ) {
-				int max = used( );
-				
-				json.preallocate( ( max + 1 ) * 68 );
-				
-				for( int i = 0; i < max - 1; i++ ) {
-					final long v = values[ i ];
-					for( int s = 0; s < BITS; s++ )
-						json.value( ( v & 1L << s ) == 0 ? 0 : 1 );
+			int size = size();
+			if( 0 < size )
+			{
+				int used = used();
+				if( 0 < used )
+				{
+					json.preallocate( (used + 1) * 68 );
+					
+					for( int i = 0; i < used - 1; i++ )
+					{
+						final long v = values[i];
+						for( int s = 0; s < BITS; s++ )
+						     json.value( (v & 1L << s) == 0 ? 0 : 1 );
+					}
+					
+					for( int i = (used - 1) * 64; i < size; i++ )
+					     json.value( get( i ) ? 1 : 0 );
 				}
-				
-				for( int i =( max - 1 ) * 64; i < size; i++ )
-					json.value( get( i ) ? 1 : 0 );
 			}
 			
-			json.exitArray( );
+			json.exitArray();
 		}
 	}
 	
@@ -349,25 +353,6 @@ public interface BitList {
 				if( ( values[ i ] & set.values[ i ] ) != 0 ) return true;
 			
 			return false;
-		}
-		
-		public void fit() { length( size( ) ); }
-		
-		void length( int bits ) {
-			if( 0 < bits ) {
-				if( bits < size ) {
-					set0( bits, size + 1 );
-					size = bits;
-				}
-				values = Array.copyOf( values, index( bits ) + 1 );
-				
-				used |= IO;
-				return;
-			}
-			
-			size = 0;
-			used = 0;
-			values = Array.copyOf( values, index( -bits ) + 1 );
 		}
 		
 		public void flip( int bit ) {
@@ -550,21 +535,6 @@ public interface BitList {
 			size++;
 		}
 		
-		public RW size( int size ) {
-			if( size < size( ) ) {
-				set0( size - 1, size( ) );
-				this.size = size;
-			} else set0( size - 1 );
-			
-			return this;
-		}
-		
-		public void clear() {
-			for( used( ); used > 0; ) values[ --used ] = 0;
-			size = 0;
-		}
-		
-		
 		public void remove( int bit ) {
 			if( size <= bit ) return;
 			
@@ -588,8 +558,47 @@ public interface BitList {
 					v = m >>> 1;
 				}
 				values[ index - 1 ] = v;
-				used |= IO;
+				                      used |= IO;
 			}
+		}
+		
+		public RW fit() { return  length( size( ) ); }
+		
+		public RW length( int bits ) {
+			if( 0 < bits ) {
+				if( bits < size ) {
+					set0( bits, size + 1 );
+					size = bits;
+				}
+				values = Array.copyOf( values, index( bits ) + 1 );
+				
+				used |= IO;
+				return this;
+			}
+			
+			size = 0;
+			used = 0;
+			values = Array.copyOf( values, index( -bits ) + 1 );
+			return this;
+		}
+		
+		public RW size( int size ) {
+			
+			if( size < size() )
+				if( size < 1 ) clear();
+				else
+				{
+					set0( size - 1, size() );
+					this.size = size;
+				}
+			else if( size() < size ) set0( size - 1 );
+			
+			return this;
+		}
+		
+		public void clear() {
+			for( used( ); used > 0; ) values[ --used ] = 0;
+			size = 0;
 		}
 		
 		

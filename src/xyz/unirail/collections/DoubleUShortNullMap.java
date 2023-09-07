@@ -87,7 +87,7 @@ public interface DoubleUShortNullMap {
 		
 		public boolean contains( double key )               { return !hasNone( token( key ) ); }
 		
-		public @Positive_Values int token(  Double    key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( (double) (key + 0) ); }
+		public @Positive_Values int token(  Double    key ) { return key == null ? hasNullKey == Positive_Values.VALUE ? keys.length + 1 : hasNullKey : token( key. doubleValue      () ); }
 		
 		public @Positive_Values int token( double key ) {
 			
@@ -271,7 +271,7 @@ public interface DoubleUShortNullMap {
 		
 		
 		public boolean put(  Double    key, char value ) {
-			if( key != null ) return put( (double) (key + 0), value );
+			if( key != null ) return put( key. doubleValue      (), value );
 			
 			int h = hasNullKey;
 			hasNullKey   = Positive_Values.VALUE;
@@ -280,7 +280,7 @@ public interface DoubleUShortNullMap {
 		}
 		
 		public boolean put(  Double    key,  Character value ) {
-			if( key != null ) return put( (double) (key + 0), value );
+			if( key != null ) return put( key. doubleValue      (), value );
 			
 			int h = hasNullKey;
 			

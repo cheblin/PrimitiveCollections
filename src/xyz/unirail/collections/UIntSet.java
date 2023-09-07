@@ -34,7 +34,7 @@ public interface UIntSet {
 		protected double loadFactor;
 		
 		
-		public boolean contains(  Integer   key ) { return key == null ? hasNullKey : contains( (long) (key + 0) ); }
+		public boolean contains(  Integer   key ) { return key == null ? hasNullKey : contains( key. longValue      () ); }
 		
 		public boolean contains( long key ) {
 			if( key == 0 ) return has0Key;
