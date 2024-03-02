@@ -26,7 +26,7 @@ public interface FloatUIntNullMap {
 	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		
-		public float[]          keys   = Array.Of.floats     .O;
+		public float[]          keys   = Array.EqualHashOf.floats     .O;
 		public UIntNullList.RW values = new UIntNullList.RW( 0 );
 		
 		int assigned;
@@ -311,12 +311,12 @@ public interface FloatUIntNullMap {
 			for( float k; (k = keys[slot]) != 0; slot = slot + 1 & mask )
 				if( k == key_ )
 				{
-					values.set( slot, ( Long     ) null );
+					values.set1( slot, ( Long     ) null );
 					return false;
 				}
 			
 			keys[slot] = key_;
-			values.set( slot, ( Long     ) null );
+			values.set1( slot, ( Long     ) null );
 			
 			if( ++assigned == resizeAt ) allocate( mask + 1 << 1 );
 			
@@ -340,12 +340,12 @@ public interface FloatUIntNullMap {
 			for( float k; (k = keys[slot]) != 0; slot = slot + 1 & mask )
 				if( k == key_ )
 				{
-					values.set( slot, value );
+					values.set1( slot, value );
 					return true;
 				}
 			
 			keys[slot] = key_;
-			values.set( slot, value );
+			values.set1( slot, value );
 			
 			if( ++assigned == resizeAt ) allocate( mask + 1 << 1 );
 			
@@ -376,16 +376,16 @@ public interface FloatUIntNullMap {
 							keys[gapSlot] = kk;
 							
 							if( values.nulls.get( s ) )
-								values.set( gapSlot, values.get( s ) );
+								values.set1( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot, ( Long     ) null );
+								values.set1( gapSlot, ( Long     ) null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					keys[gapSlot] = 0;
-					values.set( gapSlot, ( Long     ) null );
+					values.set1( gapSlot, ( Long     ) null );
 					assigned--;
 					return true;
 				}

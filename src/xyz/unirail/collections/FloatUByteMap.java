@@ -24,8 +24,8 @@ public interface FloatUByteMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		float[] keys   = Array.Of.floats     .O;
-		byte[] values = Array.Of.bytes     .O;
+		float[] keys   = Array.EqualHashOf.floats     .O;
+		byte[] values = Array.EqualHashOf.bytes     .O;
 		
 		int assigned;
 		

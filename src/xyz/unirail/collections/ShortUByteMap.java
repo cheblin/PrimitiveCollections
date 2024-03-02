@@ -24,8 +24,8 @@ public interface ShortUByteMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		short[] keys   = Array.Of.shorts     .O;
-		byte[] values = Array.Of.bytes     .O;
+		short[] keys   = Array.EqualHashOf.shorts     .O;
+		byte[] values = Array.EqualHashOf.bytes     .O;
 		
 		int assigned;
 		

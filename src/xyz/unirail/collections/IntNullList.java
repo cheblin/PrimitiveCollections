@@ -10,8 +10,6 @@ public interface IntNullList {
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
 		
-		protected R( boolean default_value_is_null ) { this.default_value_is_null = default_value_is_null; }
-		public final boolean default_value_is_null;
 		
 		BitList.RW         nulls;
 		IntList.RW values;
@@ -34,7 +32,7 @@ public interface IntNullList {
 		@Positive_OK public int prevNullIndex( int index )  { return nulls.prev0( index ); }
 		
 		public int get( @Positive_ONLY int index ) { return  values.get( nulls.rank( index ) - 1 ); }
-		
+
 		
 		public int indexOf( int value ) {
 			int i = values.indexOf( value );
@@ -112,11 +110,11 @@ public interface IntNullList {
 		
 		protected static void set( R dst, int index, int value ) {
 			
-			if( dst.nulls.get( index ) ) dst.values.set( dst.nulls.rank( index ) - 1, value );
+			if( dst.nulls.get( index ) ) dst.values.set1( dst.nulls.rank( index ) - 1, value );
 			else
 			{
 				dst.nulls.set1( index );
-				dst.values.add( dst.nulls.rank( index ) - 1, value );
+				dst.values.add1( dst.nulls.rank( index ) - 1, value );
 			}
 		}
 	}
@@ -128,153 +126,147 @@ public interface IntNullList {
 		
 		int get( @Positive_ONLY int index );
 		
-		void add(  Integer   value );
+		RW add1(  Integer   value );
 		
-		void add( int index,  Integer   value );
+		RW add1( int index,  Integer   value );
 		
-		void add( int index, int value );
+		RW add1( int index, int value );
 		
-		void set( int index,  Integer   value );
+		RW set1( int index,  Integer   value );
 		
-		void set( int index, int value );
+		RW set1( int index, int value );
 	}
 	
 	class RW extends R implements Interface {
 		
 		public RW( int length ) {
-			super( false );
+			super(  );
 			
 			nulls  = new BitList.RW( length );
 			values = new IntList.RW( length );
 		}
 		
 		public RW(  Integer   default_value, int size ) {
-			super( default_value == null );
+			super( );
+			
+			nulls  = new BitList.RW( default_value != null, size );
+			values = default_value == null ?
+			         new IntList.RW( 0 ) :
+			         new IntList.RW( default_value. intValue     (), size );
+		}
+		
+		public RW( int default_value, int size ) {
+			super(  );
 			
 			nulls  = new BitList.RW( false, size );
-			values = new IntList.RW( default_value_is_null ? (int) 0 : default_value. intValue     (), size );
+			values = new IntList.RW( default_value, size );
 		}
 		
-		public RW( int default_value, long size ) {
-			super( false );
-			
-			nulls  = new BitList.RW( false, (int) size );
-			values = new IntList.RW( default_value, (int) size );
-		}
+		public RW clone()  { return (RW) super.clone(); }
 		
-		public RW(  Integer  ... values ) { this( null, values ); }
+		public RW remove() { return remove( size() - 1 ); }
 		
-		public RW(  Integer   default_value,  Integer  ... values ) {
-			super( default_value == null );
-			int length = values == null ? 0 : values.length;
-			
-			nulls       = new BitList.RW( length );
-			this.values = new IntList.RW( length );
-			if( length == 0 ) return;
-			
-			for(  Integer   value : values ) add( value );
-		}
-		
-		
-		public RW( int... values ) { this( (int)0, values ); }
-		public RW( int default_value, int... values ) {
-			super( false );
-			if( values == null )
-			{
-				nulls       = new BitList.RW( 0 );
-				this.values = new IntList.RW( 0 );
-				return;
-			}
-			
-			nulls       = new BitList.RW( true, values.length );
-			this.values = new IntList.RW( default_value, values );
-		}
-		
-		
-		public RW( R src, int fromIndex, int toIndex ) {
-			super( src.default_value_is_null );
-			nulls  = new BitList.RW( src.nulls, fromIndex, toIndex );
-			values = nulls.cardinality() == 0 ?
-			         new IntList.RW( 0 ) :
-			         new IntList.RW( src.values, src.nulls.rank( fromIndex ), src.nulls.rank( toIndex ) );
-		}
-		
-		
-		public RW clone()    { return (RW) super.clone(); }
-		
-		
-		public void remove() { remove( size() - 1 ); }
-		
-		public void remove( int index ) {
-			if( size() < 1 || size() <= index ) return;
+		public RW remove( int index ) {
+			if( size() < 1 || size() <= index ) return this;
 			
 			if( nulls.get( index ) ) values.remove( nulls.rank( index ) - 1 );
 			nulls.remove( index );
+			return this;
 		}
 		
-		public void add(  Integer   value ) {
+		public RW set1(  Integer   value ) {
+			set( this, size() - 1, value );
+			return this;
+		}
+		
+		public RW set1( int value ) {
+			set( this, size() - 1, value );
+			return this;
+		}
+		
+		public RW set1( int index,  Integer   value ) {
+			set( this, index, value );
+			return this;
+		}
+		
+		public RW set1( int index, int value ) {
+			set( this, index, value );
+			return this;
+		}
+		public RW set( int index,  Integer  ... values ) {
+			for( int i = values.length; -1 < --i; )
+			     set( this, index + i, values[i] );
+			return this;
+		}
+		
+		public RW set( int index, int... values ) { return set( index, values, 0, values.length ); }
+		
+		public RW set( int index, int[] values, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set( this, index + i, (int) values[src_index + i] );
+			return this;
+		}
+		
+		public RW set( int index,  Integer  [] values, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set( this, index + i, values[src_index + i] );
+			return this;
+		}
+		
+		
+		public RW add1(  Integer   value ) {
 			if( value == null ) nulls.add( false );
-			else add( value. intValue     () );
+			else add1( value. intValue     () );
+			return this;
 		}
 		
-		public void add( int value ) {
-			values.add( value );
+		public RW add1( int value ) {
+			values.add1( value );
 			nulls.add( true );
+			return this;
 		}
 		
 		
-		public void add( int index,  Integer   value ) {
+		public RW add1( int index,  Integer   value ) {
 			if( value == null ) nulls.add( index, false );
-			else add( index, value. intValue     () );
+			else add1( index, value. intValue     () );
+			return this;
 		}
 		
-		public void add( int index, int value ) {
+		public RW add1( int index, int value ) {
 			if( index < size() )
 			{
 				nulls.add( index, true );
-				values.add( nulls.rank( index ) - 1, value );
+				values.add1( nulls.rank( index ) - 1, value );
 			}
-			else set( index, value );
+			else set1( index, value );
+			return this;
 		}
 		
-		public void set(  Integer   value )            { set( this, size() - 1, value ); }
-		
-		public void set( int value )                { set( this, size() - 1, value ); }
-		
-		public void set( int index,  Integer   value ) { set( this, index, value ); }
-		
-		public void set( int index, int value )     { set( this, index, value ); }
-		
-		public void set( int index, int... values ) {
-			for( int i = 0, max = values.length; i < max; i++ )
-			     set( this, index + i, (int) values[i] );
+		public RW add( int... items ) {
+			int size = size();
+			set1( size() + items.length - 1, values.default_value );
+			return set( size, items );
 		}
 		
-		public void set( int index,  Integer  ... values ) {
-			for( int i = 0, max = values.length; i < max; i++ )
-			     set( this, index + i, values[i] );
+		
+		public RW add(  Integer  ... items ) {
+			int size = size();
+			set1( size() + items.length - 1, values.default_value );
+			return set( size, items );
 		}
 		
-		public void addAll( R src ) {
+		public RW addAll( R src ) {
 			
 			for( int i = 0, s = src.size(); i < s; i++ )
-				if( src.hasValue( i ) ) add( src.get( i ) );
+				if( src.hasValue( i ) ) add1( src.get( i ) );
 				else nulls.add( false );
+			return this;
 		}
 		
 		public RW clear() {
 			values.clear();
 			nulls.clear();
-			return this;
-		}
-		
-		public RW size( int size ) {
-			if( size < 1 ) clear();
-			else
-			{
-				nulls.size( size );
-				values.size( nulls.cardinality() );
-			}
 			return this;
 		}
 		
@@ -291,14 +283,14 @@ public interface IntNullList {
 			return this;
 		}
 		
-		public void swap( int index1, int index2 ) {
+		public RW swap( int index1, int index2 ) {
 			
 			int exist, empty;
 			if( nulls.get( index1 ) )
 				if( nulls.get( index2 ) )
 				{
 					values.swap( nulls.rank( index1 ) - 1, nulls.rank( index2 ) - 1 );
-					return;
+					return this;
 				}
 				else
 				{
@@ -315,11 +307,12 @@ public interface IntNullList {
 				nulls.set1( index1 );
 				nulls.set0( index2 );
 			}
-			else return;
+			else return this;
 			
 			int v = values.get( exist );
 			values.remove( exist );
-			values.add( empty, v );
+			values.add1( empty, v );
+			return this;
 		}
 	}
 }

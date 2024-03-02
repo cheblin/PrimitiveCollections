@@ -25,12 +25,12 @@ public interface DoubleObjectMap {
 		
 		
 		public          double[] keys;
-		public          V[]           values;
-		protected final Array.Of< V > ofV;
+		public          V[]                          values;
+		protected final Array.EqualHashOf< V > equal_hash_V;
 		
-		protected R( Class< V > clazz ) { ofV = Array.get( clazz ); }
+		protected R( Class< V > clazz )                             { equal_hash_V = Array.get( clazz ); }
 		
-		public R( Array.Of< V > ofV )   { this.ofV = ofV; }
+		public R( Array.EqualHashOf< V > equal_hash_V ) { this.equal_hash_V = equal_hash_V; }
 		
 		int assigned;
 		
@@ -85,7 +85,7 @@ public interface DoubleObjectMap {
 			int hash = hasNullKey ? Array.hash( NullKeyValue ) : 997651;
 			
 			for( int token = NonNullKeysIterator.INIT, h = 0xc2b2ae35; ( token = NonNullKeysIterator.token( this, token ) ) != NonNullKeysIterator.INIT; )
-			     hash = ( h++ ) + Array.hash( Array.hash( hash, NonNullKeysIterator.key( this, token ) ), ofV.hashCode( NonNullKeysIterator.value( this, token ) ) );
+			     hash = ( h++ ) + Array.hash( Array.hash( hash, NonNullKeysIterator.key( this, token ) ), equal_hash_V.hashCode( NonNullKeysIterator.value( this, token ) ) );
 			return hash;
 		}
 		
@@ -132,8 +132,8 @@ public interface DoubleObjectMap {
 			
 			if( other == null || assigned != other.assigned ||
 					has0Key != other.has0Key || hasNullKey != other.hasNullKey ||
-					has0Key && !ofV.equals( OKeyValue, other.OKeyValue ) ||
-					hasNullKey && NullKeyValue != other.NullKeyValue && ( NullKeyValue == null || other.NullKeyValue == null || !ofV.equals( NullKeyValue, other.NullKeyValue ) ) )
+					has0Key && !equal_hash_V.equals( OKeyValue, other.OKeyValue ) ||
+					hasNullKey && NullKeyValue != other.NullKeyValue && ( NullKeyValue == null || other.NullKeyValue == null || !equal_hash_V.equals( NullKeyValue, other.NullKeyValue ) ) )
 				return false;
 			
 			V           v;
@@ -145,7 +145,7 @@ public interface DoubleObjectMap {
 					v = other.value( c );
 					
 					if( values[ i ] != v )
-						if( v == null || values[ i ] == null || !ofV.equals( v, values[ i ] ) ) return false;
+						if( v == null || values[ i ] == null || !equal_hash_V.equals( v, values[ i ] ) ) return false;
 				}
 			return true;
 		}
@@ -261,8 +261,8 @@ public interface DoubleObjectMap {
 		
 		public RW( Class< V > clazz, int expectedItems, double loadFactor ) { this( Array.get( clazz ), expectedItems, loadFactor ); }
 		
-		public RW( Array.Of< V > ofV, int expectedItems, double loadFactor ) {
-			super( ofV );
+		public RW( Array.EqualHashOf< V > equal_hash_V, int expectedItems, double loadFactor ) {
+			super( equal_hash_V );
 			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
 			
 			final long length = ( long ) Math.ceil( expectedItems / loadFactor );
@@ -271,7 +271,7 @@ public interface DoubleObjectMap {
 			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
 			keys   = new double[ size ];
-			values = ofV.copyOf( null, size );
+			values = equal_hash_V.copyOf( null, size );
 		}
 		
 		
@@ -365,7 +365,7 @@ public interface DoubleObjectMap {
 			if( assigned < 1 ) {
 				if( keys.length < size ) {
 					keys   = new double[ size ];
-					values = ofV.copyOf( null, size );
+					values = equal_hash_V.copyOf( null, size );
 				}
 				return;
 			}
@@ -375,7 +375,7 @@ public interface DoubleObjectMap {
 			final V[]           v = values;
 			
 			keys   = new double[ size ];
-			values = ofV.copyOf( null, size );
+			values = equal_hash_V.copyOf( null, size );
 			
 			double key;
 			for( int i = k.length; -1 < --i; )
@@ -390,9 +390,9 @@ public interface DoubleObjectMap {
 		
 		public RW< V > clone() { return ( RW< V > ) super.clone(); }
 		
-		private static final Object OBJECT = new Array.Of<>( RW.class );
+		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 	}
 	
 	@SuppressWarnings( "unchecked" )
-	static < V > Array.Of< RW< V > > of() { return ( Array.Of< RW< V > > ) RW.OBJECT; }
+	static < V > Array.EqualHashOf< RW< V > > equal_hash() { return (Array.EqualHashOf< RW< V > >) RW.OBJECT; }
 }

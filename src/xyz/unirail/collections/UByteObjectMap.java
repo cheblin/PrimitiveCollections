@@ -20,12 +20,12 @@ public interface UByteObjectMap {
 	abstract class R< V > implements Cloneable, JsonWriter.Source {
 		
 		public          ByteSet.RW    keys = new ByteSet.RW();
-		public          V[]           values;
-		protected final Array.Of< V > ofV;
+		public          V[]                          values;
+		protected final Array.EqualHashOf< V > equal_hash_V;
 		
-		protected R( Class< V > clazz )             { ofV = Array.get( clazz ); }
+		protected R( Class< V > clazz )                             { equal_hash_V = Array.get( clazz ); }
 		
-		public R( Array.Of< V > ofV )               { this.ofV = ofV; }
+		public R( Array.EqualHashOf< V > equal_hash_V ) { this.equal_hash_V = equal_hash_V; }
 		
 		public int size()                           { return keys.size(); }
 		
@@ -46,7 +46,7 @@ public interface UByteObjectMap {
 		
 		@SuppressWarnings( "unchecked" ) public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( getClass().cast( obj ) ); }
 		
-		public boolean equals( R< V > other )                                { return other != null && keys.equals( other.keys ) && ofV.equals( values, other.values, size() ) && ( !keys.hasNullKey || NullKeyValue == other.NullKeyValue ); }
+		public boolean equals( R< V > other )                                { return other != null && keys.equals( other.keys ) && equal_hash_V.equals( values, other.values, size() ) && (!keys.hasNullKey || NullKeyValue == other.NullKeyValue ); }
 		
 		@SuppressWarnings( "unchecked" ) public R< V > clone() {
 			try {
@@ -132,9 +132,9 @@ public interface UByteObjectMap {
 		
 		public RW( Class< V > clazz, int length ) { this( Array.get( clazz ), length ); }
 		
-		public RW( Array.Of< V > ofV, int length ) {
-			super( ofV );
-			values = this.ofV.copyOf( null, 265 < length ? 256 : length );
+		public RW( Array.EqualHashOf< V > equal_hash_V, int length ) {
+			super( equal_hash_V );
+			values = this.equal_hash_V.copyOf( null, 265 < length ? 256 : length );
 		}
 		
 		public void clear() {
@@ -179,9 +179,9 @@ public interface UByteObjectMap {
 		
 		public RW< V > clone() { return ( RW< V > ) super.clone(); }
 		
-		private static final Object OBJECT = new Array.Of<>( RW.class );
+		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 	}
 	
 	@SuppressWarnings( "unchecked" )
-	static < V > Array.Of< RW< V > > of() { return ( Array.Of< RW< V > > ) RW.OBJECT; }
+	static < V > Array.EqualHashOf< RW< V > > equal_hash() { return (Array.EqualHashOf< RW< V > >) RW.OBJECT; }
 }

@@ -56,9 +56,28 @@ public final class JsonWriter {
 	 */
 	private static final int NONEMPTY_DOCUMENT = 6;
 	
-	private final BitsList.RW stack = new BitsList.RW( 3, 32 );
+	private final BitsList.RW stack = new BitsList.RW( 3, 32 ) {
+		@Override public String toString() {
+			
+			if( size == 0 ) return "[]";
+			StringBuilder dst = new StringBuilder( size * 4 );
+			dst.append( "[\n" );
+			long src = values[0];
+			
+			for( int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++ )
+			{
+				final int bit   = BitsList.bit( bp );
+				long      value = (BitsList.BITS < bit + bits ?
+				                   BitsList.value( src, src = values[BitsList.index( bp ) + 1], bit, bits, mask ) :
+				                   BitsList.value( src, bit, mask ));
+				dst.append( '\t' ).append( value ).append( '\n' );
+			}
+			dst.append( "]" );
+			return dst.toString();
+		}
+	};
 	
-	{ stack.add( EMPTY_DOCUMENT ); }
+	{ stack.add1( EMPTY_DOCUMENT ); }
 	
 	public void preallocate( int chars ) { dst.ensureCapacity( dst.length() + chars ); }
 	
@@ -66,7 +85,7 @@ public final class JsonWriter {
 	public JsonWriter enterArray() {
 		writeDeferredName();
 		beforeValue();
-		stack.add( EMPTY_ARRAY );
+		stack.add1( EMPTY_ARRAY );
 		dst.append( '[' );
 		return this;
 	}
@@ -78,7 +97,7 @@ public final class JsonWriter {
 	public JsonWriter enterObject() {
 		writeDeferredName();
 		beforeValue();
-		stack.add( EMPTY_OBJECT );
+		stack.add1( EMPTY_OBJECT );
 		dst.append( '{' );
 		return this;
 	}
@@ -120,7 +139,7 @@ public final class JsonWriter {
 		else // not in an object!
 			if( context != EMPTY_OBJECT ) throw new IllegalStateException( "Nesting problem.\n" + dst );
 		newline();
-		stack.set( DANGLING_NAME );
+		stack.set1( DANGLING_NAME );
 		string( deferredName );
 		deferredName = null;
 	}
@@ -550,21 +569,21 @@ public final class JsonWriter {
 		switch( stack.get() ) {
 			case NONEMPTY_DOCUMENT:
 			case EMPTY_DOCUMENT: // first in document
-				stack.set( NONEMPTY_DOCUMENT );
+				stack.set1( NONEMPTY_DOCUMENT );
 				return;
 			case EMPTY_ARRAY: // first in array
-				stack.set( NONEMPTY_ARRAY );
+				stack.set1( NONEMPTY_ARRAY );
 				break;
 			case NONEMPTY_ARRAY: // another in array
 				dst.append( ',' );
 				break;
 			case DANGLING_NAME: // value for name
 				dst.append( ": " );
-				stack.set( NONEMPTY_OBJECT );
+				stack.set1( NONEMPTY_OBJECT );
 				return;
 			case NONEMPTY_OBJECT: // value for name
 				dst.append( "{ " );
-				stack.set( NONEMPTY_OBJECT );
+				stack.set1( NONEMPTY_OBJECT );
 				return;
 			default:
 				throw new IllegalStateException( "Nesting problem.\n" + dst );
@@ -634,7 +653,7 @@ public final class JsonWriter {
 	
 	public Config enter() {
 		if( in_use ) return null;
-		stack.set( EMPTY_DOCUMENT );
+		stack.set1( EMPTY_DOCUMENT );
 		dst.setLength( 0 );
 		in_use = true;
 		return config;

@@ -21,17 +21,17 @@ public interface ObjectUIntMap {
 	
 	abstract class R< K > implements Cloneable, JsonWriter.Source {
 		
-		protected final Array.Of< K > ofK;
-		private final   boolean       K_is_string;
+		protected final Array.EqualHashOf< K > equal_hash_K;
+		private final   boolean                      K_is_string;
 		
 		protected R( Class< K > clazz ) {
-			ofK         = Array.get( clazz );
-			K_is_string = clazz == String.class;
+			equal_hash_K = Array.get( clazz );
+			K_is_string        = clazz == String.class;
 		}
 		
-		protected R( Array.Of< K > ofK ) {
-			this.ofK    = ofK;
-			K_is_string = false;
+		protected R( Array.EqualHashOf< K > equal_hash_K ) {
+			this.equal_hash_K = equal_hash_K;
+			K_is_string             = false;
 		}
 		
 		K[] keys;
@@ -50,10 +50,10 @@ public interface ObjectUIntMap {
 		public @Positive_Values int token( K key ) {
 			if( key == null ) return hasNullKey ? keys.length + 1 : Positive_Values.NONE;
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) return slot;
+				if( equal_hash_K.equals( k, key ) ) return slot;
 			
 			return Positive_Values.NONE;
 		}
@@ -73,7 +73,7 @@ public interface ObjectUIntMap {
 		public int hashCodew() {
 			int hash = Array.hash( hasNullKey ? Array.hash( NullKeyValue ) : 719717, keys );
 			for( int token = NonNullKeysIterator.INIT, h = 719717; ( token = NonNullKeysIterator.token( this, token ) ) != NonNullKeysIterator.INIT; )
-			     hash = ( h++ ) + Array.hash( hash, ofK.hashCode( NonNullKeysIterator.key( this, token ) ) );
+			     hash = ( h++ ) + Array.hash( hash, equal_hash_K.hashCode( NonNullKeysIterator.key( this, token ) ) );
 			
 			return hash;
 		}
@@ -193,38 +193,45 @@ public interface ObjectUIntMap {
 		@Override public void toJSON( JsonWriter json ) {
 			
 			
-			if( 0 < assigned ) {
+			if( 0 < assigned )
+			{
 				json.preallocate( assigned * 10 );
 				int token = NonNullKeysIterator.INIT;
 				
-				if( K_is_string ) {
+				if( K_is_string )
+				{
 					json.enterObject();
 					
 					if( hasNullKey ) json.name().value( NullKeyValue );
 					
-					while( ( token = NonNullKeysIterator.token( this, token ) ) != NonNullKeysIterator.INIT )
+					while( (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT )
 						json.
 								name( NonNullKeysIterator.key( this, token ).toString() ).
 								value( NonNullKeysIterator.value( this, token ) );
 					json.exitObject();
-				} else {
+				}
+				else
+				{
+					
 					json.enterArray();
 					if( hasNullKey )
 						json.
 								enterObject()
-								.name( "Key" ).value( NonNullKeysIterator.key( this, token ) )
-								.name( "Value" ).value( NonNullKeysIterator.value( this, token ) ).
-								exitObject();
+								.name( "Key" ).value()
+								.name( "Value" ).value( NullKeyValue )
+								.exitObject();
 					
-					while( ( token = NonNullKeysIterator.token( this, token ) ) != NonNullKeysIterator.INIT )
+					while( (token = NonNullKeysIterator.token( this, token )) != NonNullKeysIterator.INIT )
 						json.
 								enterObject()
 								.name( "Key" ).value( NonNullKeysIterator.key( this, token ) )
-								.name( "Value" ).value( NonNullKeysIterator.value( this, token ) ).
-								exitObject();
+								.name( "Value" ).value( NonNullKeysIterator.value( this, token ) )
+								.exitObject();
 					json.exitArray();
 				}
-			} else {
+			}
+			else
+			{
 				json.enterObject();
 				if( hasNullKey ) json.name().value( NullKeyValue );
 				json.exitObject();
@@ -249,12 +256,12 @@ public interface ObjectUIntMap {
 		
 		public RW( Class< K > clazz, int expectedItems )                    { this( clazz, expectedItems, 0.75 ); }
 		
-		public RW( Array.Of< K > ofK, int expectedItems )                   { this( ofK, expectedItems, 0.75 ); }
+		public RW( Array.EqualHashOf< K > equal_hash_K, int expectedItems ) { this( equal_hash_K, expectedItems, 0.75 ); }
 		
 		public RW( Class< K > clazz, int expectedItems, double loadFactor ) { this( Array.get( clazz ), expectedItems, loadFactor ); }
 		
-		public RW( Array.Of< K > ofK, int expectedItems, double loadFactor ) {
-			super( ofK );
+		public RW( Array.EqualHashOf< K > equal_hash_K, int expectedItems, double loadFactor ) {
+			super( equal_hash_K );
 			
 			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
 			
@@ -264,7 +271,7 @@ public interface ObjectUIntMap {
 			
 			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
-			keys   = this.ofK.copyOf( null, size );
+			keys   = this.equal_hash_K.copyOf( null, size );
 			values = new int[ size ];
 		}
 		
@@ -275,11 +282,11 @@ public interface ObjectUIntMap {
 				return !hasNullKey && ( hasNullKey = true );
 			}
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) {
+				if( equal_hash_K.equals( k, key ) ) {
 					values[ slot ] = ( int ) value;
 					return false;
 				}
@@ -296,10 +303,10 @@ public interface ObjectUIntMap {
 		public boolean remove( K key ) {
 			if( key == null ) return hasNullKey && !( hasNullKey = false );
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) {
+				if( equal_hash_K.equals( k, key ) ) {
 					int[] vals = values;
 					
 					
@@ -307,7 +314,7 @@ public interface ObjectUIntMap {
 					
 					K kk;
 					for( int distance = 0, s; ( kk = keys[ s = gapSlot + ++distance & mask ] ) != null; )
-						if( ( s - ofK.hashCode( kk ) & mask ) >= distance ) {
+						if( (s - equal_hash_K.hashCode( kk ) & mask ) >= distance ) {
 							vals[ gapSlot ] = vals[ s ];
 							keys[ gapSlot ] = kk;
 							                  gapSlot = s;
@@ -335,7 +342,7 @@ public interface ObjectUIntMap {
 			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
 			if( assigned < 1 ) {
-				if( keys.length < size ) keys = ofK.copyOf( null, size );
+				if( keys.length < size ) keys = equal_hash_K.copyOf( null, size );
 				if( values.length < size ) values = new int[ size ];
 				return;
 			}
@@ -343,13 +350,13 @@ public interface ObjectUIntMap {
 			final K[]           k = keys;
 			final int[] v = values;
 			
-			keys   = ofK.copyOf( null, size );
+			keys   = equal_hash_K.copyOf( null, size );
 			values = new int[ size ];
 			
 			K key;
 			for( int i = k.length; -1 < --i; )
 				if( ( key = k[ i ] ) != null ) {
-					int slot = ofK.hashCode( key ) & mask;
+					int slot = equal_hash_K.hashCode( key ) & mask;
 					while( !( keys[ slot ] == null ) ) slot = slot + 1 & mask;
 					
 					keys[ slot ]   = key;
@@ -358,9 +365,9 @@ public interface ObjectUIntMap {
 		}
 		
 		public RW< K > clone() { return ( RW< K > ) super.clone(); }
-		private static final Object OBJECT = new Array.Of<>( RW.class );
+		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 	}
 	@SuppressWarnings( "unchecked" )
-	static < K > Array.Of< RW< K > > of() { return ( Array.Of< RW< K > > ) RW.OBJECT; }
+	static < K > Array.EqualHashOf< RW< K > > equal_hash() { return (Array.EqualHashOf< RW< K > >) RW.OBJECT; }
 }
 	

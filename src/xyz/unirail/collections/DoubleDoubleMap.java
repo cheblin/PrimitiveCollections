@@ -24,8 +24,8 @@ public interface DoubleDoubleMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		double[] keys   = Array.Of.doubles     .O;
-		double[] values = Array.Of.doubles     .O;
+		double[] keys   = Array.EqualHashOf.doubles     .O;
+		double[] values = Array.EqualHashOf.doubles     .O;
 		
 		int assigned;
 		

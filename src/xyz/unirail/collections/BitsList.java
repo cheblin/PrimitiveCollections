@@ -15,9 +15,9 @@ public interface BitsList {
 	
 	static int bit( int item_X_bits )                                       { return item_X_bits & MASK; }
 	
-	static long value( long src, int bit, long mask )                       { return src >>> bit & mask; }
+	static byte value( long src, int bit, long mask )                       { return (byte) (src >>> bit & mask); }
 	
-	static long value( long prev, long next, int bit, int bits, long mask ) { return ((next & mask( bit + bits - BITS )) << BITS - bit | prev >>> bit) & mask; }
+	static byte value( long prev, long next, int bit, int bits, long mask ) { return (byte) (((next & mask( bit + bits - BITS )) << BITS - bit | prev >>> bit) & mask); }
 	
 	int BITS = 64;
 	int MASK = BITS - 1;
@@ -28,7 +28,7 @@ public interface BitsList {
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
 		
-		protected long[] values = Array.Of.longs.O;
+		protected long[] values = Array.EqualHashOf.longs.O;
 		protected int    size   = 0;
 		public int size() { return size; }
 		
@@ -47,8 +47,8 @@ public interface BitsList {
 			default_value = 0;
 		}
 		protected R( int bits_per_item, int default_value, int size ) {
-			mask      = mask( bits = bits_per_item );
-			values    = new long[len4bits( size * bits )];
+			mask               = mask( bits = bits_per_item );
+			values             = new long[len4bits( size * bits )];
 			this.size = size;
 			if( (this.default_value = default_value & 0xFF) != 0 )
 				for( int i = 0; i < size; i++ ) append( this, i, default_value );
@@ -64,7 +64,7 @@ public interface BitsList {
 				if( items < size ) size = items;
 				final int new_values_length = len4bits( items * bits );
 				
-				values = new_values_length == 0 ? Array.Of.longs.O : Array.copyOf( values, new_values_length );
+				values = new_values_length == 0 ? Array.EqualHashOf.longs.O : Array.copyOf( values, new_values_length );
 				return;
 			}
 			
@@ -73,7 +73,7 @@ public interface BitsList {
 			
 			if( values.length != new_values_length )
 			{
-				values = new_values_length == 0 ? Array.Of.longs.O : new long[new_values_length];
+				values = new_values_length == 0 ? Array.EqualHashOf.longs.O : new long[new_values_length];
 				if( default_value == 0 )
 				{
 					size = 0;
@@ -125,15 +125,15 @@ public interface BitsList {
 		}
 		
 		
-		public int get() { return get( size - 1 ); }
-		public int get( int item ) {
+		public byte get() { return get( size - 1 ); }
+		public byte get( int item ) {
 			final int index = index( item *= bits );
 			final int bit   = bit( item );
 			
-			return (int) (BITS < bit + bits ? value( values[index], values[index + 1], bit, bits, mask ) : value( values[index], bit, mask ));
+			return BITS < bit + bits ? value( values[index], values[index + 1], bit, bits, mask ) : value( values[index], bit, mask );
 		}
 		
-		protected static void add( R dst, long src ) { set( dst, dst.size, src ); }
+		protected static void add( R dst, long src ) { set1( dst, dst.size, src ); }
 		protected static void add( R dst, int item, long value ) {
 			
 			if( dst.size == item )
@@ -143,7 +143,7 @@ public interface BitsList {
 			}
 			if( dst.size < item )
 			{
-				set( dst, item, value );
+				set1( dst, item, value );
 				return;
 			}
 			
@@ -184,17 +184,17 @@ public interface BitsList {
 		}
 		
 		
-		protected static void set( R dst, int from, byte... src )  { for( int i = src.length; -1 < --i; ) set( dst, from + i, src[i] ); }
+		protected static void set( R dst, int from, byte... src )  { for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[i] ); }
 		
-		protected static void set( R dst, int from, char... src )  { for( int i = src.length; -1 < --i; ) set( dst, from + i, src[i] ); }
+		protected static void set( R dst, int from, char... src )  { for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[i] ); }
 		
-		protected static void set( R dst, int from, short... src ) { for( int i = src.length; -1 < --i; ) set( dst, from + i, src[i] ); }
+		protected static void set( R dst, int from, short... src ) { for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[i] ); }
 		
-		protected static void set( R dst, int from, int... src )   { for( int i = src.length; -1 < --i; ) set( dst, from + i, src[i] ); }
+		protected static void set( R dst, int from, int... src )   { for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[i] ); }
 		
-		protected static void set( R dst, int from, long... src )  { for( int i = src.length; -1 < --i; ) set( dst, from + i, src[i] ); }
+		protected static void set( R dst, int from, long... src )  { for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[i] ); }
 		
-		protected static void set( R dst, int item, long src ) {
+		protected static void set1( R dst, int item, long src ) {
 			final int total_bits = item * dst.bits;
 			
 			if( item < dst.size )
@@ -373,72 +373,93 @@ public interface BitsList {
 	interface Interface {
 		int size();
 		
-		int get( int item );
+		byte get( int item );
 		
-		void set( int item, int value );
+		RW set1( int item, int value );
 		
-		void add( long value );
+		RW add1( long value );
 	}
 	
 	class RW extends R implements Interface {
 		
+		public RW( int bits_per_item )                               { super( bits_per_item ); }
 		
-		public RW( int bits_per_item )                             { super( bits_per_item ); }
-		
-		
-		public RW( int bits_per_item, int length )                 { super( bits_per_item, length ); }
-		
+		public RW( int bits_per_item, int length )                   { super( bits_per_item, length ); }
 		
 		public RW( int bits_per_item, int defaultValue, int size ) { super( bits_per_item, defaultValue, size ); }
 		
-		public RW( int bits_per_item, byte... values ) {
-			super( bits_per_item, values.length );
-			set( this, 0, values );
+		
+		public RW add1( long value ) {
+			add( this, value );
+			return this;
 		}
 		
-		
-		public RW( int bits_per_item, char... values ) {
-			super( bits_per_item, values.length );
-			set( this, 0, values );
+		public RW add1( int index, long src ) {
+			add( this, index, src );
+			return this;
 		}
 		
-		
-		public RW( int bits_per_item, short... values ) {
-			super( bits_per_item, values.length );
-			set( this, 0, values );
+		public RW remove( long value ) {
+			remove( this, value );
+			return this;
 		}
 		
-		
-		public RW( int bits_per_item, int... values ) {
-			super( bits_per_item, values.length );
-			set( this, 0, values );
+		public RW removeAt( int item ) {
+			removeAt( this, item );
+			return this;
+		}
+		public RW remove() {
+			removeAt( this, size - 1 );
+			return this;
 		}
 		
-		
-		public RW( int bits_per_item, long... values ) {
-			super( bits_per_item, values.length );
-			set( this, 0, values );
+		public RW set1( int value ) {
+			set1( this, size - 1, value );
+			return this;
 		}
 		
+		public RW set1( char value ) {
+			set1( this, size - 1, value );
+			return this;
+		}
 		
-		public void add( long value )                { add( this, value ); }
+		public RW set1( int item, int value ) {
+			set1( this, item, value );
+			return this;
+		}
 		
-		public void add( int index, long src )       { add( this, index, src ); }
+		public RW set1( int item, char value ) {
+			set1( this, item, value );
+			return this;
+		}
 		
-		public void remove( long value )             { remove( this, value ); }
+		public RW set( int index, byte... values ) {
+			set( this, index, values );
+			return this;
+		}
 		
-		public void removeAt( int item )             { removeAt( this, item ); }
-		public void remove()                         { removeAt( this, size - 1 ); }
-		
-		public void set( int value )                 { set( this, size - 1, value ); }
-		
-		public void set( char value )                { set( this, size - 1, value ); }
-		
-		public void set( int item, int value )       { set( this, item, value ); }
-		
-		public void set( int item, char value )      { set( this, item, value ); }
-		
-		public void set( int index, char... values ) { set( this, index, values ); }
+		public RW set( int index, byte[] src, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set1( this, index + i, src[src_index + i] );
+			return this;
+		}
+
+		public RW set( int index, char... values ) {
+			set( this, index, values );
+			return this;
+		}
+		public RW set( int index, short... values ) {
+			set( this, index, values );
+			return this;
+		}
+		public RW set( int index, int... values ) {
+			set( this, index, values );
+			return this;
+		}
+		public RW set( int index, long... values ) {
+			set( this, index, values );
+			return this;
+		}
 		
 		public boolean retainAll( R chk ) {
 			final int fix = size;
@@ -456,14 +477,14 @@ public interface BitsList {
 		}
 		
 		public RW length( int items ) {
-			if( items < 0 ) values = Array.Of.longs.O;
+			if( items < 1 ) values = Array.EqualHashOf.longs.O;
 			else length_( -items );
 			return this;
 		}
 		
 		public RW size( int size ) {
 			if( size < 1 ) clear();
-			else if( this.size < size ) set( size - 1, default_value );
+			else if( this.size < size ) set1( size - 1, default_value );
 			else this.size = size;
 			return this;
 		}

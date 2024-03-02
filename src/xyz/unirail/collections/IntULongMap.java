@@ -24,8 +24,8 @@ public interface IntULongMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		int[] keys   = Array.Of.ints     .O;
-		long[] values = Array.Of.longs     .O;
+		int[] keys   = Array.EqualHashOf.ints     .O;
+		long[] values = Array.EqualHashOf.longs     .O;
 		
 		int assigned;
 		

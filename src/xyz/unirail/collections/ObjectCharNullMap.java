@@ -25,17 +25,17 @@ public interface ObjectCharNullMap {
 	
 	abstract class R< K > implements Cloneable, JsonWriter.Source {
 		
-		protected final Array.Of< K > ofK;
-		private final   boolean       K_is_string;
+		protected final Array.EqualHashOf< K > equal_hash_K;
+		private final   boolean                      K_is_string;
 		
 		protected R( Class< K > clazzK ) {
-			ofK         = Array.get( clazzK );
-			K_is_string = clazzK == String.class;
+			equal_hash_K = Array.get( clazzK );
+			K_is_string        = clazzK == String.class;
 		}
 		
-		protected R( Array.Of< K > ofK ) {
-			this.ofK    = ofK;
-			K_is_string = false;
+		protected R( Array.EqualHashOf< K > equal_hash_K ) {
+			this.equal_hash_K = equal_hash_K;
+			K_is_string             = false;
 		}
 		
 		K[]                    keys;
@@ -58,10 +58,10 @@ public interface ObjectCharNullMap {
 			
 			if( key == null ) return hasNullKey == Positive_Values.VALUE ? keys.length : hasNullKey;
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) return ( values.hasValue( slot ) ) ? slot : Positive_Values.NULL;
+				if( equal_hash_K.equals( k, key ) ) return ( values.hasValue( slot ) ) ? slot : Positive_Values.NULL;
 			
 			return Positive_Values.NONE;
 		}
@@ -229,7 +229,6 @@ public interface ObjectCharNullMap {
 					
 					switch( hasNullKey ) {
 						case Positive_Values.NULL:
-							json.name().value();
 							json.
 									enterObject()
 									.name( "Key" ).value()
@@ -296,12 +295,12 @@ public interface ObjectCharNullMap {
 		
 		public RW( Class< K > clazz, int expectedItems )                    { this( clazz, expectedItems, 0.75 ); }
 		
-		public RW( Array.Of< K > ofK, int expectedItems )                   { this( ofK, expectedItems, 0.75 ); }
+		public RW( Array.EqualHashOf< K > equal_hash_K, int expectedItems ) { this( equal_hash_K, expectedItems, 0.75 ); }
 		
 		public RW( Class< K > clazz, int expectedItems, double loadFactor ) { this( Array.get( clazz ), expectedItems, loadFactor ); }
 		
-		public RW( Array.Of< K > ofK, int expectedItems, double loadFactor ) {
-			super( ofK );
+		public RW( Array.EqualHashOf< K > equal_hash_K, int expectedItems, double loadFactor ) {
+			super( equal_hash_K );
 			
 			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
 			
@@ -311,7 +310,7 @@ public interface ObjectCharNullMap {
 			
 			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
-			keys   = ofK.copyOf( null, size );
+			keys   = equal_hash_K.copyOf( null, size );
 			values = new CharNullList.RW( size );
 		}
 		
@@ -326,17 +325,17 @@ public interface ObjectCharNullMap {
 				return true;
 			}
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) {
-					values.set( slot, (  Character ) null );
+				if( equal_hash_K.equals( k, key ) ) {
+					values.set1( slot, (  Character ) null );
 					return true;
 				}
 			
 			keys[ slot ] = key;
-			values.set( slot, (  Character ) null );
+			values.set1( slot, (  Character ) null );
 			
 			if( ++assigned == resizeAt ) this.allocate( mask + 1 << 1 );
 			
@@ -352,17 +351,17 @@ public interface ObjectCharNullMap {
 				return h != Positive_Values.VALUE;
 			}
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) {
-					values.set( slot, value );
+				if( equal_hash_K.equals( k, key ) ) {
+					values.set1( slot, value );
 					return true;
 				}
 			
 			keys[ slot ] = key;
-			values.set( slot, value );
+			values.set1( slot, value );
 			
 			if( ++assigned == resizeAt ) allocate( mask + 1 << 1 );
 			
@@ -382,7 +381,7 @@ public interface ObjectCharNullMap {
 			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
 			if( assigned < 1 ) {
-				if( keys.length < size ) keys = ofK.copyOf( null, size );
+				if( keys.length < size ) keys = equal_hash_K.copyOf( null, size );
 				
 				if( values.nulls.length() < size ) values.nulls.length( -size );
 				if( values.values.values.length < size ) values.values.values = Arrays.copyOf( values.values.values, size );
@@ -393,19 +392,19 @@ public interface ObjectCharNullMap {
 			final K[]              k    = keys;
 			CharNullList.RW vals = values;
 			
-			keys   = ofK.copyOf( null, size );
+			keys   = equal_hash_K.copyOf( null, size );
 			values = new CharNullList.RW( -size );
 			
 			K key;
 			for( int i = k.length; -1 < --i; )
 				if( ( key = k[ i ] ) != null ) {
-					int slot = ofK.hashCode( key ) & mask;
+					int slot = equal_hash_K.hashCode( key ) & mask;
 					while( !( keys[ slot ] == null ) ) slot = slot + 1 & mask;
 					
 					keys[ slot ] = key;
 					
-					if( vals.hasValue( i ) ) values.set( slot, vals.get( i ) );
-					else values.set( slot, (  Character ) null );
+					if( vals.hasValue( i ) ) values.set1( slot, vals.get( i ) );
+					else values.set1( slot, (  Character ) null );
 				}
 		}
 		
@@ -417,39 +416,39 @@ public interface ObjectCharNullMap {
 				return h != Positive_Values.NONE;
 			}
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) {
+				if( equal_hash_K.equals( k, key ) ) {
 					int gapSlot = slot;
 					
 					K kk;
 					for( int distance = 0, s; ( kk = keys[ s = gapSlot + ++distance & mask ] ) != null; )
-						if( ( s - ofK.hashCode( kk ) & mask ) >= distance ) {
+						if( (s - equal_hash_K.hashCode( kk ) & mask ) >= distance ) {
 							keys[ gapSlot ] = kk;
 							
 							if( values.nulls.get( s ) )
-								values.set( gapSlot, values.get( s ) );
+								values.set1( gapSlot, values.get( s ) );
 							else
-								values.set( gapSlot, (  Character ) null );
+								values.set1( gapSlot, (  Character ) null );
 							
 							gapSlot  = s;
 							distance = 0;
 						}
 					
 					keys[ gapSlot ] = null;
-					values.set( gapSlot, (  Character ) null );
+					values.set1( gapSlot, (  Character ) null );
 					assigned--;
 					return true;
 				}
 			
 			return false;
 		}
-		private static final Object OBJECT = new Array.Of<>( RW.class );
+		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 	}
 	
 	@SuppressWarnings( "unchecked" )
-	static < K > Array.Of< RW< K > > of() { return ( Array.Of< RW< K > > ) RW.OBJECT; }
+	static < K > Array.EqualHashOf< RW< K > > equal_hash() { return (Array.EqualHashOf< RW< K > >) RW.OBJECT; }
 }
 	
 	

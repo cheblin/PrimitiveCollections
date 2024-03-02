@@ -24,8 +24,8 @@ public interface IntUByteMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		int[] keys   = Array.Of.ints     .O;
-		byte[] values = Array.Of.bytes     .O;
+		int[] keys   = Array.EqualHashOf.ints     .O;
+		byte[] values = Array.EqualHashOf.bytes     .O;
 		
 		int assigned;
 		

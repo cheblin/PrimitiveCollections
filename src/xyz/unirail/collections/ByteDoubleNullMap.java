@@ -177,10 +177,10 @@ public interface ByteDoubleNullMap {
 			
 			if( keys.add( (byte) key ) )
 			{
-				values.add( keys.rank( (byte) key ) - 1, ( Double   ) null );
+				values.add1( keys.rank( (byte) key ) - 1, ( Double   ) null );
 				return true;
 			}
-			values.set( keys.rank( (byte) key ) - 1, ( Double   ) null );
+			values.set1( keys.rank( (byte) key ) - 1, ( Double   ) null );
 			
 			return false;
 		}
@@ -189,11 +189,11 @@ public interface ByteDoubleNullMap {
 			
 			if( keys.add( (byte) key ) )
 			{
-				values.add( keys.rank( (byte) key ) - 1, value );
+				values.add1( keys.rank( (byte) key ) - 1, value );
 				return true;
 			}
 			
-			values.set( keys.rank( (byte) key ) - 1, value );
+			values.set1( keys.rank( (byte) key ) - 1, value );
 			return false;
 		}
 		

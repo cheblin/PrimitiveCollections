@@ -24,8 +24,8 @@ public interface LongLongMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		long[] keys   = Array.Of.longs     .O;
-		long[] values = Array.Of.longs     .O;
+		long[] keys   = Array.EqualHashOf.longs     .O;
+		long[] values = Array.EqualHashOf.longs     .O;
 		
 		int assigned;
 		

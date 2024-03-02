@@ -7,12 +7,12 @@ import java.util.HashMap;
 import java.util.Objects;
 
 public interface Array {
-	class Of<T> {
+	class EqualHashOf<T> { //C#  IEqualityComparer (https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.iequalitycomparer-1?view=net-8.0) equivalent
 		public final T[] OO;
 		public T[] copyOf( T[] src, int len ) { return len < 1 ? OO : Arrays.copyOf( src == null ? OO : src, len ); }
 		private final boolean array;
 		@SuppressWarnings( "unchecked" )
-		public Of( Class<T> clazz ) {
+		public EqualHashOf( Class<T> clazz ) {
 			array = clazz.isArray();
 			OO    = (T[]) java.lang.reflect.Array.newInstance( clazz, 0 );
 		}
@@ -24,7 +24,7 @@ public interface Array {
 		public int hashCode( T[] src )      { return src == null ? 0 : hashCode( src, src.length ); }
 		@SuppressWarnings( "unchecked" )
 		public int hashCode( T[] src, int size ) {
-			int seed = Of.class.hashCode();
+			int seed = EqualHashOf.class.hashCode();
 			if( array )
 			{
 				while( -1 < --size ) seed = (size + 10153331) + hash( seed, hash( src[size])  );
@@ -82,7 +82,7 @@ public interface Array {
 		
 		public static final booleans booleans = new booleans();
 		
-		public static final class booleans extends Of<boolean[]> {
+		public static final class booleans extends EqualHashOf<boolean[]> {
 			public static final boolean[] O = new boolean[0];
 			
 			
@@ -108,7 +108,7 @@ public interface Array {
 		
 		public static final bytes bytes = new bytes();
 		
-		public static final class bytes extends Of<byte[]> {
+		public static final class bytes extends EqualHashOf<byte[]> {
 			public static final byte[] O = new byte[0];
 			
 			private bytes()                                         { super( byte[].class ); }
@@ -153,7 +153,7 @@ public interface Array {
 		
 		public static final shorts shorts = new shorts();
 		
-		public static final class shorts extends Of<short[]> {
+		public static final class shorts extends EqualHashOf<short[]> {
 			public static final short[] O = new short[0];
 			
 			private shorts()                                          { super( short[].class ); }
@@ -179,7 +179,7 @@ public interface Array {
 		
 		public static final chars chars = new chars();
 		
-		public static final class chars extends Of<char[]> {
+		public static final class chars extends EqualHashOf<char[]> {
 			public static final char[] O = new char[0];
 			
 			private chars()                                         { super( char[].class ); }
@@ -204,7 +204,7 @@ public interface Array {
 		
 		public static final ints ints = new ints();
 		
-		public static final class ints extends Of<int[]> {
+		public static final class ints extends EqualHashOf<int[]> {
 			public static final int[] O = new int[0];
 			
 			private ints()                                        { super( int[].class ); }
@@ -229,7 +229,7 @@ public interface Array {
 		
 		public static final longs longs = new longs();
 		
-		public static final class longs extends Of<long[]> {
+		public static final class longs extends EqualHashOf<long[]> {
 			public static final long[] O = new long[0];
 			
 			private longs()                                         { super( long[].class ); }
@@ -254,7 +254,7 @@ public interface Array {
 		
 		public static final floats floats = new floats();
 		
-		public static final class floats extends Of<float[]> {
+		public static final class floats extends EqualHashOf<float[]> {
 			public static final float[] O = new float[0];
 			
 			private floats()                                          { super( float[].class ); }
@@ -279,7 +279,7 @@ public interface Array {
 		
 		public static final doubles doubles = new doubles();
 		
-		public static final class doubles extends Of<double[]> {
+		public static final class doubles extends EqualHashOf<double[]> {
 			public static final double[] O = new double[0];
 			
 			private doubles()                                           { super( double[].class ); }
@@ -304,7 +304,7 @@ public interface Array {
 		
 		public static final strings strings = new strings();
 		
-		public static final class strings extends Of<String[]> {
+		public static final class strings extends EqualHashOf<String[]> {
 			public static final String[] O = new String[0];
 			String[][] OO = new String[0][];
 			
@@ -355,46 +355,46 @@ public interface Array {
 		}
 	}
 	
-	static Object[] copyOf( Object[] src, int len )     { return len < 1 ? Of.objects.O : Arrays.copyOf( src == null ? Of.objects.O : src, len ); }
+	static Object[] copyOf( Object[] src, int len )     { return len < 1 ? EqualHashOf.objects.O : Arrays.copyOf( src == null ? EqualHashOf.objects.O : src, len ); }
 	
-	static Object[][] copyOf( Object[][] src, int len ) { return len < 1 ? Of.objects.OO : Arrays.copyOf( src == null ? Of.objects.OO : src, len ); }
+	static Object[][] copyOf( Object[][] src, int len ) { return len < 1 ? EqualHashOf.objects.OO : Arrays.copyOf( src == null ? EqualHashOf.objects.OO : src, len ); }
 	
-	static boolean[] copyOf( boolean[] src, int len )   { return len < 1 ? Of.booleans.O : Arrays.copyOf( src == null ? Of.booleans.O : src, len ); }
+	static boolean[] copyOf( boolean[] src, int len )   { return len < 1 ? EqualHashOf.booleans.O : Arrays.copyOf( src == null ? EqualHashOf.booleans.O : src, len ); }
 	
-	static byte[] copyOf( byte[] src, int len )         { return len < 1 ? Of.bytes.O : Arrays.copyOf( src == null ? Of.bytes.O : src, len ); }
+	static byte[] copyOf( byte[] src, int len )         { return len < 1 ? EqualHashOf.bytes.O : Arrays.copyOf( src == null ? EqualHashOf.bytes.O : src, len ); }
 	
-	static short[] copyOf( short[] src, int len )       { return len < 1 ? Of.shorts.O : Arrays.copyOf( src == null ? Of.shorts.O : src, len ); }
+	static short[] copyOf( short[] src, int len )       { return len < 1 ? EqualHashOf.shorts.O : Arrays.copyOf( src == null ? EqualHashOf.shorts.O : src, len ); }
 	
-	static char[] copyOf( char[] src, int len )         { return len < 1 ? Of.chars.O : Arrays.copyOf( src == null ? Of.chars.O : src, len ); }
+	static char[] copyOf( char[] src, int len )         { return len < 1 ? EqualHashOf.chars.O : Arrays.copyOf( src == null ? EqualHashOf.chars.O : src, len ); }
 	
-	static int[] copyOf( int[] src, int len )           { return len < 1 ? Of.ints.O : Arrays.copyOf( src == null ? Of.ints.O : src, len ); }
+	static int[] copyOf( int[] src, int len )           { return len < 1 ? EqualHashOf.ints.O : Arrays.copyOf( src == null ? EqualHashOf.ints.O : src, len ); }
 	
-	static long[] copyOf( long[] src, int len )         { return len < 1 ? Of.longs.O : Arrays.copyOf( src == null ? Of.longs.O : src, len ); }
+	static long[] copyOf( long[] src, int len )         { return len < 1 ? EqualHashOf.longs.O : Arrays.copyOf( src == null ? EqualHashOf.longs.O : src, len ); }
 	
-	static float[] copyOf( float[] src, int len )       { return len < 1 ? Of.floats.O : Arrays.copyOf( src == null ? Of.floats.O : src, len ); }
+	static float[] copyOf( float[] src, int len )       { return len < 1 ? EqualHashOf.floats.O : Arrays.copyOf( src == null ? EqualHashOf.floats.O : src, len ); }
 	
-	static double[] copyOf( double[] src, int len )     { return len < 1 ? Of.doubles.O : Arrays.copyOf( src == null ? Of.doubles.O : src, len ); }
+	static double[] copyOf( double[] src, int len )     { return len < 1 ? EqualHashOf.doubles.O : Arrays.copyOf( src == null ? EqualHashOf.doubles.O : src, len ); }
 	
 	HashMap<Class<?>, Object> pool = new HashMap<>( 8 );
 	
 	@SuppressWarnings( "unchecked" )
-	static <T> Of<T> get( Class<T> clazz ) {
+	static <T> EqualHashOf<T> get( Class<T> clazz ) {
 		final Object c = clazz;
-		if( c == boolean[].class ) return (Of<T>) Of.booleans;
-		if( c == byte[].class ) return (Of<T>) Of.bytes;
-		if( c == short[].class ) return (Of<T>) Of.shorts;
-		if( c == int[].class ) return (Of<T>) Of.ints;
-		if( c == long[].class ) return (Of<T>) Of.longs;
-		if( c == char[].class ) return (Of<T>) Of.chars;
-		if( c == float[].class ) return (Of<T>) Of.floats;
-		if( c == double[].class ) return (Of<T>) Of.doubles;
-		if( c == String[].class ) return (Of<T>) Of.strings;
+		if( c == boolean[].class ) return (EqualHashOf<T>) EqualHashOf.booleans;
+		if( c == byte[].class ) return (EqualHashOf<T>) EqualHashOf.bytes;
+		if( c == short[].class ) return (EqualHashOf<T>) EqualHashOf.shorts;
+		if( c == int[].class ) return (EqualHashOf<T>) EqualHashOf.ints;
+		if( c == long[].class ) return (EqualHashOf<T>) EqualHashOf.longs;
+		if( c == char[].class ) return (EqualHashOf<T>) EqualHashOf.chars;
+		if( c == float[].class ) return (EqualHashOf<T>) EqualHashOf.floats;
+		if( c == double[].class ) return (EqualHashOf<T>) EqualHashOf.doubles;
+		if( c == String[].class ) return (EqualHashOf<T>) EqualHashOf.strings;
 		
-		if( pool.containsKey( clazz ) ) return (Of<T>) pool.get( clazz );
+		if( pool.containsKey( clazz ) ) return (EqualHashOf<T>) pool.get( clazz );
 		synchronized(pool)
 		{
-			if( pool.containsKey( clazz ) ) return (Of<T>) pool.get( clazz );
-			Of<T> ret = new Of<>( clazz );
+			if( pool.containsKey( clazz ) ) return (EqualHashOf<T>) pool.get( clazz );
+			EqualHashOf<T> ret = new EqualHashOf<>( clazz );
 			pool.put( clazz, ret );
 			return ret;
 		}

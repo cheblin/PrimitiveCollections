@@ -24,8 +24,8 @@ public interface DoubleFloatMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		double[] keys   = Array.Of.doubles     .O;
-		float[] values = Array.Of.floats     .O;
+		double[] keys   = Array.EqualHashOf.doubles     .O;
+		float[] values = Array.EqualHashOf.floats     .O;
 		
 		int assigned;
 		

@@ -10,8 +10,6 @@ public interface LongNullList {
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
 		
-		protected R( boolean default_value_is_null ) { this.default_value_is_null = default_value_is_null; }
-		public final boolean default_value_is_null;
 		
 		BitList.RW         nulls;
 		LongList.RW values;
@@ -34,7 +32,7 @@ public interface LongNullList {
 		@Positive_OK public int prevNullIndex( int index )  { return nulls.prev0( index ); }
 		
 		public long get( @Positive_ONLY int index ) { return  values.get( nulls.rank( index ) - 1 ); }
-		
+
 		
 		public int indexOf( long value ) {
 			int i = values.indexOf( value );
@@ -112,11 +110,11 @@ public interface LongNullList {
 		
 		protected static void set( R dst, int index, long value ) {
 			
-			if( dst.nulls.get( index ) ) dst.values.set( dst.nulls.rank( index ) - 1, value );
+			if( dst.nulls.get( index ) ) dst.values.set1( dst.nulls.rank( index ) - 1, value );
 			else
 			{
 				dst.nulls.set1( index );
-				dst.values.add( dst.nulls.rank( index ) - 1, value );
+				dst.values.add1( dst.nulls.rank( index ) - 1, value );
 			}
 		}
 	}
@@ -128,153 +126,147 @@ public interface LongNullList {
 		
 		long get( @Positive_ONLY int index );
 		
-		void add(  Long      value );
+		RW add1(  Long      value );
 		
-		void add( int index,  Long      value );
+		RW add1( int index,  Long      value );
 		
-		void add( int index, long value );
+		RW add1( int index, long value );
 		
-		void set( int index,  Long      value );
+		RW set1( int index,  Long      value );
 		
-		void set( int index, long value );
+		RW set1( int index, long value );
 	}
 	
 	class RW extends R implements Interface {
 		
 		public RW( int length ) {
-			super( false );
+			super(  );
 			
 			nulls  = new BitList.RW( length );
 			values = new LongList.RW( length );
 		}
 		
 		public RW(  Long      default_value, int size ) {
-			super( default_value == null );
+			super( );
+			
+			nulls  = new BitList.RW( default_value != null, size );
+			values = default_value == null ?
+			         new LongList.RW( 0 ) :
+			         new LongList.RW( default_value. longValue     (), size );
+		}
+		
+		public RW( long default_value, int size ) {
+			super(  );
 			
 			nulls  = new BitList.RW( false, size );
-			values = new LongList.RW( default_value_is_null ? (long) 0 : default_value. longValue     (), size );
+			values = new LongList.RW( default_value, size );
 		}
 		
-		public RW( long default_value, long size ) {
-			super( false );
-			
-			nulls  = new BitList.RW( false, (int) size );
-			values = new LongList.RW( default_value, (int) size );
-		}
+		public RW clone()  { return (RW) super.clone(); }
 		
-		public RW(  Long     ... values ) { this( null, values ); }
+		public RW remove() { return remove( size() - 1 ); }
 		
-		public RW(  Long      default_value,  Long     ... values ) {
-			super( default_value == null );
-			int length = values == null ? 0 : values.length;
-			
-			nulls       = new BitList.RW( length );
-			this.values = new LongList.RW( length );
-			if( length == 0 ) return;
-			
-			for(  Long      value : values ) add( value );
-		}
-		
-		
-		public RW( long... values ) { this( (long)0, values ); }
-		public RW( long default_value, long... values ) {
-			super( false );
-			if( values == null )
-			{
-				nulls       = new BitList.RW( 0 );
-				this.values = new LongList.RW( 0 );
-				return;
-			}
-			
-			nulls       = new BitList.RW( true, values.length );
-			this.values = new LongList.RW( default_value, values );
-		}
-		
-		
-		public RW( R src, int fromIndex, int toIndex ) {
-			super( src.default_value_is_null );
-			nulls  = new BitList.RW( src.nulls, fromIndex, toIndex );
-			values = nulls.cardinality() == 0 ?
-			         new LongList.RW( 0 ) :
-			         new LongList.RW( src.values, src.nulls.rank( fromIndex ), src.nulls.rank( toIndex ) );
-		}
-		
-		
-		public RW clone()    { return (RW) super.clone(); }
-		
-		
-		public void remove() { remove( size() - 1 ); }
-		
-		public void remove( int index ) {
-			if( size() < 1 || size() <= index ) return;
+		public RW remove( int index ) {
+			if( size() < 1 || size() <= index ) return this;
 			
 			if( nulls.get( index ) ) values.remove( nulls.rank( index ) - 1 );
 			nulls.remove( index );
+			return this;
 		}
 		
-		public void add(  Long      value ) {
+		public RW set1(  Long      value ) {
+			set( this, size() - 1, value );
+			return this;
+		}
+		
+		public RW set1( long value ) {
+			set( this, size() - 1, value );
+			return this;
+		}
+		
+		public RW set1( int index,  Long      value ) {
+			set( this, index, value );
+			return this;
+		}
+		
+		public RW set1( int index, long value ) {
+			set( this, index, value );
+			return this;
+		}
+		public RW set( int index,  Long     ... values ) {
+			for( int i = values.length; -1 < --i; )
+			     set( this, index + i, values[i] );
+			return this;
+		}
+		
+		public RW set( int index, long... values ) { return set( index, values, 0, values.length ); }
+		
+		public RW set( int index, long[] values, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set( this, index + i, (long) values[src_index + i] );
+			return this;
+		}
+		
+		public RW set( int index,  Long     [] values, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set( this, index + i, values[src_index + i] );
+			return this;
+		}
+		
+		
+		public RW add1(  Long      value ) {
 			if( value == null ) nulls.add( false );
-			else add( value. longValue     () );
+			else add1( value. longValue     () );
+			return this;
 		}
 		
-		public void add( long value ) {
-			values.add( value );
+		public RW add1( long value ) {
+			values.add1( value );
 			nulls.add( true );
+			return this;
 		}
 		
 		
-		public void add( int index,  Long      value ) {
+		public RW add1( int index,  Long      value ) {
 			if( value == null ) nulls.add( index, false );
-			else add( index, value. longValue     () );
+			else add1( index, value. longValue     () );
+			return this;
 		}
 		
-		public void add( int index, long value ) {
+		public RW add1( int index, long value ) {
 			if( index < size() )
 			{
 				nulls.add( index, true );
-				values.add( nulls.rank( index ) - 1, value );
+				values.add1( nulls.rank( index ) - 1, value );
 			}
-			else set( index, value );
+			else set1( index, value );
+			return this;
 		}
 		
-		public void set(  Long      value )            { set( this, size() - 1, value ); }
-		
-		public void set( long value )                { set( this, size() - 1, value ); }
-		
-		public void set( int index,  Long      value ) { set( this, index, value ); }
-		
-		public void set( int index, long value )     { set( this, index, value ); }
-		
-		public void set( int index, long... values ) {
-			for( int i = 0, max = values.length; i < max; i++ )
-			     set( this, index + i, (long) values[i] );
+		public RW add( long... items ) {
+			int size = size();
+			set1( size() + items.length - 1, values.default_value );
+			return set( size, items );
 		}
 		
-		public void set( int index,  Long     ... values ) {
-			for( int i = 0, max = values.length; i < max; i++ )
-			     set( this, index + i, values[i] );
+		
+		public RW add(  Long     ... items ) {
+			int size = size();
+			set1( size() + items.length - 1, values.default_value );
+			return set( size, items );
 		}
 		
-		public void addAll( R src ) {
+		public RW addAll( R src ) {
 			
 			for( int i = 0, s = src.size(); i < s; i++ )
-				if( src.hasValue( i ) ) add( src.get( i ) );
+				if( src.hasValue( i ) ) add1( src.get( i ) );
 				else nulls.add( false );
+			return this;
 		}
 		
 		public RW clear() {
 			values.clear();
 			nulls.clear();
-			return this;
-		}
-		
-		public RW size( int size ) {
-			if( size < 1 ) clear();
-			else
-			{
-				nulls.size( size );
-				values.size( nulls.cardinality() );
-			}
 			return this;
 		}
 		
@@ -291,14 +283,14 @@ public interface LongNullList {
 			return this;
 		}
 		
-		public void swap( int index1, int index2 ) {
+		public RW swap( int index1, int index2 ) {
 			
 			int exist, empty;
 			if( nulls.get( index1 ) )
 				if( nulls.get( index2 ) )
 				{
 					values.swap( nulls.rank( index1 ) - 1, nulls.rank( index2 ) - 1 );
-					return;
+					return this;
 				}
 				else
 				{
@@ -315,11 +307,12 @@ public interface LongNullList {
 				nulls.set1( index1 );
 				nulls.set0( index2 );
 			}
-			else return;
+			else return this;
 			
 			long v = values.get( exist );
 			values.remove( exist );
-			values.add( empty, v );
+			values.add1( empty, v );
+			return this;
 		}
 	}
 }

@@ -24,8 +24,8 @@ public interface LongFloatMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		long[] keys   = Array.Of.longs     .O;
-		float[] values = Array.Of.floats     .O;
+		long[] keys   = Array.EqualHashOf.longs     .O;
+		float[] values = Array.EqualHashOf.floats     .O;
 		
 		int assigned;
 		

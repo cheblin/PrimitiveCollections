@@ -24,8 +24,8 @@ public interface UIntDoubleMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		int[] keys   = Array.Of.ints     .O;
-		double[] values = Array.Of.doubles     .O;
+		int[] keys   = Array.EqualHashOf.ints     .O;
+		double[] values = Array.EqualHashOf.doubles     .O;
 		
 		int assigned;
 		

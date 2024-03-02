@@ -9,21 +9,20 @@ public interface BoolNullList {
 		
 		protected R( int length )                        { super( 2, length ); }
 		
-		protected R( Boolean default_value, int size ) { super( 2, default_value == null ? 0 : default_value ? 1 : 2, size ); }
+		protected R( Boolean default_value, int size ) { super( 2, default_value == null ? 2 : default_value ? 1 : 0, size ); }
 		
-		public boolean hasValue( int index )            { return get( index ) != 0; }
+		public boolean hasValue( int index )            { return get( index ) != 2; }
 		public Boolean get_Boolean( int index ) {
 			switch( get( index ) )
 			{
-				case 3:
+				case 1:
 					return Boolean.TRUE;
-				case 2:
+				case 0:
 					return Boolean.FALSE;
 			}
 			return null;
 		}
 		
-		public String toString() { return toJSON(); }
 		@Override public void toJSON( JsonWriter json ) {
 			json.enterArray();
 			
@@ -36,8 +35,9 @@ public interface BoolNullList {
 				{
 					final int bit   = BitsList.bit( bp );
 					long      value = (BitsList.BITS < bit + bits ? BitsList.value( src, src = values[BitsList.index( bp ) + 1], bit, bits, mask ) : BitsList.value( src, bit, mask ));
-					if( (value & 2) == 0 ) json.value();
-					else json.value( value == 3 );
+					
+					if( (value & 2) == 2 ) json.value();
+					else json.value( value == 1 );
 				}
 			}
 			json.exitArray();
@@ -52,13 +52,13 @@ public interface BoolNullList {
 		
 		boolean hasValue( int index );
 		
-		void set( boolean value );
+		RW set1( boolean value );
 		
-		void set( Boolean value );
+		RW set1( Boolean value );
 		
-		void add( boolean value );
+		RW add( boolean value );
 		
-		void add( Boolean value );
+		RW add( Boolean value );
 	}
 	
 	class RW extends R implements Interface {
@@ -67,49 +67,40 @@ public interface BoolNullList {
 		
 		public RW( Boolean default_value, int size ) { super( default_value, size ); }
 		
-		public RW( boolean... values ) {
-			super( values.length );
-			set( 0, values );
-		}
 		
-		public RW( Boolean... values ) {
-			super( values.length );
-			set( 0, values );
-		}
+		public RW add( boolean value )           { add( this, value ? 1 : 0 ); return this; }
 		
-		public void add( boolean value )           { add( this, value ? 1 : 2 ); }
-		
-		public void add( Boolean value )           { add( this, value == null ? 0 : value ? 1 : 2 ); }
+		public RW add( Boolean value )           { add( this, value == null ? 2 : value ? 1 : 0 ); return this;}
 		
 		
-		public void remove( Boolean value )        { remove( this, value == null ? 0 : value ? 1 : 2 ); }
+		public RW remove( Boolean value )        { remove( this, value == null ? 2 : value ? 1 : 0 );return this; }
 		
-		public void remove( boolean value )        { remove( this, value ? 1 : 2 ); }
-		
-		
-		public void removeAt( int item )           { removeAt( this, item ); }
+		public RW remove( boolean value )        { remove( this, value ? 1 : 0 );return this; }
 		
 		
-		public void set( boolean value )           { set( this, size, value ? 1 : 2 ); }
-		
-		public void set( Boolean value )           { set( this, size, value == null ? 0 : value ? 1 : 2 ); }
-		
-		public void set( int item, int value )     { set( this, item, value ); }
+		public RW removeAt( int item )           { removeAt( this, item );return this; }
 		
 		
-		public void set( int item, boolean value ) { set( this, item, value ? 1 : 2 ); }
+		public RW set1( boolean value )           { set1( this, size, value ? 1 : 0 ); return this;}
 		
-		public void set( int item, Boolean value ) { set( this, item, value == null ? 0 : value ? 1 : 2 ); }
+		public RW set1( Boolean value )           { set1( this, size, value == null ? 2 : value ? 1 : 0 );return this; }
 		
 		
-		public void set( int index, boolean... values ) {
+		public RW set1( int item, boolean value ) { set1( this, item, value ? 1 : 0 ); return this;}
+		
+		public RW set1( int item, Boolean value ) { set1( this, item, value == null ? 2 : value ? 1 : 0 );return this; }
+		
+		
+		public RW set( int index, boolean... values ) {
 			for( int i = 0, max = values.length; i < max; i++ )
-			     set( index + i, values[i] );
+			     set1( index + i, values[i] );
+			return this;
 		}
 		
-		public void set( int index, Boolean... values ) {
+		public RW set( int index, Boolean... values ) {
 			for( int i = 0, max = values.length; i < max; i++ )
-			     set( index + i, values[i] );
+			     set1( index + i, values[i] );
+			return this;
 		}
 		
 		
@@ -119,14 +110,14 @@ public interface BoolNullList {
 		}
 		
 		public RW length( int items ) {
-			if( items < 0 ) values = Array.Of.longs.O;
+			if( items < 0 ) values = Array.EqualHashOf.longs.O;
 			else length_( -items );
 			return this;
 		}
 		
 		public RW size( int size ) {
 			if( size < 1 ) clear();
-			else if( this.size < size ) set( size - 1, default_value );
+			else if( this.size < size ) set1(this, size - 1, default_value );
 			else this.size = size;
 			return this;
 		}

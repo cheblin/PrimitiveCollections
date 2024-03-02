@@ -13,7 +13,7 @@ public interface UByteList {
 		public final char default_value;
 		protected R( char default_value ) { this.default_value = default_value; }
 		
-		byte[] values = Array.Of.bytes     .O;
+		byte[] values = Array.EqualHashOf.bytes     .O;
 		
 		public byte[] array() { return values; }
 		
@@ -149,108 +149,73 @@ public interface UByteList {
 		
 		char get( int index );
 		
-		void add( char value );
+		RW add1( char value );
 		
-		void set( int index, char value );
+		RW set1( int index, char value );
 	}
 	
 	class RW extends R implements Interface {
 		
 		public RW( int length ) {
 			super( (char) 0 );
-			values = 0 < length ? new byte[length] : Array.Of.bytes     .O;
+			values = 0 < length ? new byte[length] : Array.EqualHashOf.bytes     .O;
 		}
 		
-		public RW( char... items ) {
-			this( items == null ? 0 : items.length );
-			if( items != null )
-			{
-				size = items.length;
-				for( int i = 0; i < size; i++ )
-				     values[i] = (byte) items[i];
-			}
-		}
 		public RW( char default_value, int size ) {
 			super( default_value );
 			
-			values = 0 < (this.size = size) ? new byte[size] : Array.Of.bytes     .O;
+			values = 0 < size ? new byte[size] : Array.EqualHashOf.bytes     .O;
 			
+			this.size = size;
 			if( default_value == 0 ) return;
 			
 			while( -1 < --size ) values[size] = (byte) default_value;
 		}
 		
-		public RW( char default_value, char... items ) {
-			super( default_value );
-			if( items == null ) return;
-			
-			if( (this.size = items.length) < 1)
-			{
-				values = Array.Of.bytes     .O;
-				return;
-			}
-			
-			values = new byte[size];
-			
-			for( int i = size; -1 < --i; ) values[i] = (byte) items[i];
-		}
+		public RW add1( char value ) { return add1( size, value ); }
 		
-		public RW( R src, int fromIndex, int toIndex ) {
-			super( src.default_value );
-			values = 0 < toIndex - fromIndex ? new byte[toIndex - fromIndex] : Array.Of.bytes     .O;
-			System.arraycopy( src.values, fromIndex, values, 0, toIndex - fromIndex );
-		}
-		
-		
-		public void add( char value ) { add( size, value ); }
-		
-		public void add( int index, char value ) {
+		public RW add1( int index, char value ) {
 			
 			int max = Math.max( index, size + 1 );
 			
 			size          = Array.resize( values, values.length <= max ? values = new byte[max + max / 2] : values, index, size, 1 );
 			values[index] = (byte) value;
+			return this;
 		}
 		
-		public void add( int index, byte[] src, int src_index, int len ) {
+		public RW add( byte... src ) { return add( size(), src, 0, src.length ); }
+		public RW add( int index, byte[] src, int src_index, int len ) {
 			int max = Math.max( index, size ) + len;
 			
 			size = Array.resize( values, values.length < max ? values = new byte[max + max / 2] : values, index, size, len );
 			
 			for( int i = 0; i < len; i++ ) values[index + i] = (byte) src[src_index + i];
+			return this;
 		}
 		
-		public void remove() { remove( size - 1 ); }
 		
-		public void remove( int index ) {
-			if( size < 1 || size < index ) return;
-			if( index == size - 1 ) values[--size] = (byte) 0;
+		public RW remove() { return remove( size - 1 ); }
+		
+		public RW remove( int index ) {
+			if( size < 1 || size < index ) return this;
+			if( index == size - 1 ) size--;
 			else size = Array.resize( values, values, index, size, -1 );
-		}
-		
-		public void remove_fast( int index ) {
-			if( size < 1 || size <= index ) return;
-			values[index] = values[--size];
-		}
-		
-		
-		public void set( int index, char... src ) {
-			int len = src.length;
-			int max = index + len;
 			
-			if( size < max )
-			{
-				if( values.length < max ) Array.copy( values, index, len, size, values = new byte[max + max / 2] );
-				size = max;
-			}
-			
-			for( int i = 0; i < len; i++ )
-			     values[index + i] = (byte) src[i];
+			return this;
 		}
 		
-		public void set( char value ) { set( size, value ); }
+		public RW remove( int index, int len ) {
+			if( size < 1 || size < index ) return this;
+			int s = size;
+			if( index == size - 1 ) size--;
+			else size = Array.resize( values, values, index, size, -len );
+			
+			return this;
+		}
 		
-		public void set( int index, char value ) {
+		public RW set1( char value ) { return set1( size, value ); }
+		
+		public RW set1( int index, char value ) {
 			
 			if( size <= index )
 			{
@@ -262,24 +227,23 @@ public interface UByteList {
 			}
 			
 			values[index] = (byte) value;
+			return this;
 		}
 		
-		public int set( char[] src, int src_index, int dst_index, int len ) {
-			len = Math.min( src.length - src_index, len );
-			if( len < 1 ) return 0;
-			
-			for( int i = 0; i < len; i++ )
-			     set( dst_index++, src[src_index++] );
-			
-			return len;
+		public RW set( int index, char... src ) { return set( index, src, 0, src.length ); }
+		
+		
+		public RW set( int index, char[] src, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set1( index + i,  src[src_index + i] );
+			return this;
 		}
 		
-		
-		public void swap( int index1, int index2 ) {
+		public RW swap( int index1, int index2 ) {
 			final byte tmp = values[index1];
 			values[index1] = values[index2];
 			values[index2] = tmp;
-			
+			return this;
 		}
 		
 		public int removeAll( R src ) {
@@ -297,6 +261,7 @@ public interface UByteList {
 			return fix - size;
 		}
 		
+		//remove with change order
 		public int removeAll_fast( char src ) {
 			int fix = size;
 			
@@ -304,21 +269,29 @@ public interface UByteList {
 			return fix - size;
 		}
 		
+		//remove with change order
+		public RW remove_fast( int index ) {
+			if( size < 1 || size <= index ) return this;
+			values[index] = values[--size];
+			return this;
+		}
+		
 		public boolean retainAll( R chk ) {
 			
 			final int   fix = size;
-			char v;
+			
 			for( int index = 0; index < size; index++ )
-				if( !chk.contains( v = get( index ) ) )
-					remove( indexOf( v ) );
+				if( !chk.contains( get( index ) ) )
+					remove( index );
 			
 			return fix != size;
 		}
 		
-		public void clear() {
-			if( size < 1 ) return;
+		public RW clear() {
+			if( size < 1 ) return this;
 			Arrays.fill( values, 0, size - 1, (byte) default_value );
 			size = 0;
+			return this;
 		}
 		
 		public RW fit() {
@@ -326,17 +299,17 @@ public interface UByteList {
 			return this;
 		}
 		
-		public RW length( int items ) {
-			if( values.length != items )
-				if( items < 1 )
+		public RW length( int length ) {
+			if( values.length != length )
+				if( length < 1 )
 				{
-					values = Array.Of.bytes     .O;
+					values = Array.EqualHashOf.bytes     .O;
 					size   = 0;
 				}
 				else
 				{
-					Arrays.copyOf( values, items );
-					if( items < size ) size = items;
+					Arrays.copyOf( values, length );
+					if( length < size ) size = length;
 				}
 			
 			return this;
@@ -344,7 +317,7 @@ public interface UByteList {
 		
 		public RW size( int size ) {
 			if( size < 1 ) clear();
-			else if( size() < size ) set( size - 1, default_value );
+			else if( size() < size ) set1( size - 1, default_value );
 			else this.size = size;
 			return this;
 		}

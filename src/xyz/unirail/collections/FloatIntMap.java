@@ -24,8 +24,8 @@ public interface FloatIntMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		float[] keys   = Array.Of.floats     .O;
-		int[] values = Array.Of.ints     .O;
+		float[] keys   = Array.EqualHashOf.floats     .O;
+		int[] values = Array.EqualHashOf.ints     .O;
 		
 		int assigned;
 		

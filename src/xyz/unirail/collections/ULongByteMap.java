@@ -24,8 +24,8 @@ public interface ULongByteMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		long[] keys   = Array.Of.longs     .O;
-		byte[] values = Array.Of.bytes     .O;
+		long[] keys   = Array.EqualHashOf.longs     .O;
+		byte[] values = Array.EqualHashOf.bytes     .O;
 		
 		int assigned;
 		

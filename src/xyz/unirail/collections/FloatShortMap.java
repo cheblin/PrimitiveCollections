@@ -24,8 +24,8 @@ public interface FloatShortMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		float[] keys   = Array.Of.floats     .O;
-		short[] values = Array.Of.shorts     .O;
+		float[] keys   = Array.EqualHashOf.floats     .O;
+		short[] values = Array.EqualHashOf.shorts     .O;
 		
 		int assigned;
 		

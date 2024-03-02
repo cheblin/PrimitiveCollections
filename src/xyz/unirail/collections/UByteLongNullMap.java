@@ -177,10 +177,10 @@ public interface UByteLongNullMap {
 			
 			if( keys.add( (byte) key ) )
 			{
-				values.add( keys.rank( (byte) key ) - 1, ( Long     ) null );
+				values.add1( keys.rank( (byte) key ) - 1, ( Long     ) null );
 				return true;
 			}
-			values.set( keys.rank( (byte) key ) - 1, ( Long     ) null );
+			values.set1( keys.rank( (byte) key ) - 1, ( Long     ) null );
 			
 			return false;
 		}
@@ -189,11 +189,11 @@ public interface UByteLongNullMap {
 			
 			if( keys.add( (byte) key ) )
 			{
-				values.add( keys.rank( (byte) key ) - 1, value );
+				values.add1( keys.rank( (byte) key ) - 1, value );
 				return true;
 			}
 			
-			values.set( keys.rank( (byte) key ) - 1, value );
+			values.set1( keys.rank( (byte) key ) - 1, value );
 			return false;
 		}
 		

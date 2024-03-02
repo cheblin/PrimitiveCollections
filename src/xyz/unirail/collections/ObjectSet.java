@@ -32,27 +32,27 @@ public interface ObjectSet {
 		
 		protected double loadFactor;
 		
-		protected final Array.Of< K > ofK;
-		private final   boolean       K_is_string;
+		protected final Array.EqualHashOf< K > equal_hash_K;
+		private final   boolean                      K_is_string;
 		
 		protected R( Class< K > clazzK ) {
-			ofK         = Array.get( clazzK );
-			K_is_string = clazzK == String.class;
+			equal_hash_K = Array.get( clazzK );
+			K_is_string        = clazzK == String.class;
 		}
 		
-		public R( Array.Of< K > ofK ) {
-			this.ofK    = ofK;
-			K_is_string = false;
+		public R( Array.EqualHashOf< K > equal_hash_K ) {
+			this.equal_hash_K = equal_hash_K;
+			K_is_string             = false;
 		}
 		
 		public K[] keys;
 		
 		public boolean contains( K key ) {
 			if( key == null ) return hasNullKey;
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) return true;
+				if( equal_hash_K.equals( k, key ) ) return true;
 			
 			return false;
 		}
@@ -188,12 +188,12 @@ public interface ObjectSet {
 		
 		public RW( Class< K > clazz, int expectedItems )                    { this( clazz, expectedItems, 0.75f ); }
 		
-		public RW( Array.Of< K > ofK, int expectedItems )                   { this( ofK, expectedItems, 0.75f ); }
+		public RW( Array.EqualHashOf< K > equal_hash_K, int expectedItems ) { this( equal_hash_K, expectedItems, 0.75f ); }
 		
 		public RW( Class< K > clazz, int expectedItems, double loadFactor ) { this( Array.get( clazz ), expectedItems, loadFactor ); }
 		
-		public RW( Array.Of< K > ofK, int expectedItems, double loadFactor ) {
-			super( ofK );
+		public RW( Array.EqualHashOf< K > equal_hash_K, int expectedItems, double loadFactor ) {
+			super( equal_hash_K );
 			
 			this.loadFactor = Math.min( Math.max( loadFactor, 1 / 100.0D ), 99 / 100.0D );
 			
@@ -202,7 +202,7 @@ public interface ObjectSet {
 			
 			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
-			keys = ofK.copyOf( null, size );
+			keys = equal_hash_K.copyOf( null, size );
 		}
 		
 		@SafeVarargs public RW( Class< K > clazz, K... items ) {
@@ -213,9 +213,9 @@ public interface ObjectSet {
 		public boolean add( K key ) {
 			if( key == null ) return !hasNullKey && ( hasNullKey = true );
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) return false;
+				if( equal_hash_K.equals( k, key ) ) return false;
 			
 			keys[ slot ] = key;
 			if( assigned == resizeAt ) this.allocate( mask + 1 << 1 );
@@ -236,17 +236,17 @@ public interface ObjectSet {
 			resizeAt = Math.min( mask = size - 1, ( int ) Math.ceil( size * loadFactor ) );
 			
 			if( assigned < 1 ) {
-				if( keys.length < size ) keys = ofK.copyOf( null, size );
+				if( keys.length < size ) keys = equal_hash_K.copyOf( null, size );
 				return;
 			}
 			
 			final K[] k = keys;
-			keys = ofK.copyOf( null, size );
+			keys = equal_hash_K.copyOf( null, size );
 			
 			K key;
 			for( int i = k.length; -1 < --i; )
 				if( ( key = k[ i ] ) != null ) {
-					int slot = ofK.hashCode( key ) & mask;
+					int slot = equal_hash_K.hashCode( key ) & mask;
 					
 					while( keys[ slot ] != null ) slot = slot + 1 & mask;
 					
@@ -259,14 +259,14 @@ public interface ObjectSet {
 		public boolean remove( K key ) {
 			if( key == null ) return hasNullKey && !( hasNullKey = false );
 			
-			int slot = ofK.hashCode( key ) & mask;
+			int slot = equal_hash_K.hashCode( key ) & mask;
 			for( K k; ( k = keys[ slot ] ) != null; slot = slot + 1 & mask )
-				if( ofK.equals( k, key ) ) {
+				if( equal_hash_K.equals( k, key ) ) {
 					int gapSlot = slot;
 					
 					K kk;
 					for( int distance = 0, slot1; ( kk = keys[ slot1 = gapSlot + ++distance & mask ] ) != null; )
-						if( ( slot1 - ofK.hashCode( kk ) & mask ) >= distance ) {
+						if( (slot1 - equal_hash_K.hashCode( kk ) & mask ) >= distance ) {
 							keys[ gapSlot ] = kk;
 							                  gapSlot = slot1;
 							                  distance = 0;
@@ -282,10 +282,10 @@ public interface ObjectSet {
 		
 		public RW< K > clone() { return ( RW< K > ) super.clone(); }
 		
-		private static final Object OBJECT = new Array.Of<>( RW.class );
+		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 	}
 	
 	@SuppressWarnings( "unchecked" )
-	static < K > Array.Of< RW< K > > of() { return ( Array.Of< RW< K > > ) RW.OBJECT; }
+	static < K > Array.EqualHashOf< RW< K > > equal_hash() { return (Array.EqualHashOf< RW< K > >) RW.OBJECT; }
 }
 	

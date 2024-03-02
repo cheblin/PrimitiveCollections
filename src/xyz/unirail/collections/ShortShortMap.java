@@ -24,8 +24,8 @@ public interface ShortShortMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		short[] keys   = Array.Of.shorts     .O;
-		short[] values = Array.Of.shorts     .O;
+		short[] keys   = Array.EqualHashOf.shorts     .O;
+		short[] values = Array.EqualHashOf.shorts     .O;
 		
 		int assigned;
 		

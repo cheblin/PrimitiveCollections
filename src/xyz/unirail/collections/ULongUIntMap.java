@@ -24,8 +24,8 @@ public interface ULongUIntMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		long[] keys   = Array.Of.longs     .O;
-		int[] values = Array.Of.ints     .O;
+		long[] keys   = Array.EqualHashOf.longs     .O;
+		int[] values = Array.EqualHashOf.ints     .O;
 		
 		int assigned;
 		

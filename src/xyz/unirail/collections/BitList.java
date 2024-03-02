@@ -12,7 +12,7 @@ public interface BitList {
 		
 		public int size() { return size; }
 		
-		long[] values = Array.Of.longs.O;
+		long[] values = Array.EqualHashOf.longs.O;
 		
 		static int len4bits( int bits ) { return 1 + ( bits >> LEN ); }
 		

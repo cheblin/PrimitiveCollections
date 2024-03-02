@@ -24,8 +24,8 @@ public interface CharUByteMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		char[] keys   = Array.Of.chars     .O;
-		byte[] values = Array.Of.bytes     .O;
+		char[] keys   = Array.EqualHashOf.chars     .O;
+		byte[] values = Array.EqualHashOf.bytes     .O;
 		
 		int assigned;
 		

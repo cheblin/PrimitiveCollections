@@ -10,8 +10,6 @@ public interface FloatNullList {
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
 		
-		protected R( boolean default_value_is_null ) { this.default_value_is_null = default_value_is_null; }
-		public final boolean default_value_is_null;
 		
 		BitList.RW         nulls;
 		FloatList.RW values;
@@ -34,7 +32,7 @@ public interface FloatNullList {
 		@Positive_OK public int prevNullIndex( int index )  { return nulls.prev0( index ); }
 		
 		public float get( @Positive_ONLY int index ) { return  values.get( nulls.rank( index ) - 1 ); }
-		
+
 		
 		public int indexOf( float value ) {
 			int i = values.indexOf( value );
@@ -112,11 +110,11 @@ public interface FloatNullList {
 		
 		protected static void set( R dst, int index, float value ) {
 			
-			if( dst.nulls.get( index ) ) dst.values.set( dst.nulls.rank( index ) - 1, value );
+			if( dst.nulls.get( index ) ) dst.values.set1( dst.nulls.rank( index ) - 1, value );
 			else
 			{
 				dst.nulls.set1( index );
-				dst.values.add( dst.nulls.rank( index ) - 1, value );
+				dst.values.add1( dst.nulls.rank( index ) - 1, value );
 			}
 		}
 	}
@@ -128,153 +126,147 @@ public interface FloatNullList {
 		
 		float get( @Positive_ONLY int index );
 		
-		void add(  Float     value );
+		RW add1(  Float     value );
 		
-		void add( int index,  Float     value );
+		RW add1( int index,  Float     value );
 		
-		void add( int index, float value );
+		RW add1( int index, float value );
 		
-		void set( int index,  Float     value );
+		RW set1( int index,  Float     value );
 		
-		void set( int index, float value );
+		RW set1( int index, float value );
 	}
 	
 	class RW extends R implements Interface {
 		
 		public RW( int length ) {
-			super( false );
+			super(  );
 			
 			nulls  = new BitList.RW( length );
 			values = new FloatList.RW( length );
 		}
 		
 		public RW(  Float     default_value, int size ) {
-			super( default_value == null );
+			super( );
+			
+			nulls  = new BitList.RW( default_value != null, size );
+			values = default_value == null ?
+			         new FloatList.RW( 0 ) :
+			         new FloatList.RW( default_value. floatValue     (), size );
+		}
+		
+		public RW( float default_value, int size ) {
+			super(  );
 			
 			nulls  = new BitList.RW( false, size );
-			values = new FloatList.RW( default_value_is_null ? (float) 0 : default_value. floatValue     (), size );
+			values = new FloatList.RW( default_value, size );
 		}
 		
-		public RW( float default_value, long size ) {
-			super( false );
-			
-			nulls  = new BitList.RW( false, (int) size );
-			values = new FloatList.RW( default_value, (int) size );
-		}
+		public RW clone()  { return (RW) super.clone(); }
 		
-		public RW(  Float    ... values ) { this( null, values ); }
+		public RW remove() { return remove( size() - 1 ); }
 		
-		public RW(  Float     default_value,  Float    ... values ) {
-			super( default_value == null );
-			int length = values == null ? 0 : values.length;
-			
-			nulls       = new BitList.RW( length );
-			this.values = new FloatList.RW( length );
-			if( length == 0 ) return;
-			
-			for(  Float     value : values ) add( value );
-		}
-		
-		
-		public RW( float... values ) { this( (float)0, values ); }
-		public RW( float default_value, float... values ) {
-			super( false );
-			if( values == null )
-			{
-				nulls       = new BitList.RW( 0 );
-				this.values = new FloatList.RW( 0 );
-				return;
-			}
-			
-			nulls       = new BitList.RW( true, values.length );
-			this.values = new FloatList.RW( default_value, values );
-		}
-		
-		
-		public RW( R src, int fromIndex, int toIndex ) {
-			super( src.default_value_is_null );
-			nulls  = new BitList.RW( src.nulls, fromIndex, toIndex );
-			values = nulls.cardinality() == 0 ?
-			         new FloatList.RW( 0 ) :
-			         new FloatList.RW( src.values, src.nulls.rank( fromIndex ), src.nulls.rank( toIndex ) );
-		}
-		
-		
-		public RW clone()    { return (RW) super.clone(); }
-		
-		
-		public void remove() { remove( size() - 1 ); }
-		
-		public void remove( int index ) {
-			if( size() < 1 || size() <= index ) return;
+		public RW remove( int index ) {
+			if( size() < 1 || size() <= index ) return this;
 			
 			if( nulls.get( index ) ) values.remove( nulls.rank( index ) - 1 );
 			nulls.remove( index );
+			return this;
 		}
 		
-		public void add(  Float     value ) {
+		public RW set1(  Float     value ) {
+			set( this, size() - 1, value );
+			return this;
+		}
+		
+		public RW set1( float value ) {
+			set( this, size() - 1, value );
+			return this;
+		}
+		
+		public RW set1( int index,  Float     value ) {
+			set( this, index, value );
+			return this;
+		}
+		
+		public RW set1( int index, float value ) {
+			set( this, index, value );
+			return this;
+		}
+		public RW set( int index,  Float    ... values ) {
+			for( int i = values.length; -1 < --i; )
+			     set( this, index + i, values[i] );
+			return this;
+		}
+		
+		public RW set( int index, float... values ) { return set( index, values, 0, values.length ); }
+		
+		public RW set( int index, float[] values, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set( this, index + i, (float) values[src_index + i] );
+			return this;
+		}
+		
+		public RW set( int index,  Float    [] values, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set( this, index + i, values[src_index + i] );
+			return this;
+		}
+		
+		
+		public RW add1(  Float     value ) {
 			if( value == null ) nulls.add( false );
-			else add( value. floatValue     () );
+			else add1( value. floatValue     () );
+			return this;
 		}
 		
-		public void add( float value ) {
-			values.add( value );
+		public RW add1( float value ) {
+			values.add1( value );
 			nulls.add( true );
+			return this;
 		}
 		
 		
-		public void add( int index,  Float     value ) {
+		public RW add1( int index,  Float     value ) {
 			if( value == null ) nulls.add( index, false );
-			else add( index, value. floatValue     () );
+			else add1( index, value. floatValue     () );
+			return this;
 		}
 		
-		public void add( int index, float value ) {
+		public RW add1( int index, float value ) {
 			if( index < size() )
 			{
 				nulls.add( index, true );
-				values.add( nulls.rank( index ) - 1, value );
+				values.add1( nulls.rank( index ) - 1, value );
 			}
-			else set( index, value );
+			else set1( index, value );
+			return this;
 		}
 		
-		public void set(  Float     value )            { set( this, size() - 1, value ); }
-		
-		public void set( float value )                { set( this, size() - 1, value ); }
-		
-		public void set( int index,  Float     value ) { set( this, index, value ); }
-		
-		public void set( int index, float value )     { set( this, index, value ); }
-		
-		public void set( int index, float... values ) {
-			for( int i = 0, max = values.length; i < max; i++ )
-			     set( this, index + i, (float) values[i] );
+		public RW add( float... items ) {
+			int size = size();
+			set1( size() + items.length - 1, values.default_value );
+			return set( size, items );
 		}
 		
-		public void set( int index,  Float    ... values ) {
-			for( int i = 0, max = values.length; i < max; i++ )
-			     set( this, index + i, values[i] );
+		
+		public RW add(  Float    ... items ) {
+			int size = size();
+			set1( size() + items.length - 1, values.default_value );
+			return set( size, items );
 		}
 		
-		public void addAll( R src ) {
+		public RW addAll( R src ) {
 			
 			for( int i = 0, s = src.size(); i < s; i++ )
-				if( src.hasValue( i ) ) add( src.get( i ) );
+				if( src.hasValue( i ) ) add1( src.get( i ) );
 				else nulls.add( false );
+			return this;
 		}
 		
 		public RW clear() {
 			values.clear();
 			nulls.clear();
-			return this;
-		}
-		
-		public RW size( int size ) {
-			if( size < 1 ) clear();
-			else
-			{
-				nulls.size( size );
-				values.size( nulls.cardinality() );
-			}
 			return this;
 		}
 		
@@ -291,14 +283,14 @@ public interface FloatNullList {
 			return this;
 		}
 		
-		public void swap( int index1, int index2 ) {
+		public RW swap( int index1, int index2 ) {
 			
 			int exist, empty;
 			if( nulls.get( index1 ) )
 				if( nulls.get( index2 ) )
 				{
 					values.swap( nulls.rank( index1 ) - 1, nulls.rank( index2 ) - 1 );
-					return;
+					return this;
 				}
 				else
 				{
@@ -315,11 +307,12 @@ public interface FloatNullList {
 				nulls.set1( index1 );
 				nulls.set0( index2 );
 			}
-			else return;
+			else return this;
 			
 			float v = values.get( exist );
 			values.remove( exist );
-			values.add( empty, v );
+			values.add1( empty, v );
+			return this;
 		}
 	}
 }

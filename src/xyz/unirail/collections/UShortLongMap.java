@@ -24,8 +24,8 @@ public interface UShortLongMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		char[] keys   = Array.Of.chars     .O;
-		long[] values = Array.Of.longs     .O;
+		char[] keys   = Array.EqualHashOf.chars     .O;
+		long[] values = Array.EqualHashOf.longs     .O;
 		
 		int assigned;
 		

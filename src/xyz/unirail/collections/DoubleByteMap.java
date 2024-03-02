@@ -24,8 +24,8 @@ public interface DoubleByteMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		double[] keys   = Array.Of.doubles     .O;
-		byte[] values = Array.Of.bytes     .O;
+		double[] keys   = Array.EqualHashOf.doubles     .O;
+		byte[] values = Array.EqualHashOf.bytes     .O;
 		
 		int assigned;
 		

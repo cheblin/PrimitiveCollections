@@ -24,8 +24,8 @@ public interface ULongDoubleMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		long[] keys   = Array.Of.longs     .O;
-		double[] values = Array.Of.doubles     .O;
+		long[] keys   = Array.EqualHashOf.longs     .O;
+		double[] values = Array.EqualHashOf.doubles     .O;
 		
 		int assigned;
 		

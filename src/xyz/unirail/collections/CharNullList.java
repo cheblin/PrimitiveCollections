@@ -10,8 +10,6 @@ public interface CharNullList {
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
 		
-		protected R( boolean default_value_is_null ) { this.default_value_is_null = default_value_is_null; }
-		public final boolean default_value_is_null;
 		
 		BitList.RW         nulls;
 		CharList.RW values;
@@ -34,7 +32,7 @@ public interface CharNullList {
 		@Positive_OK public int prevNullIndex( int index )  { return nulls.prev0( index ); }
 		
 		public char get( @Positive_ONLY int index ) { return (char) values.get( nulls.rank( index ) - 1 ); }
-		
+
 		
 		public int indexOf( char value ) {
 			int i = values.indexOf( value );
@@ -112,11 +110,11 @@ public interface CharNullList {
 		
 		protected static void set( R dst, int index, char value ) {
 			
-			if( dst.nulls.get( index ) ) dst.values.set( dst.nulls.rank( index ) - 1, value );
+			if( dst.nulls.get( index ) ) dst.values.set1( dst.nulls.rank( index ) - 1, value );
 			else
 			{
 				dst.nulls.set1( index );
-				dst.values.add( dst.nulls.rank( index ) - 1, value );
+				dst.values.add1( dst.nulls.rank( index ) - 1, value );
 			}
 		}
 	}
@@ -128,153 +126,147 @@ public interface CharNullList {
 		
 		char get( @Positive_ONLY int index );
 		
-		void add(  Character value );
+		RW add1(  Character value );
 		
-		void add( int index,  Character value );
+		RW add1( int index,  Character value );
 		
-		void add( int index, char value );
+		RW add1( int index, char value );
 		
-		void set( int index,  Character value );
+		RW set1( int index,  Character value );
 		
-		void set( int index, char value );
+		RW set1( int index, char value );
 	}
 	
 	class RW extends R implements Interface {
 		
 		public RW( int length ) {
-			super( false );
+			super(  );
 			
 			nulls  = new BitList.RW( length );
 			values = new CharList.RW( length );
 		}
 		
 		public RW(  Character default_value, int size ) {
-			super( default_value == null );
+			super( );
+			
+			nulls  = new BitList.RW( default_value != null, size );
+			values = default_value == null ?
+			         new CharList.RW( 0 ) :
+			         new CharList.RW( default_value. charValue     (), size );
+		}
+		
+		public RW( char default_value, int size ) {
+			super(  );
 			
 			nulls  = new BitList.RW( false, size );
-			values = new CharList.RW( default_value_is_null ? (char) 0 : default_value. charValue     (), size );
+			values = new CharList.RW( default_value, size );
 		}
 		
-		public RW( char default_value, long size ) {
-			super( false );
-			
-			nulls  = new BitList.RW( false, (int) size );
-			values = new CharList.RW( default_value, (int) size );
-		}
+		public RW clone()  { return (RW) super.clone(); }
 		
-		public RW(  Character... values ) { this( null, values ); }
+		public RW remove() { return remove( size() - 1 ); }
 		
-		public RW(  Character default_value,  Character... values ) {
-			super( default_value == null );
-			int length = values == null ? 0 : values.length;
-			
-			nulls       = new BitList.RW( length );
-			this.values = new CharList.RW( length );
-			if( length == 0 ) return;
-			
-			for(  Character value : values ) add( value );
-		}
-		
-		
-		public RW( char... values ) { this( (char)0, values ); }
-		public RW( char default_value, char... values ) {
-			super( false );
-			if( values == null )
-			{
-				nulls       = new BitList.RW( 0 );
-				this.values = new CharList.RW( 0 );
-				return;
-			}
-			
-			nulls       = new BitList.RW( true, values.length );
-			this.values = new CharList.RW( default_value, values );
-		}
-		
-		
-		public RW( R src, int fromIndex, int toIndex ) {
-			super( src.default_value_is_null );
-			nulls  = new BitList.RW( src.nulls, fromIndex, toIndex );
-			values = nulls.cardinality() == 0 ?
-			         new CharList.RW( 0 ) :
-			         new CharList.RW( src.values, src.nulls.rank( fromIndex ), src.nulls.rank( toIndex ) );
-		}
-		
-		
-		public RW clone()    { return (RW) super.clone(); }
-		
-		
-		public void remove() { remove( size() - 1 ); }
-		
-		public void remove( int index ) {
-			if( size() < 1 || size() <= index ) return;
+		public RW remove( int index ) {
+			if( size() < 1 || size() <= index ) return this;
 			
 			if( nulls.get( index ) ) values.remove( nulls.rank( index ) - 1 );
 			nulls.remove( index );
+			return this;
 		}
 		
-		public void add(  Character value ) {
+		public RW set1(  Character value ) {
+			set( this, size() - 1, value );
+			return this;
+		}
+		
+		public RW set1( char value ) {
+			set( this, size() - 1, value );
+			return this;
+		}
+		
+		public RW set1( int index,  Character value ) {
+			set( this, index, value );
+			return this;
+		}
+		
+		public RW set1( int index, char value ) {
+			set( this, index, value );
+			return this;
+		}
+		public RW set( int index,  Character... values ) {
+			for( int i = values.length; -1 < --i; )
+			     set( this, index + i, values[i] );
+			return this;
+		}
+		
+		public RW set( int index, char... values ) { return set( index, values, 0, values.length ); }
+		
+		public RW set( int index, char[] values, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set( this, index + i, (char) values[src_index + i] );
+			return this;
+		}
+		
+		public RW set( int index,  Character[] values, int src_index, int len ) {
+			for( int i = len; -1 < --i; )
+			     set( this, index + i, values[src_index + i] );
+			return this;
+		}
+		
+		
+		public RW add1(  Character value ) {
 			if( value == null ) nulls.add( false );
-			else add( value. charValue     () );
+			else add1( value. charValue     () );
+			return this;
 		}
 		
-		public void add( char value ) {
-			values.add( value );
+		public RW add1( char value ) {
+			values.add1( value );
 			nulls.add( true );
+			return this;
 		}
 		
 		
-		public void add( int index,  Character value ) {
+		public RW add1( int index,  Character value ) {
 			if( value == null ) nulls.add( index, false );
-			else add( index, value. charValue     () );
+			else add1( index, value. charValue     () );
+			return this;
 		}
 		
-		public void add( int index, char value ) {
+		public RW add1( int index, char value ) {
 			if( index < size() )
 			{
 				nulls.add( index, true );
-				values.add( nulls.rank( index ) - 1, value );
+				values.add1( nulls.rank( index ) - 1, value );
 			}
-			else set( index, value );
+			else set1( index, value );
+			return this;
 		}
 		
-		public void set(  Character value )            { set( this, size() - 1, value ); }
-		
-		public void set( char value )                { set( this, size() - 1, value ); }
-		
-		public void set( int index,  Character value ) { set( this, index, value ); }
-		
-		public void set( int index, char value )     { set( this, index, value ); }
-		
-		public void set( int index, char... values ) {
-			for( int i = 0, max = values.length; i < max; i++ )
-			     set( this, index + i, (char) values[i] );
+		public RW add( char... items ) {
+			int size = size();
+			set1( size() + items.length - 1, values.default_value );
+			return set( size, items );
 		}
 		
-		public void set( int index,  Character... values ) {
-			for( int i = 0, max = values.length; i < max; i++ )
-			     set( this, index + i, values[i] );
+		
+		public RW add(  Character... items ) {
+			int size = size();
+			set1( size() + items.length - 1, values.default_value );
+			return set( size, items );
 		}
 		
-		public void addAll( R src ) {
+		public RW addAll( R src ) {
 			
 			for( int i = 0, s = src.size(); i < s; i++ )
-				if( src.hasValue( i ) ) add( src.get( i ) );
+				if( src.hasValue( i ) ) add1( src.get( i ) );
 				else nulls.add( false );
+			return this;
 		}
 		
 		public RW clear() {
 			values.clear();
 			nulls.clear();
-			return this;
-		}
-		
-		public RW size( int size ) {
-			if( size < 1 ) clear();
-			else
-			{
-				nulls.size( size );
-				values.size( nulls.cardinality() );
-			}
 			return this;
 		}
 		
@@ -291,14 +283,14 @@ public interface CharNullList {
 			return this;
 		}
 		
-		public void swap( int index1, int index2 ) {
+		public RW swap( int index1, int index2 ) {
 			
 			int exist, empty;
 			if( nulls.get( index1 ) )
 				if( nulls.get( index2 ) )
 				{
 					values.swap( nulls.rank( index1 ) - 1, nulls.rank( index2 ) - 1 );
-					return;
+					return this;
 				}
 				else
 				{
@@ -315,11 +307,12 @@ public interface CharNullList {
 				nulls.set1( index1 );
 				nulls.set0( index2 );
 			}
-			else return;
+			else return this;
 			
 			char v = values.get( exist );
 			values.remove( exist );
-			values.add( empty, v );
+			values.add1( empty, v );
+			return this;
 		}
 	}
 }

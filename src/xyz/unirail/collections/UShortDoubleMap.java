@@ -24,8 +24,8 @@ public interface UShortDoubleMap {
 	
 	
 	abstract class R implements Cloneable, JsonWriter.Source {
-		char[] keys   = Array.Of.chars     .O;
-		double[] values = Array.Of.doubles     .O;
+		char[] keys   = Array.EqualHashOf.chars     .O;
+		double[] values = Array.EqualHashOf.doubles     .O;
 		
 		int assigned;
 		
