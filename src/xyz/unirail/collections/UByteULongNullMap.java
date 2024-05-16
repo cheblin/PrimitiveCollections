@@ -137,9 +137,10 @@ public interface UByteULongNullMap {
 		public RW( int length ) { values = new ULongNullList.RW( 265 < length ? 256 : length ); }
 		
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
 			values.clear();
+			return this;
 		}
 		
 		

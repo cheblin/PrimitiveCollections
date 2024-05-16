@@ -277,6 +277,12 @@ public interface ByteNullList {
 			return this;
 		}
 		
+		public RW size( int size ) {
+			nulls.size( size );
+			values.size( nulls.cardinality() );
+			return this;
+		}
+		
 		public RW fit() {
 			nulls.fit();
 			values.values = Arrays.copyOf( values.values, values.size );

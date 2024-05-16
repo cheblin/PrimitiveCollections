@@ -137,10 +137,11 @@ public interface UByteObjectMap {
 			values = this.equal_hash_V.copyOf( null, 265 < length ? 256 : length );
 		}
 		
-		public void clear() {
+		public RW clear() {
 			NullKeyValue = null;
 			java.util.Arrays.fill( values, 0, size() - 1, null );
 			keys.clear();
+			return this;
 		}
 		
 		public boolean put(  Character key, V value ) {

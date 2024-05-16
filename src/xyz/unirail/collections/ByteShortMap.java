@@ -88,14 +88,21 @@ public interface ByteShortMap {
 			json.exitObject();
 		}
 	}
+	
 	interface Interface {
 		
 		int size();
+		
 		boolean contains(  Byte      key );
+		
 		boolean contains( int key );
+		
 		short value(  Byte      key );
-		short  value( int key ) ;
+		
+		short  value( int key );
+		
 		boolean put(  Byte      key, short value );
+		
 		boolean put( byte key, short value );
 	}
 	
@@ -103,8 +110,9 @@ public interface ByteShortMap {
 		
 		public RW( int length ) { values = new short[265 < length ? 256 : length]; }
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
+			return this;
 		}
 		
 		

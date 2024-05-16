@@ -597,6 +597,11 @@ public final class JsonWriter {
 	 */
 	private boolean writeWithNullValue = true;
 	
+	public long pack;
+	public JsonWriter pack(long pack){
+		this.pack = pack;
+		return this;
+	}
 	public final Array.ISort.Primitives.Index2 primitiveIndex = new Array.ISort.Primitives.Index2();
 	public final Array.ISort.Anything.Index2 anythingIndex = new Array.ISort.Anything.Index2();
 	

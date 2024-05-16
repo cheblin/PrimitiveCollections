@@ -423,10 +423,11 @@ public interface CharByteNullMap {
 			resizeAt = tmp.resizeAt;
 		}
 		
-		public void clear() {
+		public RW clear() {
 			assigned = 0;
 			has0Key  = Positive_Values.NONE;
 			values.clear();
+			return this;
 		}
 		
 		public RW clone() { return (RW) super.clone(); }

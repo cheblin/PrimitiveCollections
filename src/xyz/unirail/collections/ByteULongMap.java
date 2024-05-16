@@ -88,14 +88,21 @@ public interface ByteULongMap {
 			json.exitObject();
 		}
 	}
+	
 	interface Interface {
 		
 		int size();
+		
 		boolean contains(  Byte      key );
+		
 		boolean contains( int key );
+		
 		long value(  Byte      key );
-		long  value( int key ) ;
+		
+		long  value( int key );
+		
 		boolean put(  Byte      key, long value );
+		
 		boolean put( byte key, long value );
 	}
 	
@@ -103,8 +110,9 @@ public interface ByteULongMap {
 		
 		public RW( int length ) { values = new long[265 < length ? 256 : length]; }
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
+			return this;
 		}
 		
 		

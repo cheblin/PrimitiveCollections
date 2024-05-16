@@ -275,20 +275,22 @@ public interface IntSet {
 			return false;
 		}
 		
-		public void clear() {
+		public RW clear() {
 			assigned   = 0;
 			has0Key    = false;
 			hasNullKey = false;
+			return this;
 		}
 		
 		
-		public void retainAll( RW chk ) {
+		public RW retainAll( RW chk ) {
 			int key;
 			
 			for( int i = keys.length; -1 < --i; )
 				if( (key = keys[i]) != 0 && !chk.add( key ) ) remove( key );
 			
 			if( has0Key && !chk.add( (int) 0 ) ) has0Key = false;
+			return this;
 		}
 		
 		public int removeAll( R src ) {

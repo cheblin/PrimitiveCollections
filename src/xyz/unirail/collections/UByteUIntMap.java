@@ -88,14 +88,21 @@ public interface UByteUIntMap {
 			json.exitObject();
 		}
 	}
+	
 	interface Interface {
 		
 		int size();
+		
 		boolean contains(  Character key );
+		
 		boolean contains( int key );
+		
 		long value(  Character key );
-		long  value( int key ) ;
+		
+		long  value( int key );
+		
 		boolean put(  Character key, long value );
+		
 		boolean put( char key, long value );
 	}
 	
@@ -103,8 +110,9 @@ public interface UByteUIntMap {
 		
 		public RW( int length ) { values = new int[265 < length ? 256 : length]; }
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
+			return this;
 		}
 		
 		

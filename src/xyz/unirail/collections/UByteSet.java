@@ -10,7 +10,7 @@ public interface UByteSet {
 		
 		int INIT = -1;
 		
-		static byte key( R src, int token )   { return (byte) token; }
+		static byte key( R src, int token )  { return (byte) token; }
 		
 		static int index( R src, int token ) { return token >>> 8 & 0xFF; }
 		
@@ -211,13 +211,19 @@ a:
 			json.exitObject();
 		}
 	}
-	interface Interface{
+	
+	interface Interface {
 		int size();
+		
 		boolean add(  Character key );
+		
 		boolean add( char key );
+		
 		boolean contains(  Character key );
-		boolean contains( byte key ) ;
+		
+		boolean contains( byte key );
 	}
+	
 	class RW extends R implements Interface {
 		
 		public RW()                            { }
@@ -301,20 +307,21 @@ a:
 		}
 		
 		
-		public void clear() {
+		public RW clear() {
 			_1         = 0;
 			_2         = 0;
 			_3         = 0;
 			_4         = 0;
 			size       = 0;
 			hasNullKey = false;
+			return this;
 		}
 		
-		public void addAll( R src ) {
+		public RW addAll( R src ) {
 			
 			for( int token = NonNullKeysIterator.INIT; (token = NonNullKeysIterator.token( src, token )) != NonNullKeysIterator.INIT; )
 			     add( NonNullKeysIterator.key( this, token ) );
-			
+			return this;
 		}
 		
 		public RW clone() { return (RW) super.clone(); }

@@ -137,9 +137,10 @@ public interface ByteDoubleNullMap {
 		public RW( int length ) { values = new DoubleNullList.RW( 265 < length ? 256 : length ); }
 		
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
 			values.clear();
+			return this;
 		}
 		
 		

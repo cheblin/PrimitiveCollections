@@ -88,14 +88,21 @@ public interface UByteFloatMap {
 			json.exitObject();
 		}
 	}
+	
 	interface Interface {
 		
 		int size();
+		
 		boolean contains(  Character key );
+		
 		boolean contains( int key );
+		
 		float value(  Character key );
-		float  value( int key ) ;
+		
+		float  value( int key );
+		
 		boolean put(  Character key, float value );
+		
 		boolean put( char key, float value );
 	}
 	
@@ -103,8 +110,9 @@ public interface UByteFloatMap {
 		
 		public RW( int length ) { values = new float[265 < length ? 256 : length]; }
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
+			return this;
 		}
 		
 		

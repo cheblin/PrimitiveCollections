@@ -368,11 +368,12 @@ public interface ObjectIntNullMap {
 			return true;
 		}
 		
-		public void clear() {
+		public RW clear() {
 			assigned   = 0;
 			hasNullKey = Positive_Values.NONE;
 			for( int i = keys.length - 1; i >= 0; i-- ) keys[ i ] = null;
 			values.clear();
+			return this;
 		}
 		
 		

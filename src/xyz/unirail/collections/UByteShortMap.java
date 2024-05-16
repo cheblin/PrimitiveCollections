@@ -88,14 +88,21 @@ public interface UByteShortMap {
 			json.exitObject();
 		}
 	}
+	
 	interface Interface {
 		
 		int size();
+		
 		boolean contains(  Character key );
+		
 		boolean contains( int key );
+		
 		short value(  Character key );
-		short  value( int key ) ;
+		
+		short  value( int key );
+		
 		boolean put(  Character key, short value );
+		
 		boolean put( char key, short value );
 	}
 	
@@ -103,8 +110,9 @@ public interface UByteShortMap {
 		
 		public RW( int length ) { values = new short[265 < length ? 256 : length]; }
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
+			return this;
 		}
 		
 		

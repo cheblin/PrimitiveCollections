@@ -320,10 +320,11 @@ public interface UShortFloatMap {
 			return false;
 		}
 		
-		public void clear() {
+		public RW clear() {
 			assigned   = 0;
 			has0Key    = false;
 			hasNullKey = false;
+			return this;
 		}
 		
 		

@@ -88,14 +88,21 @@ public interface ByteDoubleMap {
 			json.exitObject();
 		}
 	}
+	
 	interface Interface {
 		
 		int size();
+		
 		boolean contains(  Byte      key );
+		
 		boolean contains( int key );
+		
 		double value(  Byte      key );
-		double  value( int key ) ;
+		
+		double  value( int key );
+		
 		boolean put(  Byte      key, double value );
+		
 		boolean put( byte key, double value );
 	}
 	
@@ -103,8 +110,9 @@ public interface ByteDoubleMap {
 		
 		public RW( int length ) { values = new double[265 < length ? 256 : length]; }
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
+			return this;
 		}
 		
 		

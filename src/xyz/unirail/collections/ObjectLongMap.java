@@ -330,10 +330,11 @@ public interface ObjectLongMap {
 			return false;
 		}
 		
-		public void clear() {
+		public RW clear() {
 			assigned   = 0;
 			hasNullKey = false;
 			for( int i = keys.length - 1; i >= 0; i-- ) keys[ i ] = null;
+			return this;
 		}
 		
 		

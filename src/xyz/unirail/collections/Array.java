@@ -9,7 +9,13 @@ import java.util.Objects;
 public interface Array {
 	class EqualHashOf<T> { //C#  IEqualityComparer (https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.iequalitycomparer-1?view=net-8.0) equivalent
 		public final T[] OO;
-		public T[] copyOf( T[] src, int len ) { return len < 1 ? OO : Arrays.copyOf( src == null ? OO : src, len ); }
+		public T[] copyOf( T[] src, int len ) {
+			return len < 1 ?
+			       OO :
+			       Arrays.copyOf( src == null ?
+			                      OO :
+			                      src, len );
+		}
 		private final boolean array;
 		@SuppressWarnings( "unchecked" )
 		public EqualHashOf( Class<T> clazz ) {
@@ -18,16 +24,24 @@ public interface Array {
 		}
 		
 		@SuppressWarnings( "unchecked" )
-		public int hashCode( T src ) { return array ? hashCode( (T[]) src ) : hash( src ); }
+		public int hashCode( T src ) {
+			return array ?
+			       hashCode( (T[]) src ) :
+			       hash( src );
+		}
 		public boolean equals( T v1, T v2 ) { return Objects.deepEquals( v1, v2 ); }
 		
-		public int hashCode( T[] src )      { return src == null ? 0 : hashCode( src, src.length ); }
+		public int hashCode( T[] src ) {
+			return src == null ?
+			       0 :
+			       hashCode( src, src.length );
+		}
 		@SuppressWarnings( "unchecked" )
 		public int hashCode( T[] src, int size ) {
 			int seed = EqualHashOf.class.hashCode();
 			if( array )
 			{
-				while( -1 < --size ) seed = (size + 10153331) + hash( seed, hash( src[size])  );
+				while( -1 < --size ) seed = (size + 10153331) + hash( seed, hash( src[size] ) );
 				return seed;
 			}
 			
@@ -355,25 +369,294 @@ public interface Array {
 		}
 	}
 	
-	static Object[] copyOf( Object[] src, int len )     { return len < 1 ? EqualHashOf.objects.O : Arrays.copyOf( src == null ? EqualHashOf.objects.O : src, len ); }
+	@SuppressWarnings( "unchecked" )
+	static <T> T[] copyOf( T[] src, int len ) {
+		return len < 1 ?
+		       (T[]) EqualHashOf.objects.O :
+		       Arrays.copyOf( src == null ?
+		                      (T[]) EqualHashOf.objects.O :
+		                      src, len );
+	}
 	
-	static Object[][] copyOf( Object[][] src, int len ) { return len < 1 ? EqualHashOf.objects.OO : Arrays.copyOf( src == null ? EqualHashOf.objects.OO : src, len ); }
+	static <T> T[] resize( T[] src, int len, T val ) {
+		return src == null ?
+		       fill( copyOf( (T[]) null, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
 	
-	static boolean[] copyOf( boolean[] src, int len )   { return len < 1 ? EqualHashOf.booleans.O : Arrays.copyOf( src == null ? EqualHashOf.booleans.O : src, len ); }
 	
-	static byte[] copyOf( byte[] src, int len )         { return len < 1 ? EqualHashOf.bytes.O : Arrays.copyOf( src == null ? EqualHashOf.bytes.O : src, len ); }
+	static <T> T[] fill( T[] dst, T val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
 	
-	static short[] copyOf( short[] src, int len )       { return len < 1 ? EqualHashOf.shorts.O : Arrays.copyOf( src == null ? EqualHashOf.shorts.O : src, len ); }
+	static <T> T[] fill( T[] dst, int fromIndex, int toIndex, T val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
 	
-	static char[] copyOf( char[] src, int len )         { return len < 1 ? EqualHashOf.chars.O : Arrays.copyOf( src == null ? EqualHashOf.chars.O : src, len ); }
 	
-	static int[] copyOf( int[] src, int len )           { return len < 1 ? EqualHashOf.ints.O : Arrays.copyOf( src == null ? EqualHashOf.ints.O : src, len ); }
+	@SuppressWarnings( "unchecked" )
+	static <T> T[][] copyOf( T[][] src, int len ) {
+		return len < 1 ?
+		       (T[][]) EqualHashOf.objects.O :
+		       Arrays.copyOf( src == null ?
+		                      (T[][]) EqualHashOf.objects.O :
+		                      src, len );
+	}
 	
-	static long[] copyOf( long[] src, int len )         { return len < 1 ? EqualHashOf.longs.O : Arrays.copyOf( src == null ? EqualHashOf.longs.O : src, len ); }
+	static <T> T[][] resize( T[][] src, int len, T[] val ) {
+		return src == null ?
+		       fill( copyOf( (T[][]) null, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
 	
-	static float[] copyOf( float[] src, int len )       { return len < 1 ? EqualHashOf.floats.O : Arrays.copyOf( src == null ? EqualHashOf.floats.O : src, len ); }
 	
-	static double[] copyOf( double[] src, int len )     { return len < 1 ? EqualHashOf.doubles.O : Arrays.copyOf( src == null ? EqualHashOf.doubles.O : src, len ); }
+	static <T> T[][] fill( T[][] dst, T[] val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static <T> T[][] fill( T[][] dst, int fromIndex, int toIndex, T[] val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	
+	static boolean[] copyOf( boolean[] src, int len ) {
+		return len < 1 ?
+		       EqualHashOf.booleans.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf.booleans.O :
+		                      src, len );
+	}
+	
+	static boolean[] resize( boolean[] src, int len, boolean val ) {
+		return src == null ?
+		       fill( copyOf( EqualHashOf.booleans.O, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
+	
+	static boolean[] fill( boolean[] dst, boolean val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static boolean[] fill( boolean[] dst, int fromIndex, int toIndex, boolean val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static byte[] copyOf( byte[] src, int len ) {
+		return len < 1 ?
+		       EqualHashOf.bytes.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf.bytes.O :
+		                      src, len );
+	}
+	
+	static byte[] resize( byte[] src, int len, byte val ) {
+		return src == null ?
+		       fill( copyOf( EqualHashOf.bytes.O, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
+	
+	static byte[] fill( byte[] dst, byte val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static byte[] fill( byte[] dst, int fromIndex, int toIndex, byte val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static short[] copyOf( short[] src, int len ) {
+		return len < 1 ?
+		       EqualHashOf.shorts.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf.shorts.O :
+		                      src, len );
+	}
+	
+	static short[] resize( short[] src, int len, short val ) {
+		return src == null ?
+		       fill( copyOf( EqualHashOf.shorts.O, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
+	
+	static short[] fill( short[] dst, short val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static short[] fill( short[] dst, int fromIndex, int toIndex, short val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static char[] copyOf( char[] src, int len ) {
+		return len < 1 ?
+		       EqualHashOf.chars.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf.chars.O :
+		                      src, len );
+	}
+	
+	static char[] resize( char[] src, int len, char val ) {
+		return src == null ?
+		       fill( copyOf( EqualHashOf.chars.O, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
+	
+	static char[] fill( char[] dst, char val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static char[] fill( char[] dst, int fromIndex, int toIndex, char val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static int[] copyOf( int[] src, int len ) {
+		return len < 1 ?
+		       EqualHashOf.ints.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf.ints.O :
+		                      src, len );
+	}
+	
+	static int[] resize( int[] src, int len, int val ) {
+		return src == null ?
+		       fill( copyOf( EqualHashOf.ints.O, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
+	
+	static int[] fill( int[] dst, int val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static int[] fill( int[] dst, int fromIndex, int toIndex, int val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static long[] copyOf( long[] src, int len ) {
+		return len < 1 ?
+		       EqualHashOf.longs.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf.longs.O :
+		                      src, len );
+	}
+	
+	static long[] resize( long[] src, int len, long val ) {
+		return src == null ?
+		       fill( copyOf( EqualHashOf.longs.O, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
+	
+	static long[] fill( long[] dst, long val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static long[] fill( long[] dst, int fromIndex, int toIndex, long val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	
+	static float[] copyOf( float[] src, int len ) {
+		return len < 1 ?
+		       EqualHashOf.floats.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf.floats.O :
+		                      src, len );
+	}
+	
+	static float[] resize( float[] src, int len, float val ) {
+		return src == null ?
+		       fill( copyOf( EqualHashOf.floats.O, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
+	
+	static float[] fill( float[] dst, float val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static float[] fill( float[] dst, int fromIndex, int toIndex, float val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	
+	static double[] copyOf( double[] src, int len ) {
+		return len < 1 ?
+		       EqualHashOf.doubles.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf.doubles.O :
+		                      src, len );
+	}
+	
+	static double[] resize( double[] src, int len, double val ) {
+		return src == null ?
+		       fill( copyOf( EqualHashOf.doubles.O, len ), val ) :
+		       src.length == len ?
+		       src :
+		       fill( copyOf( src, len ), src.length, len, val );
+	}
+	
+	static double[] fill( double[] dst, double val ) {
+		for( int i = 0, len = dst.length; i < len; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
+	static double[] fill( double[] dst, int fromIndex, int toIndex, double val ) {
+		for( int i = fromIndex; i < toIndex; i++ )
+		     dst[i] = val;
+		return dst;
+	}
+	
 	
 	HashMap<Class<?>, Object> pool = new HashMap<>( 8 );
 	
@@ -486,36 +769,43 @@ public interface Array {
 	
 	static int hash( int hash, long src )   { return hash ^ hash( src ); }
 	
-	static int hash( Object src )           { return src == null ? 0 : src.hashCode(); }
+	static int hash( Object src ) {
+		return src == null ?
+		       0 :
+		       src.hashCode();
+	}
 	
-	static int hash( double src )           { return Double.hashCode( src ); }
+	static int hash( double src ) { return Double.hashCode( src ); }
 	
-	static int hash( float src )            { return Float.hashCode( src ); }
+	static int hash( float src )  { return Float.hashCode( src ); }
 	
-	static int hash( int src )              { return src; }
+	static int hash( int src )    { return src; }
 	
-	static int hash( long src )             { return Long.hashCode( src ); }
+	static int hash( long src )   { return Long.hashCode( src ); }
 	
-	static int hash(final String str) {
-		if (str == null) return 52861;
-		if (str.isEmpty()) return 37607;
+	static int hash( final String str ) {
+		if( str == null ) return 52861;
+		if( str.isEmpty() ) return 37607;
 		
 		int h = 61667;
 		
 		long x = 0;
-		for (int i = 0, b = 0; i < str.length(); i++) {
-			long ch = str.charAt(i);
+		for( int i = 0, b = 0; i < str.length(); i++ )
+		{
+			long ch = str.charAt( i );
 			x |= ch << b;
-			if ((b += ch < 0x100 ? 8 : 16) < 32) continue;
+			if( (b += ch < 0x100 ?
+			          8 :
+			          16) < 32 ) continue;
 			
-			h = mix(h, (int) x);
+			h = mix( h, (int) x );
 			x >>>= 32;
 			b -= 32;
 		}
 		
-		h = mixLast(h, (int) x);
+		h = mixLast( h, (int) x );
 		
-		return finalizeHash(h, str.length());
+		return finalizeHash( h, str.length() );
 	}
 	
 	static int hash( final String[] src, int size ) {
@@ -567,7 +857,11 @@ public interface Array {
 				default int compare( long x, long y ) {
 					final float X = Float.intBitsToFloat( (int) x );
 					final float Y = Float.intBitsToFloat( (int) y );
-					return X < Y ? -1 : Y < X ? 1 : (Long.compare( x, y ));
+					return X < Y ?
+					       -1 :
+					       Y < X ?
+					       1 :
+					       (Long.compare( x, y ));
 				}
 			}
 			
@@ -579,7 +873,11 @@ public interface Array {
 				default int compare( long x, long y ) {
 					final double X = Double.longBitsToDouble( x );
 					final double Y = Double.longBitsToDouble( y );
-					return X < Y ? -1 : Y < X ? 1 : (Long.compare( x, y ));
+					return X < Y ?
+					       -1 :
+					       Y < X ?
+					       1 :
+					       (Long.compare( x, y ));
 				}
 			}
 			

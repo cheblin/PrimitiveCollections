@@ -345,7 +345,7 @@ public interface LongObjectMap {
 			return false;
 		}
 		
-		public void clear() {
+		public RW clear() {
 			assigned = 0;
 			
 			has0Key   = false;
@@ -355,6 +355,7 @@ public interface LongObjectMap {
 			NullKeyValue = null;
 			
 			for( int i = keys.length - 1; i >= 0; i-- ) values[ i ] = null;
+			return this;
 		}
 		
 		

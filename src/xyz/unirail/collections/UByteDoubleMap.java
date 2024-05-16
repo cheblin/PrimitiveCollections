@@ -88,14 +88,21 @@ public interface UByteDoubleMap {
 			json.exitObject();
 		}
 	}
+	
 	interface Interface {
 		
 		int size();
+		
 		boolean contains(  Character key );
+		
 		boolean contains( int key );
+		
 		double value(  Character key );
-		double  value( int key ) ;
+		
+		double  value( int key );
+		
 		boolean put(  Character key, double value );
+		
 		boolean put( char key, double value );
 	}
 	
@@ -103,8 +110,9 @@ public interface UByteDoubleMap {
 		
 		public RW( int length ) { values = new double[265 < length ? 256 : length]; }
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
+			return this;
 		}
 		
 		

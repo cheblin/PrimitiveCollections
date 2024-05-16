@@ -88,14 +88,21 @@ public interface ByteIntMap {
 			json.exitObject();
 		}
 	}
+	
 	interface Interface {
 		
 		int size();
+		
 		boolean contains(  Byte      key );
+		
 		boolean contains( int key );
+		
 		int value(  Byte      key );
-		int  value( int key ) ;
+		
+		int  value( int key );
+		
 		boolean put(  Byte      key, int value );
+		
 		boolean put( byte key, int value );
 	}
 	
@@ -103,8 +110,9 @@ public interface ByteIntMap {
 		
 		public RW( int length ) { values = new int[265 < length ? 256 : length]; }
 		
-		public void clear() {
+		public RW clear() {
 			keys.clear();
+			return this;
 		}
 		
 		
