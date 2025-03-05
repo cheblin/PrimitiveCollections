@@ -216,9 +216,11 @@ System.out.println(statusList.get(1)); // Output: 1 (Status.RUNNING)
 ## Performance and Memory Benchmarks  
 
 The following memory footprint report highlights the substantial memory savings of AdHoc Primitive Collections compared to the standard Java `HashMap`.  
+### [memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/memory_report.html)
 
 **Beyond these memory benefits, performance benchmarks indicate that AdHoc Primitive Collections match or exceed the performance of standard Java 
 collections for primitive data operations by eliminating boxing overhead.**  
+### [performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/performance_report.html)
 
 This data was collected using 1,000 items; larger datasets show even greater differences. 
 The code used to generate this report can be found in the `test` folder.
