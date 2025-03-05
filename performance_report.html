@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Performance Report</title>
+<style>
+body { background-color: #1e1e1e; color: #f8f8f2; font-family: monospace; padding: 20px; line-height: 1.6; }
+.chart-container { width: 80%; margin: 20px auto; background: #282a36; padding: 15px; border-radius: 5px; }
+table { width: 100%; border-collapse: collapse; margin-top: 30px; background-color: #282a36; }
+th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }
+th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }
+.map-label { color: #ff79c6; }
+.custom-label { color: #8be9fd; }
+h1 { color: #bd93f9; }
+h2 { color: #50fa7b; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<h1>Performance Report</h1>
+<p>This report compares the performance of standard Java HashMap against custom map implementations from org.unirail.collections. Measurements show average time per operation (ns/op) for insertion, search, get, and deletion across different data types and sizes. Lower values indicate better performance.</p>
+<div class="chart-container">
+<h2>Byte Maps</h2>
+<canvas id="chart-byte"></canvas>
+</div>
+<div class="chart-container">
+<h2>Short Maps</h2>
+<canvas id="chart-short"></canvas>
+</div>
+<div class="chart-container">
+<h2>Int Maps</h2>
+<canvas id="chart-int"></canvas>
+</div>
+<div class="chart-container">
+<h2>Long Maps</h2>
+<canvas id="chart-long"></canvas>
+</div>
+<div class="chart-container">
+<h2>Int-Boolean Maps</h2>
+<canvas id="chart-int-boolean"></canvas>
+</div>
+<script>
+new Chart(document.getElementById('chart-byte').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'HashMap<Byte, Byte>',
+data: [1509, 358, 892, 257],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'ByteByteNullMap.RW',
+data: [1228, 181, 454, 94],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Byte Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+new Chart(document.getElementById('chart-short').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'HashMap<Short, Short>',
+data: [7419, 2235, 4887, 2247],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'ShortShortNullMap.RW',
+data: [6923, 1292, 2089, 1813],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Short Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+new Chart(document.getElementById('chart-int').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'HashMap<Integer, Integer>',
+data: [7626, 2362, 5204, 2359],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'IntIntNullMap.RW',
+data: [6777, 1209, 1987, 1781],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Int Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+new Chart(document.getElementById('chart-long').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'HashMap<Long, Long>',
+data: [7810, 2709, 5512, 2674],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'LongLongNullMap.RW',
+data: [7045, 1186, 2083, 2036],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Long Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+new Chart(document.getElementById('chart-int-boolean').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'HashMap<Integer, Boolean>',
+data: [6372, 2286, 4767, 2204],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'IntBitsMap.RW',
+data: [5982, 1171, 2817, 1230],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Int-Boolean Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+</script>
+</body>
+</html>
