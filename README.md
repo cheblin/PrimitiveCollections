@@ -223,7 +223,7 @@ collections for primitive data operations by eliminating boxing overhead.**
 ### [performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/performance_report.html)
 
 This data was collected using 1,000 items; larger datasets show even greater differences. 
-The code used to generate this report can be found in the `test` folder.
+The code used to generate this report can be found [in the `test` folder.](https://github.com/cheblin/PrimitiveCollections/tree/main/src/test/java/org/unirail/test)
 
 ----
 ### Report Issues
