@@ -276,9 +276,13 @@ public interface BitsList {
 			int total_bits      = dst.size * dst.bits;
 			int insert_bit      = item * dst.bits;
 			int required_length = len4bits( total_bits + dst.bits );
-			if( dst.values.length < required_length )
-				dst.values = Arrays.copyOf( dst.values, Math.max( dst.values.length + dst.values.length / 2, required_length ) );
-			BitList.RW.shiftRight( dst.values, 0, dst.values.length * BITS, insert_bit, total_bits, dst.bits, true );
+			
+			
+			dst.values = BitList.RW.shiftLeft( dst.values,
+			                                   dst.values.length < required_length ?
+					                                   new long[ Math.max( dst.values.length + dst.values.length / 2, required_length ) ] :
+					                                   dst.values,
+			                                   0, dst.values.length * BITS, insert_bit, total_bits, dst.bits, true );
 			dst.size++;
 			set1( dst, item, value );
 		}
@@ -328,10 +332,13 @@ public interface BitsList {
 			if( item < 0 ) throw new IndexOutOfBoundsException( "Index: " + item );
 			long v       = src & dst.mask;
 			int  bit_pos = item * dst.bits;
-			int  index   = index( bit_pos );
-			int  bit     = bit( bit_pos );
-			int  k       = BITS - bit;
-			if( item < dst.size )
+			
+			
+			if( item < dst.size ) {
+				int index = index( bit_pos );
+				int bit   = bit( bit_pos );
+				int k     = BITS - bit;
+				
 				if( k < dst.bits ) {// Value spans two longs
 					
 					long mask = ~0L << bit;
@@ -344,15 +351,16 @@ public interface BitsList {
 					long mask = dst.mask << bit;
 					dst.values[ index ] = dst.values[ index ] & ~mask | v << bit;
 				}
-			else {
-				if( dst.length() <= item ) dst.length_( Math.max( dst.length() + dst.length() / 2, len4bits( bit_pos + dst.bits ) ) );
-				if( dst.default_value != 0 )
-					for( int i = dst.size; i < item; i++ )
-					     append( dst, i, dst.default_value );
-				
-				append( dst, item, v );
-				dst.size = item + 1;
+				return;
 			}
+			
+			if( dst.length() <= item ) dst.length_( Math.max( dst.length() + dst.length() / 2, len4bits( bit_pos + dst.bits ) ) );
+			if( dst.default_value != 0 )
+				for( int i = dst.size; i < item; i++ )
+				     append( dst, i, dst.default_value );
+			
+			append( dst, item, v );
+			dst.size = item + 1;
 		}
 		
 		/**
@@ -392,16 +400,13 @@ public interface BitsList {
 		 */
 		protected static void removeAt( R dst, int item ) {
 			if( item == dst.size - 1 ) {
-				if( dst.default_value == 0 ) {
-					int last_bit = item * dst.bits;
-					BitList.RW.clearBits( dst.values, last_bit, last_bit + dst.bits );
-				}
+				if( dst.default_value == 0 ) append( dst, item, 0 );
 				dst.size--;
 				return;
 			}
 			int from_bit = ( item + 1 ) * dst.bits;
 			int to_bit   = dst.size * dst.bits;
-			BitList.RW.shiftLeft( dst.values, 0, dst.values.length * BITS, from_bit, to_bit, dst.bits, true );
+			BitList.RW.shiftRight( dst.values, dst.values, 0, dst.values.length * BITS, from_bit, to_bit, dst.bits, true );
 			dst.size--;
 		}
 		
@@ -463,7 +468,8 @@ public interface BitsList {
 		 * @return The index of the first occurrence, or -1 if not found.
 		 */
 		public int indexOf( long value ) {
-			for( int i = 0; i < size; i++ ) if( value == get( i ) ) return i;
+			for( int i = 0; i < size; i++ )
+				if( value == get( i ) ) return i;
 			return -1;
 		}
 		

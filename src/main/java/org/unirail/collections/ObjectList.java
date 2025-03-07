@@ -224,6 +224,7 @@ public interface ObjectList {
 			
 			if( 0 < size ) {
 				json.preallocate( size * 10 );
+				
 				if( V_is_string ) {
 					String[] strs = ( String[] ) values;
 					for( int i = 0; i < size; i++ ) json.value( strs[ i ] );

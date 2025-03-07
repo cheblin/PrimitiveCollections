@@ -340,7 +340,7 @@ public interface LongFloatMap {
 		}
 		
 		// Helper methods
-		protected int bucketIndex( int hash ) { return  ( hash & 0x7FFF_FFFF ) % _buckets.length; }
+		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
 		
 		protected long token( int index ) {
@@ -480,24 +480,25 @@ public interface LongFloatMap {
 		 */
 		private boolean tryInsert( long key, float value, int behavior ) {
 			if( _buckets == null ) initialize( 0 );
-			int[] _nexts          = nexts;
+			int[] _nexts         = nexts;
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           i              = ( _buckets[ bucketIndex ] ) - 1;
+			int           bucket         = ( _buckets[ bucketIndex ] ) - 1;
 			
-			while( ( i & 0x7FFF_FFFF ) < _nexts.length ) {
-				if( keys[ i ] == key ) switch( behavior ) {
-					case 1:
-						values[ i ] = ( float ) value;
-						_version++;
-						return true;
-					case 0:
-						throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-					default:
-						return false;
-				}
-				i = _nexts[ i ];
+			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
+				if( keys[ next ] == key )
+					switch( behavior ) {
+						case 1:
+							values[ next ] = ( float ) value;
+							_version++;
+							return true;
+						case 0:
+							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
+						default:
+							return false;
+					}
+				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
@@ -509,14 +510,14 @@ public interface LongFloatMap {
 				_freeCount--;
 			}
 			else {
-				if( _count == _nexts.length )  {
+				if( _count == _nexts.length ) {
 					resize( Array.prime( _count * 2 ) );
-					i              = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1;
+					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
 				}
 				index = _count++;
 			}
 			
-			nexts[ index ]          = ( int ) i;
+			nexts[ index ]          = ( int ) bucket;
 			keys[ index ]           = ( long ) key;
 			values[ index ]         = ( float ) value;
 			_buckets[ bucketIndex ] = ( int ) ( index + 1 );
@@ -671,7 +672,7 @@ public interface LongFloatMap {
 		 * @param newSize The new size (prime number).
 		 */
 		private void resize( int newSize ) {
-			newSize =  Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 );
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 );
 			_version++;
 			_version++;
 			int[] new_next   = Arrays.copyOf( nexts, newSize );

@@ -484,10 +484,12 @@ public interface ShortObjectMap {
 			long token = token();
 			
 			json.enterObject();
+			
+			if( hasNullKey ) json.name().value( nullKeyValue );
 			for( ; index( token ) < _count; token = token( token ) )
 			     json.name( String.valueOf( key( token ) ) ).value( value( token ) );
 			
-			if( hasNullKey ) json.name().value( nullKeyValue );
+			
 			json.exitObject();
 		}
 		
@@ -861,13 +863,13 @@ public interface ShortObjectMap {
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           i              = ( _buckets[ bucketIndex ] ) - 1;
+			int           bucket         = ( _buckets[ bucketIndex ] ) - 1;
 			
-			while( ( i & 0x7FFF_FFFF ) < _nexts.length ) {
-				if( keys[ i ] == key )
+			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
+				if( keys[ next ] == key )
 					switch( behavior ) {
 						case 1:
-							values[ i ] = value;
+							values[ next ] = value;
 							_version++;
 							return true;
 						case 0:
@@ -875,7 +877,7 @@ public interface ShortObjectMap {
 						default:
 							return false;
 					}
-				i = _nexts[ i ];
+				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
@@ -889,12 +891,12 @@ public interface ShortObjectMap {
 			else {
 				if( _count == _nexts.length ) {
 					resize( Array.prime( _count * 2 ) );
-					i = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1;
+					bucket = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1;
 				}
 				index = _count++;
 			}
 			
-			nexts[ index ]          = ( int ) i;
+			nexts[ index ]          = ( int ) bucket;
 			keys[ index ]           = ( short ) key;
 			values[ index ]         = value;
 			_buckets[ bucketIndex ] = ( char ) ( index + 1 );

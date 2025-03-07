@@ -159,6 +159,7 @@ public interface ObjectSet {
 				if( !other.contains_( key( token ) ) ) return false;
 			return true;
 		}
+		
 		@SuppressWarnings( "unchecked" )
 		@Override public R< K > clone() {
 			try {
@@ -259,12 +260,12 @@ public interface ObjectSet {
 			int    hash           = equal_hash_K.hashCode( key );
 			int    collisionCount = 0;
 			int    bucketIndex    = bucketIndex( hash );
-			int    i              = _buckets[ bucketIndex ] - 1;
+			int    bucket         = _buckets[ bucketIndex ] - 1;
 			
-			while( ( i & 0x7FFF_FFFF ) < _hash_nexts.length ) {
-				if( hash( _hash_nexts[ i ] ) == hash && equal_hash_K.equals( keys[ i ], key ) )
+			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _hash_nexts.length; ) {
+				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) )
 					return false;
-				i = next( _hash_nexts[ i ] );
+				next = next( _hash_nexts[ next ] );
 				if( _hash_nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
@@ -278,12 +279,12 @@ public interface ObjectSet {
 			else {
 				if( _count == _hash_nexts.length ) {
 					resize( Array.prime( _count * 2 ), false );
-					i = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
+					bucket = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
 				}
 				index = _count++;
 			}
 			
-			hash_nexts[ index ]     = hash_next( hash, i );
+			hash_nexts[ index ]     = hash_next( hash, bucket );
 			keys[ index ]           = key;
 			_buckets[ bucketIndex ] = index + 1;
 			_version++;
@@ -384,6 +385,7 @@ public interface ObjectSet {
 			     array[ index++ ] = key( token );
 			return array;
 		}
+		
 		@SuppressWarnings( "unchecked" )
 		@Override public < T > T[] toArray( T[] a ) {
 			int size = size();

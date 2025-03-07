@@ -61,37 +61,67 @@ public interface LongULongNullMap {
 	 * and serialized to JSON format, respectively.
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
-		/** Indicates whether the map contains a null key. */
+		/**
+		 * Indicates whether the map contains a null key.
+		 */
 		protected boolean                hasNullKey;
-		/** Indicates whether the null key has an associated value. */
+		/**
+		 * Indicates whether the null key has an associated value.
+		 */
 		protected boolean                nullKeyHasValue;
-		/** Stores the value associated with the null key. */
+		/**
+		 * Stores the value associated with the null key.
+		 */
 		protected long            nullKeyValue;
-		/** Array of buckets for the hash table. Each element is a 1-based index pointing to the head of a collision chain in the {@code nexts} array. */
+		/**
+		 * Array of buckets for the hash table. Each element is a 1-based index pointing to the head of a collision chain in the {@code nexts} array.
+		 */
 		protected int[]          _buckets;
-		/** Array of next indices for collision chains. Each element points to the next entry in the chain or contains special markers like {@code StartOfFreeList}. */
+		/**
+		 * Array of next indices for collision chains. Each element points to the next entry in the chain or contains special markers like {@code StartOfFreeList}.
+		 */
 		protected int[]          nexts;
-		/** Array of keys. Holds the integer keys for each entry in the map. */
+		/**
+		 * Array of keys. Holds the integer keys for each entry in the map.
+		 */
 		protected long[]          keys = Array.EqualHashOf.longs     .O;
-		/** List of values. Manages integer values and null values, associated with keys in the {@code keys} array. */
+		/**
+		 * List of values. Manages integer values and null values, associated with keys in the {@code keys} array.
+		 */
 		protected ULongNullList.RW values;
-		/** Total number of entries in the internal arrays, including both active entries and free slots. */
+		/**
+		 * Total number of entries in the internal arrays, including both active entries and free slots.
+		 */
 		protected int                    _count;
-		/** Index of the first entry in the free list. -1 indicates that the free list is empty. */
+		/**
+		 * Index of the first entry in the free list. -1 indicates that the free list is empty.
+		 */
 		protected int                    _freeList;
-		/** Number of free entries available in the free list. */
+		/**
+		 * Number of free entries available in the free list.
+		 */
 		protected int                    _freeCount;
-		/** Version counter used for detecting concurrent modifications. Incremented on structural changes to the map. */
+		/**
+		 * Version counter used for detecting concurrent modifications. Incremented on structural changes to the map.
+		 */
 		protected int                    _version;
 		
-		/** Constant to mark the start of the free list in the 'next' field. */
+		/**
+		 * Constant to mark the start of the free list in the 'next' field.
+		 */
 		protected static final int  StartOfFreeList = -3;
-		/** Mask to extract the index from a token. */
+		/**
+		 * Mask to extract the index from a token.
+		 */
 		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL;
-		/** Number of bits to shift the version in a token. */
+		/**
+		 * Number of bits to shift the version in a token.
+		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		
-		/** Constant representing an invalid token. */
+		/**
+		 * Constant representing an invalid token.
+		 */
 		protected static final long INVALID_TOKEN = -1L;
 		
 		/**
@@ -373,7 +403,9 @@ public interface LongULongNullMap {
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
 		
-		/** Seed value for hash code calculation. */
+		/**
+		 * Seed value for hash code calculation.
+		 */
 		private static final int seed = R.class.hashCode();
 		
 		/**
@@ -705,7 +737,7 @@ public interface LongULongNullMap {
 		 * @param hasValue {@code true} if the value is not null, {@code false} otherwise.
 		 * @param behavior 0=throw if exists, 1=put (update/insert), 2=put if not exists.
 		 * @return {@code true} if the map was structurally modified, {@code false} otherwise (depending on behavior).
-		 * @throws IllegalArgumentException if behavior is 0 and the key already exists.
+		 * @throws IllegalArgumentException        if behavior is 0 and the key already exists.
 		 * @throws ConcurrentModificationException if concurrent operations are detected.
 		 */
 		private boolean tryInsert( long key, long value, boolean hasValue, int behavior ) {
@@ -714,14 +746,14 @@ public interface LongULongNullMap {
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           i              = ( _buckets[ bucketIndex ] ) - 1;
+			int           bucket         = ( _buckets[ bucketIndex ] ) - 1;
 			
-			while( ( i & 0x7FFF_FFFF ) < _nexts.length ) {
-				if( keys[ i ] == key ) {
+			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
+				if( keys[ next ] == key ) {
 					switch( behavior ) {
 						case 1:
-							if( hasValue ) values.set1( i, value );
-							else values.set1( i, null );
+							if( hasValue ) values.set1( next, value );
+							else values.set1( next, null );
 							_version++;
 							return true;
 						case 0:
@@ -730,7 +762,7 @@ public interface LongULongNullMap {
 							return false;
 					}
 				}
-				i = _nexts[ i ];
+				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
@@ -744,12 +776,12 @@ public interface LongULongNullMap {
 			else {
 				if( _count == _nexts.length ) {
 					resize( Array.prime( _count * 2 ) );
-					i = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1;
+					bucket = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1;
 				}
 				index = _count++;
 			}
 			
-			nexts[ index ] = ( int ) i;
+			nexts[ index ] = ( int ) bucket;
 			keys[ index ]  = ( long ) key;
 			
 			if( hasValue ) values.set1( index, value );

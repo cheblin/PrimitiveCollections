@@ -73,6 +73,7 @@ public final class JsonWriter {
          */
         default String toJSON() {
             final JsonWriter json = get();
+             json.reset();
             final Config config = json.enter();
             try {
                 toJSON(json);

@@ -42,10 +42,9 @@ import java.util.ConcurrentModificationException;
  * It extends the functionality of a standard map by explicitly supporting {@code null} keys and {@code null} values.
  * Implementations of this interface provide efficient storage and retrieval of object values based on byte keys,
  * with specific considerations for handling null keys and values.
- *
  */
 public interface ByteObjectNullMap {
-
+	
 	/**
 	 * {@code R} (Read-only) is an abstract base class that provides the foundation for read-only operations on a byte-keyed object map.
 	 * <p>
@@ -57,7 +56,7 @@ public interface ByteObjectNullMap {
 	 * @param <V> The type of values stored in this map.
 	 */
 	abstract class R< V > extends ByteSet.R implements Cloneable, JsonWriter.Source {
-
+		
 		/**
 		 * {@code nulls} is an internal array used to track the presence and order of non-null byte keys.
 		 * It is a {@link Array.FF} (Fixed-size Flag Array) which is optimized for boolean flags associated with byte keys.
@@ -81,7 +80,7 @@ public interface ByteObjectNullMap {
 		 * This field holds the value that is returned when a null key is queried.
 		 */
 		protected       V                      nullKeyValue;
-
+		
 		/**
 		 * Protected constructor for {@code R}. Initializes the read-only map with a value type class.
 		 * <p>
@@ -92,7 +91,7 @@ public interface ByteObjectNullMap {
 		protected R( Class< V > clazz ) {
 			this.equal_hash_V = Array.get( clazz );
 		}
-
+		
 		/**
 		 * Constructor for {@code R} that accepts a custom equality and hashing strategy for values.
 		 * <p>
@@ -104,8 +103,8 @@ public interface ByteObjectNullMap {
 		public R( Array.EqualHashOf< V > equal_hash_V ) {
 			this.equal_hash_V = equal_hash_V;
 		}
-
-
+		
+		
 		/**
 		 * Retrieves the value associated with a given token.
 		 * <p>
@@ -118,12 +117,15 @@ public interface ByteObjectNullMap {
 		public V value( long token ) {
 			int r;
 			return isKeyNull( token ) ?
-					nullKeyValue : // Return nullKeyValue if it's the null key token
-					nulls.get( ( byte ) ( token & KEY_MASK ) ) ? // Check if the key (extracted from token) exists in nulls array
-							values[ nulls.rank( ( byte ) ( token & KEY_MASK ) ) - 1 ] : // If key exists, get the value from values array using key's rank
+					nullKeyValue :
+					// Return nullKeyValue if it's the null key token
+					nulls.get( ( byte ) ( token & KEY_MASK ) ) ?
+							// Check if the key (extracted from token) exists in nulls array
+							values[ nulls.rank( ( byte ) ( token & KEY_MASK ) ) - 1 ] :
+							// If key exists, get the value from values array using key's rank
 							null; // Key not found (or was removed after token was issued)
 		}
-
+		
 		/**
 		 * Gets the value associated with a boxed {@link Byte} key.
 		 * <p>
@@ -134,12 +136,15 @@ public interface ByteObjectNullMap {
 		 */
 		public V value(  Byte      key ) {
 			return key == null ?
-					nullKeyValue : // Handle null key case
-					nulls.get( ( byte ) ( key + 0 ) ) ? // Check if the non-null key exists
-							values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] : // Retrieve value by key's rank if key exists
+					nullKeyValue :
+					// Handle null key case
+					nulls.get( ( byte ) ( key + 0 ) ) ?
+							// Check if the non-null key exists
+							values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] :
+							// Retrieve value by key's rank if key exists
 							null; // Key not found
 		}
-
+		
 		/**
 		 * Gets the value associated with a primitive {@code byte} key.
 		 *
@@ -147,11 +152,13 @@ public interface ByteObjectNullMap {
 		 * @return The associated value, or {@code null} if the key is not found (or associated with a null value).
 		 */
 		public V value( byte key ) {
-			return nulls.get( ( byte ) ( key + 0 ) ) ? // Check if the key exists
-					values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] : // Retrieve value by key's rank if key exists
+			return nulls.get( ( byte ) ( key + 0 ) ) ?
+					// Check if the key exists
+					values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] :
+					// Retrieve value by key's rank if key exists
 					null; // Key not found
 		}
-
+		
 		/**
 		 * Checks if the map contains a specific value.
 		 * <p>
@@ -163,10 +170,11 @@ public interface ByteObjectNullMap {
 		 */
 		public boolean containsValue( V value ) {
 			return value == null ?
-					hasNullKey && equal_hash_V.equals( value, nullKeyValue ) : // Check for null value against nullKeyValue
+					hasNullKey && equal_hash_V.equals( value, nullKeyValue ) :
+					// Check for null value against nullKeyValue
 					Array.indexOf( values, value, 0, nulls.size ) != -1; // Search for non-null value in the values array
 		}
-
+		
 		/**
 		 * Computes the hash code for this map.
 		 * <p>
@@ -184,10 +192,11 @@ public interface ByteObjectNullMap {
 				h = Array.finalizeHash( h, 2 ); // Finalize hash for this part
 				a += h; b ^= h; c *= h | 1; // Accumulate hash components
 			}
-
+			
 			if( hasNullKey ) {
 				int h = Array.hash( seed ); // Start hash for null key
-				h = Array.mix( h, Array.hash( nullKeyValue != null ? // Mix with hash of nullKeyValue (or seed if nullKeyValue is null)
+				h = Array.mix( h, Array.hash( nullKeyValue != null ?
+						                              // Mix with hash of nullKeyValue (or seed if nullKeyValue is null)
 						                              equal_hash_V.hashCode( nullKeyValue ) :
 						                              seed ) );
 				h = Array.finalizeHash( h, 2 ); // Finalize hash for null key part
@@ -195,9 +204,9 @@ public interface ByteObjectNullMap {
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() ); // Finalize overall hash with size and accumulated components
 		}
-
+		
 		private static final int seed = IntObjectMap.R.class.hashCode(); // Seed for hash calculations
-
+		
 		/**
 		 * Checks if this map is equal to another object.
 		 * <p>
@@ -209,7 +218,7 @@ public interface ByteObjectNullMap {
 		 */
 		@SuppressWarnings( "unchecked" )
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj ); }
-
+		
 		/**
 		 * Compares this map to another {@code R} instance for equality.
 		 * <p>
@@ -223,9 +232,9 @@ public interface ByteObjectNullMap {
 			       super.equals( other ) && // Compare ByteSet.R part
 			       nulls.equals( other.nulls ) && // Compare nulls arrays
 			       equal_hash_V.equals( values, other.values, nulls.size ) && // Compare values arrays (up to map size) using equal_hash_V strategy
-			       ( !hasNullKey || equal_hash_V.equals(nullKeyValue, other.nullKeyValue) ); // Compare null key status and nullKeyValues
+			       ( !hasNullKey || equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ); // Compare null key status and nullKeyValues
 		}
-
+		
 		/**
 		 * Creates and returns a shallow copy of this {@code R} instance.
 		 * <p>
@@ -236,7 +245,7 @@ public interface ByteObjectNullMap {
 		 */
 		@SuppressWarnings( "unchecked" )
 		public R< V > clone() {
-
+			
 			try {
 				R< V > dst = ( R< V > ) super.clone(); // Clone the ByteSet.R part
 				dst.values = values.clone(); // Shallow copy of values array
@@ -245,7 +254,7 @@ public interface ByteObjectNullMap {
 			} catch( CloneNotSupportedException e ) { }
 			return null; // Cloning failed
 		}
-
+		
 		/**
 		 * Returns a JSON string representation of this map.
 		 * <p>
@@ -253,10 +262,8 @@ public interface ByteObjectNullMap {
 		 *
 		 * @return A JSON string representing the map's contents.
 		 */
-		public String toString() {
-			return toJSON();
-		}
-
+		public String toString() { return toJSON(); }
+		
 		/**
 		 * Writes the contents of this map in JSON format to the provided {@link JsonWriter}.
 		 * <p>
@@ -275,7 +282,7 @@ public interface ByteObjectNullMap {
 			json.exitObject(); // End JSON object
 		}
 	}
-
+	
 	/**
 	 * {@code RW} (Read-Write) is a concrete implementation of {@link ByteObjectNullMap} that extends the read-only base class {@link R}
 	 * and provides full read and write capabilities.
@@ -285,7 +292,7 @@ public interface ByteObjectNullMap {
 	 * @param <V> The type of values stored in this map.
 	 */
 	class RW< V > extends R< V > {
-
+		
 		/**
 		 * Constructs a new {@code RW} map with a specified initial capacity and using the default equality/hashing strategy for the value type.
 		 *
@@ -295,7 +302,7 @@ public interface ByteObjectNullMap {
 		public RW( Class< V > clazz, int length ) {
 			this( Array.get( clazz ), length );
 		}
-
+		
 		/**
 		 * Constructs a new {@code RW} map with a specified initial capacity and a custom equality/hashing strategy for the value type.
 		 *
@@ -306,7 +313,7 @@ public interface ByteObjectNullMap {
 			super( equal_hash_V );
 			values = this.equal_hash_V.copyOf( null, Math.max( Math.min( length, 0x100 ), 16 ) ); // Initialize values array with a minimum size and up to max byte value range
 		}
-
+		
 		/**
 		 * Clears all key-value mappings from this map.
 		 * <p>
@@ -321,7 +328,7 @@ public interface ByteObjectNullMap {
 			nulls._clear(); // Clear nulls array
 			return this;
 		}
-
+		
 		/**
 		 * Associates the specified value with the specified boxed {@link Byte} key in this map.
 		 * <p>
@@ -338,7 +345,7 @@ public interface ByteObjectNullMap {
 			}
 			return put( ( byte ) ( key + 0 ), value ); // Delegate to primitive byte key put method
 		}
-
+		
 		/**
 		 * Associates the specified value with the specified primitive {@code byte} key in this map.
 		 * <p>
@@ -350,7 +357,7 @@ public interface ByteObjectNullMap {
 		 * @return {@code true} if a new key-value mapping was added, {@code false} if the key already existed and the value was updated.
 		 */
 		public boolean put( byte key, V value ) {
-
+			
 			if( value == null ) {
 				if( nulls._remove( ( byte ) key ) ) Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Remove key from nulls array and resize values array if needed
 			}
@@ -358,18 +365,19 @@ public interface ByteObjectNullMap {
 				int i;
 				if( nulls._add( ( byte ) key ) ) { // Add key to nulls array if not already present
 					i = nulls.rank( ( byte ) key ) - 1; // Get rank of the key (index in values array)
-					Array.resize( values, i < values.length ? // Resize values array if needed to accommodate new key
+					Array.resize( values, i < values.length ?
+							// Resize values array if needed to accommodate new key
 							values :
 							( values = equal_hash_V.copyOf( null, Math.min( values.length * 2, 0x100 ) ) ), i, nulls.size - 1, 1 ); // Double size up to max byte value range if necessary
 				}
 				else i = nulls.rank( ( byte ) key ) - 1; // Key already exists, get its rank
-
+				
 				values[ i ] = value; // Set/update value at the calculated index
 			}
-
+			
 			return _add( ( byte ) key ); // return true if key was added, false otherwise (ByteSet.R logic, tracks key presence regardless of value)
 		}
-
+		
 		/**
 		 * Removes the mapping for a boxed {@link Byte} key from this map if it is present.
 		 * <p>
@@ -380,11 +388,11 @@ public interface ByteObjectNullMap {
 		 */
 		public boolean remove(  Byte      key ) {
 			if( key != null ) return remove( ( byte ) ( key + 0 ) ); // Delegate to primitive byte key remove if key is not null
-
+			
 			nullKeyValue = null; // Reset null key value
 			return _remove(); // Remove null key entry (ByteSet.R logic)
 		}
-
+		
 		/**
 		 * Removes the mapping for a primitive {@code byte} key from this map if it is present.
 		 *
@@ -393,12 +401,12 @@ public interface ByteObjectNullMap {
 		 */
 		public boolean remove( byte key ) {
 			if( !_remove( ( byte ) key ) ) return false; // Remove key from ByteSet.R, return false if key wasn't present
-
+			
 			if( nulls._remove( ( byte ) key ) ) // Remove key from nulls array if present
 				Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Resize values array to remove the gap
 			return true; // Mapping removed
 		}
-
+		
 		/**
 		 * Creates and returns a deep copy of this {@code RW} instance.
 		 * <p>
@@ -408,11 +416,11 @@ public interface ByteObjectNullMap {
 		 * @return A cloned instance of this map.
 		 */
 		public RW< V > clone() { return ( RW< V > ) super.clone(); } // Simply cast the shallow clone from superclass to RW<V>
-
+		
 		// Static helper for equality/hashing of RW instances
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class ); // Static instance used for default EqualHashOf<RW<V>>
 	}
-
+	
 	/**
 	 * Provides a static method to obtain an {@link Array.EqualHashOf} instance for {@code RW<V>}.
 	 * <p>

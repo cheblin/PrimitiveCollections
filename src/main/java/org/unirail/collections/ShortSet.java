@@ -444,12 +444,12 @@ public interface ShortSet {
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           i              = ( _buckets[ bucketIndex ] ) - 1; // Get starting index of the bucket
+			int           bucket         = ( _buckets[ bucketIndex ] ) - 1; // Get starting index of the bucket
 			
 			// Check for key existence in the collision chain
-			while( ( i & 0x7FFF_FFFF ) < _nexts.length ) {
-				if( keys[ i ] == key ) return false; // Key already exists
-				i = _nexts[ i ]; // Move to the next element in collision chain
+			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
+				if( keys[ next ] == key ) return false; // Key already exists
+				next = _nexts[ next ]; // Move to the next element in collision chain
 				if( _nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." ); // Fail-fast for concurrent modification
 			}
@@ -465,12 +465,12 @@ public interface ShortSet {
 				// Allocate a new slot
 				if( _count == _nexts.length ) {
 					resize( Array.prime( _count * 2 ) ); // Resize if full, using next prime capacity
-					i = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1; // Re-calculate bucket index after resize
+					bucket = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1; // Re-calculate bucket index after resize
 				}
 				index = _count++; // Increment count and get new index
 			}
 			
-			nexts[ index ]          = ( int ) i; // Set 'next' pointer for the new element
+			nexts[ index ]          = ( int ) bucket; // Set 'next' pointer for the new element
 			keys[ index ]           = ( short ) key; // Store the key
 			_buckets[ bucketIndex ] = ( char ) ( index + 1 ); // Update bucket to point to the new element
 			_version++; // Increment version to invalidate tokens

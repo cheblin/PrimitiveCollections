@@ -1386,12 +1386,38 @@ public interface Array {
 	EqualHashOf< String > string = get( String.class );
 	
 	/**
-	 * Resizes an array by moving elements within or between arrays.
+	 * Resizes an array by moving elements within or between arrays, optimized for dynamic array resizing.
 	 * This method is a low-level utility for array resizing, allowing elements to be shifted
-	 * to accommodate insertion or removal of space at a specified index.
+	 * to accommodate insertion or removal of space at a specified index.  **Unlike a simple expansion
+	 * using `Arrays.copyOf` followed by manual shifting, this method directly positions elements
+	 * in the destination array (`dst`) with the required shift in a single, coordinated operation.**
+	 * This approach can be more efficient, especially in scenarios like dynamic array implementations
+	 * (e.g., internal resizing of ArrayList or Vector) where you need to insert or remove elements
+	 * at a specific index and want to avoid unnecessary intermediate steps.
+	 * <p>
+	 * **Example illustrating the efficiency advantage for enlargement:**
+	 * <p>
+	 * **Typical approach (less efficient for this specific case):**
+	 * ```java
+	 * newArray = Arrays.copyOf(oldArray, newLength); // (Expands, but data is at the beginning)
+	 * System.arraycopy(newArray, index, newArray, index + resize, oldArray.length - index); // (Manual shifting to make space)
+	 * ```
+	 * <p>
+	 * **Using `resize` function (more direct and potentially efficient):**
+	 * ```java
+	 * newArray = new Object[newLength]; // (Create new array)
+	 * resize(oldArray, newArray, index, oldArray.length, resize); // (Directly places data in `newArray` with the necessary shift in one call)
+	 * ```
+	 * <p>
+	 * For enlargement (positive `resize`), it creates space at the specified `index` by shifting
+	 * elements from `src` to `dst` in a way that elements after `index` are placed at `index + resize` in `dst`,
+	 * effectively inserting space at `index`.  For shrinking (negative `resize`), it removes elements
+	 * starting from `index` by shifting elements from `src` after the removed section to `dst` starting at `index`,
+	 * effectively overwriting the elements to be removed.
 	 *
 	 * @param src    The source array containing the original elements.
 	 * @param dst    The destination array where elements are moved. Can be the same as src for in-place resizing.
+	 *               When enlarging, `dst` is typically a newly allocated array with sufficient capacity.
 	 * @param index  The starting index where resizing occurs (elements are inserted or removed).
 	 *               Must be non-negative and typically less than or equal to size, though larger values
 	 *               are handled by extending the size in the enlarging case.
@@ -2616,7 +2642,8 @@ public interface Array {
 			275995999, 331195199, 397434263, 476921141, 572305373, 686766469, 824119789, 988943741,
 			1186732499, 1424078987, 1708894781, 2050673741
 	};
-		// Fixed-size 256-bit Flag Set class.
+	
+	// Fixed-size 256-bit Flag Set class.
 	// Represents a set of byte values (0-255) using a bitset implemented with four long integers.
 	abstract class FF implements Cloneable {
 		protected long _1, _2, _3, _4; // Segments representing bits for byte values 0-63, 64-127, 128-191, and 192-255 respectively.
@@ -2733,7 +2760,7 @@ public interface Array {
 		 *
 		 * @param key The byte value to remove from the set (valid range is 0-255).
 		 * @return {@code true} if the set was modified as a result of this operation (i.e., the key was present),
-		 *         {@code false} otherwise, indicating the key was not in the set.
+		 * {@code false} otherwise, indicating the key was not in the set.
 		 */
 		protected boolean _remove( byte key ) {
 			if( size == 0 ) return false; // Optimization: empty set cannot contain any key to remove.
@@ -2767,7 +2794,7 @@ public interface Array {
 		 *
 		 * @param key The byte value to add to the set (valid range is 0-255).
 		 * @return {@code true} if the set was modified as a result of this operation (i.e., the value was not already present),
-		 *         {@code false} otherwise, indicating the key was already in the set.
+		 * {@code false} otherwise, indicating the key was already in the set.
 		 */
 		protected boolean _add( final byte key ) {
 			final long bit = 1L << key;        // Calculate the bitmask to set the bit at the given key position. Ensure key is treated as unsigned byte.
@@ -2819,7 +2846,7 @@ public interface Array {
 					val < 64 ?
 							// Check if in the first segment (0-63).
 							_1 :
-					// Access the second segment (64-127).
+							// Access the second segment (64-127).
 							_2 :
 					// Access the third segment (128-191).
 					val < 192 ?

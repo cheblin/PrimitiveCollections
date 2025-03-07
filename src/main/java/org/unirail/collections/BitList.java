@@ -50,24 +50,29 @@ public interface BitList {
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
 		/**
-		 * Total number of bits in the list.
+		 * The total number of bits in the BitList, encompassing:
+		 * - Leading '1's represented by leadingOnesCount (implicitly stored),
+		 * - Explicit bits stored in the values array (following leadingOnesCount),
+		 * - Trailing '0's up to the size (implicitly assumed, not stored in values).
 		 */
-		protected int    size;
+		protected int size;
 		/**
 		 * Number of leading '1' bits at the beginning of the list that are not explicitly stored in {@code values}.
 		 * This optimization helps in space efficiency when dealing with lists that start with a sequence of '1's.
 		 */
-		protected int    leadingOnesCount = 0;
+		protected int leadingOnesCount = 0;
+		
 		/**
-		 * Array to store the bits of the list after the leading '1's.
-		 * Each element is a {@code long} representing 64 bits.
+		 * Stores bits following {@code leadingOnesCount}. When non-empty, the first bit is the initial '0' after the leading '1's,
+		 * and the last bit is the final '1' in the sequence. Trailing '0's up to {@code size} are implicit.
+		 * Bits are stored in 64-bit longs, with lower indices holding earlier bits and each long ordered least significant bit first.
 		 */
-		protected long[] values           = Array.EqualHashOf._longs.O;
+		protected long[] values = Array.EqualHashOf._longs.O;
 		/**
 		 * Number of {@code long} elements in the {@code values} array that are currently in use to store bits.
 		 * This tracks the actual storage being used and can be less than the total length of the {@code values} array.
 		 */
-		protected int    used             = 0;
+		protected int    used   = 0;
 		
 		/**
 		 * Returns the total number of bits in this {@code BitList}.
@@ -111,7 +116,7 @@ public interface BitList {
 		 * @param bits The number of bits to set to '1' in the mask.
 		 * @return A {@code long} mask.
 		 */
-		static long mask( int bits ) { return ( 1L << bits ) - 1; }
+		static long mask( int bits ) { return -1L >>> 64 - bits; }
 		
 		/**
 		 * Integer maximum value constant.
@@ -280,16 +285,12 @@ public interface BitList {
 			long value = values[ index ] & mask; // Check for '1's from pos
 			
 			// Check the first long
-			if( value != 0 ) {
-				return leadingOnesCount + ( index << LEN ) + Long.numberOfTrailingZeros( value );
-			}
+			if( value != 0 ) return leadingOnesCount + ( index << LEN ) + Long.numberOfTrailingZeros( value );
 			
 			// Search subsequent longs
 			for( int i = index + 1; i < used(); i++ ) {
 				value = values[ i ];
-				if( value != 0 ) {
-					return leadingOnesCount + ( i << LEN ) + Long.numberOfTrailingZeros( value );
-				}
+				if( value != 0 ) return leadingOnesCount + ( i << LEN ) + Long.numberOfTrailingZeros( value );
 			}
 			
 			// No '1' found, return size
@@ -357,9 +358,7 @@ public interface BitList {
 			if( bit >= size() ) bit = size() - 1; // Adjust to last valid bit
 			
 			// If within leading ones, return the bit itself if valid, else adjust
-			if( bit < leadingOnesCount ) {
-				return bit; // All bits up to leadingOnesCount-1 are '1'
-			}
+			if( bit < leadingOnesCount ) return bit; // All bits up to leadingOnesCount-1 are '1'
 			
 			// Adjust position relative to end of leading ones
 			int bitOffset = bit - leadingOnesCount;
@@ -367,31 +366,23 @@ public interface BitList {
 			int pos       = bitOffset & MASK;   // Bit position within the long
 			
 			// If beyond used values, search up to last used bit
-			if( index >= used() ) {
-				return last1(); // Return last '1' in the list
-			}
+			if( used() <= index ) return last1(); // Return last '1' in the list
 			
 			// Mask to consider only bits up to pos (inclusive) in the first long
-			long mask  = ( 1L << ( pos + 1 ) ) - 1; // 1s from 0 to pos
+			long mask  = ( 1L << pos + 1 ) - 1; // 1s from 0 to pos
 			long value = values[ index ] & mask; // Check for '1's up to pos
 			
 			// Check the current long
-			if( value != 0 ) {
-				return leadingOnesCount + ( index << LEN ) + ( BITS - 1 - Long.numberOfLeadingZeros( value ) );
-			}
+			if( value != 0 ) return leadingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 			
 			// Search previous longs
 			for( int i = index - 1; i >= 0; i-- ) {
 				value = values[ i ];
-				if( value != 0 ) {
-					return leadingOnesCount + ( i << LEN ) + ( BITS - 1 - Long.numberOfLeadingZeros( value ) );
-				}
+				if( value != 0 ) return leadingOnesCount + ( i << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 			}
 			
 			// If no '1' in values, check leading ones
-			if( leadingOnesCount > 0 ) {
-				return leadingOnesCount - 1; // Last '1' in leading ones
-			}
+			if( leadingOnesCount > 0 ) return leadingOnesCount - 1; // Last '1' in leading ones
 			
 			// No '1' found anywhere
 			return -1;
@@ -409,9 +400,7 @@ public interface BitList {
 			if( bit >= size() ) bit = size() - 1; // Adjust to last valid bit
 			
 			// If within leading ones (all '1's), no '0' exists before
-			if( bit < leadingOnesCount ) {
-				return -1; // All bits up to leadingOnesCount-1 are '1'
-			}
+			if( bit < leadingOnesCount ) return -1; // All bits up to leadingOnesCount-1 are '1'
 			
 			// Adjust position relative to end of leading ones
 			int bitOffset = bit - leadingOnesCount;
@@ -420,29 +409,23 @@ public interface BitList {
 			
 			// If beyond used values, all trailing bits are '0', check up to used
 			if( index >= used() ) {
-				if( bit == leadingOnesCount ) {
-					return leadingOnesCount > 0 ?
-							leadingOnesCount - 1 :
-							-1;
-				}
+				if( bit == leadingOnesCount ) return leadingOnesCount > 0 ?
+						leadingOnesCount - 1 :
+						-1;
 				return bit; // Bits beyond used are '0'
 			}
 			
 			// Mask to consider only bits up to pos (inclusive) in the current long
-			long mask  = ( 1L << ( pos + 1 ) ) - 1; // 1s from 0 to pos
+			long mask  = ( 1L << pos + 1 ) - 1; // 1s from 0 to pos
 			long value = ~values[ index ] & mask; // Invert to find '0's up to pos
 			
 			// Check the current long
-			if( value != 0 ) {
-				return leadingOnesCount + ( index << LEN ) + ( BITS - 1 - Long.numberOfLeadingZeros( value ) );
-			}
+			if( value != 0 ) return leadingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 			
 			// Search previous longs
 			for( int i = index - 1; i >= 0; i-- ) {
 				value = ~values[ i ]; // Invert to find '0's
-				if( value != 0 ) {
-					return leadingOnesCount + ( i << LEN ) + ( BITS - 1 - Long.numberOfLeadingZeros( value ) );
-				}
+				if( value != 0 ) return leadingOnesCount + ( i << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 			}
 			
 			// No '0' in values, return -1 (all bits before are leading ones)
@@ -450,16 +433,14 @@ public interface BitList {
 		}
 		
 		/**
-		 * Returns the index of the last '1' bit in this {@code BitList}.
+		 * Retrieves the 0-based index of the leftmost '1' bit in this BitList.
+		 * If the list contains no '1' bits (all zeros), returns -1. Trailing bits after this index up to size are implicit '0's.
 		 *
-		 * @return The index of the last '1' bit, or -1 if the {@code BitList} contains no '1' bits.
+		 * @return Index of the highest '1' bit, or -1 if no '1' bits exist.
 		 */
 		public int last1() {
-			if( used() == 0 )
-				return 0 < leadingOnesCount ?
-						leadingOnesCount - 1 :
-						-1;
-			return leadingOnesCount + ( used - 1 << LEN ) + Long.numberOfTrailingZeros( Long.highestOneBit( values[ used - 1 ] ) );
+			if( used() == 0 ) return leadingOnesCount - 1;
+			return leadingOnesCount + ( used - 1 << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( values[ used - 1 ] );
 		}
 		
 		/**
@@ -517,9 +498,7 @@ public interface BitList {
 			if( cardinality > rank( size() - 1 ) ) return -1; // Exceeds total '1's in list
 			
 			// If within leading ones, return cardinality - 1 (since all are '1's)
-			if( cardinality <= leadingOnesCount ) {
-				return cardinality - 1; // 0-based index of the cardinality-th '1'
-			}
+			if( cardinality <= leadingOnesCount ) return cardinality - 1; // 0-based index of the cardinality-th '1'
 			
 			// Adjust cardinality for bits beyond leading ones
 			int remainingCardinality = cardinality - leadingOnesCount;
@@ -531,16 +510,12 @@ public interface BitList {
 				int  bitsInLong = Math.min( BITS, totalBits - ( i << LEN ) ); // Bits in this long
 				int  count      = Long.bitCount( value & mask( bitsInLong ) ); // '1's in this long
 				
-				if( remainingCardinality <= count ) {
-					// Find the exact bit in this long
-					for( int j = 0; j < bitsInLong; j++ ) {
-						if( ( value & ( 1L << j ) ) != 0 ) {
-							if( --remainingCardinality == 0 ) {
+				// Find the exact bit in this long
+				if( remainingCardinality <= count )
+					for( int j = 0; j < bitsInLong; j++ )
+						if( ( value & 1L << j ) != 0 )
+							if( --remainingCardinality == 0 )
 								return leadingOnesCount + ( i << LEN ) + j;
-							}
-						}
-					}
-				}
 				remainingCardinality -= count;
 			}
 			
@@ -998,7 +973,7 @@ public interface BitList {
 				// Check if values contains bits and has any 1s to extend the span
 				// Note: Bit 0 in values[0] corresponds to leadingOnesCount, assumed 0 unless set
 				if( 0 < used() && O != 0 ) {
-					// Special case: O = -2L means 63 bits are 1 (0b...10, bit 0 = 0)
+					// Special case: O = -2L means MASK bits are 1 (0b...10, bit 0 = 0)
 					// Count contiguous 1s in values[0] starting from bit 1 (after bit 0)
 					if( O == -2L ) {
 						span1 = BITS;  // Full 64-bit span minus bit 0
@@ -1030,8 +1005,8 @@ public interface BitList {
 				// Unlike set0, we shift right here to prepend the new 1s, adjusting remaining bits
 				leadingOnesCount += span1;
 				
-				int array_max_bit = ( used() << LEN );
-				shiftRight( values, 0, array_max_bit, 0, array_max_bit, span1, true );
+				int array_max_bit = used() << LEN;
+				shiftLeft( values, values, 0, array_max_bit, 0, array_max_bit, span1, true );
 				used |= IO;
 				return this;
 			}
@@ -1059,7 +1034,7 @@ public interface BitList {
 		 * @param from_bit The starting bit position within the {@code values} array to set to '1' (inclusive).
 		 * @param to_bit   The ending bit position within the {@code values} array to set to '1' (exclusive).
 		 */
-		private void valuesSet1( int from_bit, int to_bit ) {
+		private void set1_( int from_bit, int to_bit ) {
 			
 			int from_index    = from_bit >> LEN; // Calculate starting index in `values` array
 			int to_index      = used( leadingOnesCount + to_bit - 1 ); // Ensure `values` array is large enough and get ending index
@@ -1123,7 +1098,7 @@ public interface BitList {
 					}
 					leadingOnesCount = to_bit;
 					
-					shiftLeft( values, 0, size(), 0, size(), to_bit - from_bit, true );
+					shiftRight( values, values, 0, size(), 0, size(), to_bit - from_bit, true );
 					used |= IO;
 				}
 				else {
@@ -1202,13 +1177,13 @@ public interface BitList {
 				// If there are bits in values, shift them left to align with new leadingOnesCount
 				// This preserves any existing bits beyond the original leading ones
 				if( 0 < items_in_values )
-					shiftLeft( values, 0, size(), 0, size(), preserve, true );
+					shiftRight( values, values, 0, size(), 0, size(), preserve, true );
 				
 				// Preserve the 1s from bit+1 to the original end of leading ones in values
 				// Starts at position 1 (bit after 'bit'), covering 'preserve' bits total
 				// Note: Position 0 in values becomes 0, representing the cleared bit
 				
-				valuesSet1( 1, preserve - 1 );
+				set1_( 1, preserve - 1 );
 				used |= IO;
 				return this;
 			}
@@ -1246,10 +1221,11 @@ public interface BitList {
 			// Ensure size accommodates the range, new bits default to 0
 			if( size < to_bit ) size = to_bit;
 			
+			int last1InValues = last1() - leadingOnesCount;
+			
 			// Case 1: Entire range within leading ones - truncate and preserve trailing bits
 			if( to_bit <= leadingOnesCount ) {
 				// Number of bits already in values beyond leading ones (may be negative if all 1s are in leadingOnesCount)
-				int items_in_values = last1() - leadingOnesCount;
 				
 				// Bits to preserve after to_bit (trailing 1s beyond the cleared range)
 				int preserve1 = leadingOnesCount - to_bit;
@@ -1259,19 +1235,21 @@ public interface BitList {
 				leadingOnesCount = from_bit;
 				
 				// Pre-allocate space in values for existing bits plus those moved from leadingOnesCount
-				// Ensures array capacity for items_in_values + move_into_values
-				used( leadingOnesCount + items_in_values + move_into_values );
+				// Ensures array capacity for last1InValues + move_into_values
+				int index = last1InValues + move_into_values;
+				
+				long[] dst = ( used = index + 1 ) < values.length ?
+						values :
+						new long[ Math.max( values.length + ( values.length >> 1 ), used ) ];
 				
 				// If values contains bits, shift them left to make room for moved bits
-				if( items_in_values > 0 ) {
-					
-					shiftLeft( values, 0, size(), 0, size(), move_into_values, true );
-					used |= IO;
-				}
+				if( 0 < last1InValues )
+					values = shiftRight( values, dst, 0, last1InValues, 0, last1InValues, move_into_values, true );
+				
 				
 				// Preserve trailing 1s (if any) after the cleared range, starting at the end of the cleared section
 				// Range: from move_into_values - preserve1 (start of preserved bits) to move_into_values (end)
-				if( move_into_values > 1 ) valuesSet1( move_into_values - preserve1, move_into_values );
+				if( move_into_values > 1 ) set1_( move_into_values - preserve1, move_into_values );
 				
 				return this;
 			}
@@ -1289,21 +1267,24 @@ public interface BitList {
 				int toBit        = bitOffsetEnd & MASK;
 				
 				// Expand values array if needed to cover the range
-				if( toIndex >= values.length )
-					values = Array.copyOf( values, Math.max( values.length + ( values.length >> 1 ), toIndex + 1 ) );
+				long[] dst = toIndex < values.length ?
+						values :
+						new long[ Math.max( values.length + ( values.length >> 1 ), toIndex + 1 ) ];
+				
 				if( toIndex >= used ) used = toIndex + 1;
 				
 				// Preserve any leading ones beyond from_bit into values
-				if( preserve > 0 ) {
-					if( used > 0 ) {// Shift existing values to align with new leadingOnesCount
-						
-						shiftLeft( values, 0, size(), 0, size(), preserve, true );
-						used |= IO;
-					}
-					if( preserve > 1 ) valuesSet1( 1, preserve ); // Set preserved bits from position 1
-					else if( preserve == 1 ) values[ 0 ] |= 1L; // Single bit case
-					used = Math.max( used, 1 ); // Ensure at least one long is used
-				}
+				
+				
+				values = 0 < used ?
+						// Shift existing values to align with new leadingOnesCount
+						shiftRight( values, dst, 0, last1InValues, 0, last1InValues, preserve, true ) :
+						dst;
+				
+				if( preserve > 1 ) set1_( 1, preserve ); // Set preserved bits from position 1
+				else if( preserve == 1 ) values[ 0 ] |= 1L; // Single bit case
+				used = Math.max( used, 1 ); // Ensure at least one long is used
+				
 				
 				// Clear bits from leadingOnesCount to to_bit in values
 				// Single long: mask preserves bits before from_bit and after to_bit
@@ -1326,7 +1307,7 @@ public interface BitList {
 			// Case 3: Entire range beyond leading ones - clear bits directly in values
 			int bitOffsetStart = from_bit - leadingOnesCount;
 			int bitOffsetEnd   = to_bit - leadingOnesCount;
-			if( bitOffsetStart < ( used() << LEN ) ) {
+			if( bitOffsetStart < used() << LEN ) {
 				clearBits( values, bitOffsetStart, bitOffsetEnd );
 				if( used > 0 && values[ used - 1 ] == 0 ) used |= IO;
 			}
@@ -1370,7 +1351,7 @@ public interface BitList {
 			int bitOffset = _size - leadingOnesCount;
 			int index     = bitOffset >> LEN;
 			int pos       = bitOffset & MASK;
-			if( index >= values.length ) values = Array.copyOf( values, Math.max( values.length + ( values.length >> 1 ), index + 2 ) );
+			if( values.length <= index ) values = Array.copyOf( values, Math.max( values.length + ( values.length >> 1 ), index + 2 ) );
 			if( pos == 0 ) values[ index ] = src;
 			else {
 				values[ index ] |= src << pos;
@@ -1383,17 +1364,17 @@ public interface BitList {
 		}
 		
 		/**
-		 * Sets a bit at a specific key (index) with a boolean value.
-		 * If the key is out of bounds, the {@code BitList} is resized to accommodate it.
+		 * Sets a bit at a specific bit (index) with a boolean value.
+		 * If the bit is out of bounds, the {@code BitList} is resized to accommodate it.
 		 *
-		 * @param key   The index (bit position) to set.
+		 * @param bit   The index (bit position) to set.
 		 * @param value The boolean value to set ({@code true} for '1', {@code false} for '0').
 		 * @return This {@code RW} instance after setting the bit.
 		 */
-		public RW add( int key, boolean value ) {
-			if( key < 0 ) return this;
-			if( size <= key ) size = key + 1;
-			return set( key, value );
+		public RW add( int bit, boolean value ) {
+			if( bit < 0 ) return this;
+			if( size <= bit ) size = bit + 1;
+			return set( bit, value );
 		}
 		
 		/**
@@ -1423,13 +1404,109 @@ public interface BitList {
 		}
 		
 		/**
+		 * Inserts a '0' bit at the specified position, shifting existing bits to the right.
+		 *
+		 * @param bit The bit position to insert the '0' at (0-indexed).
+		 * @return This {@code RW} instance after inserting the '0' bit.
+		 */
+		public RW insert0( int bit ) {
+			// Case 0: Handle invalid input.
+			if( bit < 0 ) return this; // No insertion for negative indices.
+			
+			// Step 1: Increase the size of the BitList to accommodate the new bit.
+			size++;
+			
+			int last1 = last1();
+			// Optimization: If inserting '0' after the last '1' bit, it's implicitly a trailing '0', so no action is needed.
+			if( last1 < bit ) return this;
+			
+			int valuesLast1 = last1 - leadingOnesCount;
+			
+			int bitInValues = bit - leadingOnesCount; // Calculate the offset from the end of leading '1's.
+			int index       = bitInValues >> LEN;           // Determine the index of the long in the values array.
+			
+			long[] dst = index < values.length ?
+					values :
+					new long[ Math.max( values.length + ( values.length >> 1 ), index + 2 ) ];
+			
+			
+			// Case 1: Insertion within the leading '1's region.
+			if( bit < leadingOnesCount ) {
+				// Calculate how many leading '1's to preserve after insertion.
+				int preserveLeadingOnes = leadingOnesCount - bit;
+				
+				// Reduce leadingOnesCount to the insertion point; a '0' is inserted here.
+				leadingOnesCount = bit;
+				
+				// If there are explicit values stored, shift them right to make space for the preserved leading ones.
+				values = 0 < used ?
+						shiftLeft( values, dst, 0, valuesLast1, 0, valuesLast1, preserveLeadingOnes, true ) :
+						dst;
+				
+				// Set the preserved leading ones (which were originally after the insertion point) in the values array.
+				// These '1's start right after the inserted '0' at index 0 in values.
+				set1_( 1, preserveLeadingOnes ); // Set bits from index 1 up to preserveLeadingOnes (exclusive).
+				
+				return this;
+			}
+			
+			if( used <= index ) used = index + 1;
+			
+			// Shift bits to the right from the insertion point to make space for the '0'.
+			values = shiftLeft( values, dst, 0, valuesLast1, bitInValues, valuesLast1, 1, true );
+			
+			return this;
+		}
+		
+		/**
+		 * Inserts a '1' bit at the specified position, shifting existing bits to the right.
+		 *
+		 * @param bit The bit position to insert the '1' at (0-indexed).
+		 * @return This {@code RW} instance after inserting the '1' bit.
+		 */
+		public RW insert1( int bit ) {
+			// Case 0: Handle invalid input.
+			if( bit < 0 ) return this; // No insertion for negative indices.
+			
+			// Step 1: Increase the size of the BitList to accommodate the new bit.
+			size++;
+			
+			// Case 1: Insertion within the leading '1's region.
+			if( bit <= leadingOnesCount ) {
+				
+				leadingOnesCount++;// Inserting a '1' among leading '1's simply extends the count of leading '1's.
+				return this;
+			}
+			
+			// Case 2: Insertion within the values array (bits stored explicitly).
+			int bitInValues = bit - leadingOnesCount; // Calculate offset from the end of leading '1's.
+			int index       = bitInValues >> LEN;           // Determine the index of the long in values array.
+			int pos         = bitInValues & MASK;             // Determine the bit position within the long.
+			
+			long[] dst = index < values.length ?
+					values :
+					new long[ Math.max( values.length + ( values.length >> 1 ), index + 2 ) ];
+			
+			if( used <= index ) used = index + 1;
+			
+			int valuesLast1 = last1() - leadingOnesCount;
+			
+			// Shift bits to the right from the insertion point to make space for the '1'.
+			values = shiftLeft( values, dst, 0, valuesLast1, bitInValues, valuesLast1, 1, false );
+			
+			values[ index ] |= 1L << pos;// Set the inserted bit to '1'.
+			
+			return this;
+		}
+		
+		
+		/**
 		 * Trims any trailing zero bits from the end of the {@code BitList}, reducing its size to the position of the last '1' bit.
 		 *
 		 * @return This {@code RW} instance after trimming trailing zero bits.
 		 */
 		public RW trim() {
-			int lastBit = last1();
-			if( lastBit + 1 < size ) length( lastBit + 1 );
+			length( last1() + 1 );
 			return this;
 		}
 		
@@ -1476,7 +1553,7 @@ public interface BitList {
 		 * @param bytes The byte array to initialize from.
 		 * @return This {@code RW} instance after initialization from the byte array.
 		 */
-		public RW fromByteArray( byte[] bytes ) {
+		public RW fromArray( byte[] bytes ) {
 			clear();
 			if( bytes == null || bytes.length == 0 ) return this;
 			size = bytes.length * 8;
@@ -1593,60 +1670,74 @@ public interface BitList {
 		
 		
 		/**
-		 * Shifts all bits in this {@code BitList} to the left by the specified number of positions.
+		 * Shifts all bits in this BitList to the left by the specified number of positions.
 		 * Bits shifted out of the leftmost positions are discarded, and vacated positions on the right are filled with '0's.
+		 * The size of the BitList increases by the shift amount, reflecting the new bit positions.
 		 *
-		 * @param n The number of positions to shift left. Must be non-negative.
-		 * @return This {@code RW} instance after the left shift operation.
-		 * @throws IllegalArgumentException if {@code n} is negative.
+		 * @param n Number of positions to shift left; must be non-negative.
+		 * @return This RW instance after the left shift operation.
+		 * @throws IllegalArgumentException if n is negative.
 		 */
 		public RW shiftLeft( int n ) {
 			if( n < 0 ) throw new IllegalArgumentException( "Shift value must be non-negative" );
 			if( n == 0 || isAllZeros() ) return this;
-			if( n >= size() ) {
+			if( size <= n ) {
 				clear();
 				return this;
 			}
-			if( n < leadingOnesCount ) leadingOnesCount -= n;
-			else {
-				int shiftInValues = n - leadingOnesCount;
-				leadingOnesCount = 0;
-				
-				shiftLeft( values, 0, size(), 0, size(), shiftInValues, true );
-				used |= IO;
-			}
-			size -= n;
+			int last1InValues = last1() - leadingOnesCount; // Highest '1' bit index in values array
+			int index         = last1InValues + n;                  // New highest index after shift
+			
+			// Resize values array if needed, using Math.max for growth factor
+			long[] dst = ( used = index + 1 ) < values.length ?
+					values :
+					new long[ Math.max( values.length + ( values.length >> 1 ), used ) ];
+			
+			// Perform the left shift on the values array, clearing vacated bits
+			values = shiftLeft( values, dst, 0, last1InValues, 0, last1InValues, n, true );
+			
+			if( 0 < leadingOnesCount ) set1_( n, n + leadingOnesCount ); // If there are leading ones, shift them into values at position n
+			
+			leadingOnesCount = 0; // Leading ones are shifted out or absorbed into values
+			size += n;            // Increase size to account for new zero-filled bits on the right
+			
 			return this;
 		}
 		
 		/**
-		 * Shifts all bits in this {@code BitList} to the right by the specified number of positions.
-		 * Bits shifted out of the rightmost positions are discarded, and vacated positions on the left are filled with '0's.
+		 * Shifts all bits in this BitList to the right by the specified number of positions.
+		 * Bits shifted out of the rightmost positions are discarded, and vacated positions on the left
+		 * are filled with zeros. The size of the BitList is reduced by the shift amount.
+		 * <p>
+		 * If the shift amount is zero or the BitList is all zeros, no changes are made. If the shift
+		 * amount equals or exceeds the current size, the BitList is cleared.
 		 *
-		 * @param n The number of positions to shift right. Must be non-negative.
-		 * @return This {@code RW} instance after the right shift operation.
-		 * @throws IllegalArgumentException if {@code n} is negative.
+		 * @param n Number of positions to shift right, must be non-negative.
+		 * @return This RW instance after the right shift operation.
+		 * @throws IllegalArgumentException if n is negative.
 		 */
 		public RW shiftRight( int n ) {
 			if( n < 0 ) throw new IllegalArgumentException( "Shift value must be non-negative" );
 			if( n == 0 || isAllZeros() ) return this;
-			if( n >= size() ) {
+			if( n >= size ) {
 				clear();
 				return this;
 			}
-			int shiftLongs = n >> LEN;
-			int shiftBits  = n & MASK;
-			int newUsed = used() + shiftLongs + ( shiftBits > 0 ?
-					1 :
-					0 );
-			if( values.length < newUsed ) values = Array.copyOf( values, Math.max( values.length + ( values.length >> 1 ), newUsed ) );
-			if( leadingOnesCount > n ) leadingOnesCount -= n;
+			
+			if( n < leadingOnesCount ) leadingOnesCount -= n;
 			else {
-				int bitsFromValues = n - leadingOnesCount;
+				int shiftInValues = n - leadingOnesCount; // Bits to shift in values array
 				leadingOnesCount = 0;
+				int last1InValues = last1();//leadingOnesCount == 0 !!!
 				
-				int array_max_bit = ( used() << LEN );
-				shiftRight( values, 0, array_max_bit, 0, array_max_bit, bitsFromValues, true );
+				if( shiftInValues < last1InValues - 2 )
+					shiftRight( values, values, 1, last1InValues, 0, last1InValues, shiftInValues, true );
+				else {
+					if( shiftInValues == last1InValues - 1 ) leadingOnesCount = 1; // Single '1' remains in values, move into the leadingOnesCount
+					Arrays.fill( values, 0, used, 0 );
+					used = 0;
+				}
+				
 				used |= IO;
 			}
 			size -= n;
@@ -1655,151 +1746,170 @@ public interface BitList {
 		
 		
 		/**
-		 * Shifts bits within a specified range of a {@code long} array to the left by the given count.
-		 * Bits shifted beyond the range {@code [from_bit, to_bit)} are discarded, and bits outside this range remain unchanged.
-		 * Vacated lower bits are filled with zeros if {@code clear} is true. The array is modified in-place.
+		 * Shifts a range of bits from a source {@code long} array to a destination {@code long} array to the right (towards lower bit indices, like right bit-shift >>> on primitives) by a specified number of positions.
 		 *
-		 * @param array         The {@code long} array to modify.
-		 * @param array_min_bit Minimum valid bit index in the array (inclusive, >= 0).
-		 * @param array_max_bit Maximum valid bit index in the array (exclusive, <= array.length * BITS).
-		 * @param from_bit      Starting bit index of the shift range (adjusted to {@code array_min_bit} if smaller).
-		 * @param to_bit        Ending bit index of the shift range (exclusive, adjusted to {@code array_max_bit} if larger).
-		 * @param shift_bits    Number of positions to shift left (>= 0).
-		 * @param clear         If true, vacated bits are cleared to zero; otherwise, they retain their original values.
-		 * @throws IllegalArgumentException If {@code shift_bits} is negative, {@code array} is null, or bounds are invalid.
+		 * <p>Within the given range, bits are moved from higher bit positions to lower bit positions. Bits shifted out from the lower end of the range are discarded.
+		 * Vacated bit positions created at the higher end of the range are filled with zeros if {@code clear} is true; otherwise, they retain their original values (though in a right-shift, zero-filling is the typical and often intended behavior).</p>
+		 *
+		 * <p>This method operates at the bit level and correctly manages bit transitions across 64-bit {@code long} boundaries.
+		 * The shift operation is performed out-of-place. The source {@code src} array remains unchanged, and the shifted bits are placed in the {@code dst} array.
+		 * It's assumed that {@code dst} array has enough capacity to hold the shifted result within the specified ranges.
+		 * Bits outside the specified {@code from_bit} to {@code to_bit} range in {@code dst} are not guaranteed to be preserved from {@code src} and might be zeroed or undefined depending on array initialization.</p>
+		 *
+		 * <p>If the shift distance ({@code shift_bits}) is equal to or greater than the range size ({@code to_bit} - {@code from_bit}),
+		 * and {@code clear} is {@code true}, then all bits within the specified range in {@code dst} will be set to zero.</p>
+		 *
+		 * @param src           The source {@code long} array from which to perform the bit shift operation. This array is not modified.
+		 * @param dst           The destination {@code long} array where the shifted bits will be placed. It's assumed to be of sufficient size.
+		 * @param array_min_bit The starting bit index (inclusive) of the valid operational range within both {@code src} and {@code dst} arrays. Bits before this index are not considered by this method.
+		 * @param array_max_bit The ending bit index (exclusive) of the valid operational range within both {@code src} and {@code dst} arrays. Bits at or after this index are not considered by this method.
+		 * @param from_bit      The starting bit index (inclusive) of the specific range of bits to be shifted *within* the valid operational range.
+		 * @param to_bit        The ending bit index (exclusive) of the specific range of bits to be shifted *within* the valid operational range.
+		 * @param shift_bits    The number of bit positions to shift to the right. Must be a non-negative integer.
+		 * @param clear         If {@code true}, the vacated bit positions at the higher end of the shifted range in {@code dst} are filled with '0' bits.
+		 *                      If {@code false}, the vacated bits may retain their original values (though zero-filling is generally the expected behavior for right shifts in most contexts).
 		 */
-		static void shiftLeft( long[] array, int array_min_bit, int array_max_bit, int from_bit, int to_bit, int shift_bits, boolean clear ) {
-			if( shift_bits < 0 ) throw new IllegalArgumentException( "Shift count must be non-negative" );
-			if( array == null ) throw new IllegalArgumentException( "Array cannot be null" );
-			if( array_min_bit < 0 || array_max_bit <= array_min_bit || array_max_bit > array.length * BITS )
-				throw new IllegalArgumentException( "Invalid array bounds: array_min_bit=" + array_min_bit + ", array_max_bit=" + array_max_bit );
+		static long[] shiftRight( long[] src, long[] dst, int array_min_bit, int array_max_bit, int from_bit, int to_bit, int shift_bits, boolean clear ) {
 			
 			from_bit = Math.max( from_bit, array_min_bit );
 			to_bit   = Math.min( to_bit, array_max_bit );
-			if( from_bit >= to_bit || shift_bits == 0 ) return;
+			if( from_bit >= to_bit || shift_bits == 0 ) return dst;
 			
 			int rangeBits = to_bit - from_bit;
 			if( shift_bits >= rangeBits ) {
-				if( clear ) clearBits( array, from_bit, to_bit );
-				return;
+				if( clear ) clearBits( dst, from_bit, to_bit ); // Operate on dst now
+				return dst;
 			}
 			
-			int fromIndex  = from_bit >> 6;
-			int toIndex    = to_bit - 1 >> 6;
-			int fromBit    = from_bit & 63;
-			int toBit      = to_bit - 1 & 63;
-			int shiftLongs = shift_bits >> 6;
-			int shiftBits  = shift_bits & 63;
+			int fromIndex  = from_bit >> LEN;
+			int toIndex    = to_bit - 1 >> LEN;
+			int fromBit    = from_bit & MASK;
+			int toBit      = to_bit - 1 & MASK;
+			int shiftLongs = shift_bits >> LEN;
+			int shiftBits  = shift_bits & MASK;
 			
 			if( shiftLongs >= toIndex - fromIndex + 1 ) {
-				if( clear ) clearBits( array, from_bit, to_bit );
-				return;
+				if( clear ) clearBits( dst, from_bit, to_bit ); // Operate on dst now
+				return dst;
 			}
 			
-			long firstOriginal = array[ fromIndex ];
-			long lastOriginal = toIndex < array.length ?
-					array[ toIndex ] :
+			long firstOriginal = src[ fromIndex ]; // Read from src
+			long lastOriginal = toIndex < src.length ?
+					// Read from src
+					src[ toIndex ] :
 					0;
 			
 			if( shiftBits == 0 && shiftLongs > 0 )
-				System.arraycopy( array, fromIndex + shiftLongs, array, fromIndex, toIndex - fromIndex - shiftLongs + 1 );
+				System.arraycopy( src, fromIndex + shiftLongs, dst, fromIndex, toIndex - fromIndex - shiftLongs + 1 ); // src to dst
 			else {
 				int destIndex = toIndex;
 				int srcIndex  = toIndex - shiftLongs;
 				while( srcIndex > fromIndex ) {
-					long left  = array[ srcIndex ] << shiftBits;
-					long right = array[ srcIndex - 1 ] >>> BITS - shiftBits;
-					array[ destIndex-- ] = left | right;
+					long left  = src[ srcIndex ] << shiftBits; // Read from src
+					long right = src[ srcIndex - 1 ] >>> BITS - shiftBits; // Read from src
+					dst[ destIndex-- ] = left | right; // Write to dst
 					srcIndex--;
 				}
-				if( srcIndex == fromIndex ) array[ destIndex ] = array[ srcIndex ] << shiftBits;
+				if( srcIndex == fromIndex ) dst[ destIndex ] = src[ srcIndex ] << shiftBits; // Read from src, Write to dst
 			}
 			
 			if( fromBit != 0 ) {
 				long mask = mask( fromBit );
-				array[ fromIndex ] = array[ fromIndex ] & ~mask | firstOriginal & mask;
+				dst[ fromIndex ] = dst[ fromIndex ] & ~mask | firstOriginal & mask; // Operate on dst now
 			}
-			if( toBit != 63 && toIndex < array.length ) {
+			if( toBit != MASK && toIndex < dst.length ) { // Check dst.length for write
 				long mask = mask( toBit + 1 );
-				array[ toIndex ] = array[ toIndex ] & mask | lastOriginal & ~mask;
+				dst[ toIndex ] = dst[ toIndex ] & mask | lastOriginal & ~mask; // Operate on dst now
 			}
 			
-			if( clear ) clearBits( array, from_bit, from_bit + shift_bits );
+			if( clear ) clearBits( dst, from_bit, from_bit + shift_bits ); // Operate on dst now
+			return dst;
 		}
 		
 		/**
-		 * Shifts bits within a specified range of a {@code long} array to the right by the given count.
-		 * Bits shifted beyond the range {@code [from_bit, to_bit)} are discarded, and bits outside this range remain unchanged.
-		 * Vacated higher bits are filled with zeros if {@code clear} is true. The array is modified in-place.
+		 * Shifts a range of bits from a source {@code long} array to a destination {@code long} array to the left (towards higher bit indices, like left bit-shift << on primitives) by a specified number of positions.
 		 *
-		 * @param array         The {@code long} array to modify.
-		 * @param array_min_bit Minimum valid bit index in the array (inclusive, >= 0).
-		 * @param array_max_bit Maximum valid bit index in the array (exclusive, <= array.length * BITS).
-		 * @param from_bit      Starting bit index of the shift range (adjusted to {@code array_min_bit} if smaller).
-		 * @param to_bit        Ending bit index of the shift range (exclusive, adjusted to {@code array_max_bit} if larger).
-		 * @param shift_bits    Number of positions to shift right (>= 0).
-		 * @param clear         If true, vacated bits are cleared to zero; otherwise, they retain their original values.
-		 * @throws IllegalArgumentException If {@code shift_bits} is negative, {@code array} is null, or bounds are invalid.
+		 * <p>Within the given range, bits are moved from lower bit positions to higher bit positions. Bits shifted out from the higher end of the range are discarded.
+		 * Vacated bit positions created at the lower end of the range are filled with zeros if {@code clear} is true; otherwise, their original values are retained (though this is generally not relevant in a left-shift scenario where vacated bits are typically intended to be zeroed or filled by subsequent operations).</p>
+		 *
+		 * <p>This method operates at the bit level and correctly manages bit transitions across 64-bit {@code long} boundaries.
+		 * The shift operation is performed out-of-place. The source {@code src} array remains unchanged, and the shifted bits are placed in the {@code dst} array.
+		 * It's assumed that {@code dst} array has enough capacity to hold the shifted result within the specified ranges.
+		 * Bits outside the specified {@code from_bit} to {@code to_bit} range in {@code dst} are not guaranteed to be preserved from {@code src} and might be zeroed or undefined depending on array initialization.</p>
+		 *
+		 * <p>If the shift distance ({@code shift_bits}) is equal to or greater than the range size ({@code to_bit} - {@code from_bit}),
+		 * and {@code clear} is {@code true}, then all bits within the specified range in {@code dst} will be set to zero.</p>
+		 *
+		 * @param src           The source {@code long} array from which to perform the bit shift operation. This array is not modified.
+		 * @param dst           The destination {@code long} array where the shifted bits will be placed. It's assumed to be of sufficient size.
+		 * @param array_min_bit The starting bit index (inclusive) of the valid operational range within both {@code src} and {@code dst} arrays. Bits before this index are considered outside the scope of this method.
+		 * @param array_max_bit The ending bit index (exclusive) of the valid operational range within both {@code src} and {@code dst} arrays. Bits at or after this index are considered outside the scope of this method.
+		 * @param from_bit      The starting bit index (inclusive) of the specific range of bits to be shifted *within* the valid operational range.
+		 * @param to_bit        The ending bit index (exclusive) of the specific range of bits to be shifted *within* the valid operational range.
+		 * @param shift_bits    The number of bit positions to shift to the left. Must be a non-negative integer.
+		 * @param clear         If {@code true}, the vacated bit positions at the lower end of the shifted range in {@code dst} are filled with '0' bits.
+		 *                      If {@code false}, the vacated bits may retain their original values (though behavior in left shift usually implies zero-filling is expected).
 		 */
-		static void shiftRight( long[] array, int array_min_bit, int array_max_bit, int from_bit, int to_bit, int shift_bits, boolean clear ) {
-			if( shift_bits < 0 ) throw new IllegalArgumentException( "Shift count must be non-negative" );
-			if( array == null ) throw new IllegalArgumentException( "Array cannot be null" );
-			if( array_min_bit < 0 || array_max_bit <= array_min_bit || array_max_bit > array.length * BITS )
-				throw new IllegalArgumentException( "Invalid array bounds: array_min_bit=" + array_min_bit + ", array_max_bit=" + array_max_bit );
+		static long[] shiftLeft( long[] src, long[] dst, int array_min_bit, int array_max_bit, int from_bit, int to_bit, int shift_bits, boolean clear ) {
 			
 			from_bit = Math.max( from_bit, array_min_bit );
 			to_bit   = Math.min( to_bit, array_max_bit );
-			if( from_bit >= to_bit || shift_bits == 0 ) return;
+			if( from_bit >= to_bit || shift_bits == 0 ) return dst;
 			
 			int rangeBits = to_bit - from_bit;
-			if( shift_bits >= rangeBits ) {
-				if( clear ) clearBits( array, from_bit, to_bit );
-				return;
+			if( rangeBits <= shift_bits ) {
+				if( clear ) clearBits( dst, from_bit, to_bit ); // Operate on dst now
+				return dst;
 			}
 			
-			int fromIndex  = from_bit >> 6;
-			int toIndex    = to_bit - 1 >> 6;
-			int fromBit    = from_bit & 63;
-			int toBit      = to_bit - 1 & 63;
-			int shiftLongs = shift_bits >> 6;
-			int shiftBits  = shift_bits & 63;
+			int fromIndex  = from_bit >> LEN;   // Starting long index (LEN = 6, so >> 6 is divide by 64)
+			int toIndex    = to_bit - 1 >> LEN;  // Ending long index (to_bit is exclusive)
+			int fromBit    = from_bit & MASK;  // Bit offset within starting long (MASK = 63)
+			int toBit      = to_bit - 1 & MASK;  // Bit offset within ending long
+			int shiftLongs = shift_bits >> LEN;  // Number of whole longs to shift
+			int shiftBits  = shift_bits & MASK;  // Remaining bits to shift within a long
 			
+			// Check if shift moves all bits out of range
 			if( shiftLongs >= toIndex - fromIndex + 1 ) {
-				if( clear ) clearBits( array, from_bit, to_bit );
-				return;
+				if( clear ) clearBits( dst, from_bit, to_bit ); // Operate on dst now
+				return dst;
 			}
 			
-			long firstOriginal = fromIndex + shiftLongs < array.length ?
-					array[ fromIndex + shiftLongs ] :
+			// Preserve original boundary values for masking (avoid overwriting outside range)
+			long firstOriginal = fromIndex + shiftLongs < src.length ?
+					// Read from src
+					src[ fromIndex + shiftLongs ] :
 					0;
-			long lastOriginal = toIndex < array.length ?
-					array[ toIndex ] :
+			long lastOriginal = toIndex < src.length ?
+					// Read from src
+					src[ toIndex ] :
 					0;
 			
 			if( shiftBits == 0 && shiftLongs > 0 )
-				System.arraycopy( array, fromIndex, array, fromIndex + shiftLongs, toIndex - fromIndex - shiftLongs + 1 );
+				System.arraycopy( src, fromIndex, dst, fromIndex + shiftLongs, toIndex - fromIndex - shiftLongs + 1 ); // src to dst
 			else {
 				int destIndex = fromIndex + shiftLongs;
 				int srcIndex  = fromIndex;
 				while( srcIndex < toIndex ) {
-					long right = array[ srcIndex ] >>> shiftBits;
-					long left  = array[ srcIndex + 1 ] << BITS - shiftBits;
-					array[ destIndex++ ] = left | right;
+					long right = src[ srcIndex ] >>> shiftBits; // Read from src
+					long left  = src[ srcIndex + 1 ] << BITS - shiftBits; // Read from src
+					dst[ destIndex++ ] = left | right; // Write to dst
 					srcIndex++;
 				}
-				if( srcIndex == toIndex ) array[ destIndex ] = array[ srcIndex ] >>> shiftBits;
+				if( srcIndex == toIndex ) dst[ destIndex ] = src[ srcIndex ] >>> shiftBits; // Read from src, Write to dst
 			}
-			
-			if( fromBit != 0 && fromIndex + shiftLongs < array.length ) {
+			// Preserve bits outside the shifted range
+			if( fromBit != 0 && fromIndex + shiftLongs < dst.length ) { // Check dst.length for write
 				long mask = mask( fromBit );
-				array[ fromIndex + shiftLongs ] = array[ fromIndex + shiftLongs ] & ~mask | firstOriginal & mask;
+				dst[ fromIndex + shiftLongs ] = dst[ fromIndex + shiftLongs ] & ~mask | firstOriginal & mask; // Operate on dst now
 			}
-			if( toBit != 63 && toIndex < array.length ) {
+			if( toBit != MASK && toIndex < dst.length ) { // Check dst.length for write
 				long mask = ~mask( toBit + 1 );
-				array[ toIndex ] = array[ toIndex ] & mask | lastOriginal & ~mask;
+				dst[ toIndex ] = dst[ toIndex ] & mask | lastOriginal & ~mask; // Operate on dst now
 			}
 			
-			if( clear ) clearBits( array, to_bit - shift_bits, to_bit );
+			if( clear ) clearBits( dst, to_bit - shift_bits, to_bit ); // Operate on dst now
+			return dst;
 		}
 		
 		/**
@@ -1812,10 +1922,10 @@ public interface BitList {
 		 */
 		static void clearBits( long[] array, int from_bit, int to_bit ) {
 			if( from_bit >= to_bit ) return;
-			int fromIndex = from_bit >> 6;
-			int toIndex   = to_bit - 1 >> 6;
-			int fromBit   = from_bit & 63;
-			int toBit     = to_bit - 1 & 63;
+			int fromIndex = from_bit >> LEN;
+			int toIndex   = to_bit - 1 >> LEN;
+			int fromBit   = from_bit & MASK;
+			int toBit     = to_bit - 1 & MASK;
 			
 			if( fromIndex >= array.length ) return;
 			if( toIndex >= array.length ) toIndex = array.length - 1;
@@ -1830,12 +1940,8 @@ public interface BitList {
 					fromIndex++;
 				}
 				for( int i = fromIndex; i < toIndex; i++ ) array[ i ] = 0;
-				if( toBit != 63 ) array[ toIndex ] &= ~mask( toBit + 1 );
+				if( toBit != MASK ) array[ toIndex ] &= ~mask( toBit + 1 );
 			}
 		}
-		
-		
 	}
-	
-	
 }

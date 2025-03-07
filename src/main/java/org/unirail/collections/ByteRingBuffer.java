@@ -127,7 +127,7 @@ public class ByteRingBuffer {
 		do {
 			_get = get;
 			if( _get == put ) return defaultValueIfEmpty;
-			value  = buffer[ ( int ) _get & mask ] & ( ~0L );
+			value = buffer[ ( int ) _get & mask ] & ( ~0L );
 		}
 		while( !GET_UPDATER.compareAndSet( this, _get, _get + 1 ) );
 		

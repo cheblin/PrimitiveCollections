@@ -44,8 +44,8 @@ import java.util.ConcurrentModificationException;
  * The implementation is optimized for performance and low memory footprint.
  */
 public interface ByteUShortNullMap {
-
-
+	
+	
 	/**
 	 * {@code R} is an abstract base class providing read-only functionality for {@link ByteIntNullMap}.
 	 * <p>
@@ -54,7 +54,7 @@ public interface ByteUShortNullMap {
 	 * This class is designed to be lightweight and efficient for read operations.
 	 */
 	abstract class R extends ByteSet.R implements Cloneable, JsonWriter.Source {
-
+		
 		/**
 		 * Manages null value flags for each key.
 		 * <p>
@@ -83,8 +83,8 @@ public interface ByteUShortNullMap {
 		 * When true, {@link #nullKeyValue} holds the non-null value. When false, the null key is considered to have a null value unless {@link #hasNullKey} is false.
 		 */
 		protected boolean                nullKeyHasValue; // Indicates if the null key has a non-null value
-
-
+		
+		
 		/**
 		 * Checks if this map contains a specific value (boxed Integer).
 		 *
@@ -93,12 +93,12 @@ public interface ByteUShortNullMap {
 		 */
 		public boolean containsValue(  Character value ) {
 			if( size() == 0 ) return false;
-
+			
 			return value == null ?
 					hasNullKey && !nullKeyHasValue || 0 < nulls.first1() :
 					containsValue( ( char ) ( value + 0 ) );
 		}
-
+		
 		/**
 		 * Checks if this map contains a specific primitive integer value.
 		 *
@@ -106,8 +106,8 @@ public interface ByteUShortNullMap {
 		 * @return {@code true} if the map contains the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue( char value ) { return Array.indexOf( values, ( char ) value, 0, nulls.size ) != -1; }
-
-
+		
+		
 		/**
 		 * Checks if the entry associated with the given token has a non-null value.
 		 *
@@ -120,7 +120,7 @@ public interface ByteUShortNullMap {
 					nullKeyHasValue :
 					nulls.get( ( byte ) ( token & KEY_MASK ) );
 		}
-
+		
 		/**
 		 * Retrieves the integer value associated with the given token.
 		 *
@@ -133,7 +133,7 @@ public interface ByteUShortNullMap {
 					nullKeyValue :
 					values[ nulls.rank( ( byte ) ( token & KEY_MASK ) ) - 1 ] );
 		}
-
+		
 		/**
 		 * Computes the hash code for this map based on its keys and values.
 		 * <p>
@@ -167,9 +167,9 @@ public interface ByteUShortNullMap {
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
-
+		
 		private static final int seed = R.class.hashCode();
-
+		
 		/**
 		 * Compares this map to the specified object for equality.
 		 * <p>
@@ -182,7 +182,7 @@ public interface ByteUShortNullMap {
 		public boolean equals( Object obj ) {
 			return obj != null && getClass() == obj.getClass() && equals( ( R ) obj );
 		}
-
+		
 		/**
 		 * Compares this read-only map to another {@code ByteIntNullMap.R} for equality.
 		 * <p>
@@ -198,13 +198,13 @@ public interface ByteUShortNullMap {
 			    size() != other.size() ||
 			    !super.equals( other ) )
 				return false;
-
-
+			
+			
 			for( int i = 0; i < nulls.size; i++ ) if( values[ i ] != other.values[ i ] ) return false;
-
+			
 			return true;
 		}
-
+		
 		/**
 		 * Creates and returns a deep copy of this read-only map.
 		 * <p>
@@ -214,7 +214,7 @@ public interface ByteUShortNullMap {
 		 */
 		@Override
 		public R clone() {
-
+			
 			try {
 				R dst = ( R ) super.clone();
 				dst.values = values.clone(); // Shallow copy; deep copy may be needed for mutable V
@@ -223,7 +223,7 @@ public interface ByteUShortNullMap {
 			} catch( CloneNotSupportedException e ) { }
 			return null;
 		}
-
+		
 		/**
 		 * Returns a string representation of this map in JSON format.
 		 *
@@ -231,7 +231,7 @@ public interface ByteUShortNullMap {
 		 */
 		@Override
 		public String toString() { return toJSON(); }
-
+		
 		/**
 		 * Writes the content of this map to a {@link JsonWriter}.
 		 * <p>
@@ -244,12 +244,12 @@ public interface ByteUShortNullMap {
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 );
 			json.enterObject();
-
+			
 			if( hasNullKey )
 				json.name().value( nullKeyHasValue ?
 						                   nullKeyValue :
 						                   null );
-
+			
 			for( long token = token(), key; ( key = token & KEY_MASK ) < 0x100; token = token( token ) ) {
 				json.name( String.valueOf( key ) );
 				if( nulls.get( ( byte ) key ) )
@@ -260,7 +260,7 @@ public interface ByteUShortNullMap {
 			json.exitObject();
 		}
 	}
-
+	
 	/**
 	 * {@code RW} (Read-Write) class provides a mutable implementation of {@link ByteIntNullMap}.
 	 * <p>
@@ -268,7 +268,7 @@ public interface ByteUShortNullMap {
 	 * This class is suitable for scenarios where the map needs to be dynamically changed.
 	 */
 	class RW extends R {
-
+		
 		/**
 		 * Constructs a new {@code RW} map with an initial capacity.
 		 *
@@ -277,7 +277,7 @@ public interface ByteUShortNullMap {
 		public RW( int length ) {
 			values = new char[ Math.max( Math.min( length, 0x100 ), 16 ) ];
 		}
-
+		
 		/**
 		 * Clears all mappings from this map.
 		 * <p>
@@ -290,7 +290,7 @@ public interface ByteUShortNullMap {
 			nulls._clear();
 			return this;
 		}
-
+		
 		/**
 		 * Associates the specified integer value with the specified boxed Byte key in this map.
 		 * <p>
@@ -307,7 +307,7 @@ public interface ByteUShortNullMap {
 			nullKeyValue = ( char ) value;
 			return _add();
 		}
-
+		
 		/**
 		 * Associates the specified boxed Integer value with the specified boxed Byte key in this map.
 		 * <p>
@@ -322,14 +322,14 @@ public interface ByteUShortNullMap {
 		 */
 		public boolean put(  Byte      key,  Character value ) {
 			if( key != null ) return put( ( byte ) ( key + 0 ), value );
-
+			
 			nullKeyValue = ( char ) ( ( nullKeyValueNull = ( value == null ) ) ?
 					0 :
 					value + 0 );
-
+			
 			return _add();
 		}
-
+		
 		/**
 		 * Associates the specified boxed Integer value with the specified primitive byte key in this map.
 		 * <p>
@@ -342,14 +342,14 @@ public interface ByteUShortNullMap {
 		 * @return {@code true} if the key was newly added to the map, {@code false} if the key already existed.
 		 */
 		public boolean put( byte key,  Character value ) {
-
+			
 			if( value != null ) return put( key, ( char ) ( value + 0 ) );
-
+			
 			if( nulls._remove( ( byte ) key ) ) Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 );
-
+			
 			return _add( ( byte ) key ); // return true if key was added, false otherwise
 		}
-
+		
 		/**
 		 * Associates the specified primitive integer value with the specified primitive byte key in this map.
 		 * <p>
@@ -360,7 +360,7 @@ public interface ByteUShortNullMap {
 		 * @return {@code true} if the key was newly added to the map, {@code false} if the key already existed.
 		 */
 		public boolean put( byte key, char value ) {
-
+			
 			int i;
 			if( nulls._add( ( byte ) key ) ) {
 				i = nulls.rank( ( byte ) key ) - 1;
@@ -369,12 +369,12 @@ public interface ByteUShortNullMap {
 						( values = new char[ Math.min( values.length * 2, 0x100 ) ] ), i, nulls.size - 1, 1 );
 			}
 			else i = nulls.rank( ( byte ) key ) - 1;
-
+			
 			values[ i ] = ( char ) value;
-
+			
 			return _add( ( byte ) key ); // return true if key was added, false otherwise
 		}
-
+		
 		/**
 		 * Removes the mapping for the specified boxed Byte key from this map if present.
 		 * <p>
@@ -386,11 +386,11 @@ public interface ByteUShortNullMap {
 		 */
 		public boolean remove(  Byte      key ) {
 			if( key != null ) return remove( ( byte ) ( key + 0 ) );
-
+			
 			nullKeyHasValue = false;
 			return _remove();
 		}
-
+		
 		/**
 		 * Removes the mapping for the specified primitive byte key from this map if present.
 		 * <p>
@@ -401,12 +401,12 @@ public interface ByteUShortNullMap {
 		 */
 		public boolean remove( byte key ) {
 			if( !_remove( ( byte ) key ) ) return false;
-
+			
 			if( nulls._remove( ( byte ) key ) )
 				Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 );
 			return true;
 		}
-
+		
 		/**
 		 * Creates and returns a deep copy of this read-write map.
 		 * <p>

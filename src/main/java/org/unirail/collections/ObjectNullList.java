@@ -357,68 +357,6 @@ public interface ObjectNullList< V >/*CLS*/ {
 		}
 	}
 	
-	/**
-	 * {@code Interface} defines the public API for mutable List implementations.
-	 * It extends the read-only {@code Interface} and adds methods for modifying the list, such as adding and setting elements, handling nullable Object values.
-	 *
-	 * @param <V> The type of elements in this list.
-	 */
-	interface Interface< V > {
-		/**
-		 * Returns the number of non-null elements in the list.
-		 *
-		 * @return The size of the list.
-		 */
-		int size();
-		
-		/**
-		 * Checks if a value (can be null or non-null) exists at the specified index.
-		 *
-		 * @param index The index to check.
-		 * @return {@code true} if a value exists at the specified index, {@code false} otherwise.
-		 * @throws IndexOutOfBoundsException if the index is out of range (index < 0 or index >= length()).
-		 */
-		boolean hasValue( int index );
-		
-		/**
-		 * Retrieves the non-null Object value at the specified index.
-		 *
-		 * @param index The index of the element to retrieve.
-		 * @return The non-null Object value at the specified index.
-		 * @throws IndexOutOfBoundsException if the index is out of range (index < 0 or index >= size()).
-		 * @throws NullPointerException      if the value at the specified index is null.
-		 */
-		V get( int index );
-		
-		/**
-		 * Adds a Object value (can be null) to the end of the list.
-		 *
-		 * @param value The Object value to add (can be null).
-		 * @return The {@code RW} instance for method chaining.
-		 */
-		RW< V > add1( V value );
-		
-		/**
-		 * Adds a Object value (can be null) at a specific index in the list.
-		 *
-		 * @param index The index at which the value should be inserted.
-		 * @param value The Object value to add (can be null).
-		 * @return The {@code RW} instance for method chaining.
-		 * @throws IndexOutOfBoundsException if the index is out of range (index < 0 or index > size()).
-		 */
-		RW< V > add1( int index, V value );
-		
-		
-		/**
-		 * Sets the value at a specific index in the list, allowing a Object value (can be null).
-		 *
-		 * @param index The index where the value should be set.
-		 * @param value The Object value to set (can be null).
-		 * @return The {@code RW} instance for method chaining.
-		 * @throws IndexOutOfBoundsException if the index is out of range (index < 0 or index >= length()).
-		 */
-		RW< V > set1( int index, V value );
-	}
 	
 	/**
 	 * {@code RW} class provides a read-write implementation of the List interface.
@@ -426,7 +364,7 @@ public interface ObjectNullList< V >/*CLS*/ {
 	 *
 	 * @param <V> The type of elements in this list.
 	 */
-	class RW< V > extends R< V > implements Interface< V > {
+	class RW< V > extends R< V > {
 		
 		/**
 		 * Default value used when initializing or extending the list.
@@ -540,7 +478,6 @@ public interface ObjectNullList< V >/*CLS*/ {
 		 * @return This {@code RW} instance for method chaining.
 		 * @throws IndexOutOfBoundsException if the index is out of range (index < 0 or index >= length()).
 		 */
-		@Override
 		public RW< V > set1( int index, V value ) {
 			R.set( this, index, value ); // Delegate to static set method to handle null values.
 			return this; // For method chaining.
@@ -587,7 +524,6 @@ public interface ObjectNullList< V >/*CLS*/ {
 		 * @param value The Object value to add (can be null).
 		 * @return This {@code RW} instance for method chaining.
 		 */
-		@Override
 		public RW< V > add1( V value ) {
 			if( value == null ) nulls.add( false ); // Add null bit to nulls BitList.
 			else {
@@ -606,7 +542,6 @@ public interface ObjectNullList< V >/*CLS*/ {
 		 * @return This {@code RW} instance for method chaining.
 		 * @throws IndexOutOfBoundsException if the index is out of range (index < 0 or index > size()).
 		 */
-		@Override
 		public RW< V > add1( int index, V value ) {
 			if( value == null ) nulls.add( index, false ); // Add null bit to nulls BitList at the specified index.
 			else {

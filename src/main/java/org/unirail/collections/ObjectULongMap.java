@@ -117,13 +117,13 @@ public interface ObjectULongMap {
 					INVALID_TOKEN;
 			if( _buckets == null ) return INVALID_TOKEN;
 			int hash = equal_hash_K.hashCode( key );
-			int i    = _buckets[ bucketIndex( hash ) ] - 1;
+			int next = _buckets[ bucketIndex( hash ) ] - 1;
 			
-			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < hash_nexts.length; ) {
-				final long hash_next = hash_nexts[ i ];
-				if( hash( hash_next ) == hash && equal_hash_K.equals( keys[ i ], key ) )
-					return token( i );
-				i = next( hash_next );
+			for( int collisionCount = 0; ( next & 0xFFFF_FFFFL ) < hash_nexts.length; ) {
+				final long hash_next = hash_nexts[ next ];
+				if( hash( hash_next ) == hash && equal_hash_K.equals( keys[ next ], key ) )
+					return token( next );
+				next = next( hash_next );
 				if( hash_nexts.length <= collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
@@ -194,7 +194,7 @@ public interface ObjectULongMap {
 			return obj != null && getClass() == obj.getClass() && equals( ( R ) obj );
 		}
 		
-		public boolean equals( R<K> other ) {
+		public boolean equals( R< K > other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
 			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) ||
@@ -208,7 +208,7 @@ public interface ObjectULongMap {
 		
 		@SuppressWarnings( "unchecked" )
 		@Override
-		public R<K> clone() {
+		public R< K > clone() {
 			try {
 				R dst = ( R ) super.clone();
 				if( _buckets != null ) {
@@ -224,13 +224,24 @@ public interface ObjectULongMap {
 			}
 		}
 		
+		/**
+		 * Returns a JSON string representation of this map.
+		 * <p>
+		 * Uses the {@link #toJSON(JsonWriter)} method to generate the JSON output.
+		 *
+		 * @return A JSON string representing the map's contents.
+		 */
+		public String toString() { return toJSON(); }
+		
 		@Override
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 );
 			long token = token();
 			
+			
 			if( equal_hash_K == Array.string ) {
 				json.enterObject();
+				if( hasNullKey ) json.name().value( nullKeyValue );
 				for( ; index( token ) < _count; token = token( token ) )
 				     json.name( key( token ) == null ?
 						                null :
@@ -240,6 +251,14 @@ public interface ObjectULongMap {
 			}
 			else {
 				json.enterArray();
+				
+				if( hasNullKey )
+					json
+							.enterObject()
+							.name( "Key" ).value()
+							.name( "Value" ).value( nullKeyValue )
+							.exitObject();
+				
 				for( ; index( token ) < _count; token = token( token ) )
 				     json.enterObject()
 				         .name( "Key" ).value( key( token ) )
@@ -249,7 +268,7 @@ public interface ObjectULongMap {
 			}
 		}
 		
-		protected int bucketIndex( int hash ) { return  ( hash & 0x7FFF_FFFF ) % _buckets.length; }
+		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
 		protected static int hash( long packedEntry ) {
 			return ( int ) ( packedEntry >> 32 );
@@ -394,17 +413,17 @@ public interface ObjectULongMap {
 			}
 			
 			if( _buckets == null ) initialize( 0 );
-			long[] _hash_nexts     = hash_nexts;
+			long[] _hash_nexts    = hash_nexts;
 			int    hash           = equal_hash_K.hashCode( key );
 			int    collisionCount = 0;
 			int    bucketIndex    = bucketIndex( hash );
-			int    i              = _buckets[ bucketIndex ] - 1;
+			int    bucket         = _buckets[ bucketIndex ] - 1;
 			
-			while( ( i & 0x7FFF_FFFF ) < _hash_nexts.length ) {
-				if( hash( _hash_nexts[ i ] ) == hash && equal_hash_K.equals( keys[ i ], key ) )
+			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _hash_nexts.length; ) {
+				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) )
 					switch( behavior ) {
 						case 1:
-							values[ i ] = ( long ) value;
+							values[ next ] = ( long ) value;
 							_version++;
 							return true;
 						case 0:
@@ -412,7 +431,7 @@ public interface ObjectULongMap {
 						default:
 							return false;
 					}
-				i = next( _hash_nexts[ i ] );
+				next = next( _hash_nexts[ next ] );
 				if( _hash_nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
@@ -426,12 +445,12 @@ public interface ObjectULongMap {
 			else {
 				if( _count == _hash_nexts.length ) {
 					resize( Array.prime( _count * 2 ), false );
-					i              = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
+					bucket = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
 				}
 				index = _count++;
 			}
 			
-			hash_nexts[ index ]     = hash_next( hash, i );
+			hash_nexts[ index ]     = hash_next( hash, bucket );
 			keys[ index ]           = key;
 			values[ index ]         = ( long ) value;
 			_buckets[ bucketIndex ] = index + 1;
@@ -494,9 +513,7 @@ public interface ObjectULongMap {
 			_freeCount = 0;
 		}
 		
-		private static long hash_next( int hash, int next ) {
-			return ( long ) hash << 32 | next & NEXT_MASK;
-		}
+		private static long hash_next( int hash, int next ) { return ( long ) hash << 32 | next & NEXT_MASK; }
 		
 		private static void next( long[] dst, int index, int next ) {
 			dst[ index ] = dst[ index ] & HASH_CODE_MASK | next & NEXT_MASK;

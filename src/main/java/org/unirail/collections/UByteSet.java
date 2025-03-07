@@ -172,15 +172,15 @@ public interface UByteSet {
 			return ( char ) (char)( 0xFF &  ( KEY_MASK & token ));    // Return the extracted index as byte value.
 		}
 		
-		protected long token_nullKey()                    { return ( long ) _version << VERSION_SHIFT | 0x100; }
+		protected long token_nullKey()                                { return ( long ) _version << VERSION_SHIFT | 0x100; }
 		
-		protected long token( int key )                   { return ( long ) _version << VERSION_SHIFT | key & 0xFF; }
+		protected long token( int key )                               { return ( long ) _version << VERSION_SHIFT | key & 0xFF; }
 		
 		protected long token_next_existing_key( long token, int key ) { return token & VERSION_MASK | ( token & KEY_MASK ) + 1L << RANK_SHIFT | key; }//step on next existing key
 		
-		protected long token( int rank, int key )         { return ( long ) _version << VERSION_SHIFT | ( long ) rank << 9 | key; }
+		protected long token( int rank, int key )                     { return ( long ) _version << VERSION_SHIFT | ( long ) rank << 9 | key; }
 		
-		protected int rank( long token )                  { return ( int ) ( token & RANK_MASK ) >>> RANK_SHIFT; }
+		protected int rank( long token )                              { return ( int ) ( token & RANK_MASK ) >>> RANK_SHIFT; }
 		
 		
 		/**
@@ -217,7 +217,7 @@ public interface UByteSet {
 		 * @return The iteration token for the given value, or {@link #INVALID_TOKEN} if the value is not in the set.
 		 */
 		public long tokenOf( char key ) {
-			return contains(  key ) ?
+			return contains( key ) ?
 					// Check if the set contains the byte value.
 					token( key ) :
 					// Create and return a token for the byte value.
@@ -344,13 +344,14 @@ public interface UByteSet {
 					_remove() :
 					_remove( ( char ) ( key + 0 ) );
 		}
-		protected boolean _remove(  ) {
-		if( hasNullKey ) return false;
-				
-					hasNullKey = true;
-					_version++;
-					return true;
-				
+		
+		protected boolean _remove() {
+			if( hasNullKey ) return false;
+			
+			hasNullKey = true;
+			_version++;
+			return true;
+			
 		}
 		
 		/**

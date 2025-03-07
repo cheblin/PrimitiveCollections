@@ -153,75 +153,14 @@ public interface BitsNullList {
 		}
 	}
 	
-	/**
-	 * Interface defining common read and write operations for BitsNullList implementations.
-	 */
-	interface Interface {
-		/**
-		 * Returns the number of elements in the list.
-		 *
-		 * @return The size of the list.
-		 */
-		int size();
-		
-		/**
-		 * Gets the element at the specified index as a byte.
-		 *
-		 * @param item The index of the element to retrieve.
-		 * @return The element at the specified index, as a byte.
-		 */
-		byte get( int item );
-		
-		/**
-		 * Checks if the element at the specified index is not the null value.
-		 *
-		 * @param index The index of the element to check.
-		 * @return {@code true} if the element at the index is not null, {@code false} otherwise.
-		 */
-		boolean hasValue( int index );
-		
-		/**
-		 * Sets the element at the specified index to the given long value.
-		 *
-		 * @param item  The index of the element to set.
-		 * @param value The new value for the element.
-		 * @return The RW instance for method chaining.
-		 */
-		RW set1( int item, long value );
-		
-		/**
-		 * Sets the element at the specified index to the given Long value.
-		 *
-		 * @param item  The index of the element to set.
-		 * @param value The new value for the element.
-		 * @return The RW instance for method chaining.
-		 */
-		RW set1( int item, Long value );
-		
-		/**
-		 * Adds a new element with the given long value to the end of the list.
-		 *
-		 * @param value The value to add.
-		 * @return The RW instance for method chaining.
-		 */
-		RW add1( long value );
-		
-		/**
-		 * Adds a new element with the given Long value to the end of the list.
-		 *
-		 * @param value The value to add.
-		 * @return The RW instance for method chaining.
-		 */
-		RW add1( Long value );
-	}
 	
 	/**
 	 * Concrete implementation of {@link BitsNullList} that allows read and write operations.
 	 * <p>
-	 * This class extends {@link BitsNullList.R} and implements the {@link BitsNullList.Interface},
+	 * This class extends {@link BitsNullList.R}
 	 * providing a fully functional, mutable list with null value support.
 	 */
-	class RW extends R implements Interface {
+	class RW extends R {
 		/**
 		 * Constructs a new RW list with the specified bits per item and null value.
 		 *

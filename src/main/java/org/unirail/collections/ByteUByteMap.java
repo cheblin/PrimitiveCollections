@@ -48,7 +48,7 @@ import org.unirail.JsonWriter;
  * with a limited range of byte keys (0-255).
  */
 public interface ByteUByteMap {
-
+	
 	/**
 	 * {@code R} is an abstract base class providing a skeletal implementation of the {@code ByteIntMap} interface.
 	 * <p>
@@ -59,8 +59,8 @@ public interface ByteUByteMap {
 	 * Subclasses of {@code R} are expected to provide concrete implementations for specific use cases, such as
 	 * mutable or immutable maps.
 	 */
-	abstract class R  extends ByteSet .R implements Cloneable, JsonWriter.Source {
-
+	abstract class R extends ByteSet.R implements Cloneable, JsonWriter.Source {
+		
 		/**
 		 * Array to store integer values associated with the byte keys.
 		 * The index in this array corresponds to the rank of the key in the underlying {@code ByteSet}.
@@ -71,7 +71,7 @@ public interface ByteUByteMap {
 		 * Default value is 0.
 		 */
 		protected byte   nullKeyValue = 0;
-
+		
 		/**
 		 * Retrieves the integer value associated with the given token.
 		 * <p>
@@ -79,8 +79,8 @@ public interface ByteUByteMap {
 		 *
 		 * @param token The token representing the key to look up.
 		 * @return The integer value associated with the key represented by the token.
-		 *         Returns {@code nullKeyValue} if the token represents a null key.
-		 *         Returns the value from the {@code values} array if the token represents a byte key.
+		 * Returns {@code nullKeyValue} if the token represents a null key.
+		 * Returns the value from the {@code values} array if the token represents a byte key.
 		 */
 		public char value( long token ) {
 			int r;
@@ -90,7 +90,7 @@ public interface ByteUByteMap {
 							rank( ( byte ) ( token & KEY_MASK ) ) :
 							r >>> RANK_SHIFT ) - 1 ] ));
 		}
-
+		
 		/**
 		 * Checks if the map contains the specified integer value.
 		 * <p>
@@ -101,7 +101,7 @@ public interface ByteUByteMap {
 		 * @return {@code true} if the map contains the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue( char value ) { return Array.indexOf( values, ( byte ) value, 0, size ) != -1; }
-
+		
 		/**
 		 * Calculates the hash code for this {@code ByteIntMap}.
 		 * <p>
@@ -113,7 +113,7 @@ public interface ByteUByteMap {
 		 */
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-
+			
 			int key;
 			for( long token = token(); ( key = ( int ) ( token & KEY_MASK ) ) < 0x100; token = token( token ) ) {
 				int h = Array.mix( seed, Array.hash( values[ rank( token ) - 1 ] ) );
@@ -122,7 +122,7 @@ public interface ByteUByteMap {
 				b ^= h;
 				c *= h | 1;
 			}
-
+			
 			if( hasNullKey ) {
 				int h = Array.hash( seed );
 				h = Array.mix( h, Array.hash( nullKeyValue ) );
@@ -131,16 +131,16 @@ public interface ByteUByteMap {
 				b ^= h;
 				c *= h | 1;
 			}
-
+			
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( super.hashCode(), a ), b ), c ), size() );
 		}
-
+		
 		/**
 		 * Seed value used in hash code calculation.
 		 * It's derived from the class hash code to provide a consistent starting point for mixing.
 		 */
 		private static final int seed = IntIntMap.R.class.hashCode();
-
+		
 		/**
 		 * Checks if this {@code ByteIntMap} is equal to another object.
 		 * <p>
@@ -150,7 +150,7 @@ public interface ByteUByteMap {
 		 * @return {@code true} if the objects are equal, {@code false} otherwise.
 		 */
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( getClass().cast( obj ) ); }
-
+		
 		/**
 		 * Checks if this {@code ByteIntMap} is equal to another {@code R} instance.
 		 * <p>
@@ -167,13 +167,13 @@ public interface ByteUByteMap {
 			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || // Compare null key value
 			    size() != other.size() ) // Compare sizes. Important to check size before array iteration
 				return false;
-
+			
 			for( int i = 0; i < size; i++ )
 				if( values[ i ] != other.values[ i ] ) return false; // Compare value arrays
-
+			
 			return true;
 		}
-
+		
 		/**
 		 * Creates and returns a shallow copy of this {@code ByteIntMap} instance.
 		 * <p>
@@ -188,14 +188,14 @@ public interface ByteUByteMap {
 			dst.values = values.clone();  // Clone values array
 			return dst;
 		}
-
+		
 		/**
 		 * Returns a string representation of this {@code ByteIntMap} in JSON format.
 		 *
 		 * @return A JSON string representation of the map.
 		 */
 		public String toString() { return toJSON(); }
-
+		
 		/**
 		 * Writes this {@code ByteIntMap} to a {@code JsonWriter}.
 		 * <p>
@@ -214,10 +214,10 @@ public interface ByteUByteMap {
 			     json.name( String.valueOf( key ) ).value( values[ rank( token ) - 1 ] ); // Write key-value pair
 			json.exitObject();               // End JSON object
 		}
-
+		
 	}
-
-
+	
+	
 	/**
 	 * {@code RW} is a concrete, mutable implementation of the {@code ByteIntMap} interface, extending the abstract
 	 * class {@code ByteIntMap.R}.
@@ -235,7 +235,7 @@ public interface ByteUByteMap {
 		 * @param length The desired initial capacity of the map.
 		 */
 		public RW( int length ) { values = new byte[ Math.max( Math.min( length, 0x100 ), 16 ) ]; }
-
+		
 		/**
 		 * Clears all key-value mappings from this {@code ByteIntMap}.
 		 * <p>
@@ -248,7 +248,7 @@ public interface ByteUByteMap {
 			_clear(); // Clear ByteSet part
 			return this;
 		}
-
+		
 		/**
 		 * Associates the specified integer value with the specified key in this map.
 		 * <p>
@@ -257,17 +257,17 @@ public interface ByteUByteMap {
 		 * @param key   The byte key with which the specified value is to be associated. A {@code null} key is permitted.
 		 * @param value The integer value to be associated with the specified key.
 		 * @return {@code true} if a new key-value mapping was added (i.e., the key was not previously in the map),
-		 *         {@code false} if an existing mapping was updated.
+		 * {@code false} if an existing mapping was updated.
 		 */
 		public boolean put(  Byte      key, char value ) {
 			if( key == null ) {
-				nullKeyValue = (byte)value;
+				nullKeyValue = ( byte ) value;
 				return _add(); // Add null key to ByteSet if not already present
 			}
 			return put( ( byte ) ( key + 0 ), value ); // Unbox Byte and call byte version of put
 		}
-
-
+		
+		
 		/**
 		 * Associates the specified integer value with the specified byte key in this map.
 		 * <p>
@@ -276,22 +276,24 @@ public interface ByteUByteMap {
 		 * @param key   The byte key with which the specified value is to be associated.
 		 * @param value The integer value to be associated with the specified key.
 		 * @return {@code true} if a new key-value mapping was added (i.e., the key was not previously in the map),
-		 *         {@code false} if an existing mapping was updated.
+		 * {@code false} if an existing mapping was updated.
 		 */
 		public boolean put( byte key, char value ) {
 			int     i     = rank( ( byte ) key ) - 1; // Get the rank/index for the key
 			boolean added = _add( ( byte ) key );      // Try to add the key to the ByteSet
 			if( added )  // If the key was newly added to the ByteSet (not already present)
-				Array.resize( values, i < values.length ? // Resize values array if needed
-						values : // if enough space, use current array
-						( values = new byte[ Math.min( values.length * 2, 0x100 ) ] ), // otherwise create a new array, doubling the size but not exceeding 256
-						i, size, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
-
-			values[ i ] =  (byte)value; // Set or update the value at the calculated index
-
+				Array.resize( values, i < values.length ?
+						              // Resize values array if needed
+						              values :
+						              // if enough space, use current array
+						              ( values = new byte[ Math.min( values.length * 2, 0x100 ) ] ), // otherwise create a new array, doubling the size but not exceeding 256
+				              i, size, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
+			
+			values[ i ] = ( byte ) value; // Set or update the value at the calculated index
+			
 			return added; // Return true if key was added (new mapping), false otherwise (existing mapping updated)
 		}
-
+		
 		/**
 		 * Removes the mapping for the specified key from this {@code ByteIntMap} if present.
 		 *
@@ -302,7 +304,7 @@ public interface ByteUByteMap {
 			if( key == null ) remove( null ); // Handle null key removal
 			return remove( ( byte ) ( key + 0 ) ); // Unbox Byte and call byte version of remove
 		}
-
+		
 		/**
 		 * Removes the mapping for the specified byte key from this {@code ByteIntMap} if present.
 		 *
@@ -314,7 +316,7 @@ public interface ByteUByteMap {
 			Array.resize( values, values, rank( key ) - 1, size, -1 ); // Resize values array to remove the value at the index of removed key
 			return true; // Return true if key was successfully removed
 		}
-
+		
 		/**
 		 * Creates and returns a shallow copy of this {@code RW} instance.
 		 * <p>
