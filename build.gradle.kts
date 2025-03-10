@@ -38,3 +38,7 @@ jmh {
     resultFormat.set("JSON")
     resultsFile.set(file("$buildDir/reports/jmh/results.json"))
 }
+
+tasks.withType<JavaExec> {
+    jvmArgs("-Djdk.attach.allowAttachSelf=true")
+}

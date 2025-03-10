@@ -18,7 +18,7 @@ h2 { color: #50fa7b; }
 </head>
 <body>
 <h1>Memory Footprint Report</h1>
-<p>This report compares memory usage (in bytes) between standard Java HashMap and custom map implementations. Measurements show total memory footprint for different data types under three scenarios: no nulls, half nulls, and all nulls. Lower values indicate better memory efficiency.</p>
+<p>This report compares memory usage (in bytes) between standard Java HashMap and custom map implementations. Measurements show total memory footprint for different data types under four scenarios: no nulls, half nulls, all nulls, and odd keys with values/even keys null. Lower values indicate better memory efficiency.</p>
 <div class="chart-container">
 <h2>Byte Maps</h2>
 <canvas id="chart-byte"></canvas>
@@ -43,16 +43,16 @@ h2 { color: #50fa7b; }
 new Chart(document.getElementById('chart-byte').getContext('2d'), {
 type: 'bar',
 data: {
-labels: ['No entries with null values.', 'Half of the entries have null values.', 'All entries have null values.'],
+labels: ['All entries have values', 'Half of entries are null', 'All entries are null', 'Odd keys have values, even keys are null'],
 datasets: [{
 label: 'HashMap<Byte, Byte>',
-data: [14352, 14352, 14352],
+data: [14352, 14352, 14352, 14352],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'ByteByteNullMap',
-data: [392, 264, 152],
+data: [392, 264, 152, 264],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -73,16 +73,16 @@ title: { display: true, text: 'Byte Memory Usage', color: '#f8f8f2', font: { siz
 new Chart(document.getElementById('chart-short').getContext('2d'), {
 type: 'bar',
 data: {
-labels: ['No entries with null values.', 'Half of the entries have null values.', 'All entries have null values.'],
+labels: ['All entries have values', 'Half of entries are null', 'All entries are null', 'Odd keys have values, even keys are null'],
 datasets: [{
 label: 'HashMap<Short, Short>',
-data: [70208, 62208, 56256],
+data: [70208, 62208, 56256, 63232],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'ShortShortNullMap',
-data: [17808, 17096, 15680],
+data: [17808, 17096, 15680, 17240],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -103,16 +103,16 @@ title: { display: true, text: 'Short Memory Usage', color: '#f8f8f2', font: { si
 new Chart(document.getElementById('chart-int').getContext('2d'), {
 type: 'bar',
 data: {
-labels: ['No entries with null values.', 'Half of the entries have null values.', 'All entries have null values.'],
+labels: ['All entries have values', 'Half of entries are null', 'All entries are null', 'Odd keys have values, even keys are null'],
 datasets: [{
 label: 'HashMap<Integer, Integer>',
-data: [70208, 62208, 56256],
+data: [70208, 62208, 56256, 63232],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'IntIntNullMap',
-data: [27672, 26256, 23424],
+data: [27672, 26256, 23424, 26400],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -133,16 +133,16 @@ title: { display: true, text: 'Int Memory Usage', color: '#f8f8f2', font: { size
 new Chart(document.getElementById('chart-long').getContext('2d'), {
 type: 'bar',
 data: {
-labels: ['No entries with null values.', 'Half of the entries have null values.', 'All entries have null values.'],
+labels: ['All entries have values', 'Half of entries are null', 'All entries are null', 'Odd keys have values, even keys are null'],
 datasets: [{
 label: 'HashMap<Long, Long>',
-data: [85184, 73184, 64256],
+data: [85184, 73184, 64256, 74720],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'LongLongNullMap',
-data: [39664, 36824, 31160],
+data: [39664, 36824, 31160, 36968],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -163,16 +163,16 @@ title: { display: true, text: 'Long Memory Usage', color: '#f8f8f2', font: { siz
 new Chart(document.getElementById('chart-int-boolean').getContext('2d'), {
 type: 'bar',
 data: {
-labels: ['No entries with null values.', 'Half of the entries have null values.', 'All entries have null values.'],
+labels: ['All entries have values', 'Half of entries are null', 'All entries are null', 'Odd keys have values, even keys are null'],
 datasets: [{
 label: 'HashMap<Integer, Boolean>',
-data: [56288, 56288, 56256],
+data: [56288, 56288, 56256, 56272],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'IntBitsMap',
-data: [23664, 23664, 23664],
+data: [23664, 23664, 23664, 23664],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1

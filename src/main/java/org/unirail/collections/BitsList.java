@@ -79,7 +79,7 @@ public interface BitsList {
 		 * Constructs a {@code BitsList} with the specified number of bits per item.
 		 * Initializes with an empty list and a default value of 0.
 		 *
-		 * @param bits_per_item Number of bits per item (1 to BITS).
+		 * @param bits_per_item Number of bits per item (1 to 7(inclusive)).
 		 */
 		protected R( int bits_per_item ) {
 			mask          = mask( bits = bits_per_item );
@@ -166,8 +166,9 @@ public interface BitsList {
 		 * Resets the size to 0.
 		 */
 		protected void clear() {
-			BitList.RW.clearBits( values, 0, size * bits );
+			java.util.Arrays.fill( values, 0, size * bits >> LEN, 0L );
 			size = 0;
+			
 		}
 		
 		/**
@@ -222,7 +223,7 @@ public interface BitsList {
 		/**
 		 * Retrieves the value of the last item in the list.
 		 *
-		 * @return The value of the last item as a {@code long}.
+		 * @return The value of the last item as a {@code byte}.
 		 * @throws IndexOutOfBoundsException If the list is empty.
 		 */
 		public byte get() {
@@ -235,7 +236,7 @@ public interface BitsList {
 		 * Extracts the value from the bit-packed array, handling cases where it spans two {@code long}s.
 		 *
 		 * @param item The index of the item (0 to {@code size-1}).
-		 * @return The value at the index as a {@code long}.
+		 * @return The value at the index as a {@code byte}.
 		 * @throws IndexOutOfBoundsException If {@code item} is out of bounds.
 		 */
 		public byte get( int item ) {
@@ -400,7 +401,7 @@ public interface BitsList {
 		 */
 		protected static void removeAt( R dst, int item ) {
 			if( item == dst.size - 1 ) {
-				if( dst.default_value == 0 ) append( dst, item, 0 );
+				if( dst.default_value == 0 ) append( dst, item, 0 ); // ensure trailing bits are zeroed if default is zero.
 				dst.size--;
 				return;
 			}
@@ -518,11 +519,11 @@ public interface BitsList {
 		}
 		
 		/**
-		 * Converts the list to a long array.
+		 * Converts the list to a byte array.
 		 * Allocates a new array if the provided one is null or too small.
 		 *
 		 * @param dst The destination array; if null or insufficient, a new array is created.
-		 * @return The long array containing all values, or {@code null} if the list is empty.
+		 * @return The byte array containing all values, or {@code null} if the list is empty.
 		 */
 		public byte[] toArray( byte[] dst ) {
 			if( size == 0 ) return null;
@@ -551,7 +552,7 @@ public interface BitsList {
 		 * @return The index of the {@code long} containing the bit.
 		 */
 		protected static int index( int bit_position ) {
-			return bit_position >> 6; // 6 because 2^6 = BITS
+			return bit_position >> LEN; // Use constant LEN
 		}
 		
 		/**
@@ -562,7 +563,7 @@ public interface BitsList {
 		 * @return The bit offset (0 to 63) within the {@code long}.
 		 */
 		protected static int bit( int bit_position ) {
-			return bit_position & 63; // 63 is 0b111111
+			return bit_position & MASK; // Use constant MASK
 		}
 		
 		/**
@@ -572,7 +573,7 @@ public interface BitsList {
 		 * @param src  Source {@code long} value containing the bits.
 		 * @param bit  Starting bit position within the {@code long} (0 to 63).
 		 * @param mask Mask to isolate the desired bits.
-		 * @return The extracted value as a {@code long}.
+		 * @return The extracted value as a {@code byte}.
 		 */
 		protected static byte value( long src, int bit, long mask ) {
 			return ( byte ) ( src >>> bit & mask );
@@ -587,7 +588,7 @@ public interface BitsList {
 		 * @param bit  Starting bit position in {@code prev} (0 to 63).
 		 * @param bits Number of bits to extract.
 		 * @param mask Mask to isolate the desired bits.
-		 * @return The extracted value as a {@code long}.
+		 * @return The extracted value as a {@code byte}.
 		 */
 		protected static byte value( long prev, long next, int bit, int bits, long mask ) {
 			return ( byte ) ( ( ( next & mask( bit + bits - BITS ) ) << BITS - bit | prev >>> bit ) & mask );
@@ -601,7 +602,7 @@ public interface BitsList {
 		 * @return Number of {@code long}s required.
 		 */
 		static int len4bits( int bits ) {
-			return bits + 63 >>> 6; // 63 ensures ceiling division
+			return bits + MASK >>> LEN; // Use constants MASK and LEN for clarity and potential optimization
 		}
 		
 		/**
@@ -612,12 +613,12 @@ public interface BitsList {
 		/**
 		 * Mask for bit operations, equal to 63 (0b111111).
 		 */
-		static final int MASK = BITS - 1;
+		protected static final int MASK = BITS - 1;
 		
 		/**
 		 * Number of bits to shift for indexing, equal to log2(BITS) = 6.
 		 */
-		static final int LEN = 6;
+		protected static final int LEN = 6;
 		
 	}
 	
@@ -630,6 +631,9 @@ public interface BitsList {
 		
 		/**
 		 * Constructs with specified bits per item; inherits from {@code R}.
+		 *
+		 * @param bits_per_item Number of bits per item (1 to 7). Must be between 1 and 64 inclusive.
+		 * @throws IllegalArgumentException if {@code bits_per_item} is not in the valid range.
 		 */
 		public RW( int bits_per_item ) {
 			super( bits_per_item );
@@ -637,6 +641,10 @@ public interface BitsList {
 		
 		/**
 		 * Constructs with specified bits per item and capacity; inherits from {@code R}.
+		 *
+		 * @param bits_per_item Number of bits per item (1 to 7). Must be between 1 and 64 inclusive.
+		 * @param length        Initial capacity in items.
+		 * @throws IllegalArgumentException if {@code bits_per_item} is not in the valid range.
 		 */
 		public RW( int bits_per_item, int length ) {
 			super( bits_per_item, length );
@@ -644,6 +652,11 @@ public interface BitsList {
 		
 		/**
 		 * Constructs with bits per item, default value, and size; inherits from {@code R}.
+		 *
+		 * @param bits_per_item Number of bits per item (1 to BITS). Must be between 1 and 7 inclusive.
+		 * @param defaultValue  Default value for items, masked to fit within {@code bits_per_item}.
+		 * @param size          Initial size in items (if negative, uses absolute value).
+		 * @throws IllegalArgumentException if {@code bits_per_item} is not in the valid range.
 		 */
 		public RW( int bits_per_item, int defaultValue, int size ) {
 			super( bits_per_item, defaultValue, size );
@@ -835,14 +848,6 @@ public interface BitsList {
 			return this;
 		}
 		
-		/**
-		 * Clears the list, resetting size to 0.
-		 * Overrides {@code R.clear()} to ensure proper clearing in the read-write context.
-		 */
-		@Override
-		public void clear() {
-			super.clear();
-		}
 		
 		/**
 		 * Sets the size of the list, extending with the default value if necessary, and returns this instance.
@@ -864,8 +869,9 @@ public interface BitsList {
 		 * @return A new {@code RW} instance that is a deep copy of this list.
 		 */
 		@Override
-		public RW clone() {
-			return ( RW ) super.clone();
-		}
+		public RW clone() { return ( RW ) super.clone(); }
+		
+		public void clear() { super.clear(); }
+		
 	}
 }
