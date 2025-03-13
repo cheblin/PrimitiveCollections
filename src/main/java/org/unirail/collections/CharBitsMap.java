@@ -550,7 +550,7 @@ public interface CharBitsMap {
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = ( _buckets[ bucketIndex ] ) - 1;
+			int           bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
 				if( keys[ next ] == key )
@@ -586,7 +586,7 @@ public interface CharBitsMap {
 			nexts[ index ] = ( int ) bucket;
 			keys[ index ]  = ( char ) key;
 			values.set1( index, ( byte ) value );
-			_buckets[ bucketIndex ] = ( int ) ( index + 1 );
+			_buckets[ bucketIndex ] =   index + 1;
 			_version++;
 			
 			return true;
@@ -653,12 +653,12 @@ public interface CharBitsMap {
 			int last           = -1;
 			int hash           = Array.hash( key );
 			int bucketIndex    = bucketIndex( hash );
-			int i              = ( _buckets[ bucketIndex ] ) - 1;
+			int i              = _buckets[ bucketIndex ] - 1;
 			
 			while( -1 < i ) {
 				int next = nexts[ i ];
 				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] = ( int ) ( next + 1 ); // Update bucket head if removing the head of the chain
+					if( last < 0 ) _buckets[ bucketIndex ] =  ( next + 1 ); // Update bucket head if removing the head of the chain
 					else nexts[ last ] = next; // Update the 'next' pointer of the previous entry in the chain
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Mark the removed entry as free and point to the old free list head
 					values.set1( i, values.default_value ); // Reset value to default
@@ -681,7 +681,7 @@ public interface CharBitsMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets, ( int ) 0 );
+			Arrays.fill( _buckets,  0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( keys, 0, _count, ( char ) 0 );
 			values.clear();
@@ -758,8 +758,8 @@ public interface CharBitsMap {
 			for( int i = 0; i < count; i++ )
 				if( -2 < new_next[ i ] ) { // Skip free list entries
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Recalculate bucket index in the new bucket array size
-					new_next[ i ]           = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 ); // Prepend current entry to the new bucket's chain
-					_buckets[ bucketIndex ] = ( int ) ( i + 1 ); // Update bucket head to the current entry's index
+					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Prepend current entry to the new bucket's chain
+					_buckets[ bucketIndex ] =  ( i + 1 ); // Update bucket head to the current entry's index
 				}
 			
 			nexts = new_next; // Replace old arrays with new resized arrays
@@ -781,8 +781,8 @@ public interface CharBitsMap {
 				nexts[ new_count ] = old_next[ i ]; // Copy 'next' value
 				keys[ new_count ]  = old_keys[ i ];  // Copy key
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Calculate new bucket index for the resized bucket array
-				nexts[ new_count ]      = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 ); // Prepend to new bucket chain
-				_buckets[ bucketIndex ] = ( int ) ( new_count + 1 ); // Update bucket head
+				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Prepend to new bucket chain
+				_buckets[ bucketIndex ] =  ( new_count + 1 ); // Update bucket head
 				new_count++; // Increment count for the new compacted array
 			}
 			_count     = new_count; // Update the main count to reflect only live entries

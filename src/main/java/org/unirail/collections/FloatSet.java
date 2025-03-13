@@ -444,7 +444,7 @@ public interface FloatSet {
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = ( _buckets[ bucketIndex ] ) - 1; // Get starting index of the bucket
+			int           bucket         = _buckets[ bucketIndex ] - 1; // Get starting index of the bucket
 			
 			// Check for key existence in the collision chain
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
@@ -472,7 +472,7 @@ public interface FloatSet {
 			
 			nexts[ index ]          = ( int ) bucket; // Set 'next' pointer for the new element
 			keys[ index ]           = ( float ) key; // Store the key
-			_buckets[ bucketIndex ] = ( int ) ( index + 1 ); // Update bucket to point to the new element
+			_buckets[ bucketIndex ] =   index + 1; // Update bucket to point to the new element
 			_version++; // Increment version to invalidate tokens
 			
 			return true; // Key added successfully
@@ -517,14 +517,14 @@ public interface FloatSet {
 			int last           = -1; // Index of the previous element in the collision chain
 			int hash           = Array.hash( key );
 			int bucketIndex    = bucketIndex( hash );
-			int i              = ( _buckets[ bucketIndex ] ) - 1; // Start index of the bucket
+			int i              = _buckets[ bucketIndex ] - 1; // Start index of the bucket
 			
 			// Traverse the collision chain
 			while( -1 < i ) {
 				int next = nexts[ i ];
 				if( keys[ i ] == key ) {
 					// Key found, remove it
-					if( last < 0 ) _buckets[ bucketIndex ] = ( int ) ( next + 1 ); // If it's the first in the bucket, update bucket to point to the next
+					if( last < 0 ) _buckets[ bucketIndex ] =  ( next + 1 ); // If it's the first in the bucket, update bucket to point to the next
 					else nexts[ last ] = next; // Otherwise, update the 'next' pointer of the previous element
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Add the removed element to the free list
 					_freeList  = i; // Update free list head
@@ -558,7 +558,7 @@ public interface FloatSet {
 		 */
 		public void clear() {
 			if( _count < 1 && !hasNullKey ) return; // Set is already empty
-			Arrays.fill( _buckets, ( int ) 0 ); // Clear buckets
+			Arrays.fill( _buckets,  0 ); // Clear buckets
 			Arrays.fill( nexts, 0, _count, ( int ) 0 ); // Clear 'next' pointers for used slots
 			Arrays.fill( keys, 0, _count, ( float ) 0 ); // Clear keys for used slots
 			_count     = 0; // Reset element count
@@ -643,8 +643,8 @@ public interface FloatSet {
 			for( int i = 0; i < count; i++ )
 				if( -2 < new_next[ i ] ) { // Only re-hash non-free elements
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Re-calculate bucket index for each key
-					new_next[ i ]           = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 ); // Update 'next' pointer to the old bucket head
-					_buckets[ bucketIndex ] = ( int ) ( i + 1 ); // Set new bucket head to the current element's index
+					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Update 'next' pointer to the old bucket head
+					_buckets[ bucketIndex ] =  ( i + 1 ); // Set new bucket head to the current element's index
 				}
 			
 			nexts = new_next; // Replace old 'next' array with the new one
@@ -666,8 +666,8 @@ public interface FloatSet {
 				nexts[ new_count ] = old_next[ i ]; // Copy 'next' pointer (though it will be overwritten in re-hashing)
 				keys[ new_count ]  = old_keys[ i ]; // Copy the key
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Re-calculate bucket index in the new capacity
-				nexts[ new_count ]      = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 ); // Update 'next' pointer to the old bucket head (in new buckets)
-				_buckets[ bucketIndex ] = ( int ) ( new_count + 1 ); // Set new bucket head to the current element's index
+				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Update 'next' pointer to the old bucket head (in new buckets)
+				_buckets[ bucketIndex ] =  ( new_count + 1 ); // Set new bucket head to the current element's index
 				new_count++; // Increment new count
 			}
 			_count     = new_count; // Update count to the number of copied elements

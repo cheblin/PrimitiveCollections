@@ -76,7 +76,7 @@ public interface ShortUIntNullMap {
 		/**
 		 * Array of buckets for the hash table. Each element is a 1-based index pointing to the head of a collision chain in the {@code nexts} array.
 		 */
-		protected char[]          _buckets;
+		protected int[]          _buckets;
 		/**
 		 * Array of next indices for collision chains. Each element points to the next entry in the chain or contains special markers like {@code StartOfFreeList}.
 		 */
@@ -587,7 +587,7 @@ public interface ShortUIntNullMap {
 		 */
 		private int initialize( int capacity ) {
 			capacity  = Array.prime( capacity );
-			_buckets  = new char[ capacity ];
+			_buckets  = new int[ capacity ];
 			nexts     = new int[ capacity ];
 			keys      = new short[ capacity ];
 			values    = new UIntNullList.RW( capacity );
@@ -746,7 +746,7 @@ public interface ShortUIntNullMap {
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = ( _buckets[ bucketIndex ] ) - 1;
+			int           bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
 				if( keys[ next ] == key ) {
@@ -787,7 +787,7 @@ public interface ShortUIntNullMap {
 			if( hasValue ) values.set1( index, value );
 			else values.set1( index, null );
 			
-			_buckets[ bucketIndex ] = ( char ) ( index + 1 );
+			_buckets[ bucketIndex ] =   index + 1;
 			_version++;
 			
 			return true;
@@ -874,7 +874,7 @@ public interface ShortUIntNullMap {
 					// Step 1: Unlink the entry at 'i' from its chain
 					if( last < 0 )
 						// If 'i' is the head, update bucket to point to the next entry
-						_buckets[ bucketIndex ] = ( char ) ( next + 1 );
+						_buckets[ bucketIndex ] =  ( next + 1 );
 					
 					else
 						// Otherwise, link the previous entry to the next, bypassing 'i'
@@ -904,7 +904,7 @@ public interface ShortUIntNullMap {
 						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
 							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 						
-						_buckets[ BucketOf_KeyToMove ] = ( char ) ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+						_buckets[ BucketOf_KeyToMove ] =  ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
 						
 						if( -1 < prev ) nexts[ prev ] = _next;
 						
@@ -939,7 +939,7 @@ public interface ShortUIntNullMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets, ( char ) 0 );
+			Arrays.fill( _buckets,  0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( keys, 0, _count, ( short ) 0 );
 			values.clear();
@@ -1018,12 +1018,12 @@ public interface ShortUIntNullMap {
 			short[] new_keys = Arrays.copyOf( keys, newSize );
 			final int     count    = _count;
 			
-			_buckets = new char[ newSize ];
+			_buckets = new int[ newSize ];
 			for( int i = 0; i < count; i++ ) {
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
-					new_next[ i ]           = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 );
-					_buckets[ bucketIndex ] = ( char ) ( i + 1 );
+					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 );
+					_buckets[ bucketIndex ] =  ( i + 1 );
 				}
 			}
 			
@@ -1048,8 +1048,8 @@ public interface ShortUIntNullMap {
 				if( old_values.hasValue( i ) ) values.set1( new_count, old_values.get( i ) );
 				else values.set1( new_count, null );
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ new_count ]      = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 );
-				_buckets[ bucketIndex ] = ( char ) ( new_count + 1 );
+				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
+				_buckets[ bucketIndex ] =  ( new_count + 1 );
 				new_count++;
 			}
 			_count     = new_count;

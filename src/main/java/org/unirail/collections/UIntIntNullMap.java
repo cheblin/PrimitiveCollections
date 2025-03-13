@@ -746,7 +746,7 @@ public interface UIntIntNullMap {
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = ( _buckets[ bucketIndex ] ) - 1;
+			int           bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
 				if( keys[ next ] == key ) {
@@ -787,7 +787,7 @@ public interface UIntIntNullMap {
 			if( hasValue ) values.set1( index, value );
 			else values.set1( index, null );
 			
-			_buckets[ bucketIndex ] = ( int ) ( index + 1 );
+			_buckets[ bucketIndex ] =   index + 1;
 			_version++;
 			
 			return true;
@@ -874,7 +874,7 @@ public interface UIntIntNullMap {
 					// Step 1: Unlink the entry at 'i' from its chain
 					if( last < 0 )
 						// If 'i' is the head, update bucket to point to the next entry
-						_buckets[ bucketIndex ] = ( int ) ( next + 1 );
+						_buckets[ bucketIndex ] =  ( next + 1 );
 					
 					else
 						// Otherwise, link the previous entry to the next, bypassing 'i'
@@ -904,7 +904,7 @@ public interface UIntIntNullMap {
 						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
 							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 						
-						_buckets[ BucketOf_KeyToMove ] = ( int ) ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+						_buckets[ BucketOf_KeyToMove ] =  ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
 						
 						if( -1 < prev ) nexts[ prev ] = _next;
 						
@@ -939,7 +939,7 @@ public interface UIntIntNullMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets, ( int ) 0 );
+			Arrays.fill( _buckets,  0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( keys, 0, _count, ( int ) 0 );
 			values.clear();
@@ -1022,8 +1022,8 @@ public interface UIntIntNullMap {
 			for( int i = 0; i < count; i++ ) {
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
-					new_next[ i ]           = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 );
-					_buckets[ bucketIndex ] = ( int ) ( i + 1 );
+					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 );
+					_buckets[ bucketIndex ] =  ( i + 1 );
 				}
 			}
 			
@@ -1048,8 +1048,8 @@ public interface UIntIntNullMap {
 				if( old_values.hasValue( i ) ) values.set1( new_count, old_values.get( i ) );
 				else values.set1( new_count, null );
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ new_count ]      = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 );
-				_buckets[ bucketIndex ] = ( int ) ( new_count + 1 );
+				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
+				_buckets[ bucketIndex ] =  ( new_count + 1 );
 				new_count++;
 			}
 			_count     = new_count;

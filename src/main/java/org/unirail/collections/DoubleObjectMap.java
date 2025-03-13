@@ -698,7 +698,7 @@ public interface DoubleObjectMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets, ( int ) 0 );
+			Arrays.fill( _buckets,  0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( keys, 0, _count, ( double ) 0 );
 			Arrays.fill( values, 0, _count, null );
@@ -723,12 +723,12 @@ public interface DoubleObjectMap {
 			int last           = -1;
 			int hash           = Array.hash( key );
 			int bucketIndex    = bucketIndex( hash );
-			int i              = ( _buckets[ bucketIndex ] ) - 1;
+			int i              = _buckets[ bucketIndex ] - 1;
 			
 			while( -1 < i ) {
 				int next = nexts[ i ];
 				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] = ( int ) ( next + 1 );
+					if( last < 0 ) _buckets[ bucketIndex ] =  ( next + 1 );
 					else nexts[ last ] = next;
 					
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList );
@@ -863,7 +863,7 @@ public interface DoubleObjectMap {
 			int           hash           = Array.hash( key );
 			int           collisionCount = 0;
 			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = ( _buckets[ bucketIndex ] ) - 1;
+			int           bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
 				if( keys[ next ] == key )
@@ -899,7 +899,7 @@ public interface DoubleObjectMap {
 			nexts[ index ]          = ( int ) bucket;
 			keys[ index ]           = ( double ) key;
 			values[ index ]         = value;
-			_buckets[ bucketIndex ] = ( int ) ( index + 1 );
+			_buckets[ bucketIndex ] =   index + 1;
 			_version++;
 			
 			return true;
@@ -923,8 +923,8 @@ public interface DoubleObjectMap {
 			for( int i = 0; i < count; i++ )
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
-					new_next[ i ]           = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 );
-					_buckets[ bucketIndex ] = ( int ) ( i + 1 );
+					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 );
+					_buckets[ bucketIndex ] =  ( i + 1 );
 				}
 			
 			nexts  = new_next;
@@ -965,8 +965,8 @@ public interface DoubleObjectMap {
 				keys[ new_count ]   = old_keys[ i ];
 				values[ new_count ] = old_values[ i ];
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ new_count ]      = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 );
-				_buckets[ bucketIndex ] = ( int ) ( new_count + 1 );
+				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
+				_buckets[ bucketIndex ] =  ( new_count + 1 );
 				new_count++;
 			}
 			_count     = new_count;

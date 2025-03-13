@@ -361,18 +361,21 @@ public interface ByteByteNullMap {
 		 */
 		public boolean put( byte key, byte value ) {
 			
-			int i;
 			if( nulls._add( ( byte ) key ) ) {
-				i = nulls.rank( ( byte ) key ) - 1;
-				Array.resize( values, i < values.length ?
-						values :
-						( values = new byte[ Math.min( values.length * 2, 0x100 ) ] ), i, nulls.size - 1, 1 );
+				int i = nulls.rank( ( byte ) key ) - 1;
+				
+				if( i + 1 < nulls.size || values.length < nulls.size )
+					Array.resize( values, values.length < nulls.size ?
+							( values = new byte[ Math.min( values.length * 2, 0x100 ) ] ) :
+							values, i, nulls.size - 1, 1 );
+				
+				values[ i ] = ( byte ) value;
+				return _add( ( byte ) key ); // return true if key was added, false otherwise
 			}
-			else i = nulls.rank( ( byte ) key ) - 1;
 			
-			values[ i ] = ( byte ) value;
+			values[ nulls.rank( ( byte ) key ) - 1 ] = ( byte ) value;
 			
-			return _add( ( byte ) key ); // return true if key was added, false otherwise
+			return false;
 		}
 		
 		/**

@@ -724,7 +724,7 @@ public interface DoubleObjectNullMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return; // Map is already empty
-			Arrays.fill( _buckets, ( int ) 0 ); // Clear buckets array
+			Arrays.fill( _buckets,  0 ); // Clear buckets array
 			Arrays.fill( nexts, 0, _count, ( int ) 0 ); // Clear nexts array
 			Arrays.fill( keys, 0, _count, ( double ) 0 ); // Clear keys array
 			values.clear(); // Clear values list
@@ -786,7 +786,7 @@ public interface DoubleObjectNullMap {
 					// Step 1: Unlink the entry at 'i' from its chain
 					if( last < 0 )
 						// If 'i' is the head, update bucket to point to the next entry
-						_buckets[ bucketIndex ] = ( int ) ( next + 1 );
+						_buckets[ bucketIndex ] =  ( next + 1 );
 					
 					else
 						// Otherwise, link the previous entry to the next, bypassing 'i'
@@ -816,7 +816,7 @@ public interface DoubleObjectNullMap {
 						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
 							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 						
-						_buckets[ BucketOf_KeyToMove ] = ( int ) ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+						_buckets[ BucketOf_KeyToMove ] =  ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
 						
 						if( -1 < prev ) nexts[ prev ] = _next; // Update next pointer of the previous entry
 						
@@ -933,7 +933,7 @@ public interface DoubleObjectNullMap {
 			int           hash           = Array.hash( key ); // Hash the key
 			int           collisionCount = 0; // Collision counter
 			int           bucketIndex    = bucketIndex( hash ); // Get bucket index
-			int           bucket         = ( _buckets[ bucketIndex ] ) - 1; // Get head of chain (0-based index)
+			int           bucket         = _buckets[ bucketIndex ] - 1; // Get head of chain (0-based index)
 			
 			// Traverse the chain to check for existing key
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
@@ -970,7 +970,7 @@ public interface DoubleObjectNullMap {
 			nexts[ index ] = ( int ) bucket; // Set next pointer for new entry
 			keys[ index ]  = ( double ) key; // Set key for new entry
 			values.set1( index, value ); // Set value for new entry
-			_buckets[ bucketIndex ] = ( int ) ( index + 1 ); // Update bucket to point to the new entry (1-based)
+			_buckets[ bucketIndex ] =   index + 1; // Update bucket to point to the new entry (1-based)
 			_version++; // Increment version
 			
 			return true; // Insertion successful
@@ -995,8 +995,8 @@ public interface DoubleObjectNullMap {
 			for( int i = 0; i < count; i++ )
 				if( -2 < new_next[ i ] ) { // Process only valid (non-free) entries
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Recalculate bucket index for the key
-					new_next[ i ]           = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 ); // Link current entry to the head of the new bucket chain
-					_buckets[ bucketIndex ] = ( int ) ( i + 1 ); // Update bucket head to point to the current entry (1-based)
+					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Link current entry to the head of the new bucket chain
+					_buckets[ bucketIndex ] =  ( i + 1 ); // Update bucket head to point to the current entry (1-based)
 				}
 			
 			nexts  = new_next; // Replace old arrays with new ones
@@ -1037,8 +1037,8 @@ public interface DoubleObjectNullMap {
 				keys[ new_count ]  = old_keys[ i ]; // Copy key
 				values.set1( new_count, old_values.get( i ) ); // Copy value
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Recalculate bucket index in new buckets array
-				nexts[ new_count ]      = ( int ) ( ( _buckets[ bucketIndex ] ) - 1 ); // Link to the head of the new bucket chain
-				_buckets[ bucketIndex ] = ( int ) ( new_count + 1 ); // Update bucket head to point to the new entry (1-based)
+				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Link to the head of the new bucket chain
+				_buckets[ bucketIndex ] =  ( new_count + 1 ); // Update bucket head to point to the new entry (1-based)
 				new_count++; // Increment new entry count
 			}
 			_count     = new_count; // Update total entry count

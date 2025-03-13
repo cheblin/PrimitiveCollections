@@ -279,19 +279,20 @@ public interface UByteUIntMap {
 		 * {@code false} if an existing mapping was updated.
 		 */
 		public boolean put( char key, long value ) {
-			int     i     = rank( ( byte ) key ) - 1; // Get the rank/index for the key
-			boolean added = _add( ( byte ) key );      // Try to add the key to the ByteSet
-			if( added )  // If the key was newly added to the ByteSet (not already present)
+			if( _add( ( byte ) key ) )  // If the key was newly added to the ByteSet (not already present)
+			{
+				int i = rank( ( byte ) key ) - 1; // Get the rank/index for the key
 				Array.resize( values, i < values.length ?
-						              // Resize values array if needed
-						              values :
-						              // if enough space, use current array
-						              ( values = new int[ Math.min( values.length * 2, 0x100 ) ] ), // otherwise create a new array, doubling the size but not exceeding 256
-				              i, size, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
+						// Resize values array if needed
+						values :
+						( values = new int[ Math.min( values.length * 2, 0x100 ) ] ), i, size - 1, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
+				values[ i ] = ( int ) value;
+				return true;
+			}
 			
-			values[ i ] = ( int ) value; // Set or update the value at the calculated index
+			values[ rank( ( byte ) key ) - 1 ] = ( int ) value; // Set or update the value at the calculated index
 			
-			return added; // Return true if key was added (new mapping), false otherwise (existing mapping updated)
+			return false; // Return true if key was added (new mapping), false otherwise (existing mapping updated)
 		}
 		
 		/**

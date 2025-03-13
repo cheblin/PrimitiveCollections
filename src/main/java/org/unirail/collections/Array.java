@@ -158,7 +158,7 @@ public interface Array {
 			int seed = EqualHashOf.class.hashCode();
 			if( array ) {
 				while( -1 < --size )
-					seed = ( size + 10153331 ) + hash( seed, hash( src[ size ] ) );
+					seed = size + 10153331 + hash( seed, hash( src[ size ] ) );
 				return seed;
 			}
 			
@@ -258,7 +258,7 @@ public interface Array {
 			public int hashCode( boolean[][] src, int size ) {
 				int hash = boolean[][].class.hashCode();
 				while( -1 < --size )
-					hash = ( size + 10153331 ) + hash( hash, Arrays.hashCode( src[ size ] ) );
+					hash = size + 10153331 + hash( hash, Arrays.hashCode( src[ size ] ) );
 				return hash;
 			}
 			
@@ -365,7 +365,7 @@ public interface Array {
 			public int hashCode( short[][] src, int size ) {
 				int hash = short[][].class.hashCode();
 				while( -1 < --size )
-					hash = ( size + 10153331 ) + hash( hash, Arrays.hashCode( src[ size ] ) );
+					hash = size + 10153331 + hash( hash, Arrays.hashCode( src[ size ] ) );
 				return hash;
 			}
 			
@@ -412,7 +412,7 @@ public interface Array {
 			public int hashCode( char[][] src, int size ) {
 				int hash = char[][].class.hashCode();
 				while( -1 < --size )
-					hash = ( size + 10153331 ) + hash( hash, Arrays.hashCode( src[ size ] ) );
+					hash = size + 10153331 + hash( hash, Arrays.hashCode( src[ size ] ) );
 				return hash;
 			}
 			
@@ -459,7 +459,7 @@ public interface Array {
 			public int hashCode( int[][] src, int size ) {
 				int hash = int[][].class.hashCode();
 				while( -1 < --size )
-					hash = ( size + 10153331 ) + hash( hash, Arrays.hashCode( src[ size ] ) );
+					hash = size + 10153331 + hash( hash, Arrays.hashCode( src[ size ] ) );
 				return hash;
 			}
 			
@@ -505,7 +505,7 @@ public interface Array {
 			public int hashCode( long[][] src, int size ) {
 				int hash = long[][].class.hashCode();
 				while( -1 < --size )
-					hash = ( size + 10153331 ) + hash( hash, Arrays.hashCode( src[ size ] ) );
+					hash = size + 10153331 + hash( hash, Arrays.hashCode( src[ size ] ) );
 				return hash;
 			}
 			
@@ -551,7 +551,7 @@ public interface Array {
 			public int hashCode( float[][] src, int size ) {
 				int hash = float[][].class.hashCode();
 				while( -1 < --size )
-					hash = ( size + 10153331 ) + hash( hash, Arrays.hashCode( src[ size ] ) );
+					hash = size + 10153331 + hash( hash, Arrays.hashCode( src[ size ] ) );
 				return hash;
 			}
 			
@@ -598,7 +598,7 @@ public interface Array {
 			public int hashCode( double[][] src, int size ) {
 				int hash = double[][].class.hashCode();
 				while( -1 < --size )
-					hash = ( size + 10153331 ) + hash( hash, Arrays.hashCode( src[ size ] ) );
+					hash = size + 10153331 + hash( hash, Arrays.hashCode( src[ size ] ) );
 				return hash;
 			}
 			
@@ -1434,8 +1434,8 @@ public interface Array {
 			if( src != dst && 0 < index )
 				System.arraycopy( src, 0, dst, 0, index );
 			
-			if( index + ( -resize ) < size ) {
-				System.arraycopy( src, index + ( -resize ), dst, index, size - ( index + ( -resize ) ) );
+			if( index + -resize < size ) {
+				System.arraycopy( src, index + -resize, dst, index, size - ( index + -resize ) );
 				return size + resize;
 			}
 			
@@ -2165,7 +2165,7 @@ public interface Array {
 							Y < X ?
 									1
 									:
-									( Long.compare( x, y ) );
+									Long.compare( x, y );
 				}
 			}
 			
@@ -2194,7 +2194,7 @@ public interface Array {
 							Y < X ?
 									1
 									:
-									( Long.compare( x, y ) );
+									Long.compare( x, y );
 				}
 			}
 			
@@ -2642,7 +2642,7 @@ public interface Array {
 			275995999, 331195199, 397434263, 476921141, 572305373, 686766469, 824119789, 988943741,
 			1186732499, 1424078987, 1708894781, 2050673741
 	};
-	
+
 	// Fixed-size 256-bit Flag Set class.
 	// Represents a set of byte values (0-255) using a bitset implemented with four long integers.
 	abstract class FF implements Cloneable {
@@ -2686,17 +2686,13 @@ public interface Array {
 		 * @return The rank of the byte value. Returns the count of elements in the set less than {@code key}.
 		 */
 		protected int rank( byte key ) {
-			
-			switch( key & 0xC0 ) { // Determine which segments to count based on the higher 2 bits of the key.
-				case 0xC0: // 192-255. Count bits in _1, _2, _3, and bits in _4 less than 'key'.
-					return Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 ) + Long.bitCount( _4 << 63 - key );
-				case 0x80: // 128-191. Count bits in _1, _2, and bits in _3 less than 'key'.
-					return Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 << 63 - key );
-				case 0x40: // 64-127. Count bits in _1, and bits in _2 less than 'key'.
-					return Long.bitCount( _1 ) + Long.bitCount( _2 << 63 - key );
-				default:   // 0-63. Count bits in _1 less than 'key'.
-					return Long.bitCount( _1 << 63 - key );
-			}
+			return key < 0 ?
+					-65 < key ?
+							Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 ) + Long.bitCount( _4 << 63 - key ) :
+							Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 << 63 - key ) :
+					63 < key ?
+							Long.bitCount( _1 ) + Long.bitCount( _2 << 63 - key ) :
+							Long.bitCount( _1 << 63 - key );
 		}
 		
 		/**
@@ -2714,42 +2710,39 @@ public interface Array {
 		}
 		
 		/**
-		 * Returns the smallest byte value (0-255) in the set that is strictly greater than the given {@code key}.
+		 * Returns the smallest byte value (0-255) in the set that is strictly greater than the given {@code index}.
 		 *
-		 * @param key The reference byte value. The search starts from the next byte value (key + 1).
-		 * @return The smallest byte value greater than {@code key}, or -1 if no such value exists in the set.
+		 * @param index The reference byte value. The search starts from the next byte value (index + 1).
+		 * @return The smallest byte value greater than {@code index}, or -1 if no such value exists in the set.
 		 */
-		protected int next1( int key ) {
+		protected int next1( int index ) {
+			long l;
+			index++; // Start searching for the next set bit from the byte value immediately after the current one.
 			
-			key++; // Start searching for the next set bit from the byte value immediately after the current one.
-			if( key < size ) { // If there are still byte values in the set to iterate over.
-				long l;
-				switch( key & 0b1100_0000 ) { // Determine which 64-bit segment to check next based on the starting key value.
-					case 0b1100_0000: // Range [192, 255]
-						l = _4 >>> key; // Right-shift _4 to start searching from 'key' onwards.
-						if( l != 0 ) return key + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
-						break; // If no set bit in the remaining part of _4, proceed to check the next segment.
-					
-					case 0b1000_0000: // Range [128, 191]
-						l = _3 >>> key; // Right-shift _3 to start searching from 'key' onwards.
-						if( l != 0 ) return key + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
-						if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bit in the remaining part of _3, check if there are any set bits in _4 and return the smallest one.
-						break; // If no set bits in _3 or _4, proceed to check the next segment.
-					
-					case 0b0100_0000: // Range [64, 127]
-						l = _2 >>> key; // Right-shift _2 to start searching from 'key' onwards.
-						if( l != 0 ) return key + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
-						if( _3 != 0 ) return 128 + Long.numberOfTrailingZeros( _3 ); // If no set bit in the remaining part of _2, check if there are any set bits in _3 and return the smallest one.
-						if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bits in _2 or _3, check if there are any set bits in _4 and return the smallest one.
-						break; // If no set bits in _2, _3 or _4, proceed to check the next segment.
-					
-					default: // Range [0, 63]
-						l = _1 >>> key; // Right-shift _1 to start searching from 'key' onwards.
-						if( l != 0 ) return key + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
-						if( _2 != 0 ) return 64 + Long.numberOfTrailingZeros( _2 ); // If no set bit in the remaining part of _1, check if there are any set bits in _2 and return the smallest one.
-						if( _3 != 0 ) return 128 + Long.numberOfTrailingZeros( _3 ); // If no set bits in _1 or _2, check if there are any set bits in _3 and return the smallest one.
-						if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bits in _1, _2 or _3, check if there are any set bits in _4 and return the smallest one.
+			if( 127 < index )
+				if( 191 < index )// Values 192-255
+				{
+					l = _4 >>> index; // Right-shift _4 to start searching from 'index' onwards.
+					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
 				}
+				else {
+					l = _3 >>> index; // Right-shift _3 to start searching from 'index' onwards.
+					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
+					if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bit in the remaining part of _3, check if there are any set bits in _4 and return the smallest one.
+				}
+			else if( 63 < index ) {
+				l = _2 >>> index; // Right-shift _2 to start searching from 'index' onwards.
+				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
+				if( _3 != 0 ) return 128 + Long.numberOfTrailingZeros( _3 ); // If no set bit in the remaining part of _2, check if there are any set bits in _3 and return the smallest one.
+				if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bits in _2 or _3, check if there are any set bits in _4 and return the smallest one.
+				
+			}
+			else {
+				l = _1 >>> index; // Right-shift _1 to start searching from 'index' onwards.
+				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
+				if( _2 != 0 ) return 64 + Long.numberOfTrailingZeros( _2 ); // If no set bit in the remaining part of _1, check if there are any set bits in _2 and return the smallest one.
+				if( _3 != 0 ) return 128 + Long.numberOfTrailingZeros( _3 ); // If no set bits in _1 or _2, check if there are any set bits in _3 and return the smallest one.
+				if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bits in _1, _2 or _3, check if there are any set bits in _4 and return the smallest one.
 			}
 			
 			return -1;
@@ -2765,25 +2758,12 @@ public interface Array {
 		protected boolean _remove( byte key ) {
 			if( size == 0 ) return false; // Optimization: empty set cannot contain any key to remove.
 			final long bit = ~( 1L << key ); // Calculate bitmask to clear the bit at the given key position. Ensure key is treated as unsigned byte.
-			long       t;
-			switch( key & 0b1100_0000 ) { // Determine segment to modify based on the higher 2 bits of the key.
-				case 0b1100_0000:             // Values 192-255
-					t = _4;
-					if( ( _4 &= bit ) == t ) return false; // If the bit was already 0, no modification occurred.
-					break;
-				case 0b1000_0000:             // Values 128-191
-					t = _3;
-					if( ( _3 &= bit ) == t ) return false; // If the bit was already 0, no modification occurred.
-					break;
-				case 0b0100_0000:             // Values 64-127
-					t = _2;
-					if( ( _2 &= bit ) == t ) return false; // If the bit was already 0, no modification occurred.
-					break;
-				default:                      // Values 0-63
-					t = _1;
-					if( ( _1 &= bit ) == t ) return false; // If the bit was already 0, no modification occurred.
-					break;
+			if( key < 0 ) {
+				if( -65 < key ) { if( _4 == ( _4 &= bit ) ) return false; }
+				else if( _3 == ( _3 &= bit ) ) return false;
 			}
+			else if( 63 < key ) { if( _2 == ( _2 &= bit ) ) return false; }
+			else if( _1 == ( _1 &= bit ) ) return false;
 			size--; // Decrement size as an element was removed.
 			_version++; // Increment version to indicate structural modification.
 			return true; // Value was removed.
@@ -2798,25 +2778,14 @@ public interface Array {
 		 */
 		protected boolean _add( final byte key ) {
 			final long bit = 1L << key;        // Calculate the bitmask to set the bit at the given key position. Ensure key is treated as unsigned byte.
-			long       t;
-			switch( key & 0b1100_0000 ) {       // Determine which 64-bit segment to modify based on the higher 2 bits of the key.
-				case 0b1100_0000:             // Values 192-255
-					t = _4;
-					if( ( _4 |= bit ) == t ) return false; // If the bit was already 1, no modification occurred.
-					break;
-				case 0b1000_0000:             // Values 128-191
-					t = _3;
-					if( ( _3 |= bit ) == t ) return false; // If the bit was already 1, no modification occurred.
-					break;
-				case 0b0100_0000:             // Values 64-127
-					t = _2;
-					if( ( _2 |= bit ) == t ) return false; // If the bit was already 1, no modification occurred.
-					break;
-				default:                      // Values 0-63
-					t = _1;
-					if( ( _1 |= bit ) == t ) return false; // If the bit was already 1, no modification occurred.
-					break;
+			
+			if( key < 0 ) {
+				if( -65 < key ) { if( _4 == ( _4 |= bit ) ) return false; }
+				else if( _3 == ( _3 |= bit ) ) return false;
 			}
+			else if( key > 63 ) { if( _2 == ( _2 |= bit ) ) return false; }
+			else if( _1 == ( _1 |= bit ) ) return false;
+			
 			size++; // Increment size as a new element was added.
 			_version++; // Increment version to indicate structural modification.
 			return true; // Value was added.
@@ -2826,8 +2795,7 @@ public interface Array {
 		 * Clears all byte values from the set, making it empty.
 		 */
 		protected void _clear() {
-			_1   = _2 = _3 = _4 = 0; // Reset all bitset segments to 0.
-			size = 0; // Reset size counter to 0.
+			_1 = _2 = _3 = _4 = size = 0; // Reset all bitset segments to 0.
 			_version++; // Increment version to indicate structural modification.
 		}
 		
@@ -2840,23 +2808,15 @@ public interface Array {
 		 */
 		protected boolean get( byte key ) {
 			if( size == 0 ) return false; // Optimization: empty set cannot contain any value.
-			final int val = key & 0xFF;    // Ensure the byte value is within the range 0-255 (unsigned byte).
-			return ( ( val < 128 ?
-					// Check which 64-bit segment the byte value falls into.
-					val < 64 ?
-							// Check if in the first segment (0-63).
-							_1 :
-							// Access the second segment (64-127).
-							_2 :
-					// Access the third segment (128-191).
-					val < 192 ?
-							// Check if in the fourth segment (192-255).
+			
+			return ( ( key < 0 ?
+					-65 < key ?
+							_4 :
 							_3 :
-							// Access the fourth segment (192-255).
-							_4 ) & 1L << val ) != 0; // Access the corresponding segment and check if the bit corresponding to 'val' is set.
+					63 < key ?
+							_2 :
+							_1 ) & 1L << key ) != 0;
 		}
-		
-		
 	}
 }
 

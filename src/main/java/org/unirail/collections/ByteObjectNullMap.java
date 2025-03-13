@@ -359,23 +359,31 @@ public interface ByteObjectNullMap {
 		public boolean put( byte key, V value ) {
 			
 			if( value == null ) {
-				if( nulls._remove( ( byte ) key ) ) Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Remove key from nulls array and resize values array if needed
-			}
-			else {
-				int i;
-				if( nulls._add( ( byte ) key ) ) { // Add key to nulls array if not already present
-					i = nulls.rank( ( byte ) key ) - 1; // Get rank of the key (index in values array)
-					Array.resize( values, i < values.length ?
-							// Resize values array if needed to accommodate new key
-							values :
-							( values = equal_hash_V.copyOf( null, Math.min( values.length * 2, 0x100 ) ) ), i, nulls.size - 1, 1 ); // Double size up to max byte value range if necessary
+				if( nulls._remove( ( byte ) key ) )// if in the nulls exists it means the key is present
+				{
+					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Remove key from nulls array and resize values array if needed
+					return false;
 				}
-				else i = nulls.rank( ( byte ) key ) - 1; // Key already exists, get its rank
-				
-				values[ i ] = value; // Set/update value at the calculated index
+				//maybe the key does not present
+				return _add( ( byte ) key ); // return true if key was added, false otherwise (ByteSet.R logic, tracks key presence regardless of value)
 			}
 			
-			return _add( ( byte ) key ); // return true if key was added, false otherwise (ByteSet.R logic, tracks key presence regardless of value)
+			if( nulls._add( ( byte ) key ) ) {
+				int i = nulls.rank( ( byte ) key ) - 1;
+				
+				if( i + 1 < nulls.size || values.length < nulls.size )
+					Array.resize( values, values.length < nulls.size ?
+							( values = equal_hash_V.copyOf( null, Math.min( values.length * 2, 0x100 ) ) ) :
+							values, i, nulls.size - 1, 1 );
+				
+				values[ i ] = value;
+				return _add( ( byte ) key ); // return true if key was added, false otherwise
+			}
+			
+			values[ nulls.rank( ( byte ) key ) - 1 ] = value;
+			
+			return false;
+			
 		}
 		
 		/**

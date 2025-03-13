@@ -137,16 +137,17 @@ public interface ByteSet {
 			if( !isValid( token ) ) // Check if the provided token is valid for the current version of the set.
 				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 			
-			int key = ( int ) ( token & KEY_MASK ); // Extract the index (byte value or 256 for null) from the token.
-			if( 0xFF < key ) return INVALID_TOKEN; // If the current token is for the null key, no next element exists.
-			
-			if( key + 1 < size ) return token_next_existing_key( token, next1( key ) );
-			
-			return hasNullKey ?
-					// If no more byte values, check for null key.
-					token_nullKey() :
-					// Return token for null key.
-					INVALID_TOKEN; // No more elements (neither byte values nor null key).
+			int index = ( int ) ( token & KEY_MASK ); // Extract the index (byte value or 256 for null) from the token.
+			return 0xFF < index ?
+					INVALID_TOKEN :
+					( index = next1( index ) ) == -1 ?
+							hasNullKey ?
+									// If no more byte values, check for null index.
+									token_nullKey() :
+									// Return token for null index.
+									INVALID_TOKEN :
+							// No more elements (neither byte values nor null index).
+							token_next_existing_key( token, index ); // If the current token is for the null index, no next element exists.
 		}
 		
 		/**
@@ -452,10 +453,16 @@ public interface ByteSet {
 			if( _3 != src._3 ) { _3 &= src._3; ret = true; } // Intersect _3 with src._3, set modification flag if changed.
 			if( _4 != src._4 ) { _4 &= src._4; ret = true; } // Intersect _4 with src._4, set modification flag if changed.
 			if( ret ) {
+				
 				size = Math.max( size, src.size ); // Size might change after intersection.
 				_version++; // Increment version if modified.
 			}
-			return ret; // Return modification status.
+			if( !hasNullKey || src.hasNullKey ) return ret;
+			hasNullKey = false;
+			
+			_version++;
+			
+			return true; // Return modification status.
 		}
 		
 		/**
@@ -466,11 +473,17 @@ public interface ByteSet {
 		 * @return This {@code RW} instance after adding all elements from the source set.
 		 */
 		public RW addAll( R src ) {
-			_1 |= src._1;
-			_2 |= src._2;
-			_3 |= src._3;
-			_4 |= src._4; // Perform bitwise OR to union the bitsets.
-			size = Math.max( src.size, size ); // Update size to the maximum of current and source size.
+			var __1 = _1;
+			var __2 = _2;
+			var __3 = _3;
+			var __4 = _4;
+			var c   = size;
+			size = ( Long.bitCount( _1 |= src._1 ) +
+			         Long.bitCount( _2 |= src._2 ) +
+			         Long.bitCount( _3 |= src._3 ) +
+			         Long.bitCount( _4 |= src._4 ) );
+			
+			if( hasNullKey != src.hasNullKey || c != size || __1 != _1 || __2 != _2 || __3 != _3 || __4 != _4 ) _version++;
 			if( src.hasNullKey ) hasNullKey = true; // If source has null key, add null key to this set.
 			return this; // Return instance for chaining.
 		}
