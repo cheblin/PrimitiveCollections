@@ -115,13 +115,14 @@ public interface ByteObjectNullMap {
 		 * @throws ConcurrentModificationException If the token is no longer valid due to structural modifications of the map since the token was obtained.
 		 */
 		public V value( long token ) {
-			int r;
+			int i;
 			return isKeyNull( token ) ?
 					nullKeyValue :
 					// Return nullKeyValue if it's the null key token
-					nulls.get( ( byte ) ( token & KEY_MASK ) ) ?
-							// Check if the key (extracted from token) exists in nulls array
-							values[ nulls.rank( ( byte ) ( token & KEY_MASK ) ) - 1 ] :
+					nulls.get( ( byte ) ( i = ( int ) ( token & KEY_MASK ) ) ) ?
+							values.length == 256 ?
+									values[ i ] :
+									values[ nulls.rank( ( byte ) i ) - 1 ] :
 							// If key exists, get the value from values array using key's rank
 							null; // Key not found (or was removed after token was issued)
 		}
@@ -138,11 +139,7 @@ public interface ByteObjectNullMap {
 			return key == null ?
 					nullKeyValue :
 					// Handle null key case
-					nulls.get( ( byte ) ( key + 0 ) ) ?
-							// Check if the non-null key exists
-							values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] :
-							// Retrieve value by key's rank if key exists
-							null; // Key not found
+					value( ( byte ) ( key + 0 ) ); // Key not found
 		}
 		
 		/**
@@ -153,8 +150,9 @@ public interface ByteObjectNullMap {
 		 */
 		public V value( byte key ) {
 			return nulls.get( ( byte ) ( key + 0 ) ) ?
-					// Check if the key exists
-					values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] :
+					values.length == 256 ?
+							values[ key & 0xFF ] :
+							values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] :
 					// Retrieve value by key's rank if key exists
 					null; // Key not found
 		}
@@ -361,6 +359,7 @@ public interface ByteObjectNullMap {
 			if( value == null ) {
 				if( nulls._remove( ( byte ) key ) )// if in the nulls exists it means the key is present
 				{
+					if( values.length == 256 ) return false;
 					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Remove key from nulls array and resize values array if needed
 					return false;
 				}
@@ -368,22 +367,34 @@ public interface ByteObjectNullMap {
 				return _add( ( byte ) key ); // return true if key was added, false otherwise (ByteSet.R logic, tracks key presence regardless of value)
 			}
 			
-			if( nulls._add( ( byte ) key ) ) {
-				int i = nulls.rank( ( byte ) key ) - 1;
+			if( !nulls._add( ( byte ) key ) ) {
+				values[ values.length == 256 ?
+						key & 0xFF :
+						nulls.rank( ( byte ) key ) - 1 ] = value;
+				
+				return false;
+			}
+			
+			int i;
+			if( values.length == 256 ) i = key & 0xFF;
+			else if( nulls.size == 128 ) {
+				V[] newValues = equal_hash_V.copyOf( null, 256 );
+				i = key & 0xFF;
+				
+				for( int ii = nulls.first1(), k = 0; -1 < ii; ii = nulls.next1( ii ), k++ )
+				     newValues[ ii ] = values[ k ];
+				values = newValues;
+			}
+			else {
+				i = nulls.rank( ( byte ) key ) - 1;
 				
 				if( i + 1 < nulls.size || values.length < nulls.size )
 					Array.resize( values, values.length < nulls.size ?
 							( values = equal_hash_V.copyOf( null, Math.min( values.length * 2, 0x100 ) ) ) :
 							values, i, nulls.size - 1, 1 );
-				
-				values[ i ] = value;
-				return _add( ( byte ) key ); // return true if key was added, false otherwise
 			}
-			
-			values[ nulls.rank( ( byte ) key ) - 1 ] = value;
-			
-			return false;
-			
+			values[ i ] = value;
+			return _add( ( byte ) key ); // return true if key was added, false otherwise
 		}
 		
 		/**
@@ -411,7 +422,10 @@ public interface ByteObjectNullMap {
 			if( !_remove( ( byte ) key ) ) return false; // Remove key from ByteSet.R, return false if key wasn't present
 			
 			if( nulls._remove( ( byte ) key ) ) // Remove key from nulls array if present
-				Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Resize values array to remove the gap
+				if( values.length == 256 )
+					values[ key & 0xFF ] = null;
+				else
+					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Resize values array to remove the gap
 			return true; // Mapping removed
 		}
 		

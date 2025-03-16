@@ -234,7 +234,7 @@ public interface ByteByteMap {
 		 *
 		 * @param length The desired initial capacity of the map.
 		 */
-		public RW( int length ) { values = new byte[ Math.max( Math.min( length, 0x100 ), 16 ) ]; }
+		public RW( int length ) { values = new byte[ ( int ) Math.max( Math.min( Array.nextPowerOf2( length ), 0x100 ), 16 ) ]; }
 		
 		/**
 		 * Clears all key-value mappings from this {@code ByteIntMap}.

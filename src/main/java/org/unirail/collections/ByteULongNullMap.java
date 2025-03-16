@@ -45,7 +45,6 @@ import java.util.ConcurrentModificationException;
  */
 public interface ByteULongNullMap {
 	
-	
 	/**
 	 * {@code R} is an abstract base class providing read-only functionality for {@link ByteIntNullMap}.
 	 * <p>
@@ -66,7 +65,8 @@ public interface ByteULongNullMap {
 		/**
 		 * Stores integer values associated with the keys.
 		 * <p>
-		 * The index of the value in this array corresponds to the rank of the key in the {@link #nulls} structure.
+		 * The index of the value in this array corresponds to the rank of the key in the {@link #nulls} structure,
+		 * unless the array length is 256, in which case it directly corresponds to the key's unsigned value (0-255).
 		 */
 		protected long[]          values;
 		/**
@@ -83,7 +83,6 @@ public interface ByteULongNullMap {
 		 * When true, {@link #nullKeyValue} holds the non-null value. When false, the null key is considered to have a null value unless {@link #hasNullKey} is false.
 		 */
 		protected boolean                nullKeyHasValue; // Indicates if the null key has a non-null value
-		
 		
 		/**
 		 * Checks if this map contains a specific value (boxed Integer).
@@ -107,7 +106,6 @@ public interface ByteULongNullMap {
 		 */
 		public boolean containsValue( long value ) { return Array.indexOf( values, ( long ) value, 0, nulls.size ) != -1; }
 		
-		
 		/**
 		 * Checks if the entry associated with the given token has a non-null value.
 		 *
@@ -129,9 +127,14 @@ public interface ByteULongNullMap {
 		 * @throws ConcurrentModificationException If the token is invalid due to concurrent modification of the map.
 		 */
 		public long value( long token ) {
+			int i;
 			return ( isKeyNull( token ) ?
 					nullKeyValue :
-					values[ nulls.rank( ( byte ) ( token & KEY_MASK ) ) - 1 ] );
+					nulls.get( ( byte ) ( i = ( int ) ( token & KEY_MASK ) ) ) ?
+							values.length == 256 ?
+									values[ i ] :
+									values[ nulls.rank( ( byte ) i ) - 1 ] :
+							0 );
 		}
 		
 		/**
@@ -199,7 +202,6 @@ public interface ByteULongNullMap {
 			    !super.equals( other ) )
 				return false;
 			
-			
 			for( int i = 0; i < nulls.size; i++ ) if( values[ i ] != other.values[ i ] ) return false;
 			
 			return true;
@@ -214,7 +216,6 @@ public interface ByteULongNullMap {
 		 */
 		@Override
 		public R clone() {
-			
 			try {
 				R dst = ( R ) super.clone();
 				dst.values = values.clone(); // Shallow copy; deep copy may be needed for mutable V
@@ -253,7 +254,9 @@ public interface ByteULongNullMap {
 			for( long token = token(), key; ( key = token & KEY_MASK ) < 0x100; token = token( token ) ) {
 				json.name( String.valueOf( key ) );
 				if( nulls.get( ( byte ) key ) )
-					json.value(    values[ nulls.rank( ( byte ) key ) - 1 ]  );
+					json.value(    ( values.length == 256 ?
+							values[ ( int ) key ] :
+							values[ nulls.rank( ( byte ) key ) - 1 ] )  );
 				else
 					json.value();
 			}
@@ -274,9 +277,7 @@ public interface ByteULongNullMap {
 		 *
 		 * @param length The initial capacity of the map. The actual capacity will be at least 16 and at most 256.
 		 */
-		public RW( int length ) {
-			values = new long[ Math.max( Math.min( length, 0x100 ), 16 ) ];
-		}
+		public RW( int length ) { values = new long[ ( int ) Math.max( Math.min( Array.nextPowerOf2( length ), 0x100 ), 16 ) ]; }
 		
 		/**
 		 * Clears all mappings from this map.
@@ -304,7 +305,8 @@ public interface ByteULongNullMap {
 		 */
 		public boolean put(  Byte      key, long value ) {
 			if( key != null ) return put( ( byte ) ( key + 0 ), value );
-			nullKeyValue = ( long ) value;
+			nullKeyValue    = ( long ) value;
+			nullKeyHasValue = true;
 			return _add();
 		}
 		
@@ -323,9 +325,10 @@ public interface ByteULongNullMap {
 		public boolean put(  Byte      key,  Long      value ) {
 			if( key != null ) return put( ( byte ) ( key + 0 ), value );
 			
-			nullKeyValue = ( long ) ( ( nullKeyValueNull = ( value == null ) ) ?
+			nullKeyValue    = ( long ) ( ( nullKeyValueNull = ( value == null ) ) ?
 					0 :
 					value + 0 );
+			nullKeyHasValue = !nullKeyValueNull;
 			
 			return _add();
 		}
@@ -342,10 +345,12 @@ public interface ByteULongNullMap {
 		 * @return {@code true} if the key was newly added to the map, {@code false} if the key already existed.
 		 */
 		public boolean put( byte key,  Long      value ) {
-			
 			if( value != null ) return put( key, ( long ) ( value + 0 ) );
 			
-			if( nulls._remove( ( byte ) key ) ) Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 );
+			if( nulls._remove( ( byte ) key ) ) {
+				if( values.length < 256 )
+					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 );
+			}
 			
 			return _add( ( byte ) key ); // return true if key was added, false otherwise
 		}
@@ -360,22 +365,35 @@ public interface ByteULongNullMap {
 		 * @return {@code true} if the key was newly added to the map, {@code false} if the key already existed.
 		 */
 		public boolean put( byte key, long value ) {
-			
-			if( nulls._add( ( byte ) key ) ) {
-				int i = nulls.rank( ( byte ) key ) - 1;
+			if( !nulls._add( ( byte ) key ) ) {
+				values[ values.length == 256 ?
+						key & 0xFF :
+						nulls.rank( ( byte ) key ) - 1 ] = ( long ) value;
+				
+				return false;
+			}
+
+			int i;
+			if( values.length == 256 ) i = key & 0xFF;
+			else if( nulls.size == 128 ) {
+				long[] newValues = new long[ 256 ];
+				i = key & 0xFF;
+				
+				for( int ii = nulls.first1(), k = 0; -1 < ii; ii = nulls.next1( ii ), k++ )
+				     newValues[ ii ] = values[ k ];
+				values = newValues;
+			}
+			else {
+				i = nulls.rank( ( byte ) key ) - 1;
 				
 				if( i + 1 < nulls.size || values.length < nulls.size )
 					Array.resize( values, values.length < nulls.size ?
 							( values = new long[ Math.min( values.length * 2, 0x100 ) ] ) :
 							values, i, nulls.size - 1, 1 );
-				
-				values[ i ] = ( long ) value;
-				return _add( ( byte ) key ); // return true if key was added, false otherwise
 			}
+			values[ i ] = ( long ) value;
+			return _add( ( byte ) key ); // return true if key was added, false otherwise
 			
-			values[ nulls.rank( ( byte ) key ) - 1 ] = ( long ) value;
-			
-			return false;
 		}
 		
 		/**
@@ -405,8 +423,12 @@ public interface ByteULongNullMap {
 		public boolean remove( byte key ) {
 			if( !_remove( ( byte ) key ) ) return false;
 			
-			if( nulls._remove( ( byte ) key ) )
-				Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 );
+			if( nulls._remove( ( byte ) key ) ) {
+				if( values.length == 256 )
+					values[ key & 0xFF ] = 0;
+				else
+					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 );
+			}
 			return true;
 		}
 		
