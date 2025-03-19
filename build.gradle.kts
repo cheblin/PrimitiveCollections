@@ -18,7 +18,8 @@ dependencies {
     testImplementation("org.openjdk.jmh:jmh-core:1.37")
     testAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
 
-
+    implementation("com.github.oshi:oshi-core:6.6.2")
+    implementation("org.slf4j:slf4j-nop:2.0.13") // Latest as of March 202
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
@@ -41,4 +42,8 @@ jmh {
 
 tasks.withType<JavaExec> {
     jvmArgs("-Djdk.attach.allowAttachSelf=true")
+}
+
+tasks.withType<JavaExec> {
+    jvmArgs("-XX:+EnableDynamicAgentLoading") // Suppress agent warnings
 }

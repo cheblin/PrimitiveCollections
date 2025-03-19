@@ -17,7 +17,7 @@ h2 { color: #50fa7b; }
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-<h1>Performance Report</h1>
+<h1>Performance Report - CPU: 13th Gen Intel(R) Core(TM) i9-13900HX, Java VM: Oracle Corporation 23.0.2+7-58</h1>
 <p>This report compares the performance of standard Java HashMap against custom map implementations from org.unirail.collections. Measurements show average time per operation (ns/op) for insertion, search, get, and deletion across different data types and sizes. Lower values indicate better performance.</p>
 <div class="chart-container">
 <h2>Byte Maps</h2>
@@ -46,13 +46,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Byte, Byte>',
-data: [521, 378, 889, 253],
+data: [1000, 305, 878, 260],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'ByteByteNullMap.RW',
-data: [558, 163, 481, 59],
+data: [566, 157, 481, 66],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -76,13 +76,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Short, Short>',
-data: [5752, 2334, 4950, 2250],
+data: [6445, 2062, 4714, 3082],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'ShortShortNullMap.RW',
-data: [3965, 1187, 1915, 1986],
+data: [4033, 1204, 2621, 1994],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -106,13 +106,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Integer, Integer>',
-data: [5893, 2371, 4952, 2285],
+data: [6197, 2020, 4749, 2307],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'IntIntNullMap.RW',
-data: [4010, 1197, 2022, 1977],
+data: [4055, 1176, 1946, 1980],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -136,13 +136,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Long, Long>',
-data: [7075, 2807, 5598, 2719],
+data: [7437, 2551, 5359, 3265],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'LongLongNullMap.RW',
-data: [3954, 1190, 2130, 1999],
+data: [3887, 1189, 2696, 1993],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -166,13 +166,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Integer, Boolean>',
-data: [5272, 2366, 4976, 2352],
+data: [5575, 1973, 4741, 2892],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'IntBitsMap.RW',
-data: [4309, 1185, 2912, 1192],
+data: [4359, 1235, 2605, 1185],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1

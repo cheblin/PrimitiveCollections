@@ -267,13 +267,13 @@ public interface BitList {
 		 * Finds and returns the index of the next '1' bit starting from the specified position.
 		 *
 		 * @param bit The starting bit position to search from (inclusive).
-		 * @return The index of the next '1' bit, or the size of the {@code BitList} if no '1' bit is found from the specified position to the end.
+		 * @return The index of the next '1' bit, or -1 of the {@code BitList} if no '1' bit is found from the specified position to the end.
 		 */
 		public int next1( int bit ) {
 			// Adjust negative start to 0; if beyond size, return size
 			if( bit < 0 ) bit = 0;
 			int last1 = last1();
-			if( last1 < bit ) return size;// If beyond  last1() values, all remaining are '0', so return size
+			if( last1 < bit ) return -1;// If beyond  last1() values, all remaining are '0', so return size
 			if( bit == last1 ) return last1;
 			
 			if( bit < trailingOnesCount ) return bit;// If within trailing ones, return the starting bit (it’s a '1')
@@ -297,25 +297,21 @@ public interface BitList {
 			}
 			
 			// No '1' found, return size
-			return size;
+			return -1;
 		}
+		
 		
 		/**
 		 * Finds and returns the index of the next '0' bit starting from the specified position.
 		 *
 		 * @param bit The starting bit position to search from (inclusive).
-		 * @return The index of the next '0' bit, or the size of the {@code BitList} if no '0' bit is found from the specified position to the end.
-		 */
-		/**
-		 * Finds and returns the index of the next '0' bit starting from the specified position.
-		 *
-		 * @param bit The starting bit position to search from (inclusive).
-		 * @return The index of the next '0' bit, or the size of the {@code BitList} if no '0' bit is found from the specified position to the end.
+		 * @return The index of the next '0' bit, or -1 if no '0' bit is found from the specified position to the end.
 		 */
 		public int next0( int bit ) {
 			// If starting position is invalid (negative) or beyond size, return size
 			if( bit < 0 ) bit = 0; // Adjust negative start to beginning
-			if( size() <= bit ) return size(); // No '0' beyond size
+			if( size() <= bit ) return -1; // No '0' beyond size
+			if( last1() < bit ) return bit;
 			
 			// Check within trailing ones region (all '1's)
 			if( bit < trailingOnesCount )
@@ -346,7 +342,7 @@ public interface BitList {
 			}
 			
 			// No '0' found, return size
-			return size();
+			return -1;
 		}
 		
 		/**
@@ -465,12 +461,12 @@ public interface BitList {
 			// Handle invalid bit position or empty list.
 			if( bit < 0 || size == 0 ) return 0;
 			
-			// Adjust bit position if it exceeds the size of the list.
-			if( size <= bit ) bit = size - 1;
-			
 			// If the bit is within the trailing ones region, the rank is simply the bit position + 1.
 			if( bit < trailingOnesCount ) return bit + 1;
 			if( used() == 0 ) return trailingOnesCount;
+			
+			int last1 = last1();
+			if( last1 < bit ) bit = last1;
 			
 			// Calculate rank for bits beyond trailing ones.
 			int index = bit - trailingOnesCount >> LEN; // Index of the long containing the bit.
@@ -1364,15 +1360,16 @@ public interface BitList {
 		 * @param bit The bit position to remove (0-indexed).
 		 * @return This {@code RW} instance after removing the bit.
 		 */
-		public RW remove( int bit ) {
-			if( bit < 0 || size <= bit ) return this;
+		public boolean remove( int bit ) {
+			if( bit < 0 || size <= bit ) return false;
 			size--;
 			if( bit < trailingOnesCount ) {
 				trailingOnesCount--;
-				return this;
+				return true;
 			}
 			int index = bit - trailingOnesCount >> LEN;
-			if( index >= used() ) return this;
+			if( last1() < index ) return true;
+			
 			int  pos  = bit - trailingOnesCount & MASK;
 			long mask = ~( 1L << pos );
 			values[ index ] &= mask;
@@ -1381,7 +1378,7 @@ public interface BitList {
 				values[ i ] >>>= 1;
 			}
 			if( used > 0 && values[ used - 1 ] == 0 ) used |= IO;
-			return this;
+			return true;
 		}
 		
 		/**

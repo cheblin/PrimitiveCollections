@@ -39,8 +39,17 @@ import java.util.Arrays;
 
 /**
  * Interface defines a contract for a list that stores nullable Object values.
- * Implementations are expected to efficiently manage lists of Objects that can contain null values,
- * offering functionalities for adding, removing, and accessing elements while tracking nullity.
+ * Implementations are designed to be memory-efficient when dealing with lists that contain a significant number of null values.
+ * <p>
+ * While a standard {@link ObjectList} can also store nulls, {@code ObjectNullList} optimizes for space by storing only non-null values compactly
+ * and using a separate {@link BitList} to track nullity. This approach is particularly beneficial when null values are prevalent,
+ * as it avoids storing numerous null references in the underlying array, thus saving memory.
+ * <p>
+ * <b>Memory Efficiency vs. Performance Trade-off:</b>
+ * The memory compression achieved by {@code ObjectNullList} comes with a slight performance overhead.
+ * Accessing elements requires calculating the rank of the index in the {@link BitList} to locate the corresponding non-null value in the packed {@link ObjectList}.
+ * This rank calculation adds a small computational cost compared to direct indexing in a standard {@link ObjectList}.
+ * However, for scenarios where memory usage is a primary concern and the list contains many nulls, the memory savings often outweigh the minor performance impact.
  *
  * @param <V> The type of elements in this list.
  */
@@ -51,6 +60,22 @@ public interface ObjectNullList< V >/*CLS*/ {
 	 * {@code R} is an abstract base class providing a read-only implementation of the List interface.
 	 * It manages the underlying {@link BitList.RW} for null tracking and  ObjectList.RW for Object values,
 	 * providing core functionalities for read operations and serving as a base for mutable implementations.
+	 * <p>
+	 * <b>Memory Compression Strategy:</b>
+	 * This class employs a compression strategy to efficiently store lists with nullable objects.
+	 * It utilizes two internal data structures:
+	 * <ul>
+	 *     <li>{@link BitList.RW} {@code nulls}: A bit list where each bit corresponds to an index in the conceptual list.
+	 *         A 'true' bit at an index indicates a non-null value at that position, while 'false' indicates a null value.
+	 *         {@link BitList} is very compact, especially when there are many consecutive null or non-null values.</li>
+	 *     <li>{@link ObjectList.RW} {@code values}:  A list that stores only the non-null Object values in a packed, contiguous manner.
+	 *         The order of elements in this list corresponds to the non-null values in the conceptual list.</li>
+	 * </ul>
+	 * <p>
+	 * <b>Rank Calculation Overhead:</b>
+	 * To retrieve a value at a given index, the implementation needs to determine if the value is null or non-null using the {@code nulls} {@link BitList}.
+	 * If it's non-null, the rank of the index in the {@code nulls} {@link BitList} is calculated to find the correct index in the {@code values} {@link ObjectList}.
+	 * This rank calculation is the source of the performance trade-off, but it enables significant memory savings, especially when nulls are frequent.
 	 *
 	 * @param <V> The type of elements in this list.
 	 */
@@ -361,6 +386,9 @@ public interface ObjectNullList< V >/*CLS*/ {
 	/**
 	 * {@code RW} class provides a read-write implementation of the List interface.
 	 * It extends the abstract {@code R} class, inheriting read-only functionalities, and implements the {@code Interface} to provide methods for modifying the list, handling nullable Object values.
+	 * <p>
+	 *  This class inherits the memory-efficient storage strategy from {@link R}, using a {@link BitList} for null tracking and a packed {@link ObjectList} for non-null values.
+	 *  Modifications to the list (add, remove, set) involve updating both the {@link BitList} and the {@link ObjectList} to maintain consistency and compression.
 	 *
 	 * @param <V> The type of elements in this list.
 	 */

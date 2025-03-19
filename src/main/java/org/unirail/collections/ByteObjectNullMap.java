@@ -170,7 +170,7 @@ public interface ByteObjectNullMap {
 			return value == null ?
 					hasNullKey && equal_hash_V.equals( value, nullKeyValue ) :
 					// Check for null value against nullKeyValue
-					Array.indexOf( values, value, 0, nulls.size ) != -1; // Search for non-null value in the values array
+					Array.indexOf( values, value, 0, nulls.cardinality ) != -1; // Search for non-null value in the values array
 		}
 		
 		/**
@@ -186,7 +186,7 @@ public interface ByteObjectNullMap {
 			{
 				int h = Array.mix( seed, super.hashCode() ); // Mix seed with superclass hashCode (ByteSet.R)
 				h = Array.mix( h, nulls.hashCode() ); // Mix with hashCode of nulls array
-				h = Array.mix( h, Array.hash( h, values, 0, nulls.size ) ); // Mix with hash of values array
+				h = Array.mix( h, Array.hash( h, values, 0, nulls.cardinality ) ); // Mix with hash of values array
 				h = Array.finalizeHash( h, 2 ); // Finalize hash for this part
 				a += h; b ^= h; c *= h | 1; // Accumulate hash components
 			}
@@ -229,7 +229,7 @@ public interface ByteObjectNullMap {
 			return other != null &&
 			       super.equals( other ) && // Compare ByteSet.R part
 			       nulls.equals( other.nulls ) && // Compare nulls arrays
-			       equal_hash_V.equals( values, other.values, nulls.size ) && // Compare values arrays (up to map size) using equal_hash_V strategy
+			       equal_hash_V.equals( values, other.values, nulls.cardinality ) && // Compare values arrays (up to map size) using equal_hash_V strategy
 			       ( !hasNullKey || equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ); // Compare null key status and nullKeyValues
 		}
 		
@@ -321,7 +321,7 @@ public interface ByteObjectNullMap {
 		 */
 		public RW< V > clear() {
 			_clear(); // Clear ByteSet.R state
-			java.util.Arrays.fill( values, 0, size, null ); // Clear values array
+			java.util.Arrays.fill( values, 0, cardinality, null ); // Clear values array
 			nullKeyValue = null; // Reset null key value
 			nulls._clear(); // Clear nulls array
 			return this;
@@ -357,17 +357,17 @@ public interface ByteObjectNullMap {
 		public boolean put( byte key, V value ) {
 			
 			if( value == null ) {
-				if( nulls._remove( ( byte ) key ) )// if in the nulls exists it means the key is present
+				if( nulls.set0( ( byte ) key ) )// if in the nulls exists it means the key is present
 				{
 					if( values.length == 256 ) return false;
-					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Remove key from nulls array and resize values array if needed
+					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.cardinality + 1, -1 ); // Remove key from nulls array and resize values array if needed
 					return false;
 				}
 				//maybe the key does not present
-				return _add( ( byte ) key ); // return true if key was added, false otherwise (ByteSet.R logic, tracks key presence regardless of value)
+				return set1( ( byte ) key ); // return true if key was added, false otherwise (ByteSet.R logic, tracks key presence regardless of value)
 			}
 			
-			if( !nulls._add( ( byte ) key ) ) {
+			if( !nulls.set1( ( byte ) key ) ) {
 				values[ values.length == 256 ?
 						key & 0xFF :
 						nulls.rank( ( byte ) key ) - 1 ] = value;
@@ -377,7 +377,7 @@ public interface ByteObjectNullMap {
 			
 			int i;
 			if( values.length == 256 ) i = key & 0xFF;
-			else if( nulls.size == 128 ) {
+			else if( nulls.cardinality == 128 ) {
 				V[] newValues = equal_hash_V.copyOf( null, 256 );
 				i = key & 0xFF;
 				
@@ -388,13 +388,13 @@ public interface ByteObjectNullMap {
 			else {
 				i = nulls.rank( ( byte ) key ) - 1;
 				
-				if( i + 1 < nulls.size || values.length < nulls.size )
-					Array.resize( values, values.length < nulls.size ?
+				if( i + 1 < nulls.cardinality || values.length < nulls.cardinality )
+					Array.resize( values, values.length < nulls.cardinality ?
 							( values = equal_hash_V.copyOf( null, Math.min( values.length * 2, 0x100 ) ) ) :
-							values, i, nulls.size - 1, 1 );
+							values, i, nulls.cardinality - 1, 1 );
 			}
 			values[ i ] = value;
-			return _add( ( byte ) key ); // return true if key was added, false otherwise
+			return set1( ( byte ) key ); // return true if key was added, false otherwise
 		}
 		
 		/**
@@ -419,13 +419,13 @@ public interface ByteObjectNullMap {
 		 * @return {@code true} if a mapping was removed as a result of this call, {@code false} if no mapping existed for the key.
 		 */
 		public boolean remove( byte key ) {
-			if( !_remove( ( byte ) key ) ) return false; // Remove key from ByteSet.R, return false if key wasn't present
+			if( !set0( ( byte ) key ) ) return false; // Remove key from ByteSet.R, return false if key wasn't present
 			
-			if( nulls._remove( ( byte ) key ) ) // Remove key from nulls array if present
+			if( nulls.set0( ( byte ) key ) ) // Remove key from nulls array if present
 				if( values.length == 256 )
 					values[ key & 0xFF ] = null;
 				else
-					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.size + 1, -1 ); // Resize values array to remove the gap
+					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.cardinality + 1, -1 ); // Resize values array to remove the gap
 			return true; // Mapping removed
 		}
 		

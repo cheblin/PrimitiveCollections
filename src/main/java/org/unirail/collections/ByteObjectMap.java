@@ -161,7 +161,7 @@ public interface ByteObjectMap {
 		public boolean containsValue( V value ) {
 			return value == null ?
 					hasNullKey && equal_hash_V.equals( value, nullKeyValue ) :
-					Array.indexOf( values, value, 0, size ) != -1;
+					Array.indexOf( values, value, 0, cardinality ) != -1;
 		}
 		
 		/**
@@ -176,7 +176,7 @@ public interface ByteObjectMap {
 			int a = 0, b = 0, c = 1;
 			{
 				int h = Array.mix( seed, super.hashCode() );
-				h = Array.mix( h, Array.hash( h, values, 0, size ) );
+				h = Array.mix( h, Array.hash( h, values, 0, cardinality ) );
 				h = Array.finalizeHash( h, 2 );
 				a += h; b ^= h; c *= h | 1;
 			}
@@ -218,7 +218,7 @@ public interface ByteObjectMap {
 		public boolean equals( R< V > other ) {
 			return other != null &&
 			       super.equals( other ) &&
-			       equal_hash_V.equals( values, other.values, size ) &&
+			       equal_hash_V.equals( values, other.values, cardinality ) &&
 			       ( !hasNullKey || equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) );
 		}
 		
@@ -310,7 +310,7 @@ public interface ByteObjectMap {
 		 */
 		public RW< V > clear() {
 			_clear();
-			java.util.Arrays.fill( values, 0, size, null ); // Clear value array
+			java.util.Arrays.fill( values, 0, cardinality, null ); // Clear value array
 			nullKeyValue = null;                              // Clear null key value
 			return this;
 		}
@@ -344,11 +344,11 @@ public interface ByteObjectMap {
 		 */
 		public boolean put( byte key, V value ) {
 			int     i     = rank( ( byte ) key ) - 1;
-			boolean added = _add( ( byte ) key ); // Try to add the key, returns true if key was new
+			boolean added = set1( ( byte ) key ); // Try to add the key, returns true if key was new
 			if( added )  // if key was newly added, we need to resize the values array if necessary
 				Array.resize( values, i < values.length ?
 						values :
-						( values = equal_hash_V.copyOf( null, Math.min( values.length * 2, 0x100 ) ) ), i, size, 1 );
+						( values = equal_hash_V.copyOf( null, Math.min( values.length * 2, 0x100 ) ) ), i, cardinality, 1 );
 			
 			values[ i ] = value;
 			
@@ -378,8 +378,8 @@ public interface ByteObjectMap {
 		 * @return {@code true} if a mapping was removed as a result of this call, {@code false} if no mapping existed for the key.
 		 */
 		public boolean remove( byte key ) {
-			if( !_remove( ( byte ) key ) ) return false; // _remove returns false if key was not present
-			Array.resize( values, values, rank( key ) - 1, size, -1 ); // Shift values array to fill the gap
+			if( !set0( ( byte ) key ) ) return false; // _remove returns false if key was not present
+			Array.resize( values, values, rank( key ) - 1, cardinality, -1 ); // Shift values array to fill the gap
 			return true; // Mapping was removed
 		}
 		

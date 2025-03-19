@@ -84,7 +84,7 @@ public interface UByteIntMap {
 		 */
 		public int value( long token ) {
 			int r;
-			return ( isKeyNull( token ) ?
+			return  ( isKeyNull( token ) ?
 					nullKeyValue :
 					values[ ( ( r = ( int ) ( token & RANK_MASK ) ) == 0 ?
 							rank( ( byte ) ( token & KEY_MASK ) ) :
@@ -100,7 +100,7 @@ public interface UByteIntMap {
 		 * @param value The integer value to search for.
 		 * @return {@code true} if the map contains the specified value, {@code false} otherwise.
 		 */
-		public boolean containsValue( int value ) { return Array.indexOf( values, ( int ) value, 0, size ) != -1; }
+		public boolean containsValue( int value ) { return Array.indexOf( values, ( int ) value, 0, cardinality ) != -1; }
 		
 		/**
 		 * Calculates the hash code for this {@code ByteIntMap}.
@@ -168,7 +168,7 @@ public interface UByteIntMap {
 			    size() != other.size() ) // Compare sizes. Important to check size before array iteration
 				return false;
 			
-			for( int i = 0; i < size; i++ )
+			for( int i = 0; i < cardinality; i++ )
 				if( values[ i ] != other.values[ i ] ) return false; // Compare value arrays
 			
 			return true;
@@ -279,13 +279,13 @@ public interface UByteIntMap {
 		 * {@code false} if an existing mapping was updated.
 		 */
 		public boolean put( char key, int value ) {
-			if( _add( ( byte ) key ) )  // If the key was newly added to the ByteSet (not already present)
+			if( set1( ( byte ) key ) )  // If the key was newly added to the ByteSet (not already present)
 			{
 				int i = rank( ( byte ) key ) - 1; // Get the rank/index for the key
 				Array.resize( values, i < values.length ?
 						// Resize values array if needed
 						values :
-						( values = new int[ Math.min( values.length * 2, 0x100 ) ] ), i, size - 1, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
+						( values = new int[ Math.min( values.length * 2, 0x100 ) ] ), i, cardinality - 1, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
 				values[ i ] = ( int ) value;
 				return true;
 			}
@@ -313,8 +313,8 @@ public interface UByteIntMap {
 		 * @return {@code true} if a mapping was removed as a result of this call, {@code false} if no mapping existed for the key.
 		 */
 		public boolean remove( char key ) {
-			if( !_remove( ( byte ) key ) ) return false; // Remove key from ByteSet, return false if key not found
-			Array.resize( values, values, rank( key ) - 1, size, -1 ); // Resize values array to remove the value at the index of removed key
+			if( !set0( ( byte ) key ) ) return false; // Remove key from ByteSet, return false if key not found
+			Array.resize( values, values, rank( key ) - 1, cardinality, -1 ); // Resize values array to remove the value at the index of removed key
 			return true; // Return true if key was successfully removed
 		}
 		

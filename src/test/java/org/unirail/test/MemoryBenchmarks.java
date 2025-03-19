@@ -310,7 +310,7 @@ public class MemoryBenchmarks {
 		           .append( "</head>\n<body>\n<h1>Memory Footprint Report</h1>\n" );
 		
 		htmlBuilder.append( "<p>This report compares memory usage (in bytes) between standard Java HashMap and custom map implementations. " )
-		           .append( "Measurements show total memory footprint for different data types under four scenarios: no nulls, half nulls, all nulls, and odd keys with values/even keys null. " )
+		           .append( "Measurements show total memory footprint for different data types under four scenarios: no nulls, half nulls, all nulls, and nulls interleaving.<br>" )
 		           .append( "Lower values indicate better memory efficiency.</p>\n" );
 		
 		for( Data data : dataList ) {
@@ -355,7 +355,7 @@ public class MemoryBenchmarks {
 			htmlBuilder.append( "new Chart(document.getElementById('" ).append( chartId ).append( "').getContext('2d'), {\n" )
 			           .append( "type: 'bar',\n" )
 			           .append( "data: {\n" )
-			           .append( "labels: ['All entries have values', 'Half of entries are null', 'All entries are null', 'Odd keys have values, even keys are null'],\n" )
+			           .append( "labels: ['All entries have values', 'Half of entries are null', 'All entries are null', 'Nulls interleaving'],\n" )
 			           .append( "datasets: [{\n" )
 			           .append( "label: '" ).append( standardLabel ).append( "',\n" )
 			           .append( "data: [" ).append( data.data[ 0 ] ).append( ", " ).append( data.data[ 2 ] ).append( ", " )

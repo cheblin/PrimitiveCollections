@@ -52,7 +52,7 @@ public class PerformanceBenchmarks {
 				continue;
 			}
 			
-			String type      = parts[ 0 ].equals( "IntBool" ) ?
+			String type = parts[ 0 ].equals( "IntBool" ) ?
 					"Int-Boolean" :
 					parts[ 0 ];
 			String structure = parts[ 1 ];
@@ -107,6 +107,7 @@ public class PerformanceBenchmarks {
 	public static String generateHtmlReport( List< Data > dataList ) {
 		StringBuilder htmlBuilder = new StringBuilder();
 		
+		
 		htmlBuilder.append( "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n" )
 		           .append( "<meta charset=\"UTF-8\">\n<title>Performance Report</title>\n" )
 		           .append( "<style>\n" )
@@ -121,7 +122,11 @@ public class PerformanceBenchmarks {
 		           .append( "h2 { color: #50fa7b; }\n" )
 		           .append( "</style>\n" )
 		           .append( "<script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>\n" )
-		           .append( "</head>\n<body>\n<h1>Performance Report</h1>\n" );
+		           .append( "</head>\n<body>\n" )
+		           .append( "<h1>Performance Report - CPU: " )
+		           .append( new oshi.SystemInfo().getHardware().getProcessor().getProcessorIdentifier().getName().trim() )
+		           .append( ", Java VM: " ).append( System.getProperty( "java.vm.vendor" ) + " " + System.getProperty( "java.vm.version" ) )
+		           .append( "</h1>\n" );
 		
 		htmlBuilder.append( "<p>This report compares the performance of standard Java HashMap against custom map implementations from org.unirail.collections. " )
 		           .append( "Measurements show average time per operation (ns/op) for insertion, search, get, and deletion across different data types and sizes. " )
@@ -251,35 +256,35 @@ public class PerformanceBenchmarks {
 	
 	@State( Scope.Thread )
 	public static class MapState {
-		Map< Byte, Byte >  empty_byteMap;
-		ByteByteNullMap.RW empty_byteAdHoc;
+		HashMap< Byte, Byte > empty_byteMap;
+		ByteByteNullMap.RW    empty_byteAdHoc;
 		
-		Map< Short, Short >  empty_shortMap;
-		ShortShortNullMap.RW empty_shortAdHoc;
+		HashMap< Short, Short > empty_shortMap;
+		ShortShortNullMap.RW    empty_shortAdHoc;
 		
-		Map< Integer, Integer > empty_intMap;
-		IntIntNullMap.RW        empty_intAdHoc;
+		HashMap< Integer, Integer > empty_intMap;
+		IntIntNullMap.RW            empty_intAdHoc;
 		
-		Map< Long, Long >  empty_longMap;
-		LongLongNullMap.RW empty_longAdHoc;
+		HashMap< Long, Long > empty_longMap;
+		LongLongNullMap.RW    empty_longAdHoc;
 		
-		Map< Integer, Boolean > empty_intBoolMap;
-		IntBitsMap.RW           empty_intBoolAdHoc;
+		HashMap< Integer, Boolean > empty_intBoolMap;
+		IntBitsMap.RW               empty_intBoolAdHoc;
 		
-		Map< Byte, Byte >  byteMap;
-		ByteByteNullMap.RW byteAdHoc;
+		HashMap< Byte, Byte > byteMap;
+		ByteByteNullMap.RW    byteAdHoc;
 		
-		Map< Short, Short >  shortMap;
-		ShortShortNullMap.RW shortAdHoc;
+		HashMap< Short, Short > shortMap;
+		ShortShortNullMap.RW    shortAdHoc;
 		
-		Map< Integer, Integer > intMap;
-		IntIntNullMap.RW        intAdHoc;
+		HashMap< Integer, Integer > intMap;
+		IntIntNullMap.RW            intAdHoc;
 		
-		Map< Long, Long >  longMap;
-		LongLongNullMap.RW longAdHoc;
+		HashMap< Long, Long > longMap;
+		LongLongNullMap.RW    longAdHoc;
 		
-		Map< Integer, Boolean > intBoolMap;
-		IntBitsMap.RW           intBoolAdHoc;
+		HashMap< Integer, Boolean > intBoolMap;
+		IntBitsMap.RW               intBoolAdHoc;
 		
 		byte[]  byteKeys;
 		short[] shortKeys;

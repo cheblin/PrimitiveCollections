@@ -74,8 +74,8 @@ public interface UByteSet {
 		 */
 		public int size() {
 			return hasNullKey ?
-					size + 1 :
-					size;
+					cardinality + 1 :
+					cardinality;
 		}
 		
 		/**
@@ -84,7 +84,7 @@ public interface UByteSet {
 		 *
 		 * @return {@code true} if the set is empty, {@code false} otherwise.
 		 */
-		public boolean isEmpty() { return size == 0 && !hasNullKey; }
+		public boolean isEmpty() { return cardinality == 0 && !hasNullKey; }
 		
 		/**
 		 * Checks if the set contains the specified byte value, which can be a boxed {@code Byte} or null.
@@ -116,7 +116,7 @@ public interface UByteSet {
 		 * @return The first iteration token, or {@link #INVALID_TOKEN} if the set is empty.
 		 */
 		public long token() {
-			return 0 < size ?
+			return 0 < cardinality ?
 					token( 1, first1() ) :
 					hasNullKey ?
 							// If no byte values but null key is present.
@@ -274,7 +274,7 @@ public interface UByteSet {
 		 * @return {@code true} if the sets are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
-			if( size != other.size || hasNullKey != other.hasNullKey ) return false; // Quick check for size and null key status.
+			if( cardinality != other.cardinality || hasNullKey != other.hasNullKey ) return false; // Quick check for size and null key status.
 			return _4 == other._4 && _3 == other._3 && _2 == other._2 && _1 == other._1; // Compare the four long segments for equality.
 		}
 		
@@ -304,8 +304,8 @@ public interface UByteSet {
 		public void toJSON( JsonWriter json ) {
 			json.enterObject(); // Start JSON object representation.
 			if( hasNullKey ) json.name().value(); // If null key present, add a null entry (name is omitted for null key).
-			if( 0 < size ) { // If there are byte values in the set.
-				json.preallocate( size * 10 ); // Pre-allocate buffer for JSON string to improve performance.
+			if( 0 < cardinality ) { // If there are byte values in the set.
+				json.preallocate( cardinality * 10 ); // Pre-allocate buffer for JSON string to improve performance.
 				for( long token = token(); ( token & KEY_MASK ) < 0x100; token = token( token ) ) // Iterate through the set using tokens.
 				     json.name( key( token ) ).value(); // For each element, add a name-value pair to the JSON object, using byte value as name.
 			}
@@ -322,7 +322,7 @@ public interface UByteSet {
 		protected boolean _add(  Character key ) {
 			return key == null ?
 					_add() :
-					_add( ( char ) ( key + 0 ) );
+					set1( ( byte ) ( key + 0 ) );
 		}
 		
 		protected boolean _add() {
@@ -343,7 +343,7 @@ public interface UByteSet {
 		protected boolean _remove(  Character key ) {
 			return key == null ?
 					_remove() :
-					_remove( ( char ) ( key + 0 ) );
+					set0( ( byte ) ( key + 0 ) );
 		}
 		
 		protected boolean _remove() {
@@ -408,7 +408,7 @@ public interface UByteSet {
 		 * @param key The primitive byte value to add to the set (valid range is 0-255).
 		 * @return {@code true} if the set was modified as a result of this operation (i.e., the value was not already present), {@code false} otherwise.
 		 */
-		public boolean add( final char key ) { return _add( key ); }
+		public boolean add( final char key ) { return set1((byte) key ); }
 		
 		
 		/**
@@ -426,7 +426,7 @@ public interface UByteSet {
 		 * @param key The primitive byte key to remove from the set (valid range is 0-255).
 		 * @return {@code true} if the set was modified as a result of this operation (i.e., the key was present), {@code false} otherwise.
 		 */
-		public boolean remove( char key ) { return _remove( key ); }
+		public boolean remove( char key ) { return set0((byte) key ); }
 		
 		/**
 		 * Clears all byte values and the null key (if present) from the set, making it empty.
@@ -454,7 +454,7 @@ public interface UByteSet {
 			if( _4 != src._4 ) { _4 &= src._4; ret = true; } // Intersect _4 with src._4, set modification flag if changed.
 			if( ret ) {
 				
-				size = Math.max( size, src.size ); // Size might change after intersection.
+				cardinality = Math.max( cardinality, src.cardinality ); // Size might change after intersection.
 				_version++; // Increment version if modified.
 			}
 			if( !hasNullKey || src.hasNullKey ) return ret;
@@ -477,13 +477,13 @@ public interface UByteSet {
 			var __2 = _2;
 			var __3 = _3;
 			var __4 = _4;
-			var c   = size;
-			size = ( Long.bitCount( _1 |= src._1 ) +
-			         Long.bitCount( _2 |= src._2 ) +
-			         Long.bitCount( _3 |= src._3 ) +
-			         Long.bitCount( _4 |= src._4 ) );
+			var c   = cardinality;
+			cardinality = ( Long.bitCount( _1 |= src._1 ) +
+			                Long.bitCount( _2 |= src._2 ) +
+			                Long.bitCount( _3 |= src._3 ) +
+			                Long.bitCount( _4 |= src._4 ) );
 			
-			if( hasNullKey != src.hasNullKey || c != size || __1 != _1 || __2 != _2 || __3 != _3 || __4 != _4 ) _version++;
+			if( hasNullKey != src.hasNullKey || c != cardinality || __1 != _1 || __2 != _2 || __3 != _3 || __4 != _4 ) _version++;
 			if( src.hasNullKey ) hasNullKey = true; // If source has null key, add null key to this set.
 			return this; // Return instance for chaining.
 		}

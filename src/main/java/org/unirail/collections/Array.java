@@ -2642,18 +2642,15 @@ public interface Array {
 			275995999, 331195199, 397434263, 476921141, 572305373, 686766469, 824119789, 988943741,
 			1186732499, 1424078987, 1708894781, 2050673741
 	};
-
+	
 	// Fixed-size 256-bit Flag Set class.
 	// Represents a set of byte values (0-255) using a bitset implemented with four long integers.
 	abstract class FF implements Cloneable {
 		protected long _1, _2, _3, _4; // Segments representing bits for byte values 0-63, 64-127, 128-191, and 192-255 respectively.
-		protected int size = 0;        // The number of elements currently in the set.
+		protected int cardinality = 0;        // The number of elements currently in the set.
 		protected int _version;  // Version counter for detecting concurrent modifications. Incremented on any structural modification.
 		
-		@Override public Object clone() throws CloneNotSupportedException {
-			// Creates and returns a shallow copy of this `FF` instance.
-			return super.clone();
-		}
+		@Override public Object clone() throws CloneNotSupportedException { return super.clone(); }
 		
 		/**
 		 * Checks if this Flag Set is equal to another Flag Set.
@@ -2662,10 +2659,7 @@ public interface Array {
 		 * @param other The other Flag Set to compare with.
 		 * @return {@code true} if the Flag Sets are equal, {@code false} otherwise.
 		 */
-		public boolean equals( ByteSet.R other ) {
-			return size == other.size && _4 == other._4 && _3 == other._3 && _2 == other._2 && _1 == other._1;
-			
-		}
+		public boolean equals( ByteSet.R other ) { return cardinality == other.cardinality && _4 == other._4 && _3 == other._3 && _2 == other._2 && _1 == other._1; }
 		
 		/**
 		 * Returns the hash code for this Flag Set.
@@ -2674,7 +2668,7 @@ public interface Array {
 		 * @return The hash code value for this Flag Set.
 		 */
 		public int hashCode() {
-			return Array.finalizeHash( Array.hash( Array.hash( Array.hash( Array.hash( 22633363, _1 ), _2 ), _3 ), _4 ), size ); // Hash segments _1, _2, _3, _4 and size.
+			return Array.finalizeHash( Array.hash( Array.hash( Array.hash( Array.hash( 22633363, _1 ), _2 ), _3 ), _4 ), cardinality ); // Hash segments _1, _2, _3, _4 and size.
 		}
 		
 		/**
@@ -2701,7 +2695,7 @@ public interface Array {
 		 * @return The smallest byte value in the set, or -1 if the set is empty.
 		 */
 		protected int first1() {
-			if( 0 < size )
+			if( 0 < cardinality )
 				if( _1 != 0 ) return Long.numberOfTrailingZeros( _1 ); // Find the first set bit in _1 (smallest byte value in 0-63 range).
 				else if( _2 != 0 ) return 64 + Long.numberOfTrailingZeros( _2 ); // Find the first set bit in _2 (smallest byte value in 64-127 range).
 				else if( _3 != 0 ) return 128 + Long.numberOfTrailingZeros( _3 ); // Find the first set bit in _3 (smallest byte value in 128-191 range).
@@ -2755,8 +2749,8 @@ public interface Array {
 		 * @return {@code true} if the set was modified as a result of this operation (i.e., the key was present),
 		 * {@code false} otherwise, indicating the key was not in the set.
 		 */
-		protected boolean _remove( byte key ) {
-			if( size == 0 ) return false; // Optimization: empty set cannot contain any key to remove.
+		protected boolean set0( byte key ) {
+			if( cardinality == 0 ) return false; // Optimization: empty set cannot contain any key to remove.
 			final long bit = ~( 1L << key ); // Calculate bitmask to clear the bit at the given key position. Ensure key is treated as unsigned byte.
 			if( key < 0 ) {
 				if( -65 < key ) { if( _4 == ( _4 &= bit ) ) return false; }
@@ -2764,7 +2758,7 @@ public interface Array {
 			}
 			else if( 63 < key ) { if( _2 == ( _2 &= bit ) ) return false; }
 			else if( _1 == ( _1 &= bit ) ) return false;
-			size--; // Decrement size as an element was removed.
+			cardinality--; // Decrement size as an element was removed.
 			_version++; // Increment version to indicate structural modification.
 			return true; // Value was removed.
 		}
@@ -2776,7 +2770,7 @@ public interface Array {
 		 * @return {@code true} if the set was modified as a result of this operation (i.e., the value was not already present),
 		 * {@code false} otherwise, indicating the key was already in the set.
 		 */
-		protected boolean _add( final byte key ) {
+		protected boolean set1( final byte key ) {
 			final long bit = 1L << key;        // Calculate the bitmask to set the bit at the given key position. Ensure key is treated as unsigned byte.
 			
 			if( key < 0 ) {
@@ -2786,7 +2780,7 @@ public interface Array {
 			else if( key > 63 ) { if( _2 == ( _2 |= bit ) ) return false; }
 			else if( _1 == ( _1 |= bit ) ) return false;
 			
-			size++; // Increment size as a new element was added.
+			cardinality++; // Increment size as a new element was added.
 			_version++; // Increment version to indicate structural modification.
 			return true; // Value was added.
 		}
@@ -2795,7 +2789,7 @@ public interface Array {
 		 * Clears all byte values from the set, making it empty.
 		 */
 		protected void _clear() {
-			_1 = _2 = _3 = _4 = size = 0; // Reset all bitset segments to 0.
+			_1 = _2 = _3 = _4 = cardinality = 0; // Reset all bitset segments to 0.
 			_version++; // Increment version to indicate structural modification.
 		}
 		
@@ -2807,7 +2801,7 @@ public interface Array {
 		 * @return {@code true} if the set contains the specified byte value, {@code false} otherwise.
 		 */
 		protected boolean get( byte key ) {
-			if( size == 0 ) return false; // Optimization: empty set cannot contain any value.
+			if( cardinality == 0 ) return false; // Optimization: empty set cannot contain any value.
 			
 			return ( ( key < 0 ?
 					-65 < key ?

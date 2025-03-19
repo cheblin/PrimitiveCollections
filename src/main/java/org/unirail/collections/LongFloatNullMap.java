@@ -204,7 +204,7 @@ public interface LongFloatNullMap {
 			if( _count == 0 && !hasNullKey ) return false;
 			return value == null ?
 					!nullKeyHasValue :
-					values.values.indexOf( value ) != -1;
+					values.indexOf( value ) != -1;
 		}
 		
 		/**
@@ -216,7 +216,7 @@ public interface LongFloatNullMap {
 		 */
 		public boolean containsValue( float value ) {
 			if( _count == 0 ) return false;
-			return values.values.indexOf( value ) != -1;
+			return values.indexOf( value ) != -1;
 		}
 		
 		/**
@@ -576,7 +576,14 @@ public interface LongFloatNullMap {
 			values = new FloatNullList.RW( 0 );
 			if( capacity > 0 ) initialize( capacity );
 		}
-		
+		/**
+		 * {@code flatStrategyThreshold} is the threshold that determines when to switch values collection from
+		 * <b>Compressed Strategy</b> to <b>Flat Strategy</b>. The switch is typically based on the
+		 * density of null values. The default value is 512.
+		 */
+		public void flatStrategyThreshold( int interleavedBits ) {
+			values. flatStrategyThreshold = interleavedBits;
+		}
 		/**
 		 * Initializes the internal arrays of the map with a given capacity.
 		 * <p>

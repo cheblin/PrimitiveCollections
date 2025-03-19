@@ -51,7 +51,7 @@ public interface IntUByteMap {
 	abstract class R implements Cloneable, JsonWriter.Source {
 		protected boolean           hasNullKey;          // Indicates if the map contains a null key.
 		protected byte       nullKeyValue;        // Value for the null key, stored separately.
-		protected int[]     _buckets;            // Hash table buckets array (1-based indices to chain heads).
+		protected int[]             _buckets;            // Hash table buckets array (1-based indices to chain heads).
 		protected int[]     nexts;          // Packed entries: hashCode (upper 32 bits) | next index (lower 32 bits).
 		protected int[]     keys = Array.EqualHashOf.ints     .O; // Keys array.
 		protected byte[]     values;              // Values array.
@@ -165,8 +165,7 @@ public interface IntUByteMap {
 			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < nexts.length; ) {
 				if( keys[ i ] == key ) return token( i );
 				i = nexts[ i ];
-				if( nexts.length <= collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				if( nexts.length < ++collisionCount ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
 			return INVALID_TOKEN;
 		}
@@ -499,8 +498,7 @@ public interface IntUByteMap {
 							return false;
 					}
 				next = _nexts[ next ];
-				if( _nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				if( _nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
 			
 			int index;
@@ -520,7 +518,7 @@ public interface IntUByteMap {
 			nexts[ index ]          = ( int ) bucket;
 			keys[ index ]           = ( int ) key;
 			values[ index ]         = ( byte ) value;
-			_buckets[ bucketIndex ] =   index + 1;
+			_buckets[ bucketIndex ] = index + 1;
 			_version++;
 			
 			return true;
@@ -590,7 +588,7 @@ public interface IntUByteMap {
 			while( -1 < i ) {
 				int next = nexts[ i ];
 				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] =  ( next + 1 );
+					if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 );
 					else nexts[ last ] = next;
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList );
 					_freeList  = i;
@@ -600,8 +598,7 @@ public interface IntUByteMap {
 				}
 				last = i;
 				i    = next;
-				if( nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
 			return INVALID_TOKEN;
 		}
@@ -611,7 +608,7 @@ public interface IntUByteMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets,  0 );
+			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( keys, 0, _count, ( int ) 0 );
 			Arrays.fill( values, 0, _count, ( byte ) 0 );
@@ -685,7 +682,7 @@ public interface IntUByteMap {
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); //relink chain
-					_buckets[ bucketIndex ] =  ( i + 1 );
+					_buckets[ bucketIndex ] = ( i + 1 );
 				}
 			
 			nexts  = new_next;
@@ -710,7 +707,7 @@ public interface IntUByteMap {
 				values[ new_count ] = old_values[ i ];
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
 				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] =  ( new_count + 1 );
+				_buckets[ bucketIndex ] = ( new_count + 1 );
 				new_count++;
 			}
 			_count     = new_count;
