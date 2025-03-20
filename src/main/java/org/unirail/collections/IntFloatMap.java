@@ -66,6 +66,7 @@ public interface IntFloatMap {
 		
 		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
+		
 		/**
 		 * Checks if the map is empty.
 		 *
@@ -86,9 +87,7 @@ public interface IntFloatMap {
 					0 );
 		}
 		
-		public int count() {
-			return size(); // Alias for size()
-		}
+		public int count() {return size(); 	}
 		
 		/**
 		 * Returns the allocated capacity of the internal arrays.
@@ -140,8 +139,8 @@ public interface IntFloatMap {
 		/**
 		 * Returns a token for the specified key (boxed Integer).
 		 *
-		 * @param key The key to find.
-		 * @return A token if the key exists, INVALID_TOKEN otherwise.
+         * @param key The key to find (can be null).
+         * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long tokenOf(  Integer   key ) {
 			return key == null ?
@@ -155,7 +154,7 @@ public interface IntFloatMap {
 		 * Returns a token for the specified primitive key.
 		 *
 		 * @param key The primitive int key.
-		 * @return A token if the key exists, INVALID_TOKEN otherwise.
+         * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long tokenOf( int key ) {
 			if( _buckets == null ) return INVALID_TOKEN;
@@ -173,7 +172,7 @@ public interface IntFloatMap {
 		/**
 		 * Returns the initial token for iteration.
 		 *
-		 * @return The first valid token or INVALID_TOKEN if empty.
+         * @return The first valid token to begin iteration, or -1 (INVALID_TOKEN) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -187,11 +186,10 @@ public interface IntFloatMap {
 		 * Returns the next token in iteration.
 		 *
 		 * @param token The current token.
-		 * @return The next valid token or INVALID_TOKEN if no more entries.
+         * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
 		 */
 		public long token( long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey && index( token ) < _count ?
@@ -199,48 +197,31 @@ public interface IntFloatMap {
 					INVALID_TOKEN;
 		}
 		
-		/**
-		 * Checks if a token is valid for the current map state.
-		 *
-		 * @param token The token to validate.
-		 * @return True if the token is valid.
-		 */
-		public boolean isValid( long token ) {
-			return token != INVALID_TOKEN && version( token ) == _version;
-		}
+		public boolean hasNullKey() {			return hasNullKey;		}
 		
-		public boolean hasNullKey() {
-			return hasNullKey;
-		}
 		
-		public boolean hasKey( long token ) {
-			if( isValid( token ) ) return index( token ) < _count || hasNullKey;
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
-		}
+		public float nullKeyValue() { return  nullKeyValue; }
+		
+		public boolean hasKey( long token ) { return index( token ) < _count || hasNullKey;	}
 		
 		/**
 		 * Retrieves the key associated with a token.
 		 *
-		 * @param token The token.
-		 * @return The key associated with the token.
+         * @param token The token representing the key-value pair.
+         * @return The integer key associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
 		 */
-		public int key( long token ) {
-			if( isValid( token ) ) return  ( keys[ index( token ) ] );
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
-		}
+		public int key( long token ) {return  ( keys[ index( token ) ] );}
 		
 		/**
 		 * Retrieves the value associated with a token.
 		 *
-		 * @param token The token.
-		 * @return The value associated with the token.
+         * @param token The token representing the key-value pair.
+         * @return The integer value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
 		 */
 		public float value( long token ) {
-			if( isValid( token ) ) // Check token validity.
 				return ( index( token ) == _count ?
 						nullKeyValue :
-						values[ index( token ) ] ); // Handle null key value.
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." ); // Token invalid.
+						values[ index( token ) ] );
 		}
 		
 		/**
@@ -550,7 +531,7 @@ public interface IntFloatMap {
 		 * Removes a key-value pair (boxed Integer key).
 		 *
 		 * @param key The key to remove.
-		 * @return The token of the removed entry or INVALID_TOKEN.
+         * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long remove(  Integer   key ) {
 			return key == null ?
@@ -561,7 +542,7 @@ public interface IntFloatMap {
 		/**
 		 * Removes the null key mapping.
 		 *
-		 * @return The token of the removed entry or INVALID_TOKEN.
+         * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not present.
 		 */
 		private long removeNullKey() {
 			if( !hasNullKey ) return INVALID_TOKEN;
@@ -574,7 +555,7 @@ public interface IntFloatMap {
 		 * Removes a key-value pair (primitive key).
 		 *
 		 * @param key The primitive key to remove.
-		 * @return The token of the removed entry or INVALID_TOKEN.
+         * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long remove( int key ) {
 			if( _buckets == null || _count == 0 ) return INVALID_TOKEN;

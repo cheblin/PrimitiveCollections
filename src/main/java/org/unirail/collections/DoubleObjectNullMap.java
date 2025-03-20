@@ -119,7 +119,7 @@ public interface DoubleObjectNullMap {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-		 * Represents an invalid token, indicating that a key is not found or a token is invalid.
+         * Represents an invalid token, indicating that a key is not found or a token is invalid. Value is -1.
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -190,6 +190,16 @@ public interface DoubleObjectNullMap {
 					hasNullKey :
 					tokenOf( key ) != INVALID_TOKEN;
 		}
+		/**
+		 * Checks if this map contains a mapping for the null key.
+		 *
+		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
+		 */
+		public boolean hasNullKey() { return hasNullKey; }
+		
+		
+		public V nullKeyValue() { return  nullKeyValue; }
+		
 		
 		/**
 		 * Checks if this map contains a value equal to the given value.
@@ -208,12 +218,12 @@ public interface DoubleObjectNullMap {
 		
 		/**
 		 * Returns a token associated with the specified boxed Integer key, if present.
-		 * A token is a long value that uniquely identifies an entry in the map and includes a version for concurrency checks.
-		 * Returns {@link #INVALID_TOKEN} if the key is not found.
+         * A token is a long value that uniquely identifies an entry in the map and includes a version.
+         * Returns {@link #INVALID_TOKEN} (-1) if the key is not found or if the map has been modified since the token was issued.
 		 * Handles null keys.
 		 *
 		 * @param key The key for which to retrieve the token.
-		 * @return The token associated with the key, or {@link #INVALID_TOKEN} if the key is not found.
+         * @return The token associated with the key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
 		 */
 		public long tokenOf(  Double    key ) {
 			return key == null ?
@@ -225,11 +235,11 @@ public interface DoubleObjectNullMap {
 		
 		/**
 		 * Returns a token associated with the specified primitive integer key, if present.
-		 * A token is a long value that uniquely identifies an entry in the map and includes a version for concurrency checks.
-		 * Returns {@link #INVALID_TOKEN} if the key is not found.
+         * A token is a long value that uniquely identifies an entry in the map and includes a version.
+         * Returns {@link #INVALID_TOKEN} (-1) if the key is not found or if the map has been modified since the token was issued.
 		 *
 		 * @param key The key for which to retrieve the token.
-		 * @return The token associated with the key, or {@link #INVALID_TOKEN} if the key is not found.
+         * @return The token associated with the key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
 		 */
 		public long tokenOf( double key ) {
 			if( _buckets == null ) return INVALID_TOKEN; // Map is not initialized, no buckets exist
@@ -248,20 +258,11 @@ public interface DoubleObjectNullMap {
 		}
 		
 		/**
-		 * Checks if a token is valid for the current version of the map.
-		 * A token is valid if it's not {@link #INVALID_TOKEN} and its version matches the current map's version.
-		 *
-		 * @param token The token to validate.
-		 * @return {@code true} if the token is valid, {@code false} otherwise.
-		 */
-		public boolean isValid( long token ) { return token != INVALID_TOKEN && version( token ) == _version; }
-		
-		/**
 		 * Returns a token for the first entry in the map.
 		 * This can be used to iterate through the map using {@link #token(long)}.
-		 * Returns {@link #INVALID_TOKEN} if the map is empty.
+         * Returns {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 *
-		 * @return A token for the first entry, or {@link #INVALID_TOKEN} if the map is empty.
+         * @return A token for the first entry, or {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -275,15 +276,13 @@ public interface DoubleObjectNullMap {
 		/**
 		 * Returns a token for the next entry in the map after the entry represented by the given token.
 		 * This is used for iteration.
-		 * Returns {@link #INVALID_TOKEN} if there are no more entries after the current one.
+         * Returns {@link #INVALID_TOKEN} (-1) if there are no more entries after the current one or if the token is invalid due to map modification.
 		 *
 		 * @param token The token of the current entry.
-		 * @return A token for the next entry, or {@link #INVALID_TOKEN} if no more entries exist.
-		 * @throws ConcurrentModificationException if the provided token is invalid due to map modification.
+         * @return A token for the next entry, or {@link #INVALID_TOKEN} (-1) if no more entries exist or the token is invalid.
 		 */
 		public long token( final long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( nexts[ i ] >= -1 ) return token( i ); // Find the next valid entry after the current index
 			return hasNullKey && index( token ) < _count ?
@@ -297,23 +296,19 @@ public interface DoubleObjectNullMap {
 		 *
 		 * @param token The token to check.
 		 * @return {@code true} if the token corresponds to the null key, {@code false} otherwise.
-		 * @throws ConcurrentModificationException if the token is invalid.
 		 */
-		boolean isKeyNull( long token ) { return isValid( token ) && index( token ) == _count; }
+        boolean isKeyNull( long token ) { return index( token ) == _count; }
 		
 		/**
 		 * Returns the primitive integer key associated with the given token.
 		 *
 		 * @param token The token for which to retrieve the key.
-		 * @return The integer key associated with the token.
-		 * @throws ConcurrentModificationException if the token is invalid.
+         * @return The integer key associated with the token, or 0 if the token corresponds to the null key.
 		 */
 		public double key( long token ) {
-			if( isValid( token ) )
 				return   ( hasNullKey && index( token ) == _count ?
 						0 :
 						keys[ index( token ) ] ); // Return the actual key from the keys array
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		/**
@@ -322,15 +317,12 @@ public interface DoubleObjectNullMap {
 		 *
 		 * @param token The token to check.
 		 * @return {@code true} if the entry has a non-null value, {@code false} if it has a null value.
-		 * @throws ConcurrentModificationException if the token is invalid.
 		 */
 		public boolean hasValue( long token ) {
-			if( isValid( token ) )
 				return index( token ) == _count ?
 						nullKeyValue != null :
 						// For null key entry, check if nullKeyValue is not null
 						values.hasValue( index( token ) ); // For regular entries, use ObjectNullList's hasValue
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		/**
@@ -338,15 +330,12 @@ public interface DoubleObjectNullMap {
 		 *
 		 * @param token The token for which to retrieve the value.
 		 * @return The value associated with the token.
-		 * @throws ConcurrentModificationException if the token is invalid.
 		 */
 		public V value( long token ) {
-			if( isValid( token ) )
 				return hasNullKey && index( token ) == _count ?
 						nullKeyValue :
 						// Return nullKeyValue if it's the null key entry
 						values.get( index( token ) ); // Return the value from the values list
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		/**

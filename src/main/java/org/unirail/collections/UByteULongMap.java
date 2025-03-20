@@ -72,6 +72,8 @@ public interface UByteULongMap {
 		 */
 		protected long   nullKeyValue = 0;
 		
+		public long nullKeyValue() { return  nullKeyValue; }
+		
 		/**
 		 * Retrieves the integer value associated with the given token.
 		 * <p>

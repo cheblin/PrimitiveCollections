@@ -72,6 +72,8 @@ public interface UByteShortMap {
 		 */
 		protected short   nullKeyValue = 0;
 		
+		public short nullKeyValue() { return (short) nullKeyValue; }
+		
 		/**
 		 * Retrieves the integer value associated with the given token.
 		 * <p>

@@ -81,6 +81,8 @@ public interface ByteObjectNullMap {
 		 */
 		protected       V                      nullKeyValue;
 		
+		public V nullKeyValue() { return  nullKeyValue; }
+		
 		/**
 		 * Protected constructor for {@code R}. Initializes the read-only map with a value type class.
 		 * <p>

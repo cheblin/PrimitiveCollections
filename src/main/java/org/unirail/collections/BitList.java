@@ -42,9 +42,15 @@ import java.util.Arrays;
  * Designed to handle large-scale bit operations, it supports a variety of functionalities while maintaining a compact memory footprint.
  */
 public interface BitList {
-	
 	/**
 	 * Abstract base class {@code R} provides a read-only foundation for the {@code BitList} interface.
+	 * MSB                LSB
+	 * |                  |
+	 * bits  in the list   [0, 0, 0, 1, 1, 1, 1]      Leading 3 zeros and trailing 4 ones
+	 * index in the list    6  5  4  3  2  1  0
+	 * shift left                 <<
+	 * shift right                >>>
+	 * <p>
 	 * It encapsulates core functionalities for bit storage, size management, and querying, serving as a blueprint
 	 * for concrete {@code BitList} implementations. Optimized for space efficiency, it uses techniques like
 	 * implicit trailing ones and trailing zeros to minimize memory usage while ensuring fast read operations.
@@ -64,7 +70,7 @@ public interface BitList {
 		protected int trailingOnesCount = 0;
 		
 		/**
-		 * Stores the bits of the BitList *after* any trailing ones.
+		 * Stores the interleaving bits of the BitList *after* any trailing ones.
 		 * <p>
 		 * The first bit in `values` is always '0' (representing the first '0' in the BitList).
 		 * The last bit in `values` is always '1' (representing the final '1' in the BitList before trailing zeros).
@@ -664,7 +670,7 @@ public interface BitList {
 		 *
 		 * @return The number of leading zero bits.
 		 */
-		public int numberOfLeadingZeros() { return size - 1 - last1(); }
+		public int numberOfLeading0() { return size - 1 - last1(); }
 		
 		/**
 		 * Counts the number of trailing zero bits in this {@code BitList}. Similar tp Long.numberOfTrailingZeros
@@ -673,10 +679,23 @@ public interface BitList {
 		 *
 		 * @return The number of trailing zero bits.
 		 */
-		public int numberOfTrailingZeros() {
-			return 0 < trailingOnesCount || 0 < used ?
+		public int numberOfTrailing0() {
+			int i = next1( 0 );
+			return i == -1 ?
 					0 :
-					size();
+					i;
+		}
+		
+		public int numberOfTrailing1() { return trailingOnesCount; }
+		
+		public int numberOfLeading1() {
+			if( 0 < size ) {
+				int last1 = last1();
+				return last1 + 1 == size ?
+						last1 - prev1( last1 - 1 ) :
+						0;
+			}
+			return 0;
 		}
 	}
 	

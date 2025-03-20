@@ -111,6 +111,20 @@ public interface ObjectCharMap {
 			return false;
 		}
 		
+		/**
+		 * Checks if this map contains a mapping for the null key.
+		 *
+		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
+		 */
+		public boolean hasNullKey() { return hasNullKey; }
+		
+		public char nullKeyValue() { return (char) nullKeyValue; }
+		
+        /**
+         * Returns the token associated with the specified key, or INVALID_TOKEN (-1) if the key is not present.
+         * @param key The key to look up.
+         * @return A token for iteration, or INVALID_TOKEN (-1) if the key is not found.
+         */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
 					token( _count ) :
@@ -130,10 +144,10 @@ public interface ObjectCharMap {
 			return INVALID_TOKEN;
 		}
 		
-		public boolean isValid( long token ) {
-			return token != INVALID_TOKEN && version( token ) == _version;
-		}
-		
+        /**
+         * Returns the first valid token for iteration, or INVALID_TOKEN (-1) if the map is empty.
+         * @return A token for iteration, or INVALID_TOKEN (-1) if no entries exist.
+         */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
 				if( -2 < next( hash_nexts[ i ] ) ) return token( i );
@@ -142,9 +156,14 @@ public interface ObjectCharMap {
 					INVALID_TOKEN;
 		}
 		
+        /**
+         * Returns the next valid token after the given token, or INVALID_TOKEN (-1) if no further entries exist
+         * or if the provided token is invalid due to modification.
+         * @param token The current token.
+         * @return The next token for iteration, or INVALID_TOKEN (-1) if no next entry exists or the token is invalid.
+         */
 		public long token( final long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
 			return hasNullKey && index( token ) < _count ?
@@ -152,20 +171,26 @@ public interface ObjectCharMap {
 					INVALID_TOKEN;
 		}
 		
+        /**
+         * Returns the key associated with the given token.
+         * @param token The token to query.
+         * @return The key, or null if the token corresponds to the null key entry.
+         */
 		public K key( long token ) {
-			if( isValid( token ) )
 				return hasNullKey && index( token ) == _count ?
 						null :
 						keys[ index( token ) ];
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
+        /**
+         * Returns the value associated with the given token.
+         * @param token The token to query.
+         * @return The value associated with the token.
+         */
 		public char value( long token ) {
-			if( isValid( token ) )
 				return (char)( index( token ) == _count ?
 						nullKeyValue :
 						values[ index( token ) ] );
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		@Override

@@ -116,6 +116,10 @@ public interface ByteByteNullMap {
 		 */
 		protected boolean                nullKeyHasValue; // Indicates if the null key has a non-null value
 		
+		public boolean nullKeyHasValue() { return nullKeyHasValue; }
+		
+		public byte nullKeyValue() { return (byte) nullKeyValue; }
+		
 		/**
 		 * Checks if this map contains a specific value (boxed Integer).
 		 *
@@ -419,12 +423,11 @@ public interface ByteByteNullMap {
 		 * @return {@code true} if the key was newly added to the map, {@code false} if the key already existed.
 		 */
 		public boolean put( byte key, byte value ) {
-			
 			if( values.length == 256 ) {
 				values[ key & 0xFF ] = ( byte ) value;
 				return nulls.set1( ( byte ) key ) && set1( ( byte ) key );
 			}
-		
+			
 			if( nulls.cardinality == 127 && !nulls.get( ( byte ) key ) ) { // Threshold reached for transition to Flat Strategy: Adding the 128th non-null entry triggers the switch.
 				byte[] newValues = new byte[ 256 ]; // Create a new array of size 256 to accommodate all byte values for direct indexing.
 				

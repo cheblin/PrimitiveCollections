@@ -72,6 +72,8 @@ public interface UByteFloatMap {
 		 */
 		protected float   nullKeyValue = 0;
 		
+		public float nullKeyValue() { return  nullKeyValue; }
+		
 		/**
 		 * Retrieves the integer value associated with the given token.
 		 * <p>

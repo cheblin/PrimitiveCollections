@@ -122,7 +122,7 @@ public interface UIntObjectMap {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-		 * Represents an invalid token value.
+         * Represents an invalid token value (-1).
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -171,7 +171,15 @@ public interface UIntObjectMap {
 					0 :
 					nexts.length;
 		}
+		/**
+		 * Checks if this map contains a mapping for the null key.
+		 *
+		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
+		 */
+		public boolean hasNullKey() { return hasNullKey; }
 		
+		
+		public V nullKeyValue() { return nullKeyValue; }
 		
 		/**
 		 * Checks if the map contains a key-value pair with the specified integer key.
@@ -212,11 +220,11 @@ public interface UIntObjectMap {
 		/**
 		 * Returns a token associated with the specified key (boxed Integer), if present in the map.
 		 * A token is a long value that uniquely identifies a key-value pair within a specific version of the map.
-		 * Tokens are used for efficient iteration and access, and are invalidated if the map is modified.
+         * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
 		 * Handles null keys.
 		 *
 		 * @param key The key (Integer) to get the token for (can be null).
-		 * @return A valid token if the key is found, {@link #INVALID_TOKEN} otherwise.
+         * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
 		 */
 		public long tokenOf(  Integer   key ) {
 			return key == null ?
@@ -229,10 +237,10 @@ public interface UIntObjectMap {
 		/**
 		 * Returns a token associated with the specified integer key, if present in the map.
 		 * A token is a long value that uniquely identifies a key-value pair within a specific version of the map.
-		 * Tokens are used for efficient iteration and access, and are invalidated if the map is modified.
+         * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
 		 *
 		 * @param key The integer key to get the token for.
-		 * @return A valid token if the key is found, {@link #INVALID_TOKEN} otherwise.
+         * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
 		 */
 		public long tokenOf( long key ) {
 			
@@ -251,20 +259,11 @@ public interface UIntObjectMap {
 		}
 		
 		/**
-		 * Checks if the given token is valid for the current version of the map.
-		 * A token becomes invalid if the map is structurally modified after the token was obtained.
-		 *
-		 * @param token The token to check.
-		 * @return {@code true} if the token is valid, {@code false} otherwise.
-		 */
-		public boolean isValid( long token ) { return token != INVALID_TOKEN && version( token ) == _version; }
-		
-		/**
 		 * Returns a token for the "first" key-value pair in the map for iteration purposes.
 		 * The order is not guaranteed to be consistent across different versions or implementations.
-		 * If the map is empty, returns {@link #INVALID_TOKEN}. If a null key exists, its token will be returned last by subsequent {@link #token(long)} calls.
+         * If the map is empty, returns {@code INVALID_TOKEN} (-1). If a null key exists, its token will be returned last by subsequent {@link #token(long)} calls.
 		 *
-		 * @return A token for the first key-value pair, or {@link #INVALID_TOKEN} if the map is empty.
+         * @return A token for the first key-value pair, or {@code INVALID_TOKEN} (-1) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -276,16 +275,14 @@ public interface UIntObjectMap {
 		
 		/**
 		 * Returns a token for the "next" key-value pair in the map, following the given token, for iteration purposes.
-		 * If the given token is the last valid token, or is invalid, returns {@link #INVALID_TOKEN}.
+         * If the given token is the last valid token, or is invalid (e.g., due to map modification), returns {@code INVALID_TOKEN} (-1).
 		 * If a null key exists, its token will be returned last.
 		 *
 		 * @param token The current token.
-		 * @return A token for the next key-value pair, or {@link #INVALID_TOKEN} if there is no next pair or the token is invalid.
-		 * @throws ConcurrentModificationException if the provided token is no longer valid due to map modifications.
+         * @return A token for the next key-value pair, or {@code INVALID_TOKEN} (-1) if there is no next pair or the token is invalid.
 		 */
 		public long token( final long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey && index( token ) < _count ?
@@ -297,38 +294,32 @@ public interface UIntObjectMap {
 		 * Checks if the key associated with the given token is the null key.
 		 *
 		 * @param token The token to check.
-		 * @return {@code true} if the key for the token is null, {@code false} otherwise, or if the token is invalid.
+         * @return {@code true} if the key for the token is null, {@code false} otherwise.
 		 */
-		boolean isKeyNull( long token ) { return isValid( token ) && index( token ) == _count; }
+        boolean isKeyNull( long token ) { return index( token ) == _count; }
 		
 		/**
 		 * Returns the integer key associated with the given token.
 		 *
 		 * @param token The token to get the key for.
-		 * @return The integer key associated with the token.
-		 * @throws ConcurrentModificationException if the provided token is no longer valid due to map modifications.
+         * @return The integer key associated with the token, or 0 if the token represents the null key or is invalid.
 		 */
 		public long key( long token ) {
-			if( isValid( token ) )
 				return  ( hasNullKey && index( token ) == _count ?
 						0 :
 						keys[ index( token ) ] );
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		/**
 		 * Returns the value associated with the given token.
 		 *
 		 * @param token The token to get the value for.
-		 * @return The value associated with the token.
-		 * @throws ConcurrentModificationException if the provided token is no longer valid due to map modifications.
+         * @return The value associated with the token, or {@code null} if the token is invalid.
 		 */
 		public V value( long token ) {
-			if( isValid( token ) )
 				return hasNullKey && index( token ) == _count ?
 						nullKeyValue :
 						values[ index( token ) ];
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		/**

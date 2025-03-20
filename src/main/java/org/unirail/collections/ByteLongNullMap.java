@@ -116,6 +116,10 @@ public interface ByteLongNullMap {
 		 */
 		protected boolean                nullKeyHasValue; // Indicates if the null key has a non-null value
 		
+		public boolean nullKeyHasValue() { return nullKeyHasValue; }
+		
+		public long nullKeyValue() { return  nullKeyValue; }
+		
 		/**
 		 * Checks if this map contains a specific value (boxed Integer).
 		 *

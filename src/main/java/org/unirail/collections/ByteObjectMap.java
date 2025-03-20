@@ -74,6 +74,7 @@ public interface ByteObjectMap {
 		 * If there is no mapping for a {@code null} key, this field will typically be {@code null}.
 		 */
 		protected       V                      nullKeyValue;
+		public V nullKeyValue() { return  nullKeyValue; }
 		
 		/**
 		 * Protected constructor to initialize a read-only {@code ByteObjectMap}.

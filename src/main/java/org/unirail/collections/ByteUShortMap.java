@@ -72,6 +72,8 @@ public interface ByteUShortMap {
 		 */
 		protected char   nullKeyValue = 0;
 		
+		public char nullKeyValue() { return  nullKeyValue; }
+		
 		/**
 		 * Retrieves the integer value associated with the given token.
 		 * <p>

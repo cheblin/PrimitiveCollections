@@ -100,11 +100,14 @@ public interface ObjectSet {
 			}
 			return INVALID_TOKEN;
 		}
-		
-		public boolean isValid( long token ) {
-			return token != INVALID_TOKEN && version( token ) == _version;
-		}
-		
+		 
+        /**
+         * Returns the first valid iteration token for traversing the set.
+         * This token points to the smallest byte value present in the set or the null key if present and no byte values exist.
+         * May return {@link #INVALID_TOKEN} (-1) if the set is empty (no elements and no null key).
+         *
+         * @return The first iteration token, or {@link #INVALID_TOKEN} (-1) if the set is empty.
+         */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
@@ -112,10 +115,17 @@ public interface ObjectSet {
 					token( _count ) :
 					INVALID_TOKEN;
 		}
-		
+		/**
+         * Returns the next iteration token in the sequence, starting from the given {@code token}.
+         * This method is used to iterate through the elements of the set in ascending order of byte values,
+         * followed by the null key (if present). May return {@link #INVALID_TOKEN} (-1) if there are no more
+         * elements to iterate or if the provided token is invalid (e.g., due to set modification).
+         *
+         * @param token The current iteration token.
+         * @return The next iteration token, or {@link #INVALID_TOKEN} (-1) if there are no more elements or the token is invalid.
+         */
 		public long token( long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+			if( token == INVALID_TOKEN || version( token ) != _version)  return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
 			return hasNullKey && index( token ) < _count ?
@@ -124,11 +134,9 @@ public interface ObjectSet {
 		}
 		
 		public K key( long token ) {
-			if( isValid( token ) )
 				return hasNullKey && index( token ) == _count ?
 						null :
 						keys[ index( token ) ];
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		@Override public int hashCode() {
@@ -193,7 +201,7 @@ public interface ObjectSet {
 				if( hasNullKey ) json.value();
 				if( size > 0 ) {
 					json.preallocate( size * 10 );
-					for( long t = token(); isValid( t ); t = token( t ) ) json.value( key( t ) );
+					for( long t = token(); t != INVALID_TOKEN; t = token( t ) ) json.value( key( t ) );
 				}
 				json.exitArray();
 			}
@@ -381,7 +389,7 @@ public interface ObjectSet {
 		@Override public Object[] toArray() {
 			Object[] array = new Object[ size() ];
 			int      index = 0;
-			for( long token = token(); isValid( token ); token = token( token ) )
+			for( long token = token();  token != INVALID_TOKEN; token = token( token ) )
 			     array[ index++ ] = key( token );
 			return array;
 		}

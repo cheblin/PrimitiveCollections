@@ -72,6 +72,8 @@ public interface ByteByteMap {
 		 */
 		protected byte   nullKeyValue = 0;
 		
+		public byte nullKeyValue() { return (byte) nullKeyValue; }
+		
 		/**
 		 * Retrieves the integer value associated with the given token.
 		 * <p>

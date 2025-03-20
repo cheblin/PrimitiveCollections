@@ -1,3 +1,5 @@
+For those who care what's under the hood.
+
 ## Stop Boxing, Start Performing: AdHoc Primitive Collections for Java
 
 **Unleash the Power of Primitives in Java: High-Performance, Memory-Efficient Collections**
@@ -44,7 +46,7 @@ AdHoc Primitive Collections draws inspiration and lessons learned from establish
 * **Ultra-Compact Storage with `BitsList`:**  For scenarios where you deal with small-range values (like enums, flags, status codes, or small integers), `BitsList` provides incredibly efficient storage by packing multiple values into individual bits.  This further optimizes memory usage, especially when storing large quantities of such data.
 
 
-## Collection Interfaces: R (Read-Only) and RW (Read-Write) - Enforcing Immutability and Clarity
+**Collection Interfaces: R (Read-Only) and RW (Read-Write)** 
 
 Every collection type in AdHoc Primitive Collections is defined with two interfaces: `R` for read-only operations and `RW` for read-write operations. The `RW` interface extends `R`, ensuring that all read-only methods are available on mutable collections.
 
@@ -102,58 +104,35 @@ Here are the core components you'll use for token-based iteration:
 **Example: Garbage-Free Iteration with `IntLongMap`**
 
 ```java
-import org.unirail.collections.IntLongMap;
-import org.unirail.collections.iterators.NonNullKeysIterator; // Helper class for non-null key iteration
+// Create a new IntLongNullMap
+IntLongNullMap.RW map = new IntLongNullMap.RW();
 
-public class IntLongMapIterationExample {
-    public static void main(String[] args) {
-        IntLongMap.RW map = new IntLongMap.RW(8);
-        map.put(1, 100L);
-        map.put(2, null); // Example of a null value
-        map.put(3, 300L);
-        map.put(null, 999L); // Example of a null key (maps support null keys)
-        map.put(4, null);
+// Add some key-value pairs
+map.put( 1, 100L );
+map.put( 2, 200L );
+map.put( 3, 300L );
+map.put( 4, null );
+map.put( null, 999L ); // null key example
 
-        System.out.println("Iterating using NonNullKeysIterator (skips null keys):");
-        int token = NonNullKeysIterator.INIT; // Start token (usually 0 or a similar constant)
-        while ((token = NonNullKeysIterator.token(map, token)) != NonNullKeysIterator.INIT) {
-            int key = NonNullKeysIterator.key(map, token);
-            Long value = NonNullKeysIterator.value(map, token); // Value can be Long (nullable)
-            System.out.println("Key: " + key + ", Value: " + value);
+// Token-based iteration
+// Get first token
+
+System.out.println( "Iterating through map using tokens:" );
+for( long token = map.token(); token != -1; token = map.token( token ) ) {
+    if( map.hasKey( token ) ) {
+        int key = map.key( token );
+        System.out.print( "Key: " + key );
+        
+        
+        if( map.hasValue( token ) ) {
+            long value = map.value( token );
+            System.out.println( ", Value: " + value );
         }
-
-        System.out.println("\nIterating through all entries (including potential null key):");
-        token = IntLongMap.R.INIT; // Reset token to start from the beginning
-        while ((token = map.token(token)) != IntLongMap.R.INIT) {
-            Integer key = map.key(token); // Key can be Integer (nullable if null keys are supported)
-            Long value = map.value(token);    // Value can be Long (nullable)
-
-            System.out.print("Key: ");
-            if (key == null) {
-                System.out.print("null");
-            } else {
-                System.out.print(key);
-            }
-            System.out.print(", Value: ");
-            if (value == null) {
-                System.out.println("null");
-            } else {
-                System.out.println(value);
-            }
-        }
-
-        System.out.println("\nIterating with status checks for nullable values:");
-        token = IntLongMap.R.INIT;
-        while ((token = map.token(token)) != IntLongMap.R.INIT) {
-            Integer key = map.key(token);
-            if (map.hasNull(token)) {
-                System.out.println("Key: " + key + ", Value: null (explicitly null)");
-            } else if (map.hasValue(token)) {
-                System.out.println("Key: " + key + ", Value: " + map.value(token));
-            } // 'hasNone' is less common in standard iteration, but included for completeness
-        }
+        else System.out.println( ", Value: null" );
     }
+    else if( map.hasNullKey() && map.nullKeyHasValue() ) System.out.println( "Key: null, Value: " + map.nullKeyHasValue() );
 }
+		
 ```
 
 While token-based iteration is a slightly different paradigm than standard Java iterators, the **zero-garbage benefit and performance gains in iteration-heavy scenarios are substantial**. Once you understand the basic token flow, you'll find it a powerful and efficient way to traverse primitive collections.

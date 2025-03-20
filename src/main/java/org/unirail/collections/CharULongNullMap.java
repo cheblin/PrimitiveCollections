@@ -76,7 +76,7 @@ public interface CharULongNullMap {
 		/**
 		 * Array of buckets for the hash table. Each element is a 1-based index pointing to the head of a collision chain in the {@code nexts} array.
 		 */
-		protected int[]          _buckets;
+		protected int[]                  _buckets;
 		/**
 		 * Array of next indices for collision chains. Each element points to the next entry in the chain or contains special markers like {@code StartOfFreeList}.
 		 */
@@ -120,7 +120,7 @@ public interface CharULongNullMap {
 		protected static final int  VERSION_SHIFT   = 32;
 		
 		/**
-		 * Constant representing an invalid token.
+		 * Constant representing an invalid token, equal to -1.
 		 */
 		protected static final long INVALID_TOKEN = -1L;
 		
@@ -154,9 +154,7 @@ public interface CharULongNullMap {
 		 * @return the number of key-value mappings in this map.
 		 * @see #size()
 		 */
-		public int count() {
-			return size(); // Alias for size()
-		}
+		public int count() { return size(); }
 		
 		/**
 		 * Returns the allocated capacity of the internal arrays used by this map.
@@ -194,8 +192,7 @@ public interface CharULongNullMap {
 		}
 		
 		/**
-		 * Checks if this map contains the specified value.
-		 * <p>
+		 * Checks if this map contains the specified value (boxed Integer).
 		 *
 		 * @param value the value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
@@ -209,7 +206,6 @@ public interface CharULongNullMap {
 		
 		/**
 		 * Checks if this map contains the specified value (primitive int).
-		 * <p>
 		 *
 		 * @param value the value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
@@ -224,8 +220,8 @@ public interface CharULongNullMap {
 		 * <p>
 		 * Tokens are used for efficient iteration and access to map entries.
 		 *
-		 * @param key the key for which to find a token.
-		 * @return a token if the key is found, {@link #INVALID_TOKEN} otherwise.
+		 * @param key the key for which to find a token (can be null).
+		 * @return a token if the key is found, -1 ({@link #INVALID_TOKEN}) if not found.
 		 */
 		public long tokenOf(  Character key ) {
 			return key == null ?
@@ -241,7 +237,7 @@ public interface CharULongNullMap {
 		 * Tokens are used for efficient iteration and access to map entries.
 		 *
 		 * @param key the key for which to find a token.
-		 * @return a token if the key is found, {@link #INVALID_TOKEN} otherwise.
+		 * @return a token if the key is found, -1 ({@link #INVALID_TOKEN}) if not found.
 		 */
 		public long tokenOf( char key ) {
 			if( _buckets == null ) return INVALID_TOKEN;
@@ -262,7 +258,7 @@ public interface CharULongNullMap {
 		 * <p>
 		 * This token points to the first entry in the map. Subsequent entries can be accessed using {@link #token(long)}.
 		 *
-		 * @return the first valid token for iteration, or {@link #INVALID_TOKEN} if the map is empty.
+		 * @return the first valid token for iteration, or -1 ({@link #INVALID_TOKEN}) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -278,12 +274,10 @@ public interface CharULongNullMap {
 		 * This method allows iterating through the map entries in the order they are stored internally.
 		 *
 		 * @param token the current token in the iteration.
-		 * @return the next valid token in the iteration, or {@link #INVALID_TOKEN} if there are no more entries.
-		 * @throws ConcurrentModificationException if the collection was modified while iterating.
+		 * @return the next valid token in the iteration, or -1 ({@link #INVALID_TOKEN}) if there are no more entries or if the token is invalid due to structural modification.
 		 */
 		public long token( long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey && index( token ) < _count ?
@@ -292,80 +286,59 @@ public interface CharULongNullMap {
 		}
 		
 		/**
-		 * Checks if the given token is valid for the current state of the map.
-		 * <p>
-		 * A token becomes invalid if the map has been structurally modified since the token was obtained.
-		 *
-		 * @param token the token to validate.
-		 * @return {@code true} if the token is valid, {@code false} otherwise.
-		 */
-		public boolean isValid( long token ) {
-			return token != INVALID_TOKEN && version( token ) == _version;
-		}
-		
-		/**
 		 * Checks if this map contains a mapping for the null key.
 		 *
 		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
 		 */
-		public boolean hasNullKey() {
-			return hasNullKey;
-		}
+		public boolean hasNullKey() { return hasNullKey; }
+		
+		public boolean nullKeyHasValue() { return nullKeyHasValue; }
+		
+		public long nullKeyValue() { return  nullKeyValue; }
 		
 		/**
 		 * Checks if the entry associated with the given token has a key.
 		 *
 		 * @param token the token to check.
 		 * @return {@code true} if the token is valid and associated with a key, {@code false} otherwise.
-		 * @throws ConcurrentModificationException if the collection was modified while validating the token.
 		 */
-		public boolean hasKey( long token ) {
-			if( isValid( token ) ) return index( token ) < _count || hasNullKey;
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
-		}
+		public boolean hasKey( long token ) { return index( token ) < _count || hasNullKey; }
 		
 		/**
 		 * Checks if the entry associated with the given token has a value (not null in the context of null-value support).
 		 *
 		 * @param token the token to check.
-		 * @return {@code true} if the entry has a value, {@code false} if it represents a null value.
-		 * @throws ConcurrentModificationException if the collection was modified while validating the token.
+		 * @return {@code true} if the entry has a value and the token is valid, {@code false} otherwise.
 		 */
 		public boolean hasValue( long token ) {
-			if( isValid( token ) )
-				return index( token ) == _count ?
-						nullKeyHasValue :
-						values.hasValue( index( token ) );
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+			return index( token ) == _count ?
+					nullKeyHasValue :
+					values.hasValue( index( token ) );
 		}
 		
 		/**
 		 * Returns the key associated with the specified token.
+		 * <p>
+		 * The result is undefined if the token is -1 ({@link #INVALID_TOKEN}) or invalid due to structural modification.
 		 *
 		 * @param token the token for which to retrieve the key.
 		 * @return the key associated with the token.
-		 * @throws ConcurrentModificationException if the collection was modified while validating the token.
 		 */
-		public char key( long token ) {
-			if( isValid( token ) ) return (char) ( keys[ index( token ) ] );
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
-		}
+		public char key( long token ) { return (char) ( keys[ index( token ) ] ); }
 		
 		/**
 		 * Returns the value associated with the specified token.
 		 * <p>
 		 * If the entry represents a null value (in null-value context), returns 0.
+		 * The result is undefined if the token is -1 ({@link #INVALID_TOKEN}) or invalid due to structural modification.
 		 *
 		 * @param token the token for which to retrieve the value.
 		 * @return the value associated with the token, or 0 if the value is null in null-value context.
-		 * @throws ConcurrentModificationException if the collection was modified while validating the token.
 		 */
 		public long value( long token ) {
-			if( isValid( token ) )
-				return ( index( token ) == _count ?
-						nullKeyValue :
-						values.get( index( token ) ) );
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+			return ( index( token ) == _count ?
+					nullKeyValue :
+					values.get( index( token ) ) );
 		}
 		
 		/**
@@ -576,14 +549,19 @@ public interface CharULongNullMap {
 			values = new ULongNullList.RW( 0 );
 			if( capacity > 0 ) initialize( capacity );
 		}
+		
 		/**
-		 * {@code flatStrategyThreshold} is the threshold that determines when to switch values collection from
-		 * <b>Compressed Strategy</b> to <b>Flat Strategy</b>. The switch is typically based on the
-		 * density of null values. The default value is 512.
+		 * Sets the threshold that determines when to switch the values collection from
+		 * <b>Compressed Strategy</b> to <b>Flat Strategy</b>.
+		 * <p>
+		 * The switch is typically based on the density of null values. The default value is 512.
+		 *
+		 * @param interleavedBits the threshold value for switching strategies.
 		 */
 		public void flatStrategyThreshold( int interleavedBits ) {
-			values. flatStrategyThreshold = interleavedBits;
+			values.flatStrategyThreshold = interleavedBits;
 		}
+		
 		/**
 		 * Initializes the internal arrays of the map with a given capacity.
 		 * <p>
@@ -794,7 +772,7 @@ public interface CharULongNullMap {
 			if( hasValue ) values.set1( index, value );
 			else values.set1( index, null );
 			
-			_buckets[ bucketIndex ] =   index + 1;
+			_buckets[ bucketIndex ] = index + 1;
 			_version++;
 			
 			return true;
@@ -830,7 +808,7 @@ public interface CharULongNullMap {
 		 * Removes the mapping for the specified key from this map if present (boxed Integer key).
 		 *
 		 * @param key key whose mapping is to be removed from the map.
-		 * @return the token of the removed entry, or {@link #INVALID_TOKEN} if no mapping was found for the key.
+		 * @return the token of the removed entry, or -1 ({@link #INVALID_TOKEN}) if no mapping was found for the key.
 		 */
 		public long remove(  Character key ) {
 			return key == null ?
@@ -841,7 +819,7 @@ public interface CharULongNullMap {
 		/**
 		 * Removes the mapping for the null key from this map if present.
 		 *
-		 * @return the token of the removed entry, or {@link #INVALID_TOKEN} if no mapping was found for the null key.
+		 * @return the token of the removed entry, or -1 ({@link #INVALID_TOKEN}) if no mapping was found for the null key.
 		 */
 		public long remove() {
 			if( !hasNullKey ) return INVALID_TOKEN;
@@ -859,7 +837,7 @@ public interface CharULongNullMap {
 		 * this method optimizes removal by swapping the entry with the last non-null entry to avoid shifting in the values list.
 		 *
 		 * @param key key whose mapping is to be removed from the map.
-		 * @return the token of the removed entry, or {@link #INVALID_TOKEN} if no mapping was found for the key.
+		 * @return the token of the removed entry, or -1 ({@link #INVALID_TOKEN}) if no mapping was found for the key.
 		 */
 		public long remove( char key ) {
 			// Handle edge cases: if map is uninitialized or empty, nothing to remove
@@ -881,7 +859,7 @@ public interface CharULongNullMap {
 					// Step 1: Unlink the entry at 'i' from its chain
 					if( last < 0 )
 						// If 'i' is the head, update bucket to point to the next entry
-						_buckets[ bucketIndex ] =  ( next + 1 );
+						_buckets[ bucketIndex ] = ( next + 1 );
 					
 					else
 						// Otherwise, link the previous entry to the next, bypassing 'i'
@@ -911,7 +889,7 @@ public interface CharULongNullMap {
 						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
 							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 						
-						_buckets[ BucketOf_KeyToMove ] =  ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+						_buckets[ BucketOf_KeyToMove ] = ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
 						
 						if( -1 < prev ) nexts[ prev ] = _next;
 						
@@ -946,7 +924,7 @@ public interface CharULongNullMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets,  0 );
+			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( keys, 0, _count, ( char ) 0 );
 			values.clear();
@@ -988,8 +966,7 @@ public interface CharULongNullMap {
 		}
 		
 		/**
-		 * Reduces the capacity of this map to be at least as great as the
-		 * given capacity.
+		 * Reduces the capacity of this map to be at least as great as the given capacity.
 		 * <p>
 		 * If the given capacity is less than the current size of the map, the capacity is trimmed to the current size.
 		 *
@@ -1030,7 +1007,7 @@ public interface CharULongNullMap {
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 );
-					_buckets[ bucketIndex ] =  ( i + 1 );
+					_buckets[ bucketIndex ] = ( i + 1 );
 				}
 			}
 			
@@ -1056,7 +1033,7 @@ public interface CharULongNullMap {
 				else values.set1( new_count, null );
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
 				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] =  ( new_count + 1 );
+				_buckets[ bucketIndex ] = ( new_count + 1 );
 				new_count++;
 			}
 			_count     = new_count;

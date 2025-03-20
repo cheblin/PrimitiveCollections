@@ -72,6 +72,8 @@ public interface UByteCharMap {
 		 */
 		protected char   nullKeyValue = 0;
 		
+		public char nullKeyValue() { return (char) nullKeyValue; }
+		
 		/**
 		 * Retrieves the integer value associated with the given token.
 		 * <p>

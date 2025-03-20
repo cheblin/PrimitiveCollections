@@ -58,7 +58,7 @@ public interface LongSet {
 		/**
 		 * Array of buckets for the hash table. Each bucket stores the index of the first entry in its chain.
 		 */
-		protected int[] _buckets;
+		protected int[]         _buckets;
 		/**
 		 * Array storing the 'next' index for each entry in the hash table, used for collision resolution (chaining).
 		 */
@@ -97,7 +97,7 @@ public interface LongSet {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-		 * Represents an invalid token, typically returned when a key is not found.
+		 * Represents an invalid token, equal to -1.
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -116,7 +116,6 @@ public interface LongSet {
 		 * Returns the number of elements in this set. This is an alias for {@link #size()}.
 		 *
 		 * @return the number of elements in this set
-		 * @see #size()
 		 */
 		public int count() { return size(); }
 		
@@ -152,8 +151,8 @@ public interface LongSet {
 		 * Returns a token for the specified key if it exists in the set, otherwise returns {@link #INVALID_TOKEN}.
 		 * Tokens are used for efficient iteration and element access. Handles null keys.
 		 *
-		 * @param key the key to get the token for
-		 * @return a valid token if the key is in the set, {@link #INVALID_TOKEN} otherwise
+		 * @param key the key to get the token for (can be null)
+		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found
 		 */
 		public long tokenOf(  Long      key ) {
 			return key == null ?
@@ -168,7 +167,7 @@ public interface LongSet {
 		 * Tokens are used for efficient iteration and element access.
 		 *
 		 * @param key the integer key to get the token for
-		 * @return a valid token if the integer key is in the set, {@link #INVALID_TOKEN} otherwise
+		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found
 		 */
 		public long tokenOf( long key ) {
 			if( _buckets == null ) return INVALID_TOKEN; // Return invalid token if buckets are not initialized
@@ -188,21 +187,9 @@ public interface LongSet {
 		}
 		
 		/**
-		 * Checks if the given token is valid for the current version of the set.
-		 * A token becomes invalid if the set is modified after the token was obtained.
-		 *
-		 * @param token the token to validate
-		 * @return {@code true} if the token is valid, {@code false} otherwise
-		 */
-		public boolean isValid( long token ) {
-			return token != INVALID_TOKEN && version( token ) == _version;
-		}
-		
-		/**
 		 * Returns a token representing the first element in the set for iteration.
-		 * If the set is empty, it returns {@link #INVALID_TOKEN}.
 		 *
-		 * @return a token for the first element or {@link #INVALID_TOKEN} if empty
+		 * @return a token for the first element, or -1 ({@link #INVALID_TOKEN}) if the set is empty
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -215,15 +202,12 @@ public interface LongSet {
 		
 		/**
 		 * Returns a token representing the next element in the set after the element associated with the given token.
-		 * If the given token is the last element or invalid, it returns {@link #INVALID_TOKEN}.
 		 *
 		 * @param token the token of the current element
-		 * @return a token for the next element or {@link #INVALID_TOKEN} if no next element exists or the token is invalid
-		 * @throws ConcurrentModificationException if the collection was modified and the token is no longer valid.
+		 * @return a token for the next element, or -1 ({@link #INVALID_TOKEN}) if no next element exists or if the token is invalid due to structural modification
 		 */
 		public long token( long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." ); // Fail-fast if token is invalid
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i ); // Find the next non-free element after the current index
 			return hasNullKey && index( token ) < _count ?
@@ -236,23 +220,21 @@ public interface LongSet {
 		 * Checks if the element associated with the given token represents a null key.
 		 *
 		 * @param token the token to check
-		 * @return {@code true} if the token represents a null key and is valid, {@code false} otherwise
+		 * @return {@code true} if the token represents a null key, {@code false} otherwise
 		 */
-		boolean isKeyNull( long token ) { return isValid( token ) && index( token ) == _count; }
+		boolean isKeyNull( long token ) { return index( token ) == _count; }
 		
 		/**
 		 * Returns the integer key associated with the given token.
+		 * The result is undefined if the token is -1 ({@link #INVALID_TOKEN}) or invalid due to structural modification.
 		 *
 		 * @param token the token of the element
-		 * @return the integer key associated with the token
-		 * @throws ConcurrentModificationException if the collection was modified and the token is no longer valid.
+		 * @return the integer key associated with the token, or 0 if the token represents a null key
 		 */
 		public long key( long token ) {
-			if( isValid( token ) )
-				return  ( hasNullKey && index( token ) == _count ?
-						0 :
-						keys[ index( token ) ] );
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." ); // Fail-fast if token is invalid
+			return  ( hasNullKey && index( token ) == _count ?
+					0 :
+					keys[ index( token ) ] );
 		}
 		
 		/**
@@ -287,10 +269,9 @@ public interface LongSet {
 		
 		/**
 		 * Compares this set to the specified object for equality.
-		 * Returns {@code true} if the specified object is also a {@code R} instance and represents the same set of keys.
 		 *
 		 * @param obj the object to compare with
-		 * @return {@code true} if the objects are equal
+		 * @return {@code true} if the specified object is an {@code R} instance with the same keys
 		 */
 		@Override
 		public boolean equals( Object obj ) {
@@ -299,10 +280,9 @@ public interface LongSet {
 		
 		/**
 		 * Compares this set to another {@code R} instance for equality.
-		 * Two sets are considered equal if they have the same size, the same null key presence, and contain the same keys.
 		 *
 		 * @param other the {@code R} instance to compare with
-		 * @return {@code true} if the sets are equal
+		 * @return {@code true} if the sets contain the same keys
 		 */
 		public boolean equals( R other ) {
 			if( other == this ) return true; // Same instance check
@@ -314,7 +294,6 @@ public interface LongSet {
 		
 		/**
 		 * Creates and returns a shallow copy of this {@code R} instance.
-		 * The copy includes the internal arrays (_buckets, nexts, keys) but not the elements themselves.
 		 *
 		 * @return a clone of this {@code R} instance
 		 */
@@ -346,7 +325,7 @@ public interface LongSet {
 			if( hasNullKey ) json.value(); // Write null value if null key is present
 			if( size > 0 ) {
 				json.preallocate( size * 10 ); // Pre-allocate buffer for efficiency
-				for( long t = token(); isValid( t ); t = token( t ) ) json.value( key( t ) ); // Write each key as a JSON value
+				for( long t = token(); t != INVALID_TOKEN; t = token( t ) ) json.value( key( t ) ); // Write each key as a JSON value
 			}
 			json.exitArray(); // End JSON array
 		}
@@ -415,9 +394,7 @@ public interface LongSet {
 		 *
 		 * @param capacity the initial capacity of the set
 		 */
-		public RW( int capacity ) {
-			if( capacity > 0 ) initialize( capacity ); // Initialize if capacity is greater than 0
-		}
+		public RW( int capacity ) { if( capacity > 0 ) initialize( capacity ); }
 		
 		/**
 		 * Adds the specified key to this set if it is not already present. Handles null keys.
@@ -428,7 +405,6 @@ public interface LongSet {
 		public boolean add(  Long      key ) {
 			return key == null ?
 					addNullKey() :
-					// Handle null key
 					add( key. longValue     () ); // Add integer key
 		}
 		
@@ -472,7 +448,7 @@ public interface LongSet {
 			
 			nexts[ index ]          = ( int ) bucket; // Set 'next' pointer for the new element
 			keys[ index ]           = ( long ) key; // Store the key
-			_buckets[ bucketIndex ] =   index + 1; // Update bucket to point to the new element
+			_buckets[ bucketIndex ] = index + 1; // Update bucket to point to the new element
 			_version++; // Increment version to invalidate tokens
 			
 			return true; // Key added successfully
@@ -524,7 +500,7 @@ public interface LongSet {
 				int next = nexts[ i ];
 				if( keys[ i ] == key ) {
 					// Key found, remove it
-					if( last < 0 ) _buckets[ bucketIndex ] =  ( next + 1 ); // If it's the first in the bucket, update bucket to point to the next
+					if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 ); // If it's the first in the bucket, update bucket to point to the next
 					else nexts[ last ] = next; // Otherwise, update the 'next' pointer of the previous element
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Add the removed element to the free list
 					_freeList  = i; // Update free list head
@@ -558,7 +534,7 @@ public interface LongSet {
 		 */
 		public void clear() {
 			if( _count < 1 && !hasNullKey ) return; // Set is already empty
-			Arrays.fill( _buckets,  0 ); // Clear buckets
+			Arrays.fill( _buckets, 0 ); // Clear buckets
 			Arrays.fill( nexts, 0, _count, ( int ) 0 ); // Clear 'next' pointers for used slots
 			Arrays.fill( keys, 0, _count, ( long ) 0 ); // Clear keys for used slots
 			_count     = 0; // Reset element count
@@ -572,12 +548,12 @@ public interface LongSet {
 		/**
 		 * Returns an array containing all of the keys in this set.
 		 *
-		 * @param dst the array into which the elements of this set are to be stored, if it is big enough; otherwise, a new array of the same runtime type is allocated for this purpose.
+		 * @param dst the array into which the elements of this set are to be stored, if it is big enough; otherwise, a new array is allocated
 		 * @return an array containing all the keys in this set
 		 */
 		public long[] toArray( long[] dst ) {
 			int index = 0;
-			for( long token = token(); isValid( token ); token = token( token ) )
+			for( long token = token(); token != INVALID_TOKEN; token = token( token ) )
 			     dst[ index++ ] = ( long ) key( token ); // Copy keys to the array using token iteration
 			return dst;
 		}
@@ -616,7 +592,7 @@ public interface LongSet {
 		 * Initializes the internal data structures of the set with the specified capacity.
 		 *
 		 * @param capacity the initial capacity for the set
-		 * @return the prime capacity that was actually used after rounding up to the nearest prime
+		 * @return the prime capacity used
 		 */
 		private int initialize( int capacity ) {
 			capacity  = Array.prime( capacity ); // Get the next prime capacity
@@ -644,7 +620,7 @@ public interface LongSet {
 				if( -2 < new_next[ i ] ) { // Only re-hash non-free elements
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Re-calculate bucket index for each key
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Update 'next' pointer to the old bucket head
-					_buckets[ bucketIndex ] =  ( i + 1 ); // Set new bucket head to the current element's index
+					_buckets[ bucketIndex ] = ( i + 1 ); // Set new bucket head to the current element's index
 				}
 			
 			nexts = new_next; // Replace old 'next' array with the new one
@@ -667,7 +643,7 @@ public interface LongSet {
 				keys[ new_count ]  = old_keys[ i ]; // Copy the key
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Re-calculate bucket index in the new capacity
 				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Update 'next' pointer to the old bucket head (in new buckets)
-				_buckets[ bucketIndex ] =  ( new_count + 1 ); // Set new bucket head to the current element's index
+				_buckets[ bucketIndex ] = ( new_count + 1 ); // Set new bucket head to the current element's index
 				new_count++; // Increment new count
 			}
 			_count     = new_count; // Update count to the number of copied elements

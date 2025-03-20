@@ -63,8 +63,7 @@ public interface UByteSet {
 		protected static final int  VERSION_SHIFT = 32;                    // Number of bits to shift to get the version from an iteration token.
 		protected static final long VERSION_MASK  = 0xFFFF_FFFF_0000_0000L;                    // Number of bits to shift to get the version from an iteration token.
 		
-		protected static final long INVALID_TOKEN = -1L;                   // Special token value indicating an invalid iteration state or end of iteration.
-		
+        protected static final long INVALID_TOKEN = -1L;                   // Special token value (-1) indicating an invalid iteration state or end of iteration.
 		
 		/**
 		 * Returns the total number of elements in the set.
@@ -111,9 +110,9 @@ public interface UByteSet {
 		/**
 		 * Returns the first valid iteration token for traversing the set.
 		 * This token points to the smallest byte value present in the set or the null key if present and no byte values exist.
-		 * Returns {@link #INVALID_TOKEN} if the set is empty (no elements and no null key).
+         * May return {@link #INVALID_TOKEN} (-1) if the set is empty (no elements and no null key).
 		 *
-		 * @return The first iteration token, or {@link #INVALID_TOKEN} if the set is empty.
+         * @return The first iteration token, or {@link #INVALID_TOKEN} (-1) if the set is empty.
 		 */
 		public long token() {
 			return 0 < cardinality ?
@@ -121,21 +120,20 @@ public interface UByteSet {
 					hasNullKey ?
 							// If no byte values but null key is present.
 							token_nullKey() :
-							INVALID_TOKEN;// If the set is not empty (contains byte values).
+                            INVALID_TOKEN;// If the set is empty (no byte values or null key).
 		}
 		
 		/**
 		 * Returns the next iteration token in the sequence, starting from the given {@code token}.
-		 * This method is used to iterate through the elements of the set in ascending order of byte values, followed by the null key (if present).
-		 * Throws {@link ConcurrentModificationException} if the provided {@code token} is no longer valid due to modifications made to the set since the token was obtained.
+         * This method is used to iterate through the elements of the set in ascending order of byte values,
+         * followed by the null key (if present). May return {@link #INVALID_TOKEN} (-1) if there are no more
+         * elements to iterate or if the provided token is invalid (e.g., due to set modification).
 		 *
 		 * @param token The current iteration token.
-		 * @return The next iteration token, or {@link #INVALID_TOKEN} if there are no more elements in the set.
-		 * @throws ConcurrentModificationException if the provided {@code token} is invalid.
+         * @return The next iteration token, or {@link #INVALID_TOKEN} (-1) if there are no more elements or the token is invalid.
 		 */
 		public long token( long token ) {
-			if( !isValid( token ) ) // Check if the provided token is valid for the current version of the set.
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+            if( token == INVALID_TOKEN || token >>> VERSION_SHIFT == _version ) return INVALID_TOKEN;
 			
 			int index = ( int ) ( token & KEY_MASK ); // Extract the index (byte value or 256 for null) from the token.
 			return 0xFF < index ?
@@ -147,7 +145,7 @@ public interface UByteSet {
 									// Return token for null index.
 									INVALID_TOKEN :
 							// No more elements (neither byte values nor null index).
-							token_next_existing_key( token, index ); // If the current token is for the null index, no next element exists.
+                            token_next_existing_key( token, index ); // Move to next existing key.
 		}
 		
 		/**
@@ -156,20 +154,18 @@ public interface UByteSet {
 		 * @param token The iteration token to check.
 		 * @return {@code true} if the token is valid and represents the null key, {@code false} otherwise.
 		 */
-		boolean isKeyNull( long token ) { return isValid( token ) && 0xFF < ( KEY_MASK & token ); }
+		boolean isKeyNull( long token ) { return 0xFF < ( KEY_MASK & token ); }
 		
 		/**
 		 * Gets the byte value associated with the given iteration {@code token}.
-		 * Throws {@link ConcurrentModificationException} if the token is invalid.
-		 * For null key tokens, it returns 0 (as byte). Use {@link #isKeyNull(long)} to differentiate between byte value 0 and null key.
+         * For null key tokens, it returns 0 (as byte). Use {@link #isKeyNull(long)} to differentiate between
+         * byte value 0 and null key. Returns the byte value directly without throwing exceptions for invalid tokens,
+         * but the result is only meaningful if the token is valid.
 		 *
 		 * @param token The iteration token from which to extract the byte value.
-		 * @return The byte value represented by the token. Returns 0 if the token is for a null key.
-		 * @throws ConcurrentModificationException if the provided {@code token} is invalid.
+         * @return The byte value represented by the token, or 0 if the token is for a null key or invalid.
 		 */
 		public char key( long token ) {
-			// Check token validity and if it's a null key token.
-			if( isKeyNull( token ) ) throw new RuntimeException( "The key of this token is null" );
 			return ( char ) (char)( 0xFF &  ( KEY_MASK & token ));    // Return the extracted index as byte value.
 		}
 		
@@ -184,21 +180,14 @@ public interface UByteSet {
 		protected int rank( long token )                              { return ( int ) ( token & RANK_MASK ) >>> RANK_SHIFT; }
 		
 		
-		/**
-		 * Checks if the given iteration {@code token} is valid for the current version of the set.
-		 * A token is valid if it's not {@link #INVALID_TOKEN} and its embedded version matches the current set's version.
-		 *
-		 * @param token The iteration token to validate.
-		 * @return {@code true} if the token is valid, {@code false} otherwise.
-		 */
-		public boolean isValid( long token ) { return token != INVALID_TOKEN && token >>> VERSION_SHIFT == _version; }
+		
 		
 		/**
 		 * Retrieves the iteration token for a boxed {@code Byte} value.
-		 * Handles null keys.
+         * Handles null keys. May return {@link #INVALID_TOKEN} (-1) if the value is not in the set.
 		 *
 		 * @param key The boxed {@code Byte} value to find the token for (can be null).
-		 * @return The iteration token for the given value, or {@link #INVALID_TOKEN} if the value is not in the set.
+         * @return The iteration token for the given value, or {@link #INVALID_TOKEN} (-1) if the value is not in the set.
 		 */
 		public long tokenOf( Byte key ) {
 			return key == null ?
@@ -213,9 +202,10 @@ public interface UByteSet {
 		
 		/**
 		 * Retrieves the iteration token for a primitive byte value.
+         * May return {@link #INVALID_TOKEN} (-1) if the value is not in the set.
 		 *
 		 * @param key The primitive byte value to find the token for.
-		 * @return The iteration token for the given value, or {@link #INVALID_TOKEN} if the value is not in the set.
+         * @return The iteration token for the given value, or {@link #INVALID_TOKEN} (-1) if the value is not in the set.
 		 */
 		public long tokenOf( char key ) {
 			return contains( key ) ?
@@ -303,7 +293,9 @@ public interface UByteSet {
 		@Override
 		public void toJSON( JsonWriter json ) {
 			json.enterObject(); // Start JSON object representation.
+			
 			if( hasNullKey ) json.name().value(); // If null key present, add a null entry (name is omitted for null key).
+			
 			if( 0 < cardinality ) { // If there are byte values in the set.
 				json.preallocate( cardinality * 10 ); // Pre-allocate buffer for JSON string to improve performance.
 				for( long token = token(); ( token & KEY_MASK ) < 0x100; token = token( token ) ) // Iterate through the set using tokens.
@@ -347,9 +339,8 @@ public interface UByteSet {
 		}
 		
 		protected boolean _remove() {
-			if( hasNullKey ) return false;
-			
-			hasNullKey = true;
+            if( !hasNullKey ) return false; // Corrected logic: if no null key, no removal.
+            hasNullKey = false;
 			_version++;
 			return true;
 			
@@ -365,6 +356,8 @@ public interface UByteSet {
 			hasNullKey = false;
 			super._clear();
 		}
+        
+        protected int version( long token ) { return (int) (token >>> VERSION_SHIFT); }
 	}
 	
 	/**

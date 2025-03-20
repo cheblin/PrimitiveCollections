@@ -64,7 +64,7 @@ public interface FloatBitsMap {
 		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL; // Mask for index in token.
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
 		
-		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
+        protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
 		/**
 		 * Checks if the map is empty.
@@ -86,9 +86,7 @@ public interface FloatBitsMap {
 					0 );
 		}
 		
-		public int count() {
-			return size(); // Alias for size()
-		}
+        public int count() { return size(); }
 		
 		/**
 		 * Returns the allocated capacity of the internal arrays.
@@ -129,16 +127,13 @@ public interface FloatBitsMap {
 		 * @param value The value to search for.
 		 * @return True if the value exists in the map.
 		 */
-		public boolean containsValue( long value ) {
-			if( _count == 0 && !hasNullKey ) return false;
-			return values.contains( value );
-		}
+        public boolean containsValue(long value) { return _count != 0 || hasNullKey && values.contains(value); }
 		
 		/**
 		 * Returns a token for the specified key (boxed Integer).
 		 *
-		 * @param key The key to find.
-		 * @return A token representing the key's location if found, otherwise {@link #INVALID_TOKEN}.
+         * @param key The key to find (can be null).
+         * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
 		 */
 		public long tokenOf(  Float     key ) {
 			return key == null ?
@@ -152,12 +147,12 @@ public interface FloatBitsMap {
 		 * Returns a token for the specified primitive key.
 		 *
 		 * @param key The primitive int key.
-		 * @return A token representing the key's location if found, otherwise {@link #INVALID_TOKEN}.
+         * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
 		 */
 		public long tokenOf( float key ) {
 			if( _buckets == null ) return INVALID_TOKEN;
 			int hash = Array.hash( key );
-			int i    = ( _buckets[ bucketIndex( hash ) ] ) - 1;
+			int i    = _buckets[ bucketIndex( hash ) ] - 1;
 			
 			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < nexts.length; ) {
 				if( keys[ i ] == key ) return token( i );
@@ -171,7 +166,7 @@ public interface FloatBitsMap {
 		/**
 		 * Returns the initial token for iteration.
 		 *
-		 * @return The first valid token to begin iteration, or {@link #INVALID_TOKEN} if the map is empty.
+         * @return The first valid token to begin iteration, or {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -185,28 +180,13 @@ public interface FloatBitsMap {
 		 * Returns the next token in iteration.
 		 *
 		 * @param token The current token.
-		 * @return The next valid token for iteration, or {@link #INVALID_TOKEN} if there are no more entries.
-		 * @throws ConcurrentModificationException if the collection has been modified since the token was obtained.
+         * @return The next valid token for iteration, or {@link #INVALID_TOKEN} (-1) if there are no more entries or if the map was modified since the token was obtained.
 		 */
 		public long token( long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+            if (token == INVALID_TOKEN || version(token) != _version) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
-			return hasNullKey && index( token ) < _count ?
-					token( _count ) :
-					INVALID_TOKEN;
-		}
-		
-		/**
-		 * Checks if a token is valid for the current map state.
-		 * A token becomes invalid if the map is structurally modified after the token was obtained.
-		 *
-		 * @param token The token to validate.
-		 * @return True if the token is valid, false otherwise.
-		 */
-		public boolean isValid( long token ) {
-			return token != INVALID_TOKEN && version( token ) == _version;
+            return hasNullKey && index(token) < _count ? token(_count) : INVALID_TOKEN;
 		}
 		
 		/**
@@ -218,43 +198,38 @@ public interface FloatBitsMap {
 			return hasNullKey;
 		}
 		
+		public float nullKeyValue() { return  nullKeyValue; }
+		
+	
+		
 		/**
 		 * Checks if the map contains a key associated with the given token.
 		 *
 		 * @param token The token to check.
-		 * @return True if a key is associated with the token, false otherwise.
-		 * @throws ConcurrentModificationException if the token is no longer valid due to structural modifications.
+         * @return True if a key is associated with the token, false if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
 		 */
 		public boolean hasKey( long token ) {
-			if( isValid( token ) ) return index( token ) < _count || hasNullKey;
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+            return  (index(token) < _count || hasNullKey);
 		}
 		
 		/**
 		 * Retrieves the key associated with a token.
 		 *
 		 * @param token The token representing the key-value pair.
-		 * @return The integer key associated with the token.
-		 * @throws ConcurrentModificationException if the token is no longer valid.
+         * @return The integer key associated with the token, or undefined behavior if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
 		 */
-		public float key( long token ) {
-			if( isValid( token ) ) return  ( keys[ index( token ) ] );
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
-		}
+		public float key( long token ) { return   keys[ index( token ) ]; }
 		
 		/**
 		 * Retrieves the value associated with a token.
 		 *
 		 * @param token The token representing the key-value pair.
-		 * @return The byte value associated with the token.
-		 * @throws ConcurrentModificationException if the token is no longer valid.
+         * @return The byte value associated with the token, or undefined behavior if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
 		 */
 		public byte value( long token ) {
-			if( isValid( token ) ) // Check token validity.
 				return index( token ) == _count ?
 						nullKeyValue :
 						values.get( index( token ) ); // Handle null key value.
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." ); // Token invalid.
 		}
 		
 		/**
@@ -263,7 +238,6 @@ public interface FloatBitsMap {
 		 *
 		 * @return The hash code of the map.
 		 */
-		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
 			
@@ -295,7 +269,6 @@ public interface FloatBitsMap {
 		
 		private static final int seed = R.class.hashCode();
 		
-		@Override
 		public boolean equals( Object obj ) {
 			return obj != null && getClass() == obj.getClass() && equals( ( R ) obj );
 		}
@@ -319,7 +292,6 @@ public interface FloatBitsMap {
 			return true;
 		}
 		
-		@Override
 		public R clone() {
 			try {
 				R dst = ( R ) super.clone();
@@ -336,17 +308,14 @@ public interface FloatBitsMap {
 			return null;
 		}
 		
-		@Override
 		public String toString() {
 			return toJSON();
 		}
 		
-		@Override
 		public String toJSON() {
 			return JsonWriter.Source.super.toJSON();
 		}
 		
-		@Override
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 );
 			json.enterObject();
@@ -362,18 +331,11 @@ public interface FloatBitsMap {
 		// Helper methods
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
+        protected long token(int index) { return (long) _version << VERSION_SHIFT | index & INDEX_MASK; }
 		
-		protected long token( int index ) {
-			return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK;
-		}
+        protected int index(long token) { return (int) (token & INDEX_MASK); }
 		
-		protected int index( long token ) {
-			return ( int ) ( token & INDEX_MASK );
-		}
-		
-		protected int version( long token ) {
-			return ( int ) ( token >>> VERSION_SHIFT );
-		}
+		protected int version( long token ) {			return ( int ) ( token >>> VERSION_SHIFT );		}
 	}
 	
 	/**
@@ -603,7 +565,7 @@ public interface FloatBitsMap {
 		private boolean tryInsert( long value, int behavior ) {
 			if( hasNullKey ) switch( behavior ) {
 				case 1:
-					break; // Update allowed.
+                    break;
 				case 0:
 					throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
 				default:
@@ -619,7 +581,7 @@ public interface FloatBitsMap {
 		 * Removes a key-value pair associated with the given key (boxed Integer).
 		 *
 		 * @param key The key to remove (boxed Integer, can be null).
-		 * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} if the key was not found.
+         * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
 		 */
 		public long remove(  Float     key ) {
 			return key == null ?
@@ -630,20 +592,20 @@ public interface FloatBitsMap {
 		/**
 		 * Removes the mapping for the null key.
 		 *
-		 * @return The token of the removed entry if the null key was found and removed, or {@link #INVALID_TOKEN} if the null key was not present.
+         * @return The token of the removed entry if the null key was found and removed, or {@link #INVALID_TOKEN} (-1) if the null key was not present.
 		 */
 		private long removeNullKey() {
 			if( !hasNullKey ) return INVALID_TOKEN;
 			hasNullKey = false;
 			_version++;
-			return token( _count ); // Token for null key is at _count index
+            return token(_count);
 		}
 		
 		/**
 		 * Removes a key-value pair associated with the given primitive key.
 		 *
 		 * @param key The primitive key to remove.
-		 * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} if the key was not found.
+         * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
 		 * @throws ConcurrentModificationException if concurrent modification is detected during collision resolution.
 		 */
 		public long remove( float key ) {
@@ -672,7 +634,7 @@ public interface FloatBitsMap {
 				if( nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN; // Key not found
+            return INVALID_TOKEN;
 		}
 		
 		/**

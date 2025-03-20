@@ -15,20 +15,29 @@ public class MemoryBenchmarks {
 	public static void main( String[] args ) {
 		int dataSize = 1000; // Number of elements to add to each map
 		
+		
+		
+		
 		System.out.println( "Measuring memory footprint for different Map implementations with " + dataSize + " elements.\n" );
 		
 		measureByteByteMap( 255 ); // Reduced dataSize for Byte to 255
+		
 		measureShortShortMap( dataSize );
+		
 		measureIntegerIntegerMap( dataSize );
+		
 		measureLongLongMap( dataSize );
+		
 		measureIntBooleanMap( dataSize );
 		
 		String htmlReport = generateHtmlReport( reportDataList );
 		File   reportFile = new File( "memory_report.html" );
-		try( FileWriter writer = new FileWriter( reportFile ) ) {
+		try(
+				FileWriter writer = new FileWriter( reportFile ) ) {
 			writer.write( htmlReport );
 			System.out.println( "HTML report generated to: " + reportFile.getAbsolutePath() );
-		} catch( IOException e ) {
+		} catch(
+				IOException e ) {
 			e.printStackTrace();
 		}
 	}
@@ -313,12 +322,11 @@ public class MemoryBenchmarks {
 		           .append( "Measurements show total memory footprint for different data types under four scenarios: no nulls, half nulls, all nulls, and nulls interleaving.<br>" )
 		           .append( "Lower values indicate better memory efficiency.</p>\n" );
 		
-		for( Data data : dataList ) {
+		for( Data data : dataList )
 			htmlBuilder.append( "<div class=\"chart-container\">\n" )
 			           .append( "<h2>" ).append( data.type ).append( " Maps</h2>\n" )
 			           .append( "<canvas id=\"chart-" ).append( data.type.toLowerCase().replace( " ", "-" ) ).append( "\"></canvas>\n" )
 			           .append( "</div>\n" );
-		}
 		
 		htmlBuilder.append( "<script>\n" );
 		for( Data data : dataList ) {

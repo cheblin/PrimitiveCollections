@@ -387,8 +387,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Byte_AdHoc_Get( MapState state ) {
 		for( byte key : byteKeys ) {
 			long token = state.byteAdHoc.tokenOf( key );
-			if( state.byteAdHoc.isValid( token ) )
-				by = state.byteAdHoc.value( token );
+			if( token != -1 ) by = state.byteAdHoc.value( token );
 		}
 	}
 	
@@ -427,7 +426,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Short_AdHoc_Get( MapState state ) {
 		for( short key : shortKeys ) {
 			long token = state.shortAdHoc.tokenOf( key );
-			if( state.shortAdHoc.isValid( token ) )
+			if(  token !=-1 )
 				s = state.shortAdHoc.value( token );
 		}
 	}
@@ -466,7 +465,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Int_AdHoc_Get( MapState state ) {
 		for( int key : intKeys ) {
 			long token = state.intAdHoc.tokenOf( key );
-			if( state.intAdHoc.isValid( token ) )
+			if(  token !=-1 )
 				i = state.intAdHoc.value( token );
 		}
 	}
@@ -505,7 +504,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Long_AdHoc_Get( MapState state ) {
 		for( long key : longKeys ) {
 			long token = state.longAdHoc.tokenOf( key );
-			if( state.longAdHoc.isValid( token ) )
+			if(  token !=-1 )
 				l = state.longAdHoc.value( token );
 		}
 	}
@@ -547,7 +546,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void IntBool_AdHoc_Get( MapState state ) {
 		for( int key : intKeys ) {
 			long token = state.intBoolAdHoc.tokenOf( key );
-			if( state.intBoolAdHoc.isValid( token ) )
+			if(  token !=-1 )
 				b = state.intBoolAdHoc.value( token ) == 1;
 		}
 	}

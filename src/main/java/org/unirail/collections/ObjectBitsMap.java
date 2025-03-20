@@ -184,7 +184,7 @@ public interface ObjectBitsMap/*CLS*/ {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-		 * Represents an invalid token value.
+         * Represents an invalid token value (-1).
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -242,14 +242,23 @@ public interface ObjectBitsMap/*CLS*/ {
 			if( _count == 0 && !hasNullKey ) return false;
 			return values.contains( value );
 		}
+		/**
+		 * Checks if this map contains a mapping for the null key.
+		 *
+		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
+		 */
+		public boolean hasNullKey() { return hasNullKey; }
+		
+		
+		public int/*VEXT*/ nullKeyValue() { return /*TOVEXT*/ nullKeyValue/**/; }
 		
 		/**
-		 * Returns a token representing the entry associated with the specified key, or {@link #INVALID_TOKEN} if the key is not found.
+         * Returns a token representing the entry associated with the specified key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
 		 * <p>
-		 * Tokens are used for efficient and safe iteration.
+         * Tokens are used for efficient and safe iteration. Note that a returned token may become invalid if the map is structurally modified after retrieval.
 		 *
 		 * @param key the key to find the token for
-		 * @return a token for the key, or {@link #INVALID_TOKEN} if the key is not present.
+         * @return a token for the key, or {@link #INVALID_TOKEN} (-1) if the key is not present.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
 		public long tokenOf( K key ) {
@@ -273,23 +282,11 @@ public interface ObjectBitsMap/*CLS*/ {
 		}
 		
 		/**
-		 * Checks if the given token is valid for the current version of the map.
-		 * <p>
-		 * A token becomes invalid if the map is structurally modified after the token was obtained.
-		 *
-		 * @param token the token to validate
-		 * @return {@code true} if the token is valid, {@code false} otherwise.
-		 */
-		public boolean isValid( long token ) {
-			return token != INVALID_TOKEN && version( token ) == _version;
-		}
-		
-		/**
 		 * Returns the first valid token in the map for iteration.
 		 * <p>
-		 * Starts iteration from the beginning of the hash table.
+         * Starts iteration from the beginning of the hash table. Returns {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 *
-		 * @return the first valid token, or {@link #INVALID_TOKEN} if the map is empty.
+         * @return the first valid token, or {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -302,15 +299,13 @@ public interface ObjectBitsMap/*CLS*/ {
 		/**
 		 * Returns the next valid token in the map, starting from the given token.
 		 * <p>
-		 * Used for iterating through the map entries.
+         * Used for iterating through the map entries. Returns {@link #INVALID_TOKEN} (-1) if no more entries exist or if the provided token is invalid due to structural modification.
 		 *
 		 * @param token the current token
-		 * @return the next valid token, or {@link #INVALID_TOKEN} if no more entries exist.
-		 * @throws ConcurrentModificationException if the provided token is invalid due to concurrent modification.
+         * @return the next valid token, or {@link #INVALID_TOKEN} (-1) if no more entries exist or token is invalid.
 		 */
 		public long token( final long token ) {
-			if( !isValid( token ) )
-				throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
+            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i ); // Find the next non-free entry after the current token
 			return hasNullKey && index( token ) < _count ?
@@ -322,15 +317,12 @@ public interface ObjectBitsMap/*CLS*/ {
 		 * Retrieves the key associated with the given token.
 		 *
 		 * @param token the token representing the entry
-		 * @return the key associated with the token.
-		 * @throws ConcurrentModificationException if the provided token is invalid due to concurrent modification.
+         * @return the key associated with the token, or null if token represents the null key.
 		 */
 		public K key( long token ) {
-			if( isValid( token ) )
 				return hasNullKey && index( token ) == _count ?
 						null :
 						keys[ index( token ) ]; // Handle null key case
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		/**
@@ -338,14 +330,11 @@ public interface ObjectBitsMap/*CLS*/ {
 		 *
 		 * @param token the token representing the entry
 		 * @return the value associated with the token.
-		 * @throws ConcurrentModificationException if the provided token is invalid due to concurrent modification.
 		 */
 		public byte value( long token ) {
-			if( isValid( token ) )
 				return index( token ) == _count ?
 						nullKeyValue :
 						values.get( index( token ) ); // Handle null key value
-			throw new ConcurrentModificationException( "Collection was modified; token is no longer valid." );
 		}
 		
 		/**
@@ -669,7 +658,7 @@ public interface ObjectBitsMap/*CLS*/ {
 		 * Removes the mapping for a key from this map if it is present.
 		 *
 		 * @param key key whose mapping is to be removed from the map
-		 * @return a token representing the removed entry, or {@link #INVALID_TOKEN} if the key was not found. The token remains valid until the next modification.
+         * @return a token representing the removed entry, or {@link #INVALID_TOKEN} (-1) if the key was not found. The token remains valid until the next modification.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
 		public long remove( K key ) {
