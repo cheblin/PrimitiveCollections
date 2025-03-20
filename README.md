@@ -66,7 +66,7 @@ IntList.R readOnlyList = mutableList; // Implicitly cast to a read-only view
 int firstElement = readOnlyList.get(0); // Read-only operations are perfectly fine
 ```
 
-## Revolutionary Iterator: Garbage-Free Token-Based Iteration -  Minimize GC Overhead
+## Garbage-Free Token-Based Iteration -  Minimize GC Overhead
 
 Traditional Java iterators for collections create new objects (the iterator instances themselves and often for each element accessed) during iteration. This constant object creation contributes significantly to garbage generation, especially in loops that iterate over large collections frequently.  This overhead can become a bottleneck in performance-sensitive applications.
 
@@ -161,7 +161,56 @@ While token-based iteration is a slightly different paradigm than standard Java 
 
 ### Nullable Primitive Collections - Handling Missing or Undefined Primitive Values
 
-`AdHoc Primitive Collections` provides first-class support for nullable primitive values.  Collections like `IntNullList`, `LongSet`, and `ByteNullList` allow you to store `null` values directly alongside primitive types.
+
+#### BitList 
+is presented as a memory-efficient and performant alternative for managing and querying large sequences of bits in Java. Unlike standard Java primitives, it's designed to act like a "massive Java primitive" operating on an array of bits.  It's particularly optimized for space and speed when dealing with extensive bit manipulations.
+
+**Key Features and Design Principles:**
+
+*   **Primitive-like on Array:**  It aims to provide functionalities similar to primitive bitwise operations but on a dynamically sized bit array.
+*   **Space Efficiency:**  Employs techniques like storing *trailing ones* implicitly to reduce memory footprint, especially when dealing with bit lists that start with a sequence of '1's.
+*   **Performance Optimization:** Designed for fast bit operations, likely leveraging direct array access and bitwise manipulations on `long` primitives.
+*   **Trailing Ones Optimization:** A core optimization where leading '1' bits are not explicitly stored in the `values` array but tracked by `trailingOnesCount`. This is efficient if the bit list begins with many '1's.
+*   **Implicit Trailing Zeros:**  Trailing '0' bits at the end of the list, beyond the last '1' bit in `values` and up to `size`, are not stored, saving space.
+
+**Schema Depiction:**
+
+The code comments and schema clearly define the bit order and indexing:
+
+<pre>
+                   MSB                LSB
+                    |                  |
+bits  in the list   [0, 0, 0, 1, 1, 1, 1]      Leading 3 zeros and trailing 4 ones
+index in the list    6  5  4  3  2  1  0
+
+                  leading            trailing
+shift left                    &lt;&lt;
+shift right                   &gt;&gt;&gt;
+
+</pre>
+
+
+*   **Index Direction:**  Indexes start from 0 at the LSB position and increase towards the MSB.
+*   **Shift Operations:** Left shift (`<<`) moves bits towards the MSB (higher index), and right shift (`>>>`) moves bits towards the LSB (lower index).
+
+Let's examine the key elements of the `BitList.R` (read-only base class):
+
+*   **`size`:**  Total number of bits in the `BitList`. Includes explicit bits, trailing ones, and implicit trailing zeros.
+*   **`trailingOnesCount`:** This is the cornerstone of its optimization. Instead of storing a sequence of leading '1's explicitly, it counts them. This is extremely memory-efficient if your bit list often starts with a long series of '1's.
+*   **`values`:**  A `long[]` array to store the bits *after* the trailing ones interleaving bits only.
+    *   The first bit in `values` (conceptually) is always '0' (the first '0' after trailing ones).
+    *   The last bit in `values` (conceptually) is always '1' (the last '1' before trailing zeros).
+    *   Bits are packed into `long` values, LSB-first within each `long`.
+
+
+Imagine a `BitList` representing the bit sequence: `[0, 0, 0,    1, 0,    1, 1, 1]` (MSB to LSB order as per schema).
+
+*   **Size:** 8 bits
+*   **Trailing Ones (from LSB):** `[1, 1, 1]` -  There are three '1's at the LSB end. So, `trailingOnesCount = 3`.
+*   **Values Array:** `values` array stores the bits *after* the `trailingOnesCount`[1, 0].  The *first* bit in `values` is always '0' and the *last* bit '1'. 
+*    **Implicit Leading Zeros:**  Any bit positions *more significant* than those represented in the `values` array, up to the specified `size`, are implicitly assumed to be '0'. 
+
+
 
 **Use Cases for Nullable Primitives:**
 
@@ -170,19 +219,9 @@ While token-based iteration is a slightly different paradigm than standard Java 
 * **Interoperability with APIs Returning Nulls:** If you are working with external APIs or libraries that might return `null` to indicate the absence of a primitive value, nullable collections allow you to store and process these results without awkward conversions or workarounds.
 
 
-```java
-IntNullList.RW list = new IntNullList.RW(new Integer[]{1, 2, null, 4, 5, null});
-System.out.println(list.toString()); // Output: [1, 2, null, 4, 5, null]
 
-list.add(null);
-list.set(2, null); // Set index 2 to null
-System.out.println(list);       // Output: [1, 2, null, 4, 5, null, null]
-System.out.println(list.get(2)); // Output: null
-```
-
-Internally, nullable collections utilize efficient mechanisms (like `BitSet` for lists or specialized data structures for maps) to track null values without resorting to boxing. This ensures that the performance and memory efficiency benefits of primitive collections are maintained even when handling nulls.
-
-### `BitsList` - Ultra-Compact Storage for Small-Range Values - Maximize Memory Density
+#### BitsList 
+Compact Storage for Small-Range Values - Maximize Memory Density
 
 The `BitsList` is a highly specialized collection optimized for scenarios where you need to store a large number of integer values that fall within a limited range.  It's designed to pack multiple values into individual bits, achieving exceptional memory density.  Typically, `BitsList` is configured to use 1 to 7 bits per value.
 
@@ -212,14 +251,76 @@ System.out.println(statusList.get(1)); // Output: 1 (Status.RUNNING)
 
 `BitsList` allows you to trade off a slightly more complex API for significant memory savings when dealing with data that can be represented using a limited number of bits.  It's a powerful tool for optimizing memory footprint in specific data-intensive scenarios.
 
+#### IntNullList
 
-## Performance and Memory Benchmarks  
+`IntNullList` is designed for storing lists of primitives that can also contain null values.  
+Unlike standard Java primitive lists, `IntNullList` efficiently manages nulls without 
+resorting to boxing primitives, which can be memory-inefficient and slow.
+This implementation offers a flexible and performant way to handle nullable integer lists, automatically optimizing its internal 
+storage strategy based on the density of null values to balance memory usage and access speed.
+
+`IntNullList` employs a dual-strategy approach to efficiently store and access nullable integer values. 
+
+**1. Compressed (Rank-Based) Strategy**
+
+*   **Description**: This strategy is optimized for **space efficiency**, especially when the list contains a significant number of null values.
+    *   The `values` array stores only the **non-null** integer values, stored contiguously in the order they appear logically in the list.
+    *   The `nulls` `BitList` acts as an index, marking the positions of non-null values.
+    *   To access a value at a given logical index:
+        1.  Check the `nulls` `BitList` at the index. If it's `false`, the value is null.
+        2.  If it's `true` (non-null), calculate the **rank** of the index within the `nulls` `BitList`. The rank effectively counts how many `true` bits are present *before* and *at* the given index.
+        3.  Use `rank - 1` as the index into the `values` array to retrieve the corresponding non-null integer value.
+
+*   **Advantages**:
+    *   **Space Efficiency**:  Significantly reduces memory consumption when dealing with sparse lists containing many nulls, as only non-null values are stored in the `values` array.
+    *   Potentially faster for iterations over non-null values, as they are stored contiguously.
+
+*   **Disadvantages**:
+    *   **Access Time**:  Accessing an element requires a rank calculation within the `BitList`, which adds a slight overhead compared to direct array access. This overhead can become more noticeable as the `BitList` grows larger.
+
+**2. Flat (One-to-One) Strategy**
+
+*   **Description**: This strategy prioritizes **performance** for scenarios where lists are densely populated with values (fewer nulls) and frequent element access is required.
+    *   The `values` array is sized to match the logical size of the list.
+    *   Each index in the `values` array corresponds directly to the same logical index in the `IntNullList`.
+    *   If a logical position is null, a placeholder (likely the `default_value`, which is 0 in the provided snippet's `RW` constructor) is stored in the `values` array at that index.
+    *   The `nulls` `BitList` still tracks nullity, but indexing is direct and faster.
+
+*   **Advantages**:
+    *   **Fast Access Time**: Element access is very efficient, as it's a simple direct array lookup (`values[index]`). No rank calculation is needed.
+    *   Better performance for operations that access elements by index frequently.
+
+*   **Disadvantages**:
+    *   **Space Inefficiency**: Can be less memory-efficient if the list contains many null values.  Placeholder values occupy space in the `values` array even for null logical positions.
+
+`IntNullList` automatically manages the switch between these strategies based on the `flatStrategyThreshold`.
+
+
+```java
+IntNullList.RW list = new IntNullList.RW(10); // Create a list with initial capacity 10
+list.add1(100);
+list.add1(null);
+list.add1(200);
+
+System.out.println(list.get(0)); // Output: 100
+System.out.println(list.hasValue(1)); // Output: false (null value at index 1)
+System.out.println(list.nextValueIndex(0)); // Output: 0
+System.out.println(list.nextNullIndex(0)); // Output: 1
+
+list.flatStrategyThreshold(1024); // Adjust the flat strategy threshold if needed
+```
+
+
+## Some Performance and Memory Benchmarks  
 
 The following memory footprint report highlights the substantial memory savings of AdHoc Primitive Collections compared to the standard Java `HashMap`.  
+![img.png](img.png)
 ### [memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/memory_report.html)
 
 **Beyond these memory benefits, performance benchmarks indicate that AdHoc Primitive Collections match or exceed the performance of standard Java 
 collections for primitive data operations by eliminating boxing overhead.**  
+
+![img_1.png](img_1.png)
 ### [performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/performance_report.html)
 
 This data was collected using 1,000 items; larger datasets show even greater differences. 
