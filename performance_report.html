@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <title>Performance Report</title>
 <style>
-body { background-color: #1e1e1e; color: #f8f8f2; font-family: monospace; padding: 20px; line-height: 1.6; }
-.chart-container { width: 80%; margin: 20px auto; background: #282a36; padding: 15px; border-radius: 5px; }
+body { background-color: #1e1e1e; color: #f8f8f2; font-family: monospace; padding: 20px; line-height: 1.6; margin: 0 auto; max-width: 1024px; }
+.chart-container { width: 100%; max-width: 984px; margin: 20px auto; background: #282a36; padding: 15px; border-radius: 5px; }
 table { width: 100%; border-collapse: collapse; margin-top: 30px; background-color: #282a36; }
 th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }
 th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }
@@ -46,13 +46,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Byte, Byte>',
-data: [1000, 305, 878, 260],
+data: [1212, 313, 840, 260],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'ByteByteNullMap.RW',
-data: [566, 157, 481, 66],
+data: [526, 183, 438, 66],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -76,13 +76,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Short, Short>',
-data: [6445, 2062, 4714, 3082],
+data: [6305, 2138, 4841, 2320],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'ShortShortNullMap.RW',
-data: [4033, 1204, 2621, 1994],
+data: [4078, 1191, 2513, 2081],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -106,13 +106,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Integer, Integer>',
-data: [6197, 2020, 4749, 2307],
+data: [6342, 2098, 4848, 3108],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'IntIntNullMap.RW',
-data: [4055, 1176, 1946, 1980],
+data: [4073, 1201, 2498, 1973],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -136,13 +136,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Long, Long>',
-data: [7437, 2551, 5359, 3265],
+data: [8105, 2581, 5847, 3390],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'LongLongNullMap.RW',
-data: [3887, 1189, 2696, 1993],
+data: [3897, 1198, 1913, 2058],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
@@ -166,13 +166,13 @@ data: {
 labels: ['Insert', 'Search', 'Get', 'Delete'],
 datasets: [{
 label: 'HashMap<Integer, Boolean>',
-data: [5575, 1973, 4741, 2892],
+data: [5699, 2041, 4990, 3373],
 backgroundColor: '#ff79c6',
 borderColor: '#ff79c6',
 borderWidth: 1
 }, {
 label: 'IntBitsMap.RW',
-data: [4359, 1235, 2605, 1185],
+data: [4424, 1198, 2379, 1183],
 backgroundColor: '#8be9fd',
 borderColor: '#8be9fd',
 borderWidth: 1
