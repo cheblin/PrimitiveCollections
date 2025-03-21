@@ -53,7 +53,7 @@ import java.util.Arrays;
  *
  * @param <V> The type of elements in this list.
  */
-public interface ObjectNullList< V >/*CLS*/ {
+public interface ObjectNullList< V > {
 	
 	
 	/**

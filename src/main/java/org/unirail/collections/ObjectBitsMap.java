@@ -79,7 +79,7 @@ import java.util.function.Function;
  *     <li>Scenarios with a large number of small integer values associated with keys</li>
  * </ul>
  */
-public interface ObjectBitsMap/*CLS*/ {
+public interface ObjectBitsMap {
 	
 	/**
 	 * <p>
@@ -238,7 +238,7 @@ public interface ObjectBitsMap/*CLS*/ {
 		 * @param value value whose presence in this map is to be tested
 		 * @return {@code true} if this map maps one or more keys to the specified value.
 		 */
-		public boolean containsValue( int/*VEXT*/ value ) {
+		public boolean containsValue( int value ) {
 			if( _count == 0 && !hasNullKey ) return false;
 			return values.contains( value );
 		}
@@ -250,7 +250,7 @@ public interface ObjectBitsMap/*CLS*/ {
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		
-		public int/*VEXT*/ nullKeyValue() { return /*TOVEXT*/ nullKeyValue/**/; }
+		public int nullKeyValue() { return  nullKeyValue; }
 		
 		/**
          * Returns a token representing the entry associated with the specified key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
@@ -613,7 +613,7 @@ public interface ObjectBitsMap/*CLS*/ {
 		 * @throws IllegalArgumentException        if trying to add a duplicate key using {@link #putTry(Object, int)}.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
-		public boolean put( K key, int/*VEXT*/ value ) { return tryInsert( key, value, 1 ); }
+		public boolean put( K key, int value ) { return tryInsert( key, value, 1 ); }
 		
 		/**
 		 * Associates the specified value with the specified key in this map only if the key is not already present.
@@ -623,7 +623,7 @@ public interface ObjectBitsMap/*CLS*/ {
 		 * @return {@code true} if a new key-value mapping was added, {@code false} if the key was already present.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
-		public boolean putNotExist( K key, int/*VEXT*/ value ) { return tryInsert( key, value, 2 ); }
+		public boolean putNotExist( K key, int value ) { return tryInsert( key, value, 2 ); }
 		
 		/**
 		 * Associates the specified value with the specified key in this map.
@@ -636,7 +636,7 @@ public interface ObjectBitsMap/*CLS*/ {
 		 * @throws IllegalArgumentException        if an item with the same key already exists.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
-		public void putTry( K key, int/*VEXT*/ value ) { tryInsert( key, value, 0 ); }
+		public void putTry( K key, int value ) { tryInsert( key, value, 0 ); }
 		
 		/**
 		 * Removes all of the mappings from this map. The map will be empty after this call.
@@ -762,7 +762,7 @@ public interface ObjectBitsMap/*CLS*/ {
 		 * @throws IllegalArgumentException        if behavior is 0 and key already exists.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
-		private boolean tryInsert( K key, int/*VEXT*/ value, int behavior ) {
+		private boolean tryInsert( K key, int value, int behavior ) {
 			if( key == null ) { // Handle null key insertion
 				if( hasNullKey ) // Null key already exists
 					switch( behavior ) {

@@ -293,13 +293,13 @@ list.flatStrategyThreshold(1024); // Adjust the flat strategy threshold if neede
 ## Some Performance and Memory Benchmarks  
 
 The following memory footprint report highlights the substantial memory savings of AdHoc Primitive Collections compared to the standard Java `HashMap`.  
-![img.png](img.png)
+[![img.png](img.png)](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/memory_report.html)
 ### [memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/memory_report.html)
 
 **Beyond these memory benefits, performance benchmarks indicate that AdHoc Primitive Collections match or exceed the performance of standard Java 
 collections for primitive data operations by eliminating boxing overhead.**  
 
-![img_1.png](img_1.png)
+[![img_1.png](img_1.png)](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/performance_report.html)
 ### [performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/performance_report.html)
 
 This data was collected using 1,000 items; larger datasets show even greater differences. 

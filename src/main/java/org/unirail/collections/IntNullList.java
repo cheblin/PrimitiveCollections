@@ -259,13 +259,12 @@ public interface IntNullList {
 					if( values[ i ] == ( int ) value ) return i; // Linear search in flat array.
 				return -1;
 			}
-			else {
-				int i = Array.indexOf( values, ( int ) value, 0, cardinality ); // Search in compressed array.
-				return i < 0 ?
-						-1 :
-						// Value not found in compressed array.
-						nulls.bit( i ); // Convert rank in compressed array to logical index.
-			}
+			
+			int i = Array.indexOf( values, ( int ) value, 0, cardinality ); // Search in compressed array.
+			return i < 0 ?
+					-1 :
+					// Value not found in compressed array.
+					nulls.bit( i ); // Convert rank in compressed array to logical index.
 		}
 		
 		/**
@@ -866,7 +865,7 @@ public interface IntNullList {
 		 * @param items An array of boxed  values (can be null) to add.
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-        public RW add(  Integer  ... items ) {        return set( size(), items );        }
+		public RW add(  Integer  ... items ) { return set( size(), items ); }
 		
 		/**
 		 * Adds all elements from another {@link R} list to the end of this list.
