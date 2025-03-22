@@ -984,13 +984,13 @@ public interface BitList {
 				int last1      = last1();                     // Last '1' in the list
 				
 				// Case 3.1: No more '1's after trailingOnesCount, just extend it
-				if( next1 >= size ) {
+				if( size <= next1 ) {
 					trailingOnesCount++;
 					return this;
 				}
 				
 				// Case 3.2: Merge with a contiguous run of '1's
-				if( next1 <= last1 && next0After > next1 ) {
+				if( next1 <= last1 && next1 < next0After ) {
 					int spanEnd         = Math.min( next0After, last1 + 1 ); // End of '1's span, capped at last1 + 1
 					int newTrailingOnes = spanEnd; // New trailingOnesCount includes bit and span
 					
@@ -1379,25 +1379,67 @@ public interface BitList {
 		 * @param bit The bit position to remove (0-indexed).
 		 * @return This {@code RW} instance after removing the bit.
 		 */
-		public boolean remove( int bit ) {
-			if( bit < 0 || size <= bit ) return false;
-			size--;
-			if( bit < trailingOnesCount ) {
-				trailingOnesCount--;
-				return true;
-			}
-			int index = bit - trailingOnesCount >> LEN;
-			if( last1() < index ) return true;
+		public RW remove( int bit ) {
+			// Validate input: return unchanged if bit is negative or beyond current size
+			if( bit < 0 || size <= bit ) return this;
 			
-			int  pos  = bit - trailingOnesCount & MASK;
-			long mask = ~( 1L << pos );
-			values[ index ] &= mask;
-			for( int i = index + 1; i < used; i++ ) {
-				values[ i - 1 ] = values[ i - 1 ] & mask | ( values[ i ] & 1L ) << BITS - 1;
-				values[ i ] >>>= 1;
+			// Reduce size since one bit is being removed, applies to all cases
+			size--;
+			
+			// Case 1: Removing a bit within trailingOnesCount (all '1's)
+			if( bit < trailingOnesCount ) {
+				trailingOnesCount--; // Decrease the count of implicit leading '1's
+				return this;
 			}
-			if( used > 0 && values[ used - 1 ] == 0 ) used |= IO;
-			return true;
+			
+			// Determine the position of the last '1' bit in the BitList
+			int last1 = last1();
+			// Case 2: Bit is beyond the last '1', in implicit trailing '0's, size already adjusted
+			if( last1 < bit ) return this;
+			
+			// Case 3: Removing the last '1' bit, no subsequent bits to shift
+			if( bit == last1 ) {
+				set0( bit );          // Clear the bit at the last '1' position
+				used |= IO;         // Invalidate used to force recalculation (set0 may not update it fully)
+				return this;
+			}
+			
+			// Calculate the last '1' position relative to the values array (after trailingOnesCount)
+			int valuesLast1 = last1 - trailingOnesCount;
+			
+			// Case 4: Removing the first bit after trailingOnesCount (always '0' in values)
+			if( bit == trailingOnesCount ) {
+				int next0 = next0( bit + 1 ); // Find the next '0' after the bit to detect '1' spans
+				
+				// Subcase 4a: Next bit is '0', no '1' span to merge
+				if( next0 == bit + 1 ) {
+					// Shift all bits in values left by 1 to fill the gap
+					// Note: from_bit = 1 assumes bitOffset = 0, correct only here
+					shiftRight( values, values, 0, valuesLast1 + 1, 1, valuesLast1 + 1, 1, true );
+					return this;
+				}
+				
+				// Subcase 4b: No '0' after or next '0' beyond last '1', all remaining bits are '1's
+				if( next0 == -1 || last1 < next0 ) {
+					trailingOnesCount += valuesLast1; // Merge all bits in values into trailingOnesCount
+					Arrays.fill( values, 0, used, 0 );  // Clear the values array
+					used |= IO;                       // Invalidate used for recalculation
+					return this;
+				}
+				
+				// Subcase 4c: Partial span of '1's follows until next0
+				int shift = next0 - bit;              // Length of '1' span including the removed position
+				trailingOnesCount += shift;           // Extend trailingOnesCount by the span length
+				// Shift remaining bits left by the span length
+				// Note: from_bit = 1 assumes starting at values[0] bit 1, correct only if span aligns
+				shiftRight( values, values, 0, valuesLast1 + 1, 1, valuesLast1 + 1, shift, true );
+				return this;
+			}
+			
+			// Default Case: Remove bit within values and shift subsequent bits left by 1
+			shiftRight( values, values, 0, valuesLast1 + 1, 1, valuesLast1 + 1, 1, true );
+			
+			return this;
 		}
 		
 		/**
@@ -1765,54 +1807,65 @@ public interface BitList {
 		
 		
 		/**
-		 * Shifts a range of bits from a source {@code long} array to a destination {@code long} array to the right (towards lower bit indices, like right bit-shift >>> on primitives) by a specified number of positions.
+		 * Shifts a range of bits from a source {@code long} array to a destination {@code long} array to the right
+		 * (towards lower bit indices, like right bit-shift >>> on primitives) by a specified number of positions.
 		 *
-		 * <p>Within the given range, bits are moved from higher bit positions to lower bit positions. Bits shifted out from the lower end of the range are discarded.
-		 * Vacated bit positions created at the higher end of the range are filled with zeros if {@code clear} is true; otherwise, they retain their original values (though in a right-shift, zero-filling is the typical and often intended behavior).</p>
+		 * <p>Within the given range, bits are moved from higher bit positions to lower bit positions. Bits shifted out
+		 * from the lower end of the range are discarded. Vacated bit positions created at the higher end of the range are
+		 * filled with zeros if {@code clear} is true; otherwise, they retain their original values (though in a right-shift,
+		 * zero-filling is the typical and often intended behavior).</p>
 		 *
 		 * <p>This method operates at the bit level and correctly manages bit transitions across 64-bit {@code long} boundaries.
-		 * The shift operation is performed out-of-place. The source {@code src} array remains unchanged, and the shifted bits are placed in the {@code dst} array.
-		 * It's assumed that {@code dst} array has enough capacity to hold the shifted result within the specified ranges.
-		 * Bits outside the specified {@code from_bit} to {@code to_bit} range in {@code dst} are not guaranteed to be preserved from {@code src} and might be zeroed or undefined depending on array initialization.</p>
+		 * The shift operation is performed out-of-place. The source {@code src} array remains unchanged, and the shifted bits
+		 * are placed in the {@code dst} array. It's assumed that {@code dst} array has enough capacity to hold the shifted
+		 * result within the specified ranges. Bits outside the specified {@code from_bit} to {@code to_bit} range in {@code dst}
+		 * are not guaranteed to be preserved from {@code src} and might be zeroed or undefined depending on array initialization.</p>
 		 *
 		 * <p>If the shift distance ({@code shift_bits}) is equal to or greater than the range size ({@code to_bit} - {@code from_bit}),
 		 * and {@code clear} is {@code true}, then all bits within the specified range in {@code dst} will be set to zero.</p>
 		 *
 		 * @param src           The source {@code long} array from which to perform the bit shift operation. This array is not modified.
 		 * @param dst           The destination {@code long} array where the shifted bits will be placed. It's assumed to be of sufficient size.
-		 * @param array_min_bit The starting bit index (inclusive) of the valid operational range within both {@code src} and {@code dst} arrays. Bits before this index are not considered by this method.
-		 * @param array_max_bit The ending bit index (exclusive) of the valid operational range within both {@code src} and {@code dst} arrays. Bits at or after this index are not considered by this method.
+		 * @param array_min_bit The starting bit index (inclusive) of the valid operational range within both {@code src} and {@code dst} arrays.
+		 *                      Bits before this index are not considered by this method.
+		 * @param array_max_bit The ending bit index (exclusive) of the valid operational range within both {@code src} and {@code dst} arrays.
+		 *                      Bits at or after this index are not considered by this method.
 		 * @param from_bit      The starting bit index (inclusive) of the specific range of bits to be shifted *within* the valid operational range.
 		 * @param to_bit        The ending bit index (exclusive) of the specific range of bits to be shifted *within* the valid operational range.
 		 * @param shift_bits    The number of bit positions to shift to the right. Must be a non-negative integer.
 		 * @param clear         If {@code true}, the vacated bit positions at the higher end of the shifted range in {@code dst} are filled with '0' bits.
-		 *                      If {@code false}, the vacated bits may retain their original values (though zero-filling is generally the expected behavior for right shifts in most contexts).
+		 *                      If {@code false}, the vacated bits may retain their original values (though zero-filling is generally the expected
+		 *                      behavior for right shifts in most contexts).
+		 * @return The destination array {@code dst} with the shifted bits.
 		 */
 		static long[] shiftRight( long[] src, long[] dst, int array_min_bit, int array_max_bit, int from_bit, int to_bit, int shift_bits, boolean clear ) {
-			
-			if( to_bit <= from_bit || shift_bits < 1 ) { // Invalid range or negative shift
-				if( src != dst ) System.arraycopy( src, from_bit >> LEN, dst, from_bit >> LEN, ( to_bit - 1 >> LEN ) - ( from_bit >> LEN ) + 1 );
+			// Validate input range and shift amount
+			if( to_bit <= from_bit || shift_bits < 1 ) {
+				if( src != dst ) {
+					System.arraycopy( src, from_bit >> LEN, dst, from_bit >> LEN, ( to_bit - 1 >> LEN ) - ( from_bit >> LEN ) + 1 );
+				}
 				return dst;
 			}
 			
-			// Normalize range boundaries
+			// Normalize range boundaries to stay within array_min_bit and array_max_bit
 			from_bit = Math.max( from_bit, array_min_bit );
 			to_bit   = Math.min( to_bit, array_max_bit );
 			
-			// Early exit if shift moves all bits out of range
+			// If the shift moves all bits out of the valid range, clear the range if specified
 			if( to_bit - shift_bits <= array_min_bit ) {
-				if( clear ) unsetBits( dst, from_bit, to_bit );
+				if( clear ) {
+					unsetBits( dst, from_bit, to_bit );
+				}
 				return dst;
 			}
 			
-			
+			// Compute indices for the long array and the shift amounts
 			int fromIndex  = from_bit >> LEN;      // Starting word index
 			int toIndex    = to_bit - 1 >> LEN;    // Ending word index
 			int shiftLongs = shift_bits >> LEN;   // Number of whole words to shift
-			int shiftBits  = shift_bits & MASK;    // Remaining bits to shift
+			int shiftBits  = shift_bits & MASK;    // Remaining bits to shift within a word
 			
-			
-			// Store original boundary values for masking
+			// Store original boundary values for masking (to preserve bits outside the range)
 			long firstOriginal = fromIndex < src.length ?
 					src[ fromIndex ] :
 					0;
@@ -1820,38 +1873,50 @@ public interface BitList {
 					src[ toIndex ] :
 					0;
 			
-			
-			if( shiftBits == 0 && 0 < shiftLongs )
+			// Perform the shift operation
+			if( shiftBits == 0 && shiftLongs > 0 ) {
+				// If shifting by whole words, use arraycopy
 				System.arraycopy( src, fromIndex + shiftLongs, dst, fromIndex, toIndex - fromIndex - shiftLongs + 1 );
-			else for( int srcIndex = fromIndex, destIndex = fromIndex; srcIndex <= toIndex; srcIndex++, destIndex++ )
-			          dst[ destIndex ] =
-			          ( 0 <= srcIndex - shiftLongs && srcIndex - shiftLongs < src.length ?
-					          src[ srcIndex - shiftLongs ] >>> shiftBits :
-					          0 ) |
-			          ( 0 <= srcIndex - shiftLongs + 1 && srcIndex - shiftLongs + 1 < src.length ?
-					          src[ srcIndex - shiftLongs + 1 ] << BITS - shiftBits :
-					          0 );
+			}
+			else {
+				// Shift bits across words, handling bit-level shifts
+				for( int srcIndex = fromIndex, destIndex = fromIndex; srcIndex <= toIndex; srcIndex++, destIndex++ ) {
+					dst[ destIndex ] =
+							( srcIndex - shiftLongs >= 0 && srcIndex - shiftLongs < src.length ?
+									src[ srcIndex - shiftLongs ] >>> shiftBits :
+									0 ) |
+							( srcIndex - shiftLongs + 1 >= 0 && srcIndex - shiftLongs + 1 < src.length ?
+									src[ srcIndex - shiftLongs + 1 ] << BITS - shiftBits :
+									0 );
+				}
+			}
 			
+			// Compute bit positions within the words for boundary adjustments
 			int fromBit = from_bit & MASK;
 			int toBit   = to_bit - 1 & MASK;
 			
-			
+			// Preserve bits before from_bit in the first word
 			if( fromBit != 0 ) {
 				long mask = mask( fromBit );
 				dst[ fromIndex ] = dst[ fromIndex ] & ~mask | firstOriginal & mask;
 			}
 			
-			
-			if( toBit != MASK ) {
+			// Preserve bits after to_bit - 1 in the last word, but only if to_bit - 1 is not the last bit in the operational range
+			if( toBit != MASK && to_bit - 1 < array_max_bit - 1 ) {
 				long mask = mask( toBit + 1 );
 				dst[ toIndex ] = dst[ toIndex ] & mask | lastOriginal & ~mask;
 			}
 			
-			
-			if( clear && from_bit + shift_bits < to_bit ) unsetBits( dst, from_bit, from_bit + shift_bits );
+			// Clear vacated bits at the higher end of the range after shifting
+			if( clear && from_bit + shift_bits < to_bit ) {
+				// Clear the bits that were vacated at the higher end (from to_bit - shift_bits to to_bit)
+				int clearFrom = Math.max( from_bit, to_bit - shift_bits );
+				unsetBits( dst, clearFrom, to_bit );
+			}
 			
 			return dst;
 		}
+		
 		
 		/**
 		 * Shifts a range of bits from a source {@code long} array to a destination {@code long} array to the left (towards higher bit indices, like left bit-shift << on primitives) by a specified number of positions.
@@ -1923,8 +1988,8 @@ public interface BitList {
 				int srcIndex = toIndex - shiftLongs;
 				while( srcIndex >= fromIndex ) {
 					long hi = src[ srcIndex ] << shiftBits;
-					long lo = ( srcIndex > fromIndex ) ?
-							( src[ srcIndex - 1 ] >>> BITS - shiftBits ) :
+					long lo = srcIndex > fromIndex ?
+							src[ srcIndex - 1 ] >>> BITS - shiftBits :
 							0L;
 					dst[ dstIndex ] = hi | lo;
 					dstIndex--;

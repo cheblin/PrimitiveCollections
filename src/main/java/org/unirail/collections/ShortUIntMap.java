@@ -652,7 +652,6 @@ public interface ShortUIntMap {
 		private void resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Short    .BYTES * 8 );
 			_version++;
-			_version++;
 			int[] new_next   = Arrays.copyOf( nexts, newSize );
 			short[] new_keys   = Arrays.copyOf( keys, newSize );
 			int[] new_values = Arrays.copyOf( values, newSize );

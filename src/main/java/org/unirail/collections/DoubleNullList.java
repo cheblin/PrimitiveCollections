@@ -148,41 +148,24 @@ public interface DoubleNullList {
 		protected void switchToCompressedStrategy() {
 			
 			cardinality = nulls.cardinality(); // Count of non-null elements.
-			double[] compressed = new double[ cardinality ]; // Allocate compressed array, minimum size 16 for efficiency.
 			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
-			     compressed[ ii++ ] = values[ i ];
+				if( i != ii ) values[ ii++ ] = values[ i ];// Pack non-null values sequentially in the same array.
 			
-			this.values    = compressed;
 			isFlatStrategy = false;
 		}
 		
-		/**
-		 * Returns the total number of elements in the list, including both null and non-null values.
-		 * This is the logical size of the list.
-		 *
-		 * @return The total length of the list.
-		 */
-		public int length() {
-			return nulls.size();
-		}
 		
-		/**
-		 * Returns the number of elements in the list, which is equivalent to {@link #length()} in this context.
-		 *
-		 * @return The size of the list.
-		 */
-		public int size() {
-			return nulls.size();
-		}
+		public int length() { return values.length; }
+		
+		
+		public int size()   { return nulls.size(); }
 		
 		/**
 		 * Checks if the list is empty (contains no elements).
 		 *
 		 * @return {@code true} if the list is empty, {@code false} otherwise.
 		 */
-		public boolean isEmpty() {
-			return size() < 1;
-		}
+		public boolean isEmpty() { return size() < 1; }
 		
 		/**
 		 * Checks if there is a non-null value at the specified index.
@@ -341,7 +324,7 @@ public interface DoubleNullList {
 			else
 				hash = Array.hash( hash, values, 0, cardinality );
 			
-			return Array.finalizeHash( hash, length() ); // Finalize the hash with the length of the list.
+			return Array.finalizeHash( hash, size() ); // Finalize the hash with the length of the list.
 		}
 		
 		/**
@@ -353,23 +336,12 @@ public interface DoubleNullList {
 		 * @return {@code true} if the two lists are logically equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
-			if( other == null || length() != other.length() || !nulls.equals( other.nulls ) ) return false; // Quick checks for inequality.
+			int size;
+			if( other == null || ( size = size() ) != other.size() || !nulls.equals( other.nulls ) || cardinality != other.cardinality ) return false; // Quick checks for inequality.
 			
-			if( isFlatStrategy ) {
-				if( other.isFlatStrategy ) { // Both are flat strategy.
-					for( int i = nulls.next1( 0 ); i != -1; i = nulls.next1( i + 1 ) )
-						if( values[ i ] != other.values[ i ] ) return false; // Compare non-null values directly.
-				}
-				else
-					for( int i = nulls.next1( 0 ); i != -1; i = nulls.next1( i + 1 ) )
-						if( values[ i ] != other.values[ other.nulls.rank( i ) - 1 ] ) return false; // Compare flat value with rank-based value.
-			}
-			else if( other.isFlatStrategy ) { // This is compressed, other is flat.
-				for( int i = nulls.next1( 0 ); i != -1; i = nulls.next1( i + 1 ) )
-					if( values[ nulls.rank( i ) - 1 ] != other.values[ i ] ) return false; // Compare rank-based value with flat value.
-			}
-			else
-				return Array.equals( values, other.values, 0, cardinality ); // Compare compressed value arrays directly.
+			boolean b;
+			for( int i = 0; i < size; i++ )
+				if( ( b = hasValue( i ) ) != other.hasValue( i ) || b && get( 1 ) != other.get( i ) ) return false;
 			
 			return true; // Lists are equal if all checks pass.
 		}
@@ -446,7 +418,8 @@ public interface DoubleNullList {
 			if( value == null ) {
 				if( dst.nulls.last1() < index ) dst.nulls.set0( index ); // If index is beyond current length, extend and set as null.
 				else if( dst.nulls.get( index ) ) { // If index was previously non-null, convert to null.
-					if( !dst.isFlatStrategy ) dst.cardinality = Array.resize( dst.values, dst.values, dst.nulls.rank( index ) - 1, dst.cardinality, -1 ); // Remove value from compressed array.
+					if( !dst.isFlatStrategy )
+						dst.cardinality = Array.resize( dst.values, dst.values, dst.nulls.rank( index ) - 1, dst.cardinality, -1 ); // Remove value from compressed array.
 					dst.nulls.set0( index );
 				}
 			}
@@ -476,18 +449,19 @@ public interface DoubleNullList {
 			else // Index already non-null in compressed strategy.
 				if( dst.nulls.get( index ) ) dst.values[ dst.nulls.rank( index ) - 1 ] = ( double ) value; // Update existing value.
 				else { // Index was null, need to insert value in compressed strategy.
-					int i   = dst.nulls.rank( index ); // Calculate index for insertion.
-					int max = Math.max( i, dst.cardinality + 1 );
-					if( dst.values.length <= max && dst.nulls.used * 64 >= dst.flatStrategyThreshold ) {
+					int rank = dst.nulls.rank( index ); // Calculate index for insertion.
+					int max  = Math.max( rank, dst.cardinality );
+					
+					if( dst.values.length <= max && dst.flatStrategyThreshold < dst.nulls.used * 64 ) {
 						dst.nulls.set1( index ); // Mark as non-null.
 						dst.switchToFlatStrategy(); // Switch before modification if threshold is met and resize is needed.
 						dst.values[ index ] = ( double ) value; // Set value in flat array.
 					}
 					else {
-						dst.cardinality = Array.resize( dst.values, dst.values.length <= max ?
+						dst.cardinality    = Array.resize( dst.values, dst.values.length <= max ?
 								( dst.values = new double[ max + ( max >>> 1 ) ] ) :
-								dst.values, i, dst.cardinality, 1 ); // Insert a slot for the new value.
-						dst.values[ i ] = ( double ) value; // Set the new value in compressed array.
+								dst.values, rank, dst.cardinality, 1 ); // Insert a slot for the new value.
+						dst.values[ rank ] = ( double ) value; // Set the new value in compressed array.
 						dst.nulls.set1( index ); // Mark as non-null.
 					}
 				}
@@ -783,7 +757,7 @@ public interface DoubleNullList {
 					return this;
 				}
 				else i = ( cardinality = Array.resize( values, values.length <= i ?
-						( values = new double[ i + i / 2 ] ) :
+						( values = new double[ i * 3 / 2 ] ) :
 						values, cardinality, cardinality, 1 ) ) - 1;
 			
 			values[ i ] = ( double ) value; // Add value to flat array.
@@ -822,7 +796,7 @@ public interface DoubleNullList {
 				if( isFlatStrategy ) {
 					nulls.add( index, true ); // Insert non-null bit at index.
 					Array.resize( values, values.length <= nulls.size() - 1 ?
-							values = Arrays.copyOf( values, nulls.size() + nulls.size() / 2 ) :
+							values = new double[ nulls.size() + nulls.size() / 2 ] :
 							values, index, size(), 1 );
 					
 					values[ index ] = ( double ) value; // Insert value in flat array.
@@ -976,17 +950,17 @@ public interface DoubleNullList {
 		public RW swap( int index1, int index2 ) {
 			if( index1 == index2 ) return this; // No need to swap if indices are the same.
 			
-			boolean null1 = nulls.get( index1 ); // Get nullity status of element at index1.
-			boolean null2 = nulls.get( index2 ); // Get nullity status of element at index2.
+			boolean e1 = nulls.get( index1 ); // Get nullity status of element at index1.
+			boolean e2 = nulls.get( index2 ); // Get nullity status of element at index2.
 			
 			if( isFlatStrategy )
-				if( null1 && null2 ) { // Both elements are non-null in flat strategy.
+				if( e1 && e2 ) { // Both elements are non-null in flat strategy.
 					double value1 = values[ index1 ];
 					values[ index1 ] = values[ index2 ];
 					values[ index2 ] = value1; // Swap values directly.
 				}
-				else if( !null1 && !null2 ) return this; // Both are null, no action needed.
-				else if( null1 ) { // index1 is non-null, index2 is null.
+				else if( !e1 && !e2 ) return this; // Both are null, no action needed.
+				else if( e1 ) { // index1 is non-null, index2 is null.
 					values[ index2 ] = values[ index1 ]; // Move value from index1 to index2.
 					nulls.set0( index1 ); // Update nullity at index1 to null.
 					nulls.set1( index2 ); // Update nullity at index2 to non-null.
@@ -997,45 +971,40 @@ public interface DoubleNullList {
 					nulls.set0( index2 ); // Update nullity at index2 to null.
 				}
 			else  // Compressed strategy.
-				if( null1 && null2 ) { // Both elements are non-null in compressed strategy.
-					int         rank1 = nulls.rank( index1 ) - 1; // Get rank of index1.
-					int         rank2 = nulls.rank( index2 ) - 1; // Get rank of index2.
-					double tmp   = values[ rank1 ];
-					values[ rank1 ] = values[ rank2 ];
-					values[ rank2 ] = tmp; // Swap values in compressed array using ranks.
+			{
+				if( !e1 && !e2 ) return this; // Both are null, no action needed.
+				int i1 = nulls.rank( index1 ) - 1; // Get rank of index1.
+				int i2 = nulls.rank( index2 ) - 1; // Get rank of index2.
+				
+				if( e1 && e2 ) { // Both elements are non-null in compressed strategy.
+					
+					double tmp = values[ i1 ];
+					values[ i1 ] = values[ i2 ];
+					values[ i2 ] = tmp; // Swap values in compressed array using ranks.
 				}
-				else if( !null1 && !null2 ) return this; // Both are null, no action needed.
-				else { // One is null, one is non-null in compressed strategy.
-					int exist = null1 ?
-							nulls.rank( index1 ) - 1 :
-							// Rank of the existing (non-null) value.
-							nulls.rank( index2 ) - 1;
-					int empty = null1 ?
-							nulls.rank( index2 ) :
-							// Rank where to insert (for the previously null index).
-							nulls.rank( index1 );
+				else {
+					// One is null, one is non-null in compressed strategy.
+					int exist = e1 ?
+							i1 :
+							i2;
+					int empty = e1 ?
+							i2 + 1 :
+							i1 + 1;
+					
+					nulls.set( index1, e2 );// Swap nullity: index1 gets index2's state
+					nulls.set( index2, e1 );// Swap nullity: index2 gets index1's state
+					
 					double v = values[ exist ]; // Get the value to be moved.
 					
-					nulls.set( index1, null2 ); // Swap nullity status.
-					nulls.set( index2, null1 );
+					Array.resize( values, values, exist, cardinality, -1 );// Remove the value from its old position,
+					Array.resize( values, values,
+					              exist < empty ?
+							              empty - 1 :
+							              empty, cardinality - 1, 1 );//expand empty
 					
-					cardinality = Array.resize( values, values, exist, cardinality, -1 ); // Remove value from its current rank.
-					int max = Math.max( empty, cardinality + 1 );
-					
-					if( values.length <= max && nulls.used * 64 >= flatStrategyThreshold ) {
-						switchToFlatStrategy(); // Switch before modification if threshold is met and resize is needed.
-						values[ null1 ?
-								index2 :
-								index1 ] = v; // Insert value in flat array at the correct index.
-						return this;
-					}
-					
-					cardinality     = Array.resize( values, values.length <= max ?
-							( values = new double[ max + max / 2 ] ) :
-							// Ensure capacity for insertion.
-							values, empty, cardinality, 1 ); // Make space for insertion.
 					values[ empty ] = v; // Insert the moved value at the new rank.
 				}
+			}
 			
 			return this;
 		}

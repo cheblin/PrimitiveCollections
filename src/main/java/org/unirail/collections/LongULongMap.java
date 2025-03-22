@@ -652,7 +652,6 @@ public interface LongULongMap {
 		private void resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 );
 			_version++;
-			_version++;
 			int[] new_next   = Arrays.copyOf( nexts, newSize );
 			long[] new_keys   = Arrays.copyOf( keys, newSize );
 			long[] new_values = Arrays.copyOf( values, newSize );

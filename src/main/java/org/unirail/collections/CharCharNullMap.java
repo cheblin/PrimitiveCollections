@@ -734,18 +734,16 @@ public interface CharCharNullMap {
 			int           bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key ) {
-					switch( behavior ) {
-						case 1:
-							if( hasValue ) values.set1( next, value );
-							else values.set1( next, null );
-							_version++;
-							return true;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				if( keys[ next ] == key ) switch( behavior ) {
+					case 1:
+						if( hasValue ) values.set1( next, value );
+						else values.set1( next, null );
+						_version++;
+						return true;
+					case 0:
+						throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
+					default:
+						return false;
 				}
 				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ )
@@ -788,15 +786,13 @@ public interface CharCharNullMap {
 		 * @throws IllegalArgumentException if behavior is 0 and the null key already exists.
 		 */
 		private boolean tryInsert( char value, boolean hasValue, int behavior ) {
-			if( hasNullKey ) {
-				switch( behavior ) {
-					case 1:
-						break; // Update allowed.
-					case 0:
-						throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
-					default:
-						return false;
-				}
+			if( hasNullKey ) switch( behavior ) {
+				case 1:
+					break; // Update allowed.
+				case 0:
+					throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
+				default:
+					return false;
 			}
 			hasNullKey = true;
 			if( ( nullKeyHasValue = hasValue ) ) nullKeyValue = ( char ) value;
@@ -852,54 +848,65 @@ public interface CharCharNullMap {
 			int collisionCount = 0;                    // Counter to detect infinite loops or concurrency issues
 			
 			// Traverse the linked list in the bucket to find the key
+			
 			while( -1 < i ) {
 				int next = nexts[ i ];                   // Get next index in the chain
 				if( keys[ i ] == key ) {                  // Found the key at index 'i'
 					
-					// Step 1: Unlink the entry at 'i' from its chain
-					if( last < 0 )
-						// If 'i' is the head, update bucket to point to the next entry
-						_buckets[ bucketIndex ] = ( next + 1 );
-					
-					else
-						// Otherwise, link the previous entry to the next, bypassing 'i'
-						nexts[ last ] = ( int ) next;
-					
-					// Step 2: Optimize removal if value is non-null and not the last non-null
-					final int     lastNonNullValue = values.nulls.last1(); // Index of last non-null value
-					final boolean hasValue         = values.hasValue( i );
-					
-					// Update free list head
-					if( i != lastNonNullValue && hasValue ) {
-						// Optimization applies: swap with last non-null entry
-						// Step 2a: Copy key, next, and value from lastNonNullValue to i
-						char   keyToMove          = keys[ lastNonNullValue ];
-						int           BucketOf_KeyToMove = bucketIndex( Array.hash( keyToMove ) );
-						int   _next              = nexts[ lastNonNullValue ];
+					if( values.isFlatStrategy ) {
+						values.nulls.set0( i );//optional
 						
-						keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
-						nexts[ i ] = _next;         // Copy the next to the entry being removed
-						values.set1( i, values.get( lastNonNullValue ) ); // Copy the value to the entry being removed
-						
-						// Step 2b: Update the chain containing keyToMove to point to 'i'
-						int prev = -1;                     // Previous index in keyToMove’s chain
-						collisionCount = 0;// Reset collision counter
-						
-						// Start at chain head
-						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
-							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-						
-						_buckets[ BucketOf_KeyToMove ] = ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
-						
-						if( -1 < prev ) nexts[ prev ] = _next;
-						
-						values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
-						i = lastNonNullValue;
+						if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 );
+						else nexts[ last ] = next;
 					}
-					else if( hasValue ) values.set1( i, null );                       // Clear value (may shift if not last)
+					else // values used compressedStrategy
+					{
+						// Step 1: Unlink the entry at 'i' from its chain
+						if( last < 0 )
+							// If 'i' is the head, update bucket to point to the next entry
+							_buckets[ bucketIndex ] = ( next + 1 );
+						
+						else
+							// Otherwise, link the previous entry to the next, bypassing 'i'
+							nexts[ last ] = ( int ) next;
+						
+						// Step 2: Optimize removal if value is non-null and not the last non-null
+						final int     lastNonNullValue = values.nulls.last1(); // Index of last non-null value
+						final boolean hasValue         = values.hasValue( i );
+						
+						// Update free list head
+						if( i != lastNonNullValue && hasValue ) {
+							// Optimization applies: swap with last non-null entry
+							// Step 2a: Copy key, next, and value from lastNonNullValue to i
+							char   keyToMove          = keys[ lastNonNullValue ];
+							int           BucketOf_KeyToMove = bucketIndex( Array.hash( keyToMove ) );
+							int   _next              = nexts[ lastNonNullValue ];
+							
+							keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
+							nexts[ i ] = _next;         // Copy the next to the entry being removed
+							values.set1( i, values.get( lastNonNullValue ) ); // Copy the value to the entry being removed
+							
+							// Step 2b: Update the chain containing keyToMove to point to 'i'
+							int prev = -1;                     // Previous index in keyToMove’s chain
+							collisionCount = 0;// Reset collision counter
+							
+							// Start at chain head
+							for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
+								if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+							
+							_buckets[ BucketOf_KeyToMove ] = ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+							
+							if( -1 < prev ) nexts[ prev ] = _next;
+							
+							values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
+							i = lastNonNullValue;
+						}
+						else if( hasValue ) values.set1( i, null );                       // Clear value (may shift if not last)
+					}
 					
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Mark 'i' as free
-					_freeList  = i;
+					
+					_freeList = i;
 					
 					_freeCount++;       // Increment count of free entries
 					_version++;         // Increment version for concurrency control
@@ -1003,13 +1010,12 @@ public interface CharCharNullMap {
 			final int     count    = _count;
 			
 			_buckets = new int[ newSize ];
-			for( int i = 0; i < count; i++ ) {
+			for( int i = 0; i < count; i++ )
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
-					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 );
+					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); //relink chain
 					_buckets[ bucketIndex ] = ( i + 1 );
 				}
-			}
 			
 			nexts = new_next;
 			keys  = new_keys;
@@ -1024,19 +1030,21 @@ public interface CharCharNullMap {
 		 * @param old_count  the number of entries in the old arrays.
 		 */
 		private void copy( int[] old_next, char[] old_keys, CharNullList.RW old_values, int old_count ) {
-			int new_count = 0;
+			
+			int ii = 0;
 			for( int i = 0; i < old_count; i++ ) {
 				if( old_next[ i ] < -1 ) continue;
-				nexts[ new_count ] = old_next[ i ];
-				keys[ new_count ]  = old_keys[ i ];
-				if( old_values.hasValue( i ) ) values.set1( new_count, old_values.get( i ) );
-				else values.set1( new_count, null );
+				nexts[ ii ] = old_next[ i ];
+				keys[ ii ]  = old_keys[ i ];
+				if( old_values.hasValue( i ) )
+					values.set1( ii, old_values.get( i ) );
+				else values.set1( ii, null );
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] = ( new_count + 1 );
-				new_count++;
+				nexts[ ii ]             = ( int ) ( _buckets[ bucketIndex ] - 1 );
+				_buckets[ bucketIndex ] = ( ii + 1 );
+				ii++;
 			}
-			_count     = new_count;
+			_count     = ii;
 			_freeCount = 0;
 		}
 		
