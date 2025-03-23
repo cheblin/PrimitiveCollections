@@ -143,8 +143,9 @@ public interface ObjectNullList< V > {
 			}
 			V[] compressed = values;
 			values = equal_hash_V.copyOf( null, Math.max( 16, nulls.last1() + 1 ) );
-			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
+			for( int i = nulls.next1( 0 ), ii = 0; ii < size_card; i = nulls.next1( i + 1 ) )
 			     values[ i ] = compressed[ ii++ ];
+			
 			size_card      = nulls.size();
 			nulls          = null;
 			isFlatStrategy = true;

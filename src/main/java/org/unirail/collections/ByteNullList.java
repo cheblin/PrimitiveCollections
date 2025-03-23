@@ -136,7 +136,7 @@ public interface ByteNullList {
 			}
 			
 			byte[] flat = new byte[ nulls.last1() + 1 ]; // Allocate flat array with some extra capacity for growth.
-			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
+			for( int i = nulls.next1( 0 ), ii = 0; ii < cardinality; i = nulls.next1( i + 1 ) )
 			     flat[ i ] = values[ ii++ ];
 			
 			this.values    = flat;

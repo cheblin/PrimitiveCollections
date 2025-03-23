@@ -1,6 +1,10 @@
 For those who care what's under the hood.
 
+# [TL;DR](#some-performance-and-memory-benchmarks-)
+
+
 ## Stop Boxing, Start Performing: AdHoc Primitive Collections for Java
+
 
 **Unleash the Power of Primitives in Java: High-Performance, Memory-Efficient Collections**
 
