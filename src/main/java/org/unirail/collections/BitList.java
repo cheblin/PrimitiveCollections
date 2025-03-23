@@ -44,8 +44,8 @@ import java.util.Arrays;
 public interface BitList {
 	/**
 	 * Abstract base class {@code R} provides a read-only foundation for the {@code BitList} interface.
-	 * MSB                LSB
-	 * |                  |
+	 * .                    MSB                LSB
+	 * .                    |                  |
 	 * bits  in the list   [0, 0, 0, 1, 1, 1, 1]      Leading 3 zeros and trailing 4 ones
 	 * index in the list    6  5  4  3  2  1  0
 	 * shift left                 <<
@@ -273,16 +273,16 @@ public interface BitList {
 		 * Finds and returns the index of the next '1' bit starting from the specified position.
 		 *
 		 * @param bit The starting bit position to search from (inclusive).
-		 * @return The index of the next '1' bit, or -1 of the {@code BitList} if no '1' bit is found from the specified position to the end.
+		 * @return The index of the next '1' bit, or -1 if no '1' bit is found from the specified position to the end.
 		 */
 		public int next1( int bit ) {
 			// Adjust negative start to 0; if beyond size, return size
 			if( bit < 0 ) bit = 0;
 			int last1 = last1();
-			if( last1 < bit ) return -1;// If beyond  last1() values, all remaining are '0', so return size
+			if( last1 < bit ) return -1;
 			if( bit == last1 ) return last1;
 			
-			if( bit < trailingOnesCount ) return bit;// If within trailing ones, return the starting bit (it’s a '1')
+			if( bit < trailingOnesCount ) return bit;
 			
 			// Adjust position relative to end of trailing ones
 			int bitOffset = bit - trailingOnesCount;
@@ -302,7 +302,7 @@ public interface BitList {
 				if( value != 0 ) return trailingOnesCount + ( i << LEN ) + Long.numberOfTrailingZeros( value );
 			}
 			
-			// No '1' found, return size
+			// No '1' found, return -1
 			return -1;
 		}
 		
@@ -314,14 +314,11 @@ public interface BitList {
 		 * @return The index of the next '0' bit, or -1 if no '0' bit is found from the specified position to the end.
 		 */
 		public int next0( int bit ) {
-			// If starting position is invalid (negative) or beyond size, return size
-			if( bit < 0 ) bit = 0; // Adjust negative start to beginning
-			if( size() <= bit ) return -1; // No '0' beyond size
+			if( bit < 0 ) bit = 0;
+			if( size() <= bit ) return -1;
 			if( last1() < bit ) return bit;
 			
-			// Check within trailing ones region (all '1's)
-			if( bit < trailingOnesCount )
-				return trailingOnesCount; // First '0' is after trailing ones
+			if( bit < trailingOnesCount ) return trailingOnesCount;
 			
 			
 			// Adjust bit position relative to the end of trailing ones
@@ -337,8 +334,7 @@ public interface BitList {
 			long value = ~values[ index ] & mask; // Invert to find '0's, apply mask
 			
 			// Search within the first long
-			if( value != 0 )
-				return trailingOnesCount + ( index << LEN ) + Long.numberOfTrailingZeros( value );
+			if( value != 0 ) return trailingOnesCount + ( index << LEN ) + Long.numberOfTrailingZeros( value );
 			
 			
 			// Search subsequent longs
@@ -347,7 +343,7 @@ public interface BitList {
 				if( value != 0 ) return trailingOnesCount + ( i << LEN ) + Long.numberOfTrailingZeros( value );
 			}
 			
-			// No '0' found, return size
+			// No '0' found, return -1
 			return -1;
 		}
 		
@@ -360,7 +356,7 @@ public interface BitList {
 		public int prev1( int bit ) {
 			// Handle invalid or out-of-bounds cases
 			if( bit < 0 ) return -1; // Nothing before 0
-			if( bit >= size() ) bit = size() - 1; // Adjust to last valid bit
+			if( size() <= bit ) bit = size() - 1; // Adjust to last valid bit
 			
 			// If within trailing ones, return the bit itself if valid, else adjust
 			if( bit < trailingOnesCount ) return bit; // All bits up to trailingOnesCount-1 are '1'
@@ -381,7 +377,7 @@ public interface BitList {
 			if( value != 0 ) return trailingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 			
 			// Search previous longs
-			for( int i = index - 1; i >= 0; i-- ) {
+			for( int i = index - 1; 0 <= i; i-- ) {
 				value = values[ i ];
 				if( value != 0 ) return trailingOnesCount + ( i << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 			}
@@ -979,6 +975,7 @@ public interface BitList {
 					return this;
 				}
 				
+				//here 0 < used() next1must exists
 				int next1      = next1( trailingOnesCount + 1 ); // Next '1' after trailingOnesCount + 1
 				int next0After = next0( next1 );           // Next '0' after next1
 				int last1      = last1();                     // Last '1' in the list
@@ -1070,7 +1067,8 @@ public interface BitList {
 			// Case 2: Range starts within or before trailing ones and extends beyond
 			if( from_bit <= trailingOnesCount ) {
 				// Extend the range to include any contiguous '1's following to_bit to optimize trailingOnesCount
-				to_bit = next0( to_bit ); // Move to_bit to the next '0' to merge with any trailing '1's
+				int next_zero = next0( to_bit );
+				to_bit = next_zero == -1 ? size : next_zero; // Corrected line: if no '0' found, extend to size
 				
 				// If the range covers or exceeds the last '1', convert all bits up to to_bit to trailing ones
 				if( last1 < to_bit ) {
