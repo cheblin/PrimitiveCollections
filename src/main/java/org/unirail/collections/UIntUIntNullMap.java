@@ -175,7 +175,7 @@ public interface UIntUIntNullMap {
 		 * @param key the key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean contains(  Integer   key ) {
+		public boolean contains(  Long      key ) {
 			return key == null ?
 					hasNullKey :
 					contains( key.longValue     () );
@@ -197,7 +197,7 @@ public interface UIntUIntNullMap {
 		 * @param value the value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
 		 */
-		public boolean containsValue(  Integer   value ) {
+		public boolean containsValue(  Long      value ) {
 			if( _count == 0 && !hasNullKey ) return false;
 			return value == null ?
 					!nullKeyHasValue :
@@ -223,7 +223,7 @@ public interface UIntUIntNullMap {
 		 * @param key the key for which to find a token (can be null).
 		 * @return a token if the key is found, -1 ({@link #INVALID_TOKEN}) if not found.
 		 */
-		public long tokenOf(  Integer   key ) {
+		public long tokenOf(  Long      key ) {
 			return key == null ?
 					( hasNullKey ?
 							token( _count ) :
@@ -589,7 +589,7 @@ public interface UIntUIntNullMap {
 		 * @param value the value to be associated with the specified key.
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 */
-		public boolean put(  Integer   key,  Integer   value ) {
+		public boolean put(  Long      key,  Long      value ) {
 			return key == null ?
 					tryInsert( value == null ?
 							           0 :
@@ -618,7 +618,7 @@ public interface UIntUIntNullMap {
 		 * @param value the value to be associated with the null key.
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 */
-		public boolean put(  Integer   value ) {
+		public boolean put(  Long      value ) {
 			return tryInsert( value == null ?
 					                  0 :
 					                  value, value != null, 1 );
@@ -646,7 +646,7 @@ public interface UIntUIntNullMap {
 		 * @param value the value to be associated with the specified key.
 		 * @return {@code true} if a new mapping was added, {@code false} if the key was already present.
 		 */
-		public boolean putNotExist(  Integer   key,  Integer   value ) {
+		public boolean putNotExist(  Long      key,  Long      value ) {
 			return key == null ?
 					tryInsert( value == null ?
 							           0 :
@@ -664,7 +664,7 @@ public interface UIntUIntNullMap {
 		 * @param value the value to be associated with the null key.
 		 * @return {@code true} if a new mapping was added, {@code false} if the null key was already present.
 		 */
-		public boolean putNotExist(  Integer   value ) {
+		public boolean putNotExist(  Long      value ) {
 			return tryInsert( value == null ?
 					                  0 :
 					                  value, value != null, 2 );
@@ -689,7 +689,7 @@ public interface UIntUIntNullMap {
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 * @throws IllegalArgumentException if a mapping for the specified key already exists in this map.
 		 */
-		public boolean putTry(  Integer   key,  Integer   value ) {
+		public boolean putTry(  Long      key,  Long      value ) {
 			return key == null ?
 					tryInsert( value == null ?
 							           0 :
@@ -706,7 +706,7 @@ public interface UIntUIntNullMap {
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 * @throws IllegalArgumentException if a mapping for the null key already exists in this map.
 		 */
-		public boolean putTry(  Integer   value ) {
+		public boolean putTry(  Long      value ) {
 			return tryInsert( value == null ?
 					                  0 :
 					                  value, value != null, 0 );
@@ -806,7 +806,7 @@ public interface UIntUIntNullMap {
 		 * @param key key whose mapping is to be removed from the map.
 		 * @return the token of the removed entry, or -1 ({@link #INVALID_TOKEN}) if no mapping was found for the key.
 		 */
-		public long remove(  Integer   key ) {
+		public long remove(  Long      key ) {
 			return key == null ?
 					remove() :
 					remove( key.longValue     () );
@@ -1003,7 +1003,7 @@ public interface UIntUIntNullMap {
 		 * @param newSize the new capacity (must be a prime number).
 		 */
 		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Integer  .BYTES * 8 );
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 );
 			_version++;
 			int[] new_next = Arrays.copyOf( nexts, newSize );
 			int[] new_keys = Arrays.copyOf( keys, newSize );

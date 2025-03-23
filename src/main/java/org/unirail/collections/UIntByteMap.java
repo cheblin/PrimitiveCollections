@@ -106,7 +106,7 @@ public interface UIntByteMap {
 		 * @param key The key to check (boxed Integer).
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains(  Integer   key ) {
+		public boolean contains(  Long      key ) {
 			return key == null ?
 					hasNullKey :
 					contains( key.longValue     () );
@@ -142,7 +142,7 @@ public interface UIntByteMap {
          * @param key The key to find (can be null).
          * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
 		 */
-		public long tokenOf(  Integer   key ) {
+		public long tokenOf(  Long      key ) {
 			return key == null ?
 					( hasNullKey ?
 							token( _count ) :
@@ -380,7 +380,7 @@ public interface UIntByteMap {
 		 * @param value The value.
 		 * @return True if the map was modified structurally.
 		 */
-		public boolean put(  Integer   key, byte value ) {
+		public boolean put(  Long      key, byte value ) {
 			return key == null ?
 					tryInsert( value, 1 ) :
 					tryInsert( key, value, 1 );
@@ -418,7 +418,7 @@ public interface UIntByteMap {
 			return tryInsert( key, value, 2 );
 		}
 		
-		public boolean putNotExist(  Integer   key, byte value ) {
+		public boolean putNotExist(  Long      key, byte value ) {
 			return key == null ?
 					tryInsert( value, 2 ) :
 					tryInsert( key.longValue     (), value, 2 );
@@ -439,7 +439,7 @@ public interface UIntByteMap {
 			tryInsert( key, value, 0 );
 		}
 		
-		public void putTry(  Integer   key, byte value ) {
+		public void putTry(  Long      key, byte value ) {
 			if( key == null )
 				tryInsert( value, 0 );
 			else
@@ -533,7 +533,7 @@ public interface UIntByteMap {
 		 * @param key The key to remove.
          * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
 		 */
-		public long remove(  Integer   key ) {
+		public long remove(  Long      key ) {
 			return key == null ?
 					removeNullKey() :
 					remove( key.longValue     () );
@@ -650,7 +650,7 @@ public interface UIntByteMap {
 		 * @param newSize The new size (prime number).
 		 */
 		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Integer  .BYTES * 8 );
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 );
 			_version++;
 			int[] new_next   = Arrays.copyOf( nexts, newSize );
 			int[] new_keys   = Arrays.copyOf( keys, newSize );

@@ -105,7 +105,7 @@ public interface UIntBitsMap {
 		 * @param key The key to check (boxed Integer).
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains(  Integer   key ) {
+		public boolean contains(  Long      key ) {
 			return key == null ?
 					hasNullKey :
 					contains( key.longValue     () );
@@ -135,7 +135,7 @@ public interface UIntBitsMap {
          * @param key The key to find (can be null).
          * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
 		 */
-		public long tokenOf(  Integer   key ) {
+		public long tokenOf(  Long      key ) {
 			return key == null ?
 					( hasNullKey ?
 							token( _count ) :
@@ -397,7 +397,7 @@ public interface UIntBitsMap {
 		 * @param value The value to be associated with the key.
 		 * @return True if the map was modified structurally (key was newly inserted or value was updated), false otherwise.
 		 */
-		public boolean put(  Integer   key, long value ) {
+		public boolean put(  Long      key, long value ) {
 			return key == null ?
 					tryInsert( value, 1 ) :
 					tryInsert( key, value, 1 );
@@ -444,7 +444,7 @@ public interface UIntBitsMap {
 		 * @param value The value to associate with the key.
 		 * @return True if the key-value pair was inserted, false if the key already existed.
 		 */
-		public boolean putNotExist(  Integer   key, long value ) {
+		public boolean putNotExist(  Long      key, long value ) {
 			return key == null ?
 					tryInsert( value, 2 ) :
 					tryInsert( key.longValue     (), value, 2 );
@@ -478,7 +478,7 @@ public interface UIntBitsMap {
 		 * @param value The value to associate with the key.
 		 * @throws IllegalArgumentException If a mapping for the specified key already exists in the map.
 		 */
-		public void putTry(  Integer   key, long value ) {
+		public void putTry(  Long      key, long value ) {
 			if( key == null )
 				tryInsert( value, 0 );
 			else
@@ -583,7 +583,7 @@ public interface UIntBitsMap {
 		 * @param key The key to remove (boxed Integer, can be null).
          * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
 		 */
-		public long remove(  Integer   key ) {
+		public long remove(  Long      key ) {
 			return key == null ?
 					removeNullKey() :
 					remove( key.longValue     () );
@@ -709,7 +709,7 @@ public interface UIntBitsMap {
 		 * @param newSize The new size of the hash table (must be a prime number).
 		 */
 		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Integer  .BYTES * 8 ); // Limit max size to avoid integer overflow
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 ); // Limit max size to avoid integer overflow
 			_version++; // Increment version before and after array operations for invalidation safety during resize
 			_version++;
 			int[] new_next = Arrays.copyOf( nexts, newSize );

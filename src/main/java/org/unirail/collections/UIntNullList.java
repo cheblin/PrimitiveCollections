@@ -128,6 +128,13 @@ public interface UIntNullList {
 		 * before call this method, nulls must be in the final, updated state.
 		 */
 		protected void switchToFlatStrategy() {
+			if( size() == 1 )//the collection is empty
+			{
+				if( values.length == 0 ) values = new int[ 16 ];
+				isFlatStrategy = true;
+				return;
+			}
+			
 			int[] flat = new int[ nulls.last1() + 1 ]; // Allocate flat array with some extra capacity for growth.
 			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
 			     flat[ i ] = values[ ii++ ];
@@ -266,7 +273,7 @@ public interface UIntNullList {
 		 * @param value The  value (can be null) to check for.
 		 * @return {@code true} if the list contains the {@code value}, {@code false} otherwise.
 		 */
-		public boolean contains(  Integer   value ) {
+		public boolean contains(  Long      value ) {
 			return value == null ?
 					nextNullIndex( 0 ) != -1 :
 					// Check for null value.
@@ -374,9 +381,7 @@ public interface UIntNullList {
 		 * @return A JSON formatted string representing the list's content.
 		 */
 		@Override
-		public String toString() {
-			return toJSON();
-		}
+		public String toString() { return toJSON(); }
 		
 		/**
 		 * Writes the content of this list in JSON format to the provided {@link JsonWriter}.
@@ -402,6 +407,59 @@ public interface UIntNullList {
 		}
 		
 		/**
+		 * Copies a range of elements into a destination array, preserving nulls.
+		 *
+		 * @param index Starting logical index.
+		 * @param len   Number of elements to copy.
+		 * @param dst   Destination array; resized if null or too small.
+		 * @return Array with copied elements, or {@code null} if empty.
+		 */
+		public  Long     [] toArray( int index, int len,  Long     [] dst ) {
+			if( size() == 0 ) return null;
+			if( dst == null || dst.length < len ) dst = new  Long     [ len ];
+			
+			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
+			          dst[ i ] = hasValue(  srcIndex  ) ?
+					          (0xFFFFFFFFL &  ( values[ nulls.rank( srcIndex ) - 1 ])) :
+					          null;
+			return dst;
+		}
+		
+		/**
+		 * Copies a range of elements into a destination array, preserving nulls.
+		 *
+		 * @param index Starting logical index.
+		 * @param len   Number of elements to copy.
+		 * @param dst   Destination array; resized if null or too small.
+		 * @return Array with copied elements, or {@code null} if empty.
+		 */
+		public long[] toArray( int index, int len, long[] dst, long null_substitute ) {
+			if( size() == 0 ) return null;
+			if( dst == null || dst.length < len ) dst = new long[ len ];
+			
+			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
+			          dst[ i ] = (0xFFFFFFFFL &  (hasValue( srcIndex ) ?
+					          values[ nulls.rank( srcIndex ) - 1 ] :
+					          null_substitute));
+			return dst;
+		}
+		
+		
+		/**
+		 * Checks if this list contains all non-null elements from another {@link ObjectList.R}.
+		 *
+		 * @param src Source list to check against.
+		 * @return {@code true} if all non-null elements are present, {@code false} otherwise.
+		 */
+		public boolean containsAll( R src ) {
+			for( int i = 0, s = src.size(); i < s; i++ )
+				if( src.hasValue( i ) ) { if( indexOf( src.get( i ) ) == -1 ) return false; }
+				else if( nextNullIndex( 0 ) == -1 ) return false;
+			
+			return true;
+		}
+		
+		/**
 		 * Sets a value at a specific index in the list. This helper method is used by {@link RW}.
 		 * It handles both null and non-null {@code value} inputs.
 		 * <p>
@@ -414,7 +472,7 @@ public interface UIntNullList {
 		 * @param index The index at which to set the value.
 		 * @param value The  value to set (can be null).
 		 */
-		protected static void set( R dst, int index,  Integer   value ) {
+		protected static void set( R dst, int index,  Long      value ) {
 			if( value == null ) {
 				if( dst.nulls.last1() < index ) dst.nulls.set0( index ); // If index is beyond current length, extend and set as null.
 				else if( dst.nulls.get( index ) ) { // If index was previously non-null, convert to null.
@@ -497,7 +555,7 @@ public interface UIntNullList {
 		 * @param default_value The default value for the list. Can be null.
 		 * @param size          The initial size of the list.
 		 */
-		public RW(  Integer   default_value, int size ) {
+		public RW(  Long      default_value, int size ) {
 			super( default_value == null ?
 					       0 :
 					       // Use 0 as default primitive value if default_value is null.
@@ -628,7 +686,7 @@ public interface UIntNullList {
 		 * @param value The  value to set (can be null).
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW set1(  Integer   value ) {
+		public RW set1(  Long      value ) {
 			set( this, size() - 1, value ); // Delegate to static set method for Integer.
 			return this;
 		}
@@ -652,7 +710,7 @@ public interface UIntNullList {
 		 * @param value The boxed  value to set (can be null).
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW set1( int index,  Integer   value ) {
+		public RW set1( int index,  Long      value ) {
 			set( this, index, value ); // Delegate to static set method for Integer at index.
 			return this;
 		}
@@ -676,7 +734,7 @@ public interface UIntNullList {
 		 * @param values An array of boxed  values (can be null) to set.
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW set( int index,  Integer  ... values ) {
+		public RW set( int index,  Long     ... values ) {
 			for( int i = 0; i < values.length; i++ ) set( this, index + i, values[ i ] ); // Iterate backwards and set each value.
 			return this;
 		}
@@ -715,7 +773,7 @@ public interface UIntNullList {
 		 * @param len       The number of elements to copy from the source array.
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW set( int index,  Integer  [] values, int src_index, int len ) {
+		public RW set( int index,  Long     [] values, int src_index, int len ) {
 			for( int i = 0; i < values.length; i++ ) set( this, index + i, values[ src_index + i ] ); // Iterate backwards and set each value from source array.
 			return this;
 		}
@@ -726,7 +784,7 @@ public interface UIntNullList {
 		 * @param value The boxed  value to add (can be null).
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW add1(  Integer   value ) {
+		public RW add1(  Long      value ) {
 			if( value == null ) {
 				nulls.add( false ); // Add null entry to bitlist.
 				if( isFlatStrategy && values.length <= nulls.size() - 1 )
@@ -750,9 +808,12 @@ public interface UIntNullList {
 				if( values.length <= ( i = nulls.size() ) ) values = Arrays.copyOf( values, i + i / 2 + 1 ); // Ensure flat array capacity.
 			}
 			else  // Compressed strategy.
-				if( values.length <= ( i = cardinality + 1 ) && nulls.used * 64 >= flatStrategyThreshold ) {
+				if( values.length <= ( i = cardinality + 1 ) && flatStrategyThreshold <= nulls.used * 64 ) {
 					nulls.add( true ); // Mark as non-null.
+					
 					switchToFlatStrategy(); // Switch before modification if threshold is met and resize is needed.
+					
+					
 					values[ nulls.size() - 1 ] = ( int ) value; // Add value to flat array.
 					return this;
 				}
@@ -773,7 +834,7 @@ public interface UIntNullList {
 		 * @param value The boxed  value to add (can be null).
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW add1( int index,  Integer   value ) {
+		public RW add1( int index,  Long      value ) {
 			if( value == null ) {
 				nulls.add( index, false ); // Insert null bit at index.
 				
@@ -839,7 +900,7 @@ public interface UIntNullList {
 		 * @param items An array of boxed  values (can be null) to add.
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW add(  Integer  ... items ) { return set( size(), items ); }
+		public RW add(  Long     ... items ) { return set( size(), items ); }
 		
 		/**
 		 * Adds all elements from another {@link R} list to the end of this list.
@@ -906,10 +967,11 @@ public interface UIntNullList {
 		 */
 		public RW size( int size ) {
 			if( size < 1 ) clear(); // If size is less than 1, clear the list.
-			nulls.size( size ); // Set new size for nulls bitlist.
 			if( this.size() < size ) set1( size - 1, default_value ); // If increasing size, ensure last element is set (though it might be null).
-			else if( !isFlatStrategy ) cardinality = nulls.cardinality();
-			
+			else {
+				nulls.size( size ); // Set new size for nulls bitlist.
+				if( !isFlatStrategy ) cardinality = nulls.cardinality();
+			}
 			return this;
 		}
 		
@@ -948,7 +1010,7 @@ public interface UIntNullList {
 		 * @return This {@code RW} instance (for method chaining).
 		 */
 		public RW swap( int index1, int index2 ) {
-			if( index1 == index2 ) return this; // No need to swap if indices are the same.
+			if( index1 == index2  ) return this; // No need to swap if indices are the same.
 			
 			boolean e1 = nulls.get( index1 ); // Get nullity status of element at index1.
 			boolean e2 = nulls.get( index2 ); // Get nullity status of element at index2.

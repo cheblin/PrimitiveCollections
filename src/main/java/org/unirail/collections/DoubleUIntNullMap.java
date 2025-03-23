@@ -197,7 +197,7 @@ public interface DoubleUIntNullMap {
 		 * @param value the value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
 		 */
-		public boolean containsValue(  Integer   value ) {
+		public boolean containsValue(  Long      value ) {
 			if( _count == 0 && !hasNullKey ) return false;
 			return value == null ?
 					!nullKeyHasValue :
@@ -589,7 +589,7 @@ public interface DoubleUIntNullMap {
 		 * @param value the value to be associated with the specified key.
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 */
-		public boolean put(  Double    key,  Integer   value ) {
+		public boolean put(  Double    key,  Long      value ) {
 			return key == null ?
 					tryInsert( value == null ?
 							           0 :
@@ -618,7 +618,7 @@ public interface DoubleUIntNullMap {
 		 * @param value the value to be associated with the null key.
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 */
-		public boolean put(  Integer   value ) {
+		public boolean put(  Long      value ) {
 			return tryInsert( value == null ?
 					                  0 :
 					                  value, value != null, 1 );
@@ -646,7 +646,7 @@ public interface DoubleUIntNullMap {
 		 * @param value the value to be associated with the specified key.
 		 * @return {@code true} if a new mapping was added, {@code false} if the key was already present.
 		 */
-		public boolean putNotExist(  Double    key,  Integer   value ) {
+		public boolean putNotExist(  Double    key,  Long      value ) {
 			return key == null ?
 					tryInsert( value == null ?
 							           0 :
@@ -664,7 +664,7 @@ public interface DoubleUIntNullMap {
 		 * @param value the value to be associated with the null key.
 		 * @return {@code true} if a new mapping was added, {@code false} if the null key was already present.
 		 */
-		public boolean putNotExist(  Integer   value ) {
+		public boolean putNotExist(  Long      value ) {
 			return tryInsert( value == null ?
 					                  0 :
 					                  value, value != null, 2 );
@@ -689,7 +689,7 @@ public interface DoubleUIntNullMap {
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 * @throws IllegalArgumentException if a mapping for the specified key already exists in this map.
 		 */
-		public boolean putTry(  Double    key,  Integer   value ) {
+		public boolean putTry(  Double    key,  Long      value ) {
 			return key == null ?
 					tryInsert( value == null ?
 							           0 :
@@ -706,7 +706,7 @@ public interface DoubleUIntNullMap {
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 * @throws IllegalArgumentException if a mapping for the null key already exists in this map.
 		 */
-		public boolean putTry(  Integer   value ) {
+		public boolean putTry(  Long      value ) {
 			return tryInsert( value == null ?
 					                  0 :
 					                  value, value != null, 0 );

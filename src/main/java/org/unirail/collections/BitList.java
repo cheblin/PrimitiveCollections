@@ -276,7 +276,7 @@ public interface BitList {
 		 * @return The index of the next '1' bit, or -1 if no '1' bit is found from the specified position to the end.
 		 */
 		public int next1( int bit ) {
-			// Adjust negative start to 0; if beyond size, return size
+			if( size() == 0 ) return -1;
 			if( bit < 0 ) bit = 0;
 			int last1 = last1();
 			if( last1 < bit ) return -1;
@@ -314,8 +314,9 @@ public interface BitList {
 		 * @return The index of the next '0' bit, or -1 if no '0' bit is found from the specified position to the end.
 		 */
 		public int next0( int bit ) {
+			if( size() == 0 || size() <= bit ) return -1;
+			
 			if( bit < 0 ) bit = 0;
-			if( size() <= bit ) return -1;
 			if( last1() < bit ) return bit;
 			
 			if( bit < trailingOnesCount ) return trailingOnesCount;
@@ -354,6 +355,8 @@ public interface BitList {
 		 * @return The index of the previous '1' bit, or -1 if no '1' bit is found before the specified position.
 		 */
 		public int prev1( int bit ) {
+			if( size() == 0 ) return -1;
+			
 			// Handle invalid or out-of-bounds cases
 			if( bit < 0 ) return -1; // Nothing before 0
 			if( size() <= bit ) bit = size() - 1; // Adjust to last valid bit
@@ -396,6 +399,8 @@ public interface BitList {
 		 * @return The index of the previous '0' bit, or -1 if no '0' bit is found before the specified position.
 		 */
 		public int prev0( int bit ) {
+			if( size() == 0 ) return -1;
+			
 			// Handle invalid or out-of-bounds cases
 			if( bit < 0 ) return -1; // Nothing before 0
 			if( bit >= size() ) bit = size() - 1; // Adjust to last valid bit
@@ -1068,7 +1073,9 @@ public interface BitList {
 			if( from_bit <= trailingOnesCount ) {
 				// Extend the range to include any contiguous '1's following to_bit to optimize trailingOnesCount
 				int next_zero = next0( to_bit );
-				to_bit = next_zero == -1 ? size : next_zero; // Corrected line: if no '0' found, extend to size
+				to_bit = next_zero == -1 ?
+						size :
+						next_zero; // Corrected line: if no '0' found, extend to size
 				
 				// If the range covers or exceeds the last '1', convert all bits up to to_bit to trailing ones
 				if( last1 < to_bit ) {

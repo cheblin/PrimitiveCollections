@@ -196,7 +196,7 @@ public interface UIntObjectMap {
 		 * @param key The key (Integer) to search for (can be null).
 		 * @return {@code true} if the map contains a key-value pair with the specified key, {@code false} otherwise.
 		 */
-		public boolean containsKey(  Integer   key ) {
+		public boolean containsKey(  Long      key ) {
 			return key == null ?
 					hasNullKey :
 					tokenOf( key ) != INVALID_TOKEN;
@@ -226,7 +226,7 @@ public interface UIntObjectMap {
 		 * @param key The key (Integer) to get the token for (can be null).
          * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
 		 */
-		public long tokenOf(  Integer   key ) {
+		public long tokenOf(  Long      key ) {
 			return key == null ?
 					hasNullKey ?
 							token( _count ) :
@@ -330,8 +330,8 @@ public interface UIntObjectMap {
 		 * @return The value associated with the key, or {@code null} if the key is not found.
 		 */
 		@SuppressWarnings( "unchecked" )
-		public V get(  Integer   key ) {
-			long token = tokenOf( (  Integer   ) key );
+		public V get(  Long      key ) {
+			long token = tokenOf( (  Long      ) key );
 			return token == INVALID_TOKEN ?
 					null :
 					value( token );
@@ -360,7 +360,7 @@ public interface UIntObjectMap {
 		 * @param defaultValue The default value to return if the key is not found.
 		 * @return The value associated with the key, or {@code defaultValue} if the key is not found.
 		 */
-		public V getOrDefault(  Integer   key, V defaultValue ) {
+		public V getOrDefault(  Long      key, V defaultValue ) {
 			long token = tokenOf( key );
 			return token == INVALID_TOKEN ?
 					defaultValue :
@@ -573,7 +573,7 @@ public interface UIntObjectMap {
 		 * @param value The value to be associated with the specified key.
 		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
 		 */
-		public V put(  Integer   key, V value ) {
+		public V put(  Long      key, V value ) {
 			long token = tokenOf( key );
 			V ret = token == INVALID_TOKEN ?
 					null :
@@ -629,7 +629,7 @@ public interface UIntObjectMap {
 		 * @param value The value to be associated with the specified key.
 		 * @return {@code true} if a new key-value pair was inserted, {@code false} if the key was already present.
 		 */
-		public boolean putNotExist(  Integer   key, V value ) {
+		public boolean putNotExist(  Long      key, V value ) {
 			return key == null ?
 					tryInsert( value, 2 ) :
 					tryInsert( key, value, 2 );
@@ -660,7 +660,7 @@ public interface UIntObjectMap {
 		 * @param value The value to be associated with the specified key.
 		 * @throws IllegalArgumentException if a key-value pair with the same key already exists in the map.
 		 */
-		public void putTry(  Integer   key, V value ) {
+		public void putTry(  Long      key, V value ) {
 			if( key == null )
 				tryInsert( value, 0 );
 			else
@@ -746,7 +746,7 @@ public interface UIntObjectMap {
 		 * @param key The key (Integer) of the key-value pair to remove (can be null).
 		 * @return The value that was associated with the key, or {@code null} if the key was not found.
 		 */
-		public V remove(  Integer   key ) {
+		public V remove(  Long      key ) {
 			if( key == null ) {
 				if( !hasNullKey ) return null;
 				hasNullKey = false;
@@ -903,7 +903,7 @@ public interface UIntObjectMap {
 		 * @param newSize The new capacity for the arrays (should be a prime number).
 		 */
 		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Integer  .BYTES * 8 ); // Limit size to avoid potential issues
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 ); // Limit size to avoid potential issues
 			_version++; // Increment version before and after resize operation to ensure token invalidation
 			int[] new_next   = Arrays.copyOf( nexts, newSize );
 			int[] new_keys   = Arrays.copyOf( keys, newSize );

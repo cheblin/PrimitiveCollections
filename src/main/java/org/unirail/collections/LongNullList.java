@@ -128,6 +128,13 @@ public interface LongNullList {
 		 * before call this method, nulls must be in the final, updated state.
 		 */
 		protected void switchToFlatStrategy() {
+			if( size() == 1 )//the collection is empty
+			{
+				if( values.length == 0 ) values = new long[ 16 ];
+				isFlatStrategy = true;
+				return;
+			}
+			
 			long[] flat = new long[ nulls.last1() + 1 ]; // Allocate flat array with some extra capacity for growth.
 			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
 			     flat[ i ] = values[ ii++ ];
@@ -374,9 +381,7 @@ public interface LongNullList {
 		 * @return A JSON formatted string representing the list's content.
 		 */
 		@Override
-		public String toString() {
-			return toJSON();
-		}
+		public String toString() { return toJSON(); }
 		
 		/**
 		 * Writes the content of this list in JSON format to the provided {@link JsonWriter}.
@@ -399,6 +404,59 @@ public interface LongNullList {
 					else for( ; i < ii; i++ ) json.value(); // Write nulls up to the next non-null value.
 			}
 			json.exitArray(); // End JSON array.
+		}
+		
+		/**
+		 * Copies a range of elements into a destination array, preserving nulls.
+		 *
+		 * @param index Starting logical index.
+		 * @param len   Number of elements to copy.
+		 * @param dst   Destination array; resized if null or too small.
+		 * @return Array with copied elements, or {@code null} if empty.
+		 */
+		public  Long     [] toArray( int index, int len,  Long     [] dst ) {
+			if( size() == 0 ) return null;
+			if( dst == null || dst.length < len ) dst = new  Long     [ len ];
+			
+			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
+			          dst[ i ] = hasValue(  srcIndex  ) ?
+					           ( values[ nulls.rank( srcIndex ) - 1 ]) :
+					          null;
+			return dst;
+		}
+		
+		/**
+		 * Copies a range of elements into a destination array, preserving nulls.
+		 *
+		 * @param index Starting logical index.
+		 * @param len   Number of elements to copy.
+		 * @param dst   Destination array; resized if null or too small.
+		 * @return Array with copied elements, or {@code null} if empty.
+		 */
+		public long[] toArray( int index, int len, long[] dst, long null_substitute ) {
+			if( size() == 0 ) return null;
+			if( dst == null || dst.length < len ) dst = new long[ len ];
+			
+			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
+			          dst[ i ] =  (hasValue( srcIndex ) ?
+					          values[ nulls.rank( srcIndex ) - 1 ] :
+					          null_substitute);
+			return dst;
+		}
+		
+		
+		/**
+		 * Checks if this list contains all non-null elements from another {@link ObjectList.R}.
+		 *
+		 * @param src Source list to check against.
+		 * @return {@code true} if all non-null elements are present, {@code false} otherwise.
+		 */
+		public boolean containsAll( R src ) {
+			for( int i = 0, s = src.size(); i < s; i++ )
+				if( src.hasValue( i ) ) { if( indexOf( src.get( i ) ) == -1 ) return false; }
+				else if( nextNullIndex( 0 ) == -1 ) return false;
+			
+			return true;
 		}
 		
 		/**
@@ -750,9 +808,12 @@ public interface LongNullList {
 				if( values.length <= ( i = nulls.size() ) ) values = Arrays.copyOf( values, i + i / 2 + 1 ); // Ensure flat array capacity.
 			}
 			else  // Compressed strategy.
-				if( values.length <= ( i = cardinality + 1 ) && nulls.used * 64 >= flatStrategyThreshold ) {
+				if( values.length <= ( i = cardinality + 1 ) && flatStrategyThreshold <= nulls.used * 64 ) {
 					nulls.add( true ); // Mark as non-null.
+					
 					switchToFlatStrategy(); // Switch before modification if threshold is met and resize is needed.
+					
+					
 					values[ nulls.size() - 1 ] = ( long ) value; // Add value to flat array.
 					return this;
 				}
@@ -906,10 +967,11 @@ public interface LongNullList {
 		 */
 		public RW size( int size ) {
 			if( size < 1 ) clear(); // If size is less than 1, clear the list.
-			nulls.size( size ); // Set new size for nulls bitlist.
 			if( this.size() < size ) set1( size - 1, default_value ); // If increasing size, ensure last element is set (though it might be null).
-			else if( !isFlatStrategy ) cardinality = nulls.cardinality();
-			
+			else {
+				nulls.size( size ); // Set new size for nulls bitlist.
+				if( !isFlatStrategy ) cardinality = nulls.cardinality();
+			}
 			return this;
 		}
 		
@@ -948,7 +1010,7 @@ public interface LongNullList {
 		 * @return This {@code RW} instance (for method chaining).
 		 */
 		public RW swap( int index1, int index2 ) {
-			if( index1 == index2 ) return this; // No need to swap if indices are the same.
+			if( index1 == index2  ) return this; // No need to swap if indices are the same.
 			
 			boolean e1 = nulls.get( index1 ); // Get nullity status of element at index1.
 			boolean e2 = nulls.get( index2 ); // Get nullity status of element at index2.

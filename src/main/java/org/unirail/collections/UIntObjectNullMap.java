@@ -185,7 +185,7 @@ public interface UIntObjectNullMap {
 		 * @param key The key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean containsKey(  Integer   key ) {
+		public boolean containsKey(  Long      key ) {
 			return key == null ?
 					hasNullKey :
 					tokenOf( key ) != INVALID_TOKEN;
@@ -225,7 +225,7 @@ public interface UIntObjectNullMap {
 		 * @param key The key for which to retrieve the token.
          * @return The token associated with the key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
 		 */
-		public long tokenOf(  Integer   key ) {
+		public long tokenOf(  Long      key ) {
 			return key == null ?
 					( hasNullKey ?
 							token( _count ) :
@@ -347,8 +347,8 @@ public interface UIntObjectNullMap {
 		 * @return The value to which the specified key is mapped, or {@code null} if this map contains no mapping for the key.
 		 */
 		@SuppressWarnings( "unchecked" )
-		public V get(  Integer   key ) {
-			long token = tokenOf( (  Integer   ) key );
+		public V get(  Long      key ) {
+			long token = tokenOf( (  Long      ) key );
 			return token == INVALID_TOKEN ?
 					null :
 					// Key not found, return null
@@ -380,7 +380,7 @@ public interface UIntObjectNullMap {
 		 * @param defaultValue The default value to return if this map contains no mapping for the key.
 		 * @return The value to which the specified key is mapped, or {@code defaultValue} if there is no mapping.
 		 */
-		public V getOrDefault(  Integer   key, V defaultValue ) {
+		public V getOrDefault(  Long      key, V defaultValue ) {
 			long token = tokenOf( key );
 			return token == INVALID_TOKEN ?
 					defaultValue :
@@ -589,7 +589,7 @@ public interface UIntObjectNullMap {
 		 * @param value The value to be associated with the specified key.
 		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
 		 */
-		public V put(  Integer   key, V value ) {
+		public V put(  Long      key, V value ) {
 			long token = tokenOf( key ); // Check if the key already exists
 			V ret = token == INVALID_TOKEN ?
 					null :
@@ -648,7 +648,7 @@ public interface UIntObjectNullMap {
 		 * @param value The value to be associated with the specified key.
 		 * @return {@code true} if a new mapping was added, {@code false} if the key was already present.
 		 */
-		public boolean putNotExist(  Integer   key, V value ) {
+		public boolean putNotExist(  Long      key, V value ) {
 			return key == null ?
 					tryInsert( value, 2 ) :
 					// Try to insert value for null key if not exists
@@ -681,7 +681,7 @@ public interface UIntObjectNullMap {
 		 * @param value The value to be associated with the specified key.
 		 * @throws IllegalArgumentException if the map already contains a mapping for the specified key.
 		 */
-		public void putTry(  Integer   key, V value ) {
+		public void putTry(  Long      key, V value ) {
 			if( key == null )
 				tryInsert( value, 0 ); // Try to insert value for null key, throw exception if exists
 			else
@@ -733,7 +733,7 @@ public interface UIntObjectNullMap {
 		 * @param key The key whose mapping is to be removed from the map.
 		 * @return The previous value associated with the key, or {@code null} if there was no mapping.
 		 */
-		public V remove(  Integer   key ) {
+		public V remove(  Long      key ) {
 			if( key == null ) {
 				if( !hasNullKey ) return null; // Null key not present
 				hasNullKey = false; // Mark null key as removed
@@ -972,7 +972,7 @@ public interface UIntObjectNullMap {
 		 * @param newSize The new capacity for the arrays. Should be a prime number for better distribution.
 		 */
 		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Integer  .BYTES * 8 ); // Limit max size to avoid potential issues
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 ); // Limit max size to avoid potential issues
 			_version++; // Increment version before resize
 			int[]          new_next   = Arrays.copyOf( nexts, newSize ); // Create new nexts array
 			int[]          new_keys   = Arrays.copyOf( keys, newSize ); // Create new keys array

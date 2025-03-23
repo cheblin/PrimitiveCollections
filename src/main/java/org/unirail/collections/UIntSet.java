@@ -133,7 +133,7 @@ public interface UIntSet {
 		 * @param key the key to check for in this set
 		 * @return {@code true} if this set contains the specified key
 		 */
-		public boolean contains(  Integer   key ) {
+		public boolean contains(  Long      key ) {
 			return key == null ?
 					hasNullKey :
 					contains( key. longValue     () );
@@ -154,7 +154,7 @@ public interface UIntSet {
 		 * @param key the key to get the token for (can be null)
 		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found
 		 */
-		public long tokenOf(  Integer   key ) {
+		public long tokenOf(  Long      key ) {
 			return key == null ?
 					( hasNullKey ?
 							token( _count ) :
@@ -402,7 +402,7 @@ public interface UIntSet {
 		 * @param key the key to add to this set
 		 * @return {@code true} if this set did not already contain the specified key
 		 */
-		public boolean add(  Integer   key ) {
+		public boolean add(  Long      key ) {
 			return key == null ?
 					addNullKey() :
 					add( key. longValue     () ); // Add integer key
@@ -473,7 +473,7 @@ public interface UIntSet {
 		 * @param key the key to remove from this set
 		 * @return {@code true} if this set contained the key
 		 */
-		public boolean remove(  Integer   key ) {
+		public boolean remove(  Long      key ) {
 			return key == null ?
 					removeNullKey() :
 					// Handle null key removal
@@ -609,7 +609,7 @@ public interface UIntSet {
 		 * @param newSize the new capacity for the set
 		 */
 		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Integer  .BYTES * 8 ); // Limit max size based on Integer size
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 ); // Limit max size based on Integer size
 			_version++; // Increment version as structure changes
 			int[] new_next = Arrays.copyOf( nexts, newSize ); // Create new 'next' array with new size, copying old data
 			int[] new_keys = Arrays.copyOf( keys, newSize ); // Create new 'keys' array with new size, copying old data

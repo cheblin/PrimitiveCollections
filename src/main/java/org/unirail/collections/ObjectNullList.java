@@ -135,6 +135,12 @@ public interface ObjectNullList< V > {
 		 * Switches to flat strategy, reallocating {@code values} to include all elements with nulls in place.
 		 */
 		protected void switchToFlatStrategy() {
+			if( size() == 1 )//the collection is empty
+			{
+				if( values.length == 0 ) values = equal_hash_V.copyOf( null, 16 );
+				isFlatStrategy = true;
+				return;
+			}
 			V[] compressed = values;
 			values = equal_hash_V.copyOf( null, Math.max( 16, nulls.last1() + 1 ) );
 			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
@@ -361,6 +367,7 @@ public interface ObjectNullList< V > {
 		 * @return {@code true} if equal and of the same type, {@code false} otherwise.
 		 */
 		@Override
+		@SuppressWarnings( "unchecked" )
 		public boolean equals( Object obj ) {
 			return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj );
 		}
@@ -383,6 +390,7 @@ public interface ObjectNullList< V > {
 		 * @param other The other {@code R} instance to compare with.
 		 * @return {@code true} if logically equal, {@code false} otherwise.
 		 */
+		
 		public boolean equals( R< V > other ) {
 			int size;
 			
@@ -676,7 +684,7 @@ public interface ObjectNullList< V > {
 					values[ size_card - 1 ] = value;
 				}
 				else {
-					if( values.length == size_card ) values = Arrays.copyOf( values, Math.max( 16,size_card * 3 / 2 ));
+					if( values.length == size_card ) values = Arrays.copyOf( values, Math.max( 16, size_card * 3 / 2 ) );
 					
 					values[ size_card - 1 ] = value;
 					nulls.add( true );
@@ -698,7 +706,7 @@ public interface ObjectNullList< V > {
 					// Insert within bounds: shift elements right, update total size
 					size_card       = Array.resize( values,
 					                                values.length <= size_card ?
-							                                equal_hash_V.copyOf( values, Math.max( 16,size_card * 3 / 2) ) :
+							                                equal_hash_V.copyOf( values, Math.max( 16, size_card * 3 / 2 ) ) :
 							                                values, index, size_card, 1 );
 					values[ index ] = value;
 				}
@@ -718,7 +726,7 @@ public interface ObjectNullList< V > {
 						// Insert non-null value, update non-null count
 						size_card   = Array.resize( values,
 						                            values.length <= max ?
-								                            equal_hash_V.copyOf( null, Math.max( 16,max * 3 / 2) ) :
+								                            equal_hash_V.copyOf( null, Math.max( 16, max * 3 / 2 ) ) :
 								                            values, i, size_card, 1 );
 						values[ i ] = value;
 					}
@@ -795,14 +803,10 @@ public interface ObjectNullList< V > {
 		 */
 		public RW< V > size( int size ) {
 			if( size < 1 ) clear();
-			else if( isFlatStrategy ) {
-				if( values.length < size ) values = equal_hash_V.copyOf( values, Math.max( 16, size) );
-				size_card = size;
-			}
+			if( size() < size ) set1( size - 1, null );
 			else {
 				nulls.size( size );
-				if( size > size() ) set1( size - 1, null );
-				else size_card = nulls.cardinality();
+				if( !isFlatStrategy ) size_card = nulls.cardinality();
 			}
 			return this;
 		}

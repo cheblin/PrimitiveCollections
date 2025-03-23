@@ -126,7 +126,7 @@ public interface UByteUIntNullMap {
 		 * @param value The {@link Integer} value to search for in the map. Null values are also supported.
 		 * @return {@code true} if the map contains the specified value, {@code false} otherwise.
 		 */
-		public boolean containsValue(  Integer   value ) {
+		public boolean containsValue(  Long      value ) {
 			if( size() == 0 ) return false;
 			
 			return value == null ?
@@ -374,7 +374,7 @@ public interface UByteUIntNullMap {
 		 *              Null is a valid value.
 		 * @return {@code true} if the key was newly added to the map, {@code false} if the key already existed.
 		 */
-		public boolean put(  Character key,  Integer   value ) {
+		public boolean put(  Character key,  Long      value ) {
 			if( key != null ) return put( ( char ) ( key + 0 ), value );
 			
 			nullKeyValue    = ( int ) ( ( nullKeyValueNull = ( value == null ) ) ?
@@ -396,7 +396,7 @@ public interface UByteUIntNullMap {
 		 *              Null is a valid value.
 		 * @return {@code true} if the key was newly added to the map, {@code false} if the key already existed.
 		 */
-		public boolean put( char key,  Integer   value ) {
+		public boolean put( char key,  Long      value ) {
 			if( value != null ) return put( key, ( long ) ( value + 0 ) );
 			
 			// Handling null value: Remove the key from nulls bitset if it was previously associated with a non-null value.
