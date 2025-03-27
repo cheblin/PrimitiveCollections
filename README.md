@@ -319,8 +319,10 @@ Androidx collections are noticeably less robust than AdHoc collections, making d
 I made benchmarks, which revealed that AdHoc collections use more memory but outperform Androidx collections in 
 terms of speed.
 
-[memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_memory_report.html)       
-[performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_performance_report.html)
+### [memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_memory_report.html)       
+### [performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_performance_report.html)
+
+All tests can be found [in the `test` folder.](https://github.com/cheblin/PrimitiveCollections/tree/main/src/test/java/org/unirail/test)
 
 ----
 ### Report Issues
