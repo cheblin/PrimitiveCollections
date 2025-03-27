@@ -2652,6 +2652,10 @@ public interface Array {
 		
 		@Override public Object clone() throws CloneNotSupportedException { return super.clone(); }
 		
+		@Override public boolean equals( Object other ) {
+			return other != null && getClass() == other.getClass() && equals( getClass().cast( other ) );
+		}
+		
 		/**
 		 * Checks if this Flag Set is equal to another Flag Set.
 		 * Two Flag Sets are considered equal if they have the same size and the same bit representation.
@@ -2659,7 +2663,7 @@ public interface Array {
 		 * @param other The other Flag Set to compare with.
 		 * @return {@code true} if the Flag Sets are equal, {@code false} otherwise.
 		 */
-		public boolean equals( ByteSet.R other ) { return cardinality == other.cardinality && _4 == other._4 && _3 == other._3 && _2 == other._2 && _1 == other._1; }
+		public boolean equals( FF other ) { return cardinality == other.cardinality && _4 == other._4 && _3 == other._3 && _2 == other._2 && _1 == other._1; }
 		
 		/**
 		 * Returns the hash code for this Flag Set.

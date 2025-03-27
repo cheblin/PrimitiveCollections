@@ -146,7 +146,7 @@ public interface ObjectObjectNullMap {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-         * Constant representing an invalid token (-1).
+		 * Constant representing an invalid token (-1).
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -226,6 +226,7 @@ public interface ObjectObjectNullMap {
 				if( next( hash_nexts[ i ] ) >= -1 && Objects.equals( values.get( i ), value ) ) return true;
 			return false;
 		}
+		
 		/**
 		 * Checks if this map contains a mapping for the null key.
 		 *
@@ -235,14 +236,15 @@ public interface ObjectObjectNullMap {
 		
 		
 		public V nullKeyValue() { return nullKeyValue; }
+		
 		/**
-         * Returns a token associated with the given key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
+		 * Returns a token associated with the given key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
 		 * <p>
 		 * Tokens are used as stable identifiers for entries in the map, allowing iteration and access
 		 * even if the map's internal structure changes due to resizing (in read-write implementations).
 		 *
 		 * @param key the key to find the token for
-         * @return a token representing the key-value mapping, or {@link #INVALID_TOKEN} (-1) if not found
+		 * @return a token representing the key-value mapping, or {@link #INVALID_TOKEN} (-1) if not found
 		 * @throws ConcurrentModificationException if the map is modified during the search
 		 */
 		public long tokenOf( K key ) {
@@ -265,11 +267,11 @@ public interface ObjectObjectNullMap {
 		}
 		
 		/**
-         * Returns a token for the first entry in the map, or {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * Returns a token for the first entry in the map, or {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 * <p>
 		 * This is used to start iterating through the map using tokens.
 		 *
-         * @return a token for the first entry, or {@link #INVALID_TOKEN} (-1) if empty
+		 * @return a token for the first entry, or {@link #INVALID_TOKEN} (-1) if empty
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -281,15 +283,15 @@ public interface ObjectObjectNullMap {
 		
 		/**
 		 * Returns a token for the next entry in the map after the entry represented by the given token.
-         * Returns {@link #INVALID_TOKEN} (-1) if there are no more entries or if the provided token is invalid or from a different version.
+		 * Returns {@link #INVALID_TOKEN} (-1) if there are no more entries or if the provided token is invalid or from a different version.
 		 * <p>
 		 * This is used to iterate through the map using tokens.
 		 *
 		 * @param token the current token
-         * @return a token for the next entry, or {@link #INVALID_TOKEN} (-1) if no more entries or token is invalid
+		 * @return a token for the next entry, or {@link #INVALID_TOKEN} (-1) if no more entries or token is invalid
 		 */
 		public long token( final long token ) {
-            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
 			return hasNullKey && index( token ) < _count ?
@@ -298,15 +300,39 @@ public interface ObjectObjectNullMap {
 		}
 		
 		/**
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
+		 * skipping concurrency and modification checks.
+		 *
+		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
+		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
+		 * use {@link #key(long)} to handle it separately.
+		 *
+		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
+		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
+		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 *
+		 * @param token The previous token, or {@code -1} to begin iteration.
+		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @see #token(long) For safe iteration including the null key.
+		 * @see #hasNullKey() To check for a null key.
+		 * @see #key(long) To get the key associated with a token.
+		 */
+		public int unsafe_token( int token ) {
+			for( int i = token + 1; i < _count; i++ )
+				if( -2 < next( hash_nexts[ i ] ) ) return i;
+			return -1;
+		}
+		
+		/**
 		 * Returns the key associated with the given token.
 		 *
 		 * @param token the token of the entry
-         * @return the key associated with the token, or null if the token represents the null key entry
+		 * @return the key associated with the token, or null if the token represents the null key entry
 		 */
 		public K key( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						null :
-						keys[ index( token ) ];
+			return hasNullKey && index( token ) == _count ?
+					null :
+					keys[ index( token ) ];
 		}
 		
 		/**
@@ -316,9 +342,9 @@ public interface ObjectObjectNullMap {
 		 * @return {@code true} if the entry has a value, {@code false} otherwise
 		 */
 		public boolean hasValue( long token ) {
-				return index( token ) == _count ?
-						nullKeyValue != null :
-						values.hasValue( index( token ) );
+			return index( token ) == _count ?
+					nullKeyValue != null :
+					values.hasValue( index( token ) );
 		}
 		
 		/**
@@ -328,9 +354,9 @@ public interface ObjectObjectNullMap {
 		 * @return the value associated with the token
 		 */
 		public V value( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						nullKeyValue :
-						values.get( index( token ) );
+			return hasNullKey && index( token ) == _count ?
+					nullKeyValue :
+					values.get( index( token ) );
 		}
 		
 		/**
@@ -1669,7 +1695,7 @@ public interface ObjectObjectNullMap {
 			 */
 			@Override
 			public boolean remove( Object item ) {
-                for( long token = _map.token(); token != INVALID_TOKEN; token = _map.token( token ) ) {
+				for( long token = _map.token(); token != INVALID_TOKEN; token = _map.token( token ) ) {
 					if( Objects.equals( _map.value( token ), item ) ) {
 						_map.remove( _map.key( token ) );
 						return true;

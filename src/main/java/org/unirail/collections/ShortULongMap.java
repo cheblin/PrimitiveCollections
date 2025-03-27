@@ -82,12 +82,13 @@ public interface ShortULongMap {
 		 * @return The total number of mappings, including null key if present.
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount +
+			       ( hasNullKey ?
+					       1 :
+					       0 );
 		}
 		
-		public int count() {return size(); 	}
+		public int count() { return size(); }
 		
 		/**
 		 * Returns the allocated capacity of the internal arrays.
@@ -139,8 +140,8 @@ public interface ShortULongMap {
 		/**
 		 * Returns a token for the specified key (boxed Integer).
 		 *
-         * @param key The key to find (can be null).
-         * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
+		 * @param key The key to find (can be null).
+		 * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long tokenOf(  Short     key ) {
 			return key == null ?
@@ -154,7 +155,7 @@ public interface ShortULongMap {
 		 * Returns a token for the specified primitive key.
 		 *
 		 * @param key The primitive int key.
-         * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
+		 * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long tokenOf( short key ) {
 			if( _buckets == null ) return INVALID_TOKEN;
@@ -172,9 +173,10 @@ public interface ShortULongMap {
 		/**
 		 * Returns the initial token for iteration.
 		 *
-         * @return The first valid token to begin iteration, or -1 (INVALID_TOKEN) if the map is empty.
+		 * @return The first valid token to begin iteration, or -1 (INVALID_TOKEN) if the map is empty.
 		 */
 		public long token() {
+			
 			for( int i = 0; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey ?
@@ -186,10 +188,11 @@ public interface ShortULongMap {
 		 * Returns the next token in iteration.
 		 *
 		 * @param token The current token.
-         * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
+		 * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
 		 */
-		public long token( long token ) {
-            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+		public long token( final long token ) {
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey && index( token ) < _count ?
@@ -197,31 +200,56 @@ public interface ShortULongMap {
 					INVALID_TOKEN;
 		}
 		
-		public boolean hasNullKey() {			return hasNullKey;		}
+		/**
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
+		 * skipping concurrency and modification checks.
+		 *
+		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
+		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
+		 * use {@link #nullKeyValue()} to handle it separately.
+		 *
+		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
+		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
+		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 *
+		 * @param token The previous token, or {@code -1} to begin iteration.
+		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @see #token(long) For safe iteration including the null key.
+		 * @see #hasNullKey() To check for a null key.
+		 * @see #nullKeyValue() To get the null key’s value.
+		 */
+		public int unsafe_token( final int token ) {
+			for( int i =  token  + 1; i < _count; i++ )
+				if( -2 < nexts[ i ] ) return i;
+			return -1;
+		}
+		
+		
+		public boolean hasNullKey()         { return hasNullKey; }
 		
 		
 		public long nullKeyValue() { return  nullKeyValue; }
 		
-		public boolean hasKey( long token ) { return index( token ) < _count || hasNullKey;	}
+		public boolean hasKey( long token ) { return index( token ) < _count || hasNullKey; }
 		
 		/**
 		 * Retrieves the key associated with a token.
 		 *
-         * @param token The token representing the key-value pair.
-         * @return The integer key associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
+		 * @param token The token representing the key-value pair.
+		 * @return The integer key associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
 		 */
-		public short key( long token ) {return (short) ( keys[ index( token ) ] );}
+		public short key( long token ) { return (short) ( keys[ index( token ) ] ); }
 		
 		/**
 		 * Retrieves the value associated with a token.
 		 *
-         * @param token The token representing the key-value pair.
-         * @return The integer value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
+		 * @param token The token representing the key-value pair.
+		 * @return The integer value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
 		 */
 		public long value( long token ) {
-				return ( index( token ) == _count ?
-						nullKeyValue :
-						values[ index( token ) ] );
+			return ( index( token ) == _count ?
+					nullKeyValue :
+					values[ index( token ) ] );
 		}
 		
 		/**
@@ -322,18 +350,11 @@ public interface ShortULongMap {
 		// Helper methods
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
+		protected long token( int index )   { return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK; }
 		
-		protected long token( int index ) {
-			return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK;
-		}
+		protected int index( long token )   { return ( int ) ( token & INDEX_MASK ); }
 		
-		protected int index( long token ) {
-			return ( int ) ( token & INDEX_MASK );
-		}
-		
-		protected int version( long token ) {
-			return ( int ) ( token >>> VERSION_SHIFT );
-		}
+		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 	}
 	
 	/**
@@ -531,7 +552,7 @@ public interface ShortULongMap {
 		 * Removes a key-value pair (boxed Integer key).
 		 *
 		 * @param key The key to remove.
-         * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
+		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long remove(  Short     key ) {
 			return key == null ?
@@ -542,7 +563,7 @@ public interface ShortULongMap {
 		/**
 		 * Removes the null key mapping.
 		 *
-         * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not present.
+		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not present.
 		 */
 		private long removeNullKey() {
 			if( !hasNullKey ) return INVALID_TOKEN;
@@ -555,7 +576,7 @@ public interface ShortULongMap {
 		 * Removes a key-value pair (primitive key).
 		 *
 		 * @param key The primitive key to remove.
-         * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
+		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long remove( short key ) {
 			if( _buckets == null || _count == 0 ) return INVALID_TOKEN;

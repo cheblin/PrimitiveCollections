@@ -101,9 +101,9 @@ public interface LongNullList {
 		/**
 		 * {@code flatStrategyThreshold} is the threshold that determines when to switch from
 		 * <b>Compressed Strategy</b> to <b>Flat Strategy</b>. The switch is typically based on the
-		 * density of null values. The default value is 512.
+		 * density of null values. The default value is 1024.
 		 */
-		protected int flatStrategyThreshold = 512;
+		protected int flatStrategyThreshold = 1024;
 		
 		
 		/**
@@ -128,7 +128,7 @@ public interface LongNullList {
 		 * before call this method, nulls must be in the final, updated state.
 		 */
 		protected void switchToFlatStrategy() {
-			if( size() == 1 )//the collection is empty
+			if( size() == 0 )//the collection is empty
 			{
 				if( values.length == 0 ) values = new long[ 16 ];
 				isFlatStrategy = true;
@@ -419,8 +419,9 @@ public interface LongNullList {
 			if( dst == null || dst.length < len ) dst = new  Long     [ len ];
 			
 			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
-			          dst[ i ] = hasValue(  srcIndex  ) ?
-					           ( values[ nulls.rank( srcIndex ) - 1 ]) :
+			          dst[ i ] = hasValue( srcIndex ) ?
+					          
+					          ( values[ nulls.rank( srcIndex ) - 1 ] ) :
 					          null;
 			return dst;
 		}
@@ -438,9 +439,9 @@ public interface LongNullList {
 			if( dst == null || dst.length < len ) dst = new long[ len ];
 			
 			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
-			          dst[ i ] =  (hasValue( srcIndex ) ?
+			          dst[ i ] =  ( hasValue( srcIndex ) ?
 					          values[ nulls.rank( srcIndex ) - 1 ] :
-					          null_substitute);
+					          null_substitute );
 			return dst;
 		}
 		
@@ -631,7 +632,7 @@ public interface LongNullList {
 		 * using more memory. Setting {@code interleavedBits} to 0 would effectively force an immediate switch to the flat strategy as soon as
 		 * the condition is met, likely on the first resize after initialization if the initial size and threshold allow.
 		 * <p>
-		 * The default value of {@code flatStrategyThreshold} is 512. You can adjust this value based on your application's specific needs,
+		 * The default value of {@code flatStrategyThreshold} is 1024. You can adjust this value based on your application's specific needs,
 		 * balancing between memory usage and access performance. Consider profiling your application with different threshold values
 		 * to find the optimal setting.
 		 *
@@ -982,9 +983,14 @@ public interface LongNullList {
 		 * @return This {@code RW} instance (for method chaining).
 		 */
 		public RW fit() {
-			int len = size();
-			length( len ); // Set length to current size.
-			if( isFlatStrategy && nulls.used * 64 < flatStrategyThreshold ) switchToCompressedStrategy(); // Potentially switch back to compressed if null density is low enough.
+			length( size() );
+			
+			if( !isFlatStrategy ) return this;
+			int i = nulls.cardinality();
+			if( flatStrategyThreshold < i ) return this;
+			
+			switchToCompressedStrategy();
+			values = Arrays.copyOf( values, i );
 			return this;
 		}
 		
@@ -1010,7 +1016,7 @@ public interface LongNullList {
 		 * @return This {@code RW} instance (for method chaining).
 		 */
 		public RW swap( int index1, int index2 ) {
-			if( index1 == index2  ) return this; // No need to swap if indices are the same.
+			if( index1 == index2 ) return this; // No need to swap if indices are the same.
 			
 			boolean e1 = nulls.get( index1 ); // Get nullity status of element at index1.
 			boolean e2 = nulls.get( index2 ); // Get nullity status of element at index2.

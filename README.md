@@ -309,6 +309,8 @@ collections for primitive data operations by eliminating boxing overhead.**
 This data was collected using 1,000 items; larger datasets show even greater differences. 
 The code used to generate this report can be found [in the `test` folder.](https://github.com/cheblin/PrimitiveCollections/tree/main/src/test/java/org/unirail/test)
 
+**Scala and Kotlin exhibited similar results to the standard Java HashMap**
+
 ----
 ### Report Issues
 

@@ -101,9 +101,9 @@ public interface ShortNullList {
 		/**
 		 * {@code flatStrategyThreshold} is the threshold that determines when to switch from
 		 * <b>Compressed Strategy</b> to <b>Flat Strategy</b>. The switch is typically based on the
-		 * density of null values. The default value is 512.
+		 * density of null values. The default value is 1024.
 		 */
-		protected int flatStrategyThreshold = 512;
+		protected int flatStrategyThreshold = 1024;
 		
 		
 		/**
@@ -120,7 +120,7 @@ public interface ShortNullList {
 		 */
 		protected R( short default_value ) {
 			this.default_value = default_value;
-			this.values        = Array.EqualHashOf.shorts.O; // Initialize with an empty array.
+			this.values        = Array.EqualHashOf.shorts     .O; // Initialize with an empty array.
 		}
 		
 		/**
@@ -128,7 +128,7 @@ public interface ShortNullList {
 		 * before call this method, nulls must be in the final, updated state.
 		 */
 		protected void switchToFlatStrategy() {
-			if( size() == 1 )//the collection is empty
+			if( size() == 0 )//the collection is empty
 			{
 				if( values.length == 0 ) values = new short[ 16 ];
 				isFlatStrategy = true;
@@ -232,7 +232,7 @@ public interface ShortNullList {
 		 * @return The value at the specified {@code index}, or 0 if the value is logically null.
 		 */
 		public short get( @Positive_ONLY int index ) {
-			return ( short ) ( isFlatStrategy ?
+			return (short)( isFlatStrategy ?
 					values[ index ] :
 					values[ nulls.rank( index ) - 1 ] ); // Rank-based access in compressed strategy.
 		}
@@ -273,7 +273,7 @@ public interface ShortNullList {
 		 * @param value The  value (can be null) to check for.
 		 * @return {@code true} if the list contains the {@code value}, {@code false} otherwise.
 		 */
-		public boolean contains( Short value ) {
+		public boolean contains(  Short     value ) {
 			return value == null ?
 					nextNullIndex( 0 ) != -1 :
 					// Check for null value.
@@ -414,13 +414,14 @@ public interface ShortNullList {
 		 * @param dst   Destination array; resized if null or too small.
 		 * @return Array with copied elements, or {@code null} if empty.
 		 */
-		public Short[] toArray( int index, int len, Short[] dst ) {
+		public  Short    [] toArray( int index, int len,  Short    [] dst ) {
 			if( size() == 0 ) return null;
-			if( dst == null || dst.length < len ) dst = new Short[ len ];
+			if( dst == null || dst.length < len ) dst = new  Short    [ len ];
 			
 			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
 			          dst[ i ] = hasValue( srcIndex ) ?
-					          ( short ) ( values[ nulls.rank( srcIndex ) - 1 ] ) :
+					          (short)
+					          ( values[ nulls.rank( srcIndex ) - 1 ] ) :
 					          null;
 			return dst;
 		}
@@ -438,7 +439,7 @@ public interface ShortNullList {
 			if( dst == null || dst.length < len ) dst = new short[ len ];
 			
 			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
-			          dst[ i ] = ( short ) ( hasValue( srcIndex ) ?
+			          dst[ i ] = (short) ( hasValue( srcIndex ) ?
 					          values[ nulls.rank( srcIndex ) - 1 ] :
 					          null_substitute );
 			return dst;
@@ -472,7 +473,7 @@ public interface ShortNullList {
 		 * @param index The index at which to set the value.
 		 * @param value The  value to set (can be null).
 		 */
-		protected static void set( R dst, int index, Short value ) {
+		protected static void set( R dst, int index,  Short     value ) {
 			if( value == null ) {
 				if( dst.nulls.last1() < index ) dst.nulls.set0( index ); // If index is beyond current length, extend and set as null.
 				else if( dst.nulls.get( index ) ) { // If index was previously non-null, convert to null.
@@ -481,7 +482,7 @@ public interface ShortNullList {
 					dst.nulls.set0( index );
 				}
 			}
-			else set( dst, index, value.shortValue() ); // Delegate to primitive int setter for non-null value.
+			else set( dst, index, value.shortValue     () ); // Delegate to primitive int setter for non-null value.
 		}
 		
 		/**
@@ -546,7 +547,7 @@ public interface ShortNullList {
 			values = length > 0 ?
 					new short[ length ] :
 					// Allocate value array if length > 0.
-					Array.EqualHashOf.shorts.O; // Use empty array if length is 0.
+					Array.EqualHashOf.shorts     .O; // Use empty array if length is 0.
 		}
 		
 		/**
@@ -555,16 +556,16 @@ public interface ShortNullList {
 		 * @param default_value The default value for the list. Can be null.
 		 * @param size          The initial size of the list.
 		 */
-		public RW( Short default_value, int size ) {
+		public RW(  Short     default_value, int size ) {
 			super( default_value == null ?
 					       0 :
 					       // Use 0 as default primitive value if default_value is null.
-					       default_value.shortValue() ); // Otherwise, use the int value of default_value.
+					       default_value.shortValue     () ); // Otherwise, use the int value of default_value.
 			nulls       = new BitList.RW( default_value != null, size ); // Initialize nulls bitlist, pre-set bits if default_value is not null.
 			cardinality = nulls.cardinality();
 			
 			values = size == 0 ?
-					Array.EqualHashOf.shorts.O :
+					Array.EqualHashOf.shorts     .O :
 					// Use empty array if size is 0.
 					new short[ cardinality = size < 0 ?
 							-size :
@@ -590,7 +591,7 @@ public interface ShortNullList {
 			cardinality = nulls.cardinality();
 			
 			values = size == 0 ?
-					Array.EqualHashOf.shorts.O :
+					Array.EqualHashOf.shorts     .O :
 					// Use empty array if size is 0.
 					new short[ this.cardinality = size < 0 ?
 							-size :
@@ -631,7 +632,7 @@ public interface ShortNullList {
 		 * using more memory. Setting {@code interleavedBits} to 0 would effectively force an immediate switch to the flat strategy as soon as
 		 * the condition is met, likely on the first resize after initialization if the initial size and threshold allow.
 		 * <p>
-		 * The default value of {@code flatStrategyThreshold} is 512. You can adjust this value based on your application's specific needs,
+		 * The default value of {@code flatStrategyThreshold} is 1024. You can adjust this value based on your application's specific needs,
 		 * balancing between memory usage and access performance. Consider profiling your application with different threshold values
 		 * to find the optimal setting.
 		 *
@@ -686,7 +687,7 @@ public interface ShortNullList {
 		 * @param value The  value to set (can be null).
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW set1( Short value ) {
+		public RW set1(  Short     value ) {
 			set( this, size() - 1, value ); // Delegate to static set method for Integer.
 			return this;
 		}
@@ -710,7 +711,7 @@ public interface ShortNullList {
 		 * @param value The boxed  value to set (can be null).
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW set1( int index, Short value ) {
+		public RW set1( int index,  Short     value ) {
 			set( this, index, value ); // Delegate to static set method for Integer at index.
 			return this;
 		}
@@ -734,7 +735,7 @@ public interface ShortNullList {
 		 * @param values An array of boxed  values (can be null) to set.
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW set( int index, Short... values ) {
+		public RW set( int index,  Short    ... values ) {
 			for( int i = 0; i < values.length; i++ ) set( this, index + i, values[ i ] ); // Iterate backwards and set each value.
 			return this;
 		}
@@ -773,7 +774,7 @@ public interface ShortNullList {
 		 * @param len       The number of elements to copy from the source array.
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW set( int index, Short[] values, int src_index, int len ) {
+		public RW set( int index,  Short    [] values, int src_index, int len ) {
 			for( int i = 0; i < values.length; i++ ) set( this, index + i, values[ src_index + i ] ); // Iterate backwards and set each value from source array.
 			return this;
 		}
@@ -784,13 +785,13 @@ public interface ShortNullList {
 		 * @param value The boxed  value to add (can be null).
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW add1( Short value ) {
+		public RW add1(  Short     value ) {
 			if( value == null ) {
 				nulls.add( false ); // Add null entry to bitlist.
 				if( isFlatStrategy && values.length <= nulls.size() - 1 )
 					values = Arrays.copyOf( values, nulls.size() + nulls.size() / 2 ); // Ensure flat array capacity.
 			}
-			else add1( value.shortValue() ); // Delegate to primitive add for non-null value.
+			else add1( value.shortValue     () ); // Delegate to primitive add for non-null value.
 			
 			return this;
 		}
@@ -834,13 +835,13 @@ public interface ShortNullList {
 		 * @param value The boxed  value to add (can be null).
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW add1( int index, Short value ) {
+		public RW add1( int index,  Short     value ) {
 			if( value == null ) {
 				nulls.add( index, false ); // Insert null bit at index.
 				
 				if( isFlatStrategy && values.length <= nulls.size() - 1 ) values = Arrays.copyOf( values, nulls.size() + nulls.size() / 2 ); // Ensure flat array capacity.
 			}
-			else add1( index, value.shortValue() ); // Delegate to primitive add at index for non-null value.
+			else add1( index, value.shortValue     () ); // Delegate to primitive add at index for non-null value.
 			return this;
 		}
 		
@@ -900,7 +901,7 @@ public interface ShortNullList {
 		 * @param items An array of boxed  values (can be null) to add.
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW add( Short... items ) { return set( size(), items ); }
+		public RW add(  Short    ... items ) { return set( size(), items ); }
 		
 		/**
 		 * Adds all elements from another {@link R} list to the end of this list.
@@ -923,7 +924,7 @@ public interface ShortNullList {
 		public RW clear() {
 			cardinality = 0; // Reset cardinality.
 			nulls.clear(); // Clear the nulls bitlist.
-			values         = Array.EqualHashOf.shorts.O; // Reset value array to empty.
+			values         = Array.EqualHashOf.shorts     .O; // Reset value array to empty.
 			isFlatStrategy = false; // Revert to compressed strategy for empty list.
 			return this;
 		}
@@ -982,9 +983,14 @@ public interface ShortNullList {
 		 * @return This {@code RW} instance (for method chaining).
 		 */
 		public RW fit() {
-			int len = size();
-			length( len ); // Set length to current size.
-			if( isFlatStrategy && nulls.used * 64 < flatStrategyThreshold ) switchToCompressedStrategy(); // Potentially switch back to compressed if null density is low enough.
+			length( size() );
+			
+			if( !isFlatStrategy ) return this;
+			int i = nulls.cardinality();
+			if( flatStrategyThreshold < i ) return this;
+			
+			switchToCompressedStrategy();
+			values = Arrays.copyOf( values, i );
 			return this;
 		}
 		

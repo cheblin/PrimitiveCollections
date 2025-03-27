@@ -276,13 +276,37 @@ public interface CharUByteNullMap {
 		 * @param token the current token in the iteration.
 		 * @return the next valid token in the iteration, or -1 ({@link #INVALID_TOKEN}) if there are no more entries or if the token is invalid due to structural modification.
 		 */
-		public long token( long token ) {
+		public long token( final long token ) {
 			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey && index( token ) < _count ?
 					token( _count ) :
 					INVALID_TOKEN;
+		}
+		/**
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
+		 * skipping concurrency and modification checks.
+		 *
+		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
+		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
+		 * use {@link #nullKeyHasValue()} and {@link #nullKeyValue()} to handle it separately.
+		 *
+		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
+		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
+		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 *
+		 * @param token The previous token, or {@code -1} to begin iteration.
+		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @see #token(long) For safe iteration including the null key.
+		 * @see #hasNullKey() To check for a null key.
+		 * @see #nullKeyHasValue()  To check for a null key has a valur.
+		 * @see #nullKeyValue() To get the null key’s value.
+		 */
+		public int unsafe_token( final int token ) {
+			for( int i =  token  + 1; i < _count; i++ )
+				if( -2 < nexts[ i ] ) return i;
+			return -1;
 		}
 		
 		/**
@@ -554,7 +578,7 @@ public interface CharUByteNullMap {
 		 * Sets the threshold that determines when to switch the values collection from
 		 * <b>Compressed Strategy</b> to <b>Flat Strategy</b>.
 		 * <p>
-		 * The switch is typically based on the density of null values. The default value is 512.
+		 * The switch is typically based on the density of null values. The default value is 1024.
 		 *
 		 * @param interleavedBits the threshold value for switching strategies.
 		 */

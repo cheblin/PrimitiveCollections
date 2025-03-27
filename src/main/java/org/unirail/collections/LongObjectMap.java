@@ -69,7 +69,7 @@ public interface LongObjectMap {
 		 * Stores indices into the {@link #nexts}, {@link #keys}, and {@link #values} arrays,
 		 * or 0 if the bucket is empty.
 		 */
-		protected       int[]          _buckets;
+		protected       int[]                  _buckets;
 		/**
 		 * Array of 'next' indices for collision chaining in the hash table.
 		 * For each entry, it stores the index of the next entry in the same hash bucket,
@@ -122,7 +122,7 @@ public interface LongObjectMap {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-         * Represents an invalid token value (-1).
+		 * Represents an invalid token value (-1).
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -171,6 +171,7 @@ public interface LongObjectMap {
 					0 :
 					nexts.length;
 		}
+		
 		/**
 		 * Checks if this map contains a mapping for the null key.
 		 *
@@ -220,11 +221,11 @@ public interface LongObjectMap {
 		/**
 		 * Returns a token associated with the specified key (boxed Integer), if present in the map.
 		 * A token is a long value that uniquely identifies a key-value pair within a specific version of the map.
-         * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
+		 * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
 		 * Handles null keys.
 		 *
 		 * @param key The key (Integer) to get the token for (can be null).
-         * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
+		 * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
 		 */
 		public long tokenOf(  Long      key ) {
 			return key == null ?
@@ -237,10 +238,10 @@ public interface LongObjectMap {
 		/**
 		 * Returns a token associated with the specified integer key, if present in the map.
 		 * A token is a long value that uniquely identifies a key-value pair within a specific version of the map.
-         * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
+		 * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
 		 *
 		 * @param key The integer key to get the token for.
-         * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
+		 * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
 		 */
 		public long tokenOf( long key ) {
 			
@@ -261,9 +262,9 @@ public interface LongObjectMap {
 		/**
 		 * Returns a token for the "first" key-value pair in the map for iteration purposes.
 		 * The order is not guaranteed to be consistent across different versions or implementations.
-         * If the map is empty, returns {@code INVALID_TOKEN} (-1). If a null key exists, its token will be returned last by subsequent {@link #token(long)} calls.
+		 * If the map is empty, returns {@code INVALID_TOKEN} (-1). If a null key exists, its token will be returned last by subsequent {@link #token(long)} calls.
 		 *
-         * @return A token for the first key-value pair, or {@code INVALID_TOKEN} (-1) if the map is empty.
+		 * @return A token for the first key-value pair, or {@code INVALID_TOKEN} (-1) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -275,14 +276,14 @@ public interface LongObjectMap {
 		
 		/**
 		 * Returns a token for the "next" key-value pair in the map, following the given token, for iteration purposes.
-         * If the given token is the last valid token, or is invalid (e.g., due to map modification), returns {@code INVALID_TOKEN} (-1).
+		 * If the given token is the last valid token, or is invalid (e.g., due to map modification), returns {@code INVALID_TOKEN} (-1).
 		 * If a null key exists, its token will be returned last.
 		 *
 		 * @param token The current token.
-         * @return A token for the next key-value pair, or {@code INVALID_TOKEN} (-1) if there is no next pair or the token is invalid.
+		 * @return A token for the next key-value pair, or {@code INVALID_TOKEN} (-1) if there is no next pair or the token is invalid.
 		 */
 		public long token( final long token ) {
-            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey && index( token ) < _count ?
@@ -291,35 +292,59 @@ public interface LongObjectMap {
 		}
 		
 		/**
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
+		 * skipping concurrency and modification checks.
+		 *
+		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
+		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
+		 * use {@link #nullKeyValue()} to handle it separately.
+		 *
+		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
+		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
+		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 *
+		 * @param token The previous token, or {@code -1} to begin iteration.
+		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @see #token(long) For safe iteration including the null key.
+		 * @see #hasNullKey() To check for a null key.
+		 * @see #nullKeyValue() To get the null key’s value.
+		 */
+		public int unsafe_token( final int token ) {
+			for( int i = token + 1; i < _count; i++ )
+				if( -2 < nexts[ i ] ) return i;
+			return -1;
+		}
+		
+		/**
 		 * Checks if the key associated with the given token is the null key.
 		 *
 		 * @param token The token to check.
-         * @return {@code true} if the key for the token is null, {@code false} otherwise.
+		 * @return {@code true} if the key for the token is null, {@code false} otherwise.
 		 */
-        boolean isKeyNull( long token ) { return index( token ) == _count; }
+		boolean isKeyNull( long token ) { return index( token ) == _count; }
 		
 		/**
 		 * Returns the integer key associated with the given token.
 		 *
 		 * @param token The token to get the key for.
-         * @return The integer key associated with the token, or 0 if the token represents the null key or is invalid.
+		 * @return The integer key associated with the token, or 0 if the token represents the null key or is invalid.
 		 */
 		public long key( long token ) {
-				return  ( hasNullKey && index( token ) == _count ?
-						0 :
-						keys[ index( token ) ] );
+			return  ( hasNullKey && index( token ) == _count ?
+					0 :
+					keys[ index( token ) ] );
 		}
 		
 		/**
 		 * Returns the value associated with the given token.
 		 *
 		 * @param token The token to get the value for.
-         * @return The value associated with the token, or {@code null} if the token is invalid.
+		 * @return The value associated with the token, or {@code null} if the token is invalid.
 		 */
 		public V value( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						nullKeyValue :
-						values[ index( token ) ];
+			return hasNullKey && index( token ) == _count ?
+					nullKeyValue :
+					values[ index( token ) ];
 		}
 		
 		/**
@@ -689,7 +714,7 @@ public interface LongObjectMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets,  0 );
+			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( keys, 0, _count, ( long ) 0 );
 			Arrays.fill( values, 0, _count, null );
@@ -719,7 +744,7 @@ public interface LongObjectMap {
 			while( -1 < i ) {
 				int next = nexts[ i ];
 				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] =  ( next + 1 );
+					if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 );
 					else nexts[ last ] = next;
 					
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList );
@@ -890,7 +915,7 @@ public interface LongObjectMap {
 			nexts[ index ]          = ( int ) bucket;
 			keys[ index ]           = ( long ) key;
 			values[ index ]         = value;
-			_buckets[ bucketIndex ] =   index + 1;
+			_buckets[ bucketIndex ] = index + 1;
 			_version++;
 			
 			return true;
@@ -915,7 +940,7 @@ public interface LongObjectMap {
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 );
-					_buckets[ bucketIndex ] =  ( i + 1 );
+					_buckets[ bucketIndex ] = ( i + 1 );
 				}
 			
 			nexts  = new_next;
@@ -957,7 +982,7 @@ public interface LongObjectMap {
 				values[ new_count ] = old_values[ i ];
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
 				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] =  ( new_count + 1 );
+				_buckets[ bucketIndex ] = ( new_count + 1 );
 				new_count++;
 			}
 			_count     = new_count;

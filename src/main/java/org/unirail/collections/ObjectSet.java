@@ -46,7 +46,10 @@ public interface ObjectSet {
 	 * Read-only base class providing core functionality and state management
 	 */
 	abstract class R< K > implements java.util.Set< K >, JsonWriter.Source, Cloneable {
-		protected boolean                hasNullKey;    // True if Set contains null key
+		protected boolean hasNullKey;    // True if Set contains null key
+		
+		public boolean hasNullKey() { return hasNullKey; }
+		
 		protected int[]                  _buckets;     // Hash table buckets
 		protected long[]                 hash_nexts;   // Set entries: hashCode | next
 		protected K[]                    keys;        // Set elements (keys)
@@ -73,11 +76,8 @@ public interface ObjectSet {
 		
 		@Override public boolean isEmpty() { return size() == 0; }
 		
-		@Override public boolean contains( Object key ) {
-			@SuppressWarnings( "unchecked" )
-			K k = ( K ) key;
-			return tokenOf( k ) != INVALID_TOKEN;
-		}
+		@SuppressWarnings( "unchecked" )
+		@Override public boolean contains( Object key ) { return tokenOf( ( K ) key ) != INVALID_TOKEN; }
 		
 		public boolean contains_( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
@@ -100,14 +100,14 @@ public interface ObjectSet {
 			}
 			return INVALID_TOKEN;
 		}
-		 
-        /**
-         * Returns the first valid iteration token for traversing the set.
-         * This token points to the smallest byte value present in the set or the null key if present and no byte values exist.
-         * May return {@link #INVALID_TOKEN} (-1) if the set is empty (no elements and no null key).
-         *
-         * @return The first iteration token, or {@link #INVALID_TOKEN} (-1) if the set is empty.
-         */
+		
+		/**
+		 * Returns the first valid iteration token for traversing the set.
+		 * This token points to the smallest byte value present in the set or the null key if present and no byte values exist.
+		 * May return {@link #INVALID_TOKEN} (-1) if the set is empty (no elements and no null key).
+		 *
+		 * @return The first iteration token, or {@link #INVALID_TOKEN} (-1) if the set is empty.
+		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
@@ -115,28 +115,53 @@ public interface ObjectSet {
 					token( _count ) :
 					INVALID_TOKEN;
 		}
+		
 		/**
-         * Returns the next iteration token in the sequence, starting from the given {@code token}.
-         * This method is used to iterate through the elements of the set in ascending order of byte values,
-         * followed by the null key (if present). May return {@link #INVALID_TOKEN} (-1) if there are no more
-         * elements to iterate or if the provided token is invalid (e.g., due to set modification).
-         *
-         * @param token The current iteration token.
-         * @return The next iteration token, or {@link #INVALID_TOKEN} (-1) if there are no more elements or the token is invalid.
-         */
-		public long token( long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version)  return INVALID_TOKEN;
+		 * Returns the next iteration token in the sequence, starting from the given {@code token}.
+		 * This method is used to iterate through the elements of the set in ascending order of byte values,
+		 * followed by the null key (if present). May return {@link #INVALID_TOKEN} (-1) if there are no more
+		 * elements to iterate or if the provided token is invalid (e.g., due to set modification).
+		 *
+		 * @param token The current iteration token.
+		 * @return The next iteration token, or {@link #INVALID_TOKEN} (-1) if there are no more elements or the token is invalid.
+		 */
+		public long token( final long token ) {
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
-				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
+				if( -2 < next( hash_nexts[ i ] ) ) return token( i );
 			return hasNullKey && index( token ) < _count ?
 					token( _count ) :
 					INVALID_TOKEN;
 		}
 		
+		/**
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
+		 * skipping concurrency and modification checks.
+		 *
+		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
+		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
+		 * use {@link #key(long)} to handle it separately.
+		 *
+		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
+		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
+		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 *
+		 * @param token The previous token, or {@code -1} to begin iteration.
+		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @see #token(long) For safe iteration including the null key.
+		 * @see #hasNullKey() To check for a null key.
+		 * @see #key(long) To get the key associated with a token.
+		 */
+		public int unsafe_token( int token ) {
+			for( int i = token + 1; i < _count; i++ )
+				if( -2 < next( hash_nexts[ i ] ) ) return i;
+			return -1;
+		}
+		
 		public K key( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						null :
-						keys[ index( token ) ];
+			return hasNullKey && index( token ) == _count ?
+					null :
+					keys[ index( token ) ];
 		}
 		
 		@Override public int hashCode() {
@@ -215,9 +240,7 @@ public interface ObjectSet {
 			return ( int ) ( hash_next >> 32 );
 		}
 		
-		protected static int next( long hash_next ) {
-			return ( int ) ( hash_next & NEXT_MASK );
-		}
+		protected static int next( long hash_next ) { return ( int ) ( hash_next & NEXT_MASK ); }
 		
 		protected long token( int index ) {
 			return ( ( long ) _version << VERSION_SHIFT ) | ( index & INDEX_MASK );
@@ -389,7 +412,7 @@ public interface ObjectSet {
 		@Override public Object[] toArray() {
 			Object[] array = new Object[ size() ];
 			int      index = 0;
-			for( long token = token();  token != INVALID_TOKEN; token = token( token ) )
+			for( long token = token(); token != INVALID_TOKEN; token = token( token ) )
 			     array[ index++ ] = key( token );
 			return array;
 		}

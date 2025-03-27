@@ -184,7 +184,7 @@ public interface ObjectBitsMap {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-         * Represents an invalid token value (-1).
+		 * Represents an invalid token value (-1).
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -242,6 +242,7 @@ public interface ObjectBitsMap {
 			if( _count == 0 && !hasNullKey ) return false;
 			return values.contains( value );
 		}
+		
 		/**
 		 * Checks if this map contains a mapping for the null key.
 		 *
@@ -250,15 +251,15 @@ public interface ObjectBitsMap {
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		
-		public int nullKeyValue() { return  nullKeyValue; }
+		public int nullKeyValue() { return nullKeyValue; }
 		
 		/**
-         * Returns a token representing the entry associated with the specified key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
+		 * Returns a token representing the entry associated with the specified key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
 		 * <p>
-         * Tokens are used for efficient and safe iteration. Note that a returned token may become invalid if the map is structurally modified after retrieval.
+		 * Tokens are used for efficient and safe iteration. Note that a returned token may become invalid if the map is structurally modified after retrieval.
 		 *
 		 * @param key the key to find the token for
-         * @return a token for the key, or {@link #INVALID_TOKEN} (-1) if the key is not present.
+		 * @return a token for the key, or {@link #INVALID_TOKEN} (-1) if the key is not present.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
 		public long tokenOf( K key ) {
@@ -284,9 +285,9 @@ public interface ObjectBitsMap {
 		/**
 		 * Returns the first valid token in the map for iteration.
 		 * <p>
-         * Starts iteration from the beginning of the hash table. Returns {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * Starts iteration from the beginning of the hash table. Returns {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 *
-         * @return the first valid token, or {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * @return the first valid token, or {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -299,13 +300,13 @@ public interface ObjectBitsMap {
 		/**
 		 * Returns the next valid token in the map, starting from the given token.
 		 * <p>
-         * Used for iterating through the map entries. Returns {@link #INVALID_TOKEN} (-1) if no more entries exist or if the provided token is invalid due to structural modification.
+		 * Used for iterating through the map entries. Returns {@link #INVALID_TOKEN} (-1) if no more entries exist or if the provided token is invalid due to structural modification.
 		 *
 		 * @param token the current token
-         * @return the next valid token, or {@link #INVALID_TOKEN} (-1) if no more entries exist or token is invalid.
+		 * @return the next valid token, or {@link #INVALID_TOKEN} (-1) if no more entries exist or token is invalid.
 		 */
 		public long token( final long token ) {
-            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i ); // Find the next non-free entry after the current token
 			return hasNullKey && index( token ) < _count ?
@@ -314,15 +315,39 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
+		 * skipping concurrency and modification checks.
+		 *
+		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
+		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
+		 * use {@link #key(long)} to handle it separately.
+		 *
+		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
+		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
+		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 *
+		 * @param token The previous token, or {@code -1} to begin iteration.
+		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @see #token(long) For safe iteration including the null key.
+		 * @see #hasNullKey() To check for a null key.
+		 * @see #key(long) To get the key associated with a token.
+		 */
+		public int unsafe_token( int token ) {
+			for( int i = token + 1; i < _count; i++ )
+				if( -2 < next( hash_nexts[ i ] ) ) return i;
+			return -1;
+		}
+		
+		/**
 		 * Retrieves the key associated with the given token.
 		 *
 		 * @param token the token representing the entry
-         * @return the key associated with the token, or null if token represents the null key.
+		 * @return the key associated with the token, or null if token represents the null key.
 		 */
 		public K key( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						null :
-						keys[ index( token ) ]; // Handle null key case
+			return hasNullKey && index( token ) == _count ?
+					null :
+					keys[ index( token ) ]; // Handle null key case
 		}
 		
 		/**
@@ -332,9 +357,9 @@ public interface ObjectBitsMap {
 		 * @return the value associated with the token.
 		 */
 		public byte value( long token ) {
-				return index( token ) == _count ?
-						nullKeyValue :
-						values.get( index( token ) ); // Handle null key value
+			return index( token ) == _count ?
+					nullKeyValue :
+					values.get( index( token ) ); // Handle null key value
 		}
 		
 		/**
@@ -658,7 +683,7 @@ public interface ObjectBitsMap {
 		 * Removes the mapping for a key from this map if it is present.
 		 *
 		 * @param key key whose mapping is to be removed from the map
-         * @return a token representing the removed entry, or {@link #INVALID_TOKEN} (-1) if the key was not found. The token remains valid until the next modification.
+		 * @return a token representing the removed entry, or {@link #INVALID_TOKEN} (-1) if the key was not found. The token remains valid until the next modification.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
 		public long remove( K key ) {
