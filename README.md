@@ -316,7 +316,7 @@ The code used to generate this report can be found [in the `test` folder.](https
 I compared Androidx collections with AdHoc collections. In terms of functionality, 
 Androidx collections are noticeably less robust than AdHoc collections, making direct comparison challenging. 
 
-I made benchmarks, which revealed that AdHoc collections use more memory but outperform Androidx collections in 
+I made benchmarks, which revealed that AdHoc collections use slightly more memory but outperform Androidx collections in 
 terms of speed.
 
 ### [memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_memory_report.html)       
