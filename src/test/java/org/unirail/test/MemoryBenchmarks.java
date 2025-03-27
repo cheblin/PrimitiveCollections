@@ -311,7 +311,7 @@ public class MemoryBenchmarks {
 		           .append( "th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }\n" )
 		           .append( "th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }\n" )
 		           .append( ".map-label { color: #ff79c6; }\n" )
-		           .append( ".custom-label { color: #8be9fd; }\n" )
+		           .append( ".adhoc-label { color: #8be9fd; }\n" )
 		           .append( "h1 { color: #bd93f9; }\n" )
 		           .append( "h2 { color: #50fa7b; }\n" )
 		           .append( "</style>\n" )
@@ -333,31 +333,31 @@ public class MemoryBenchmarks {
 			String chartId = "chart-" + data.type.toLowerCase().replace( " ", "-" );
 			
 			String standardLabel;
-			String customLabel;
+			String adhocLabel;
 			switch( data.type ) {
 				case "Byte":
 					standardLabel = "HashMap<Byte, Byte>";
-					customLabel = "ByteByteNullMap";
+					adhocLabel = "ByteByteNullMap";
 					break;
 				case "Short":
 					standardLabel = "HashMap<Short, Short>";
-					customLabel = "ShortShortNullMap";
+					adhocLabel = "ShortShortNullMap";
 					break;
 				case "Int":
 					standardLabel = "HashMap<Integer, Integer>";
-					customLabel = "IntIntNullMap";
+					adhocLabel = "IntIntNullMap";
 					break;
 				case "Long":
 					standardLabel = "HashMap<Long, Long>";
-					customLabel = "LongLongNullMap";
+					adhocLabel = "LongLongNullMap";
 					break;
 				case "Int-Boolean":
 					standardLabel = "HashMap<Integer, Boolean>";
-					customLabel = "IntBitsMap";
+					adhocLabel = "IntBitsMap";
 					break;
 				default:
 					standardLabel = "HashMap<?, ?>";
-					customLabel = "CustomMap";
+					adhocLabel = "CustomMap";
 			}
 			
 			htmlBuilder.append( "new Chart(document.getElementById('" ).append( chartId ).append( "').getContext('2d'), {\n" )
@@ -372,7 +372,7 @@ public class MemoryBenchmarks {
 			           .append( "borderColor: '#ff79c6',\n" )
 			           .append( "borderWidth: 1\n" )
 			           .append( "}, {\n" )
-			           .append( "label: '" ).append( customLabel ).append( "',\n" )
+			           .append( "label: '" ).append( adhocLabel ).append( "',\n" )
 			           .append( "data: [" ).append( data.data[ 1 ] ).append( ", " ).append( data.data[ 3 ] ).append( ", " )
 			           .append( data.data[ 5 ] ).append( ", " ).append( data.data[ 7 ] ).append( "],\n" )
 			           .append( "backgroundColor: '#8be9fd',\n" )

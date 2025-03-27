@@ -60,10 +60,10 @@ public class AndroidxMemoryBenchmarks {
 	}
 	
 	private static void measureByteByteMap( int dataSize ) {
-		androidx.collection.MutableIntIntMap standard          = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standard50        = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standard100       = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standardOdd       = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx          = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx50        = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx100       = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidxOdd       = new androidx.collection.MutableIntIntMap();
 		ByteByteNullMap.RW                   nullable_value    = new ByteByteNullMap.RW( 0 );
 		ByteByteNullMap.RW                   nullable_value50  = new ByteByteNullMap.RW( 0 );
 		ByteByteNullMap.RW                   nullable_value100 = new ByteByteNullMap.RW( 0 );
@@ -71,45 +71,45 @@ public class AndroidxMemoryBenchmarks {
 		
 		for( int i = 0; i < 256; i++ ) {
 			byte v = ( byte ) i;
-			standard.put( v, v );
+			androidx.put( v, v );
 			
 			nullable_value.put( v, v );
 			if( i < dataSize / 2 ) {
-				standard50.put( v, v );
+				androidx50.put( v, v );
 				nullable_value50.put( v, v );
 			}
 			else {
-				standard50.put( v, v );
+				androidx50.put( v, v );
 				nullable_value50.put( v, null );
 			}
-			standard100.put( v, v );
+			androidx100.put( v, v );
 			nullable_value100.put( v, null );
 			if( i % 2 == 1 ) {
-				standardOdd.put( v, v );
+				androidxOdd.put( v, v );
 				nullable_valueOdd.put( v, v );
 			}
 			else {
-				standardOdd.put( v, v );
+				androidxOdd.put( v, v );
 				nullable_valueOdd.put( v, null );
 			}
 		}
 		
 		Data report = new Data( "Byte" );
-		report.put( "MutableIntIntMap no nulls", ( int ) GraphLayout.parseInstance( standard ).totalSize() );
+		report.put( "MutableIntIntMap no nulls", ( int ) GraphLayout.parseInstance( androidx ).totalSize() );
 		report.put( "ByteByteNullMap no nulls", ( int ) GraphLayout.parseInstance( nullable_value ).totalSize() );
-		report.put( "MutableIntIntMap half nulls", ( int ) GraphLayout.parseInstance( standard50 ).totalSize() );
+		report.put( "MutableIntIntMap half nulls", ( int ) GraphLayout.parseInstance( androidx50 ).totalSize() );
 		report.put( "ByteByteNullMap half nulls", ( int ) GraphLayout.parseInstance( nullable_value50 ).totalSize() );
-		report.put( "MutableIntIntMap all nulls", ( int ) GraphLayout.parseInstance( standard100 ).totalSize() );
+		report.put( "MutableIntIntMap all nulls", ( int ) GraphLayout.parseInstance( androidx100 ).totalSize() );
 		report.put( "ByteByteNullMap all nulls", ( int ) GraphLayout.parseInstance( nullable_value100 ).totalSize() );
-		report.put( "MutableIntIntMap odd values", ( int ) GraphLayout.parseInstance( standardOdd ).totalSize() );
+		report.put( "MutableIntIntMap odd values", ( int ) GraphLayout.parseInstance( androidxOdd ).totalSize() );
 		report.put( "ByteByteNullMap odd values", ( int ) GraphLayout.parseInstance( nullable_valueOdd ).totalSize() );
 	}
 	
 	private static void measureShortShortMap( int dataSize ) {
-		androidx.collection.MutableIntIntMap standard          = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standard50        = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standard100       = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standardOdd       = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx          = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx50        = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx100       = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidxOdd       = new androidx.collection.MutableIntIntMap();
 		ShortShortNullMap.RW                 nullable_value    = new ShortShortNullMap.RW( 0 );
 		ShortShortNullMap.RW                 nullable_value50  = new ShortShortNullMap.RW( 0 );
 		ShortShortNullMap.RW                 nullable_value100 = new ShortShortNullMap.RW( 0 );
@@ -117,44 +117,44 @@ public class AndroidxMemoryBenchmarks {
 		
 		for( int i = 0; i < dataSize; i++ ) {
 			short v = ( short ) i;
-			standard.put( v, v );
+			androidx.put( v, v );
 			nullable_value.put( v, v );
 			if( i < dataSize / 2 ) {
-				standard50.put( v, v );
+				androidx50.put( v, v );
 				nullable_value50.put( v, v );
 			}
 			else {
-				standard50.put( v, v );
+				androidx50.put( v, v );
 				nullable_value50.put( v, null );
 			}
-			standard100.put( v, v );
+			androidx100.put( v, v );
 			nullable_value100.put( v, null );
 			if( i % 2 == 1 ) {
-				standardOdd.put( v, v );
+				androidxOdd.put( v, v );
 				nullable_valueOdd.put( v, v );
 			}
 			else {
-				standardOdd.put( v, v );
+				androidxOdd.put( v, v );
 				nullable_valueOdd.put( v, null );
 			}
 		}
 		
 		Data report = new Data( "Short" );
-		report.put( "MutableIntIntMap no nulls", ( int ) GraphLayout.parseInstance( standard ).totalSize() );
+		report.put( "MutableIntIntMap no nulls", ( int ) GraphLayout.parseInstance( androidx ).totalSize() );
 		report.put( "ShortShortNullMap no nulls", ( int ) GraphLayout.parseInstance( nullable_value ).totalSize() );
-		report.put( "MutableIntIntMap half nulls", ( int ) GraphLayout.parseInstance( standard50 ).totalSize() );
+		report.put( "MutableIntIntMap half nulls", ( int ) GraphLayout.parseInstance( androidx50 ).totalSize() );
 		report.put( "ShortShortNullMap half nulls", ( int ) GraphLayout.parseInstance( nullable_value50 ).totalSize() );
-		report.put( "MutableIntIntMap all nulls", ( int ) GraphLayout.parseInstance( standard100 ).totalSize() );
+		report.put( "MutableIntIntMap all nulls", ( int ) GraphLayout.parseInstance( androidx100 ).totalSize() );
 		report.put( "ShortShortNullMap all nulls", ( int ) GraphLayout.parseInstance( nullable_value100 ).totalSize() );
-		report.put( "MutableIntIntMap odd values", ( int ) GraphLayout.parseInstance( standardOdd ).totalSize() );
+		report.put( "MutableIntIntMap odd values", ( int ) GraphLayout.parseInstance( androidxOdd ).totalSize() );
 		report.put( "ShortShortNullMap odd values", ( int ) GraphLayout.parseInstance( nullable_valueOdd ).totalSize() );
 	}
 	
 	private static void measureIntegerIntegerMap( int dataSize ) {
-		androidx.collection.MutableIntIntMap standard          = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standard50        = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standard100       = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standardOdd       = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx          = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx50        = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx100       = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidxOdd       = new androidx.collection.MutableIntIntMap();
 		IntIntNullMap.RW                     nullable_value    = new IntIntNullMap.RW( 0 );
 		IntIntNullMap.RW                     nullable_value50  = new IntIntNullMap.RW( 0 );
 		IntIntNullMap.RW                     nullable_value100 = new IntIntNullMap.RW( 0 );
@@ -162,44 +162,44 @@ public class AndroidxMemoryBenchmarks {
 		
 		for( int i = 0; i < dataSize; i++ ) {
 			int v = i;
-			standard.put( v, v );
+			androidx.put( v, v );
 			nullable_value.put( v, v );
 			if( i < dataSize / 2 ) {
-				standard50.put( v, v );
+				androidx50.put( v, v );
 				nullable_value50.put( v, v );
 			}
 			else {
-				standard50.put( v, v );
+				androidx50.put( v, v );
 				nullable_value50.put( v, null );
 			}
-			standard100.put( v, v );
+			androidx100.put( v, v );
 			nullable_value100.put( v, null );
 			if( i % 2 == 1 ) {
-				standardOdd.put( v, v );
+				androidxOdd.put( v, v );
 				nullable_valueOdd.put( v, v );
 			}
 			else {
-				standardOdd.put( v, v );
+				androidxOdd.put( v, v );
 				nullable_valueOdd.put( v, null );
 			}
 		}
 		
 		Data report = new Data( "Int" );
-		report.put( "MutableIntIntMap no nulls", ( int ) GraphLayout.parseInstance( standard ).totalSize() );
+		report.put( "MutableIntIntMap no nulls", ( int ) GraphLayout.parseInstance( androidx ).totalSize() );
 		report.put( "IntIntNullMap no nulls", ( int ) GraphLayout.parseInstance( nullable_value ).totalSize() );
-		report.put( "MutableIntIntMap half nulls", ( int ) GraphLayout.parseInstance( standard50 ).totalSize() );
+		report.put( "MutableIntIntMap half nulls", ( int ) GraphLayout.parseInstance( androidx50 ).totalSize() );
 		report.put( "IntIntNullMap half nulls", ( int ) GraphLayout.parseInstance( nullable_value50 ).totalSize() );
-		report.put( "MutableIntIntMap all nulls", ( int ) GraphLayout.parseInstance( standard100 ).totalSize() );
+		report.put( "MutableIntIntMap all nulls", ( int ) GraphLayout.parseInstance( androidx100 ).totalSize() );
 		report.put( "IntIntNullMap all nulls", ( int ) GraphLayout.parseInstance( nullable_value100 ).totalSize() );
-		report.put( "MutableIntIntMap odd values", ( int ) GraphLayout.parseInstance( standardOdd ).totalSize() );
+		report.put( "MutableIntIntMap odd values", ( int ) GraphLayout.parseInstance( androidxOdd ).totalSize() );
 		report.put( "IntIntNullMap odd values", ( int ) GraphLayout.parseInstance( nullable_valueOdd ).totalSize() );
 	}
 	
 	private static void measureLongLongMap( int dataSize ) {
-		androidx.collection.MutableLongLongMap standard          = new androidx.collection.MutableLongLongMap();
-		androidx.collection.MutableLongLongMap standard50        = new androidx.collection.MutableLongLongMap();
-		androidx.collection.MutableLongLongMap standard100       = new androidx.collection.MutableLongLongMap();
-		androidx.collection.MutableLongLongMap standardOdd       = new androidx.collection.MutableLongLongMap();
+		androidx.collection.MutableLongLongMap androidx          = new androidx.collection.MutableLongLongMap();
+		androidx.collection.MutableLongLongMap androidx50        = new androidx.collection.MutableLongLongMap();
+		androidx.collection.MutableLongLongMap androidx100       = new androidx.collection.MutableLongLongMap();
+		androidx.collection.MutableLongLongMap androidxOdd       = new androidx.collection.MutableLongLongMap();
 		LongLongNullMap.RW                     nullable_value    = new LongLongNullMap.RW( 0 );
 		LongLongNullMap.RW                     nullable_value50  = new LongLongNullMap.RW( 0 );
 		LongLongNullMap.RW                     nullable_value100 = new LongLongNullMap.RW( 0 );
@@ -207,44 +207,44 @@ public class AndroidxMemoryBenchmarks {
 		
 		for( int i = 0; i < dataSize; i++ ) {
 			long v = i;
-			standard.put( v, v );
+			androidx.put( v, v );
 			nullable_value.put( v, v );
 			if( i < dataSize / 2 ) {
-				standard50.put( v, v );
+				androidx50.put( v, v );
 				nullable_value50.put( v, v );
 			}
 			else {
-				standard50.put( v, v );
+				androidx50.put( v, v );
 				nullable_value50.put( v, null );
 			}
-			standard100.put( v, v );
+			androidx100.put( v, v );
 			nullable_value100.put( v, null );
 			if( i % 2 == 1 ) {
-				standardOdd.put( v, v );
+				androidxOdd.put( v, v );
 				nullable_valueOdd.put( v, v );
 			}
 			else {
-				standardOdd.put( v, v );
+				androidxOdd.put( v, v );
 				nullable_valueOdd.put( v, null );
 			}
 		}
 		
 		Data report = new Data( "Long" );
-		report.put( "MutableLongLongMap no nulls", ( int ) GraphLayout.parseInstance( standard ).totalSize() );
+		report.put( "MutableLongLongMap no nulls", ( int ) GraphLayout.parseInstance( androidx ).totalSize() );
 		report.put( "LongLongNullMap no nulls", ( int ) GraphLayout.parseInstance( nullable_value ).totalSize() );
-		report.put( "MutableLongLongMap half nulls", ( int ) GraphLayout.parseInstance( standard50 ).totalSize() );
+		report.put( "MutableLongLongMap half nulls", ( int ) GraphLayout.parseInstance( androidx50 ).totalSize() );
 		report.put( "LongLongNullMap half nulls", ( int ) GraphLayout.parseInstance( nullable_value50 ).totalSize() );
-		report.put( "MutableLongLongMap all nulls", ( int ) GraphLayout.parseInstance( standard100 ).totalSize() );
+		report.put( "MutableLongLongMap all nulls", ( int ) GraphLayout.parseInstance( androidx100 ).totalSize() );
 		report.put( "LongLongNullMap all nulls", ( int ) GraphLayout.parseInstance( nullable_value100 ).totalSize() );
-		report.put( "MutableLongLongMap odd values", ( int ) GraphLayout.parseInstance( standardOdd ).totalSize() );
+		report.put( "MutableLongLongMap odd values", ( int ) GraphLayout.parseInstance( androidxOdd ).totalSize() );
 		report.put( "LongLongNullMap odd values", ( int ) GraphLayout.parseInstance( nullable_valueOdd ).totalSize() );
 	}
 	
 	private static void measureIntBooleanMap( int dataSize ) {
-		androidx.collection.MutableIntIntMap standard          = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standard50        = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standard100       = new androidx.collection.MutableIntIntMap();
-		androidx.collection.MutableIntIntMap standardOdd       = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx          = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx50        = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidx100       = new androidx.collection.MutableIntIntMap();
+		androidx.collection.MutableIntIntMap androidxOdd       = new androidx.collection.MutableIntIntMap();
 		IntBitsMap.RW                        nullable_value    = new IntBitsMap.RW( 0, 2, 2 );
 		IntBitsMap.RW                        nullable_value50  = new IntBitsMap.RW( 0, 2, 2 );
 		IntBitsMap.RW                        nullable_value100 = new IntBitsMap.RW( 0, 2, 2 );
@@ -256,41 +256,41 @@ public class AndroidxMemoryBenchmarks {
 		
 		for( int i = 0; i < dataSize; i++ ) {
 			int key = i;
-			standard.put( key, i % 2 );
+			androidx.put( key, i % 2 );
 			nullable_value.put( key, i % 2 == 0 ?
 					TRUE :
 					FALSE );
 			
 			if( i < dataSize / 2 ) {
-				standard50.put( key, i % 2 );
+				androidx50.put( key, i % 2 );
 				nullable_value50.put( key, i % 2 == 0 ?
 						TRUE :
 						FALSE );
 			}
 			else {
-				standard50.put( key, key );
+				androidx50.put( key, key );
 				nullable_value50.put( key, NULL );
 			}
-			standard100.put( key, key );
+			androidx100.put( key, key );
 			nullable_value100.put( key, NULL );
 			if( i % 2 == 1 ) {
-				standardOdd.put( key, i % 2 );
+				androidxOdd.put( key, i % 2 );
 				nullable_valueOdd.put( key, FALSE );
 			}
 			else {
-				standardOdd.put( key, key );
+				androidxOdd.put( key, key );
 				nullable_valueOdd.put( key, NULL );
 			}
 		}
 		
 		Data report = new Data( "Int-Boolean" );
-		report.put( "Map<Int, Boolean> no nulls", ( int ) GraphLayout.parseInstance( standard ).totalSize() );
+		report.put( "MutableIntIntMap no nulls", ( int ) GraphLayout.parseInstance( androidx ).totalSize() );
 		report.put( "IntBitsMap no nulls", ( int ) GraphLayout.parseInstance( nullable_value ).totalSize() );
-		report.put( "Map<Int, Boolean> half nulls", ( int ) GraphLayout.parseInstance( standard50 ).totalSize() );
+		report.put( "MutableIntIntMap half nulls", ( int ) GraphLayout.parseInstance( androidx50 ).totalSize() );
 		report.put( "IntBitsMap half nulls", ( int ) GraphLayout.parseInstance( nullable_value50 ).totalSize() );
-		report.put( "Map<Int, Boolean> all nulls", ( int ) GraphLayout.parseInstance( standard100 ).totalSize() );
+		report.put( "MutableIntIntMap all nulls", ( int ) GraphLayout.parseInstance( androidx100 ).totalSize() );
 		report.put( "IntBitsMap all nulls", ( int ) GraphLayout.parseInstance( nullable_value100 ).totalSize() );
-		report.put( "Map<Int, Boolean> odd values", ( int ) GraphLayout.parseInstance( standardOdd ).totalSize() );
+		report.put( "MutableIntIntMap odd values", ( int ) GraphLayout.parseInstance( androidxOdd ).totalSize() );
 		report.put( "IntBitsMap odd values", ( int ) GraphLayout.parseInstance( nullable_valueOdd ).totalSize() );
 	}
 	
@@ -306,7 +306,7 @@ public class AndroidxMemoryBenchmarks {
 		           .append( "th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }\n" )
 		           .append( "th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }\n" )
 		           .append( ".map-label { color: #ff79c6; }\n" )
-		           .append( ".custom-label { color: #8be9fd; }\n" )
+		           .append( ".adhoc-label { color: #8be9fd; }\n" )
 		           .append( "h1 { color: #bd93f9; }\n" )
 		           .append( "h2 { color: #50fa7b; }\n" )
 		           .append( "</style>\n" )
@@ -327,32 +327,32 @@ public class AndroidxMemoryBenchmarks {
 		for( Data data : dataList ) {
 			String chartId = "chart-" + data.type.toLowerCase().replace( " ", "-" );
 			
-			String standardLabel;
-			String customLabel;
+			String androidxLabel;
+			String adhocLabel;
 			switch( data.type ) {
 				case "Byte":
-					standardLabel = "MutableIntIntMap";
-					customLabel = "ByteByteNullMap";
+					androidxLabel = "MutableIntIntMap";
+					adhocLabel = "ByteByteNullMap";
 					break;
 				case "Short":
-					standardLabel = "MutableIntIntMap";
-					customLabel = "ShortShortNullMap";
+					androidxLabel = "MutableIntIntMap";
+					adhocLabel = "ShortShortNullMap";
 					break;
 				case "Int":
-					standardLabel = "MutableIntIntMap";
-					customLabel = "IntIntNullMap";
+					androidxLabel = "MutableIntIntMap";
+					adhocLabel = "IntIntNullMap";
 					break;
 				case "Long":
-					standardLabel = "MutableLongLongMap";
-					customLabel = "LongLongNullMap";
+					androidxLabel = "MutableLongLongMap";
+					adhocLabel = "LongLongNullMap";
 					break;
 				case "Int-Boolean":
-					standardLabel = "MutableIntIntMap";
-					customLabel = "IntBitsMap";
+					androidxLabel = "MutableIntIntMap";
+					adhocLabel = "IntBitsMap";
 					break;
 				default:
-					standardLabel = "XXX";
-					customLabel = "XXX";
+					androidxLabel = "XXX";
+					adhocLabel = "XXX";
 			}
 			
 			htmlBuilder.append( "new Chart(document.getElementById('" ).append( chartId ).append( "').getContext('2d'), {\n" )
@@ -360,14 +360,14 @@ public class AndroidxMemoryBenchmarks {
 			           .append( "data: {\n" )
 			           .append( "labels: ['No null values', 'Half null values', 'All null values', 'Interleaved nulls'],\n" )
 			           .append( "datasets: [{\n" )
-			           .append( "label: '" ).append( standardLabel ).append( "',\n" )
+			           .append( "label: '" ).append( androidxLabel ).append( "',\n" )
 			           .append( "data: [" ).append( data.data[ 0 ] ).append( ", " ).append( data.data[ 2 ] ).append( ", " )
 			           .append( data.data[ 4 ] ).append( ", " ).append( data.data[ 6 ] ).append( "],\n" )
 			           .append( "backgroundColor: '#ff79c6',\n" )
 			           .append( "borderColor: '#ff79c6',\n" )
 			           .append( "borderWidth: 1\n" )
 			           .append( "}, {\n" )
-			           .append( "label: '" ).append( customLabel ).append( "',\n" )
+			           .append( "label: '" ).append( adhocLabel ).append( "',\n" )
 			           .append( "data: [" ).append( data.data[ 1 ] ).append( ", " ).append( data.data[ 3 ] ).append( ", " )
 			           .append( data.data[ 5 ] ).append( ", " ).append( data.data[ 7 ] ).append( "],\n" )
 			           .append( "backgroundColor: '#8be9fd',\n" )

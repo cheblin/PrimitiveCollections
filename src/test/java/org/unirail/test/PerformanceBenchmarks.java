@@ -103,108 +103,110 @@ public class PerformanceBenchmarks {
 			System.out.println( "HTML report generated to: " + reportFile.getAbsolutePath() );
 		}
 	}
-	public static String generateHtmlReport(List<Data> dataList) {
-    StringBuilder htmlBuilder = new StringBuilder();
-    
-    htmlBuilder.append("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n")
-               .append("<meta charset=\"UTF-8\">\n<title>Performance Report</title>\n")
-               .append("<style>\n")
-               .append("body { background-color: #1e1e1e; color: #f8f8f2; font-family: monospace; padding: 20px; line-height: 1.6; margin: 0 auto; max-width: 1024px; }\n")
-               .append(".chart-container { width: 100%; max-width: 984px; margin: 20px auto; background: #282a36; padding: 15px; border-radius: 5px; }\n")
-               .append("table { width: 100%; border-collapse: collapse; margin-top: 30px; background-color: #282a36; }\n")
-               .append("th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }\n")
-               .append("th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }\n")
-               .append(".map-label { color: #ff79c6; }\n")
-               .append(".custom-label { color: #8be9fd; }\n")
-               .append("h1 { color: #bd93f9; }\n")
-               .append("h2 { color: #50fa7b; }\n")
-               .append("</style>\n")
-               .append("<script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>\n")
-               .append("</head>\n<body>\n")
-               .append("<h1>Performance Report - CPU: ")
-               .append(new oshi.SystemInfo().getHardware().getProcessor().getProcessorIdentifier().getName().trim())
-               .append(", Java VM: ").append(System.getProperty("java.vm.vendor") + " " + System.getProperty("java.vm.version"))
-               .append("</h1>\n");
-    
-    htmlBuilder.append("<p>This report compares the performance of standard Java HashMap vs AdHoc maps")
-               .append("Measurements show average time per operation (ns/op) for insertion, search, get, and deletion across different data types and sizes. ")
-               .append("Lower values indicate better performance.</p>\n");
-    
-    for(Data data : dataList)
-        htmlBuilder.append("<div class=\"chart-container\">\n")
-                   .append("<h2>").append(data.type).append(" Maps</h2>\n")
-                   .append("<canvas id=\"chart-").append(data.type.toLowerCase().replace(" ", "-")).append("\"></canvas>\n")
-                   .append("</div>\n");
-    
-    htmlBuilder.append("<script>\n");
-    for(Data data : dataList) {
-        String chartId = "chart-" + data.type.toLowerCase().replace(" ", "-");
-        
-        String standardLabel;
-        String customLabel;
-        switch(data.type) {
-            case "Byte":
-                standardLabel = "HashMap<Byte, Byte>";
-                customLabel = "ByteByteNullMap.RW";
-                break;
-            case "Short":
-                standardLabel = "HashMap<Short, Short>";
-                customLabel = "ShortShortNullMap.RW";
-                break;
-            case "Int":
-                standardLabel = "HashMap<Integer, Integer>";
-                customLabel = "IntIntNullMap.RW";
-                break;
-            case "Long":
-                standardLabel = "HashMap<Long, Long>";
-                customLabel = "LongLongNullMap.RW";
-                break;
-            case "Int-Boolean":
-                standardLabel = "HashMap<Integer, Boolean>";
-                customLabel = "IntBitsMap.RW";
-                break;
-            default:
-                standardLabel = "HashMap<?, ?>";
-                customLabel = "CustomMap";
-        }
-        
-        htmlBuilder.append("new Chart(document.getElementById('").append(chartId).append("').getContext('2d'), {\n")
-                   .append("type: 'bar',\n")
-                   .append("data: {\n")
-                   .append("labels: ['Insert', 'Search', 'Get', 'Delete'],\n")
-                   .append("datasets: [{\n")
-                   .append("label: '").append(standardLabel).append("',\n")
-                   .append("data: [").append(data.MapInsert).append(", ").append(data.MapSearch).append(", ")
-                   .append(data.MapGet).append(", ").append(data.MapDelete).append("],\n")
-                   .append("backgroundColor: '#ff79c6',\n")
-                   .append("borderColor: '#ff79c6',\n")
-                   .append("borderWidth: 1\n")
-                   .append("}, {\n")
-                   .append("label: '").append(customLabel).append("',\n")
-                   .append("data: [").append(data.AdHocInsert).append(", ").append(data.AdHocSearch).append(", ")
-                   .append(data.AdHocGet).append(", ").append(data.AdHocDelete).append("],\n")
-                   .append("backgroundColor: '#8be9fd',\n")
-                   .append("borderColor: '#8be9fd',\n")
-                   .append("borderWidth: 1\n")
-                   .append("}]\n")
-                   .append("},\n")
-                   .append("options: {\n")
-                   .append("responsive: true,\n")
-                   .append("scales: {\n")
-                   .append("y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },\n")
-                   .append("x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }\n")
-                   .append("},\n")
-                   .append("plugins: {\n")
-                   .append("legend: { labels: { color: '#f8f8f2' } },\n")
-                   .append("title: { display: true, text: '").append(data.type).append(" Performance', color: '#f8f8f2', font: { size: 16 } }\n")
-                   .append("}\n")
-                   .append("}\n")
-                   .append("});\n");
-    }
-    htmlBuilder.append("</script>\n</body>\n</html>");
-    
-    return htmlBuilder.toString();
-}
+	
+	public static String generateHtmlReport( List< Data > dataList ) {
+		StringBuilder htmlBuilder = new StringBuilder();
+		
+		htmlBuilder.append( "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n" )
+		           .append( "<meta charset=\"UTF-8\">\n<title>Performance Report</title>\n" )
+		           .append( "<style>\n" )
+		           .append( "body { background-color: #1e1e1e; color: #f8f8f2; font-family: monospace; padding: 20px; line-height: 1.6; margin: 0 auto; max-width: 1024px; }\n" )
+		           .append( ".chart-container { width: 100%; max-width: 984px; margin: 20px auto; background: #282a36; padding: 15px; border-radius: 5px; }\n" )
+		           .append( "table { width: 100%; border-collapse: collapse; margin-top: 30px; background-color: #282a36; }\n" )
+		           .append( "th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }\n" )
+		           .append( "th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }\n" )
+		           .append( ".map-label { color: #ff79c6; }\n" )
+		           .append( ".adhoc-label { color: #8be9fd; }\n" )
+		           .append( "h1 { color: #bd93f9; }\n" )
+		           .append( "h2 { color: #50fa7b; }\n" )
+		           .append( "</style>\n" )
+		           .append( "<script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>\n" )
+		           .append( "</head>\n<body>\n" )
+		           .append( "<h1>Performance Report - CPU: " )
+		           .append( new oshi.SystemInfo().getHardware().getProcessor().getProcessorIdentifier().getName().trim() )
+		           .append( ", Java VM: " ).append( System.getProperty( "java.vm.vendor" ) + " " + System.getProperty( "java.vm.version" ) )
+		           .append( "</h1>\n" );
+		
+		htmlBuilder.append( "<p>This report compares the performance of standard Java HashMap vs AdHoc maps" )
+		           .append( "Measurements show average time per operation (ns/op) for insertion, search, get, and deletion across different data types and sizes. " )
+		           .append( "Lower values indicate better performance.</p>\n" );
+		
+		for( Data data : dataList )
+			htmlBuilder.append( "<div class=\"chart-container\">\n" )
+			           .append( "<h2>" ).append( data.type ).append( " Maps</h2>\n" )
+			           .append( "<canvas id=\"chart-" ).append( data.type.toLowerCase().replace( " ", "-" ) ).append( "\"></canvas>\n" )
+			           .append( "</div>\n" );
+		
+		htmlBuilder.append( "<script>\n" );
+		for( Data data : dataList ) {
+			String chartId = "chart-" + data.type.toLowerCase().replace( " ", "-" );
+			
+			String standardLabel;
+			String adhocLabel;
+			switch( data.type ) {
+				case "Byte":
+					standardLabel = "HashMap<Byte, Byte>";
+					adhocLabel = "ByteByteNullMap.RW";
+					break;
+				case "Short":
+					standardLabel = "HashMap<Short, Short>";
+					adhocLabel = "ShortShortNullMap.RW";
+					break;
+				case "Int":
+					standardLabel = "HashMap<Integer, Integer>";
+					adhocLabel = "IntIntNullMap.RW";
+					break;
+				case "Long":
+					standardLabel = "HashMap<Long, Long>";
+					adhocLabel = "LongLongNullMap.RW";
+					break;
+				case "Int-Boolean":
+					standardLabel = "HashMap<Integer, Boolean>";
+					adhocLabel = "IntBitsMap.RW";
+					break;
+				default:
+					standardLabel = "HashMap<?, ?>";
+					adhocLabel = "CustomMap";
+			}
+			
+			htmlBuilder.append( "new Chart(document.getElementById('" ).append( chartId ).append( "').getContext('2d'), {\n" )
+			           .append( "type: 'bar',\n" )
+			           .append( "data: {\n" )
+			           .append( "labels: ['Insert', 'Search', 'Get', 'Delete'],\n" )
+			           .append( "datasets: [{\n" )
+			           .append( "label: '" ).append( standardLabel ).append( "',\n" )
+			           .append( "data: [" ).append( data.MapInsert ).append( ", " ).append( data.MapSearch ).append( ", " )
+			           .append( data.MapGet ).append( ", " ).append( data.MapDelete ).append( "],\n" )
+			           .append( "backgroundColor: '#ff79c6',\n" )
+			           .append( "borderColor: '#ff79c6',\n" )
+			           .append( "borderWidth: 1\n" )
+			           .append( "}, {\n" )
+			           .append( "label: '" ).append( adhocLabel ).append( "',\n" )
+			           .append( "data: [" ).append( data.AdHocInsert ).append( ", " ).append( data.AdHocSearch ).append( ", " )
+			           .append( data.AdHocGet ).append( ", " ).append( data.AdHocDelete ).append( "],\n" )
+			           .append( "backgroundColor: '#8be9fd',\n" )
+			           .append( "borderColor: '#8be9fd',\n" )
+			           .append( "borderWidth: 1\n" )
+			           .append( "}]\n" )
+			           .append( "},\n" )
+			           .append( "options: {\n" )
+			           .append( "responsive: true,\n" )
+			           .append( "scales: {\n" )
+			           .append( "y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },\n" )
+			           .append( "x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }\n" )
+			           .append( "},\n" )
+			           .append( "plugins: {\n" )
+			           .append( "legend: { labels: { color: '#f8f8f2' } },\n" )
+			           .append( "title: { display: true, text: '" ).append( data.type ).append( " Performance', color: '#f8f8f2', font: { size: 16 } }\n" )
+			           .append( "}\n" )
+			           .append( "}\n" )
+			           .append( "});\n" );
+		}
+		htmlBuilder.append( "</script>\n</body>\n</html>" );
+		
+		return htmlBuilder.toString();
+	}
+	
 	public static class Data {
 		String type;
 		int    dataSize;
@@ -423,7 +425,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Short_AdHoc_Get( MapState state ) {
 		for( short key : shortKeys ) {
 			long token = state.shortAdHoc.tokenOf( key );
-			if(  token !=-1 )
+			if( token != -1 )
 				s = state.shortAdHoc.value( token );
 		}
 	}
@@ -462,7 +464,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Int_AdHoc_Get( MapState state ) {
 		for( int key : intKeys ) {
 			long token = state.intAdHoc.tokenOf( key );
-			if(  token !=-1 )
+			if( token != -1 )
 				i = state.intAdHoc.value( token );
 		}
 	}
@@ -501,7 +503,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Long_AdHoc_Get( MapState state ) {
 		for( long key : longKeys ) {
 			long token = state.longAdHoc.tokenOf( key );
-			if(  token !=-1 )
+			if( token != -1 )
 				l = state.longAdHoc.value( token );
 		}
 	}
@@ -543,7 +545,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void IntBool_AdHoc_Get( MapState state ) {
 		for( int key : intKeys ) {
 			long token = state.intBoolAdHoc.tokenOf( key );
-			if(  token !=-1 )
+			if( token != -1 )
 				b = state.intBoolAdHoc.value( token ) == 1;
 		}
 	}

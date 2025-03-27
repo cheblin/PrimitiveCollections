@@ -311,6 +311,17 @@ The code used to generate this report can be found [in the `test` folder.](https
 
 **Scala and Kotlin exhibited similar results to the standard Java HashMap**
 
+### Androidx collections
+
+I compared Androidx collections with AdHoc collections. In terms of functionality, 
+Androidx collections are noticeably less robust than AdHoc collections, making direct comparison challenging. 
+
+I made benchmarks, which revealed that AdHoc collections use more memory but outperform Androidx collections in 
+terms of speed.
+
+[memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_memory_report.html)       
+[performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_performance_report.html)
+
 ----
 ### Report Issues
 

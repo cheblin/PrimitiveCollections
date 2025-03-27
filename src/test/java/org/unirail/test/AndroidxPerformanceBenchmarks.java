@@ -115,7 +115,7 @@ public class AndroidxPerformanceBenchmarks {
                .append("th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }\n")
                .append("th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }\n")
                .append(".map-label { color: #ff79c6; }\n")
-               .append(".custom-label { color: #8be9fd; }\n")
+               .append(".adhoc-label { color: #8be9fd; }\n")
                .append("h1 { color: #bd93f9; }\n")
                .append("h2 { color: #50fa7b; }\n")
                .append("</style>\n")
@@ -140,32 +140,32 @@ public class AndroidxPerformanceBenchmarks {
     for(Data data : dataList) {
         String chartId = "chart-" + data.type.toLowerCase().replace(" ", "-");
         
-        String standardLabel;
-        String customLabel;
+        String androidxLabel;
+        String adhocLabel;
         switch(data.type) {
             case "Byte":
-                standardLabel = "MutableIntIntMap";
-                customLabel = "ByteByteNullMap.RW";
+                androidxLabel = "MutableIntIntMap";
+                adhocLabel = "ByteByteNullMap.RW";
                 break;
             case "Short":
-                standardLabel = "MutableIntIntMap";
-                customLabel = "ShortShortNullMap.RW";
+                androidxLabel = "MutableIntIntMap";
+                adhocLabel = "ShortShortNullMap.RW";
                 break;
             case "Int":
-                standardLabel = "MutableIntIntMap";
-                customLabel = "IntIntNullMap.RW";
+                androidxLabel = "MutableIntIntMap";
+                adhocLabel = "IntIntNullMap.RW";
                 break;
             case "Long":
-                standardLabel = "MutableLongLongMap";
-                customLabel = "LongLongNullMap.RW";
+                androidxLabel = "MutableLongLongMap";
+                adhocLabel = "LongLongNullMap.RW";
                 break;
             case "Int-Boolean":
-                standardLabel = "MutableIntIntMap";
-                customLabel = "IntBitsMap.RW";
+                androidxLabel = "MutableIntIntMap";
+                adhocLabel = "IntBitsMap.RW";
                 break;
             default:
-                standardLabel = "XXX";
-                customLabel = "XXX";
+                androidxLabel = "XXX";
+                adhocLabel = "XXX";
         }
         
         htmlBuilder.append("new Chart(document.getElementById('").append(chartId).append("').getContext('2d'), {\n")
@@ -173,14 +173,14 @@ public class AndroidxPerformanceBenchmarks {
                    .append("data: {\n")
                    .append("labels: ['Insert', 'Search', 'Get', 'Delete'],\n")
                    .append("datasets: [{\n")
-                   .append("label: '").append(standardLabel).append("',\n")
+                   .append("label: '").append(androidxLabel).append("',\n")
                    .append("data: [").append(data.MapInsert).append(", ").append(data.MapSearch).append(", ")
                    .append(data.MapGet).append(", ").append(data.MapDelete).append("],\n")
                    .append("backgroundColor: '#ff79c6',\n")
                    .append("borderColor: '#ff79c6',\n")
                    .append("borderWidth: 1\n")
                    .append("}, {\n")
-                   .append("label: '").append(customLabel).append("',\n")
+                   .append("label: '").append(adhocLabel).append("',\n")
                    .append("data: [").append(data.AdHocInsert).append(", ").append(data.AdHocSearch).append(", ")
                    .append(data.AdHocGet).append(", ").append(data.AdHocDelete).append("],\n")
                    .append("backgroundColor: '#8be9fd',\n")
