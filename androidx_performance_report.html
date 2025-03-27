@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Performance Report</title>
+<style>
+body { background-color: #1e1e1e; color: #f8f8f2; font-family: monospace; padding: 20px; line-height: 1.6; margin: 0 auto; max-width: 1024px; }
+.chart-container { width: 100%; max-width: 984px; margin: 20px auto; background: #282a36; padding: 15px; border-radius: 5px; }
+table { width: 100%; border-collapse: collapse; margin-top: 30px; background-color: #282a36; }
+th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }
+th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }
+.map-label { color: #ff79c6; }
+.custom-label { color: #8be9fd; }
+h1 { color: #bd93f9; }
+h2 { color: #50fa7b; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<h1>Performance Report - CPU: 13th Gen Intel(R) Core(TM) i9-13900HX, Java VM: Oracle Corporation 23.0.2+7-58</h1>
+<p>This report compares the performance of <a href="https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:collection/collection/src/commonMain/kotlin/androidx/collection/">Maps from Androidx collection</a> vs AdHoc maps. Measurements show average time per operation (ns/op) for insertion, search, get, and deletion across different data types and sizes. Lower values indicate better performance.</p>
+<div class="chart-container">
+<h2>Byte Maps</h2>
+<canvas id="chart-byte"></canvas>
+</div>
+<div class="chart-container">
+<h2>Short Maps</h2>
+<canvas id="chart-short"></canvas>
+</div>
+<div class="chart-container">
+<h2>Int Maps</h2>
+<canvas id="chart-int"></canvas>
+</div>
+<div class="chart-container">
+<h2>Long Maps</h2>
+<canvas id="chart-long"></canvas>
+</div>
+<div class="chart-container">
+<h2>Int-Boolean Maps</h2>
+<canvas id="chart-int-boolean"></canvas>
+</div>
+<script>
+new Chart(document.getElementById('chart-byte').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [1099, 608, 641, 626],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'ByteByteNullMap.RW',
+data: [571, 167, 447, 69],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Byte Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+new Chart(document.getElementById('chart-short').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [4508, 2397, 2635, 2460],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'ShortShortNullMap.RW',
+data: [4268, 1213, 1768, 2058],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Short Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+new Chart(document.getElementById('chart-int').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [4325, 2355, 2559, 2472],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'IntIntNullMap.RW',
+data: [4319, 1206, 1621, 2070],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Int Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+new Chart(document.getElementById('chart-long').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableLongLongMap',
+data: [5986, 2720, 2812, 2656],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'LongLongNullMap.RW',
+data: [4128, 1220, 1882, 2088],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Long Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+new Chart(document.getElementById('chart-int-boolean').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [4843, 2361, 2576, 2504],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'IntBitsMap.RW',
+data: [5006, 1215, 2455, 1209],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: true, text: 'Int-Boolean Performance', color: '#f8f8f2', font: { size: 16 } }
+}
+}
+});
+</script>
+</body>
+</html>

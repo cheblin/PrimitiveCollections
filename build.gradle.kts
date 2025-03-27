@@ -8,6 +8,7 @@ group = "org.example"
 version = "1.0-SNAPSHOT"
 
 repositories {
+       google()
     mavenCentral()
 }
 
@@ -17,6 +18,7 @@ dependencies {
     annotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
     testImplementation("org.openjdk.jmh:jmh-core:1.37")
     testAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
+    implementation("androidx.collection:collection:1.4.0")
 
     implementation("com.github.oshi:oshi-core:6.6.2")
     implementation("org.slf4j:slf4j-nop:2.0.13") // Latest as of March 202

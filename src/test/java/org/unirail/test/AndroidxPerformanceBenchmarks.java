@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup( iterations = 2, time = 1, timeUnit = TimeUnit.SECONDS )
 @Measurement( iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS )
 @Fork( 1 )
-public class PerformanceBenchmarks {
+public class AndroidxPerformanceBenchmarks {
 	
 	public static void main( String[] args ) throws RunnerException, IOException {
 		int byteDataSize = 255;
@@ -32,7 +32,7 @@ public class PerformanceBenchmarks {
 		reportDataMap.put( "Int-Boolean", new Data( "Int-Boolean", dataSize ) );
 		
 		Options opt = new OptionsBuilder()
-				.include( PerformanceBenchmarks.class.getSimpleName() )
+				.include( AndroidxPerformanceBenchmarks.class.getSimpleName() )
 				.build();
 		
 		Collection< RunResult > results = new Runner( opt ).run();
@@ -97,7 +97,7 @@ public class PerformanceBenchmarks {
 	
 	private static void generateHtmlReportFile() throws IOException {
 		String htmlReport = generateHtmlReport( new ArrayList<>( reportDataMap.values() ) );
-		File   reportFile = new File( "performance_report.html" );
+		File   reportFile = new File( "androidx_performance_report.html" );
 		try( FileWriter writer = new FileWriter( reportFile ) ) {
 			writer.write( htmlReport );
 			System.out.println( "HTML report generated to: " + reportFile.getAbsolutePath() );
@@ -126,7 +126,7 @@ public class PerformanceBenchmarks {
                .append(", Java VM: ").append(System.getProperty("java.vm.vendor") + " " + System.getProperty("java.vm.version"))
                .append("</h1>\n");
     
-    htmlBuilder.append("<p>This report compares the performance of standard Java HashMap vs AdHoc maps")
+    htmlBuilder.append("<p>This report compares the performance of <a href=\"https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:collection/collection/src/commonMain/kotlin/androidx/collection/\">Maps from Androidx collection</a> vs AdHoc maps. ")
                .append("Measurements show average time per operation (ns/op) for insertion, search, get, and deletion across different data types and sizes. ")
                .append("Lower values indicate better performance.</p>\n");
     
@@ -144,28 +144,28 @@ public class PerformanceBenchmarks {
         String customLabel;
         switch(data.type) {
             case "Byte":
-                standardLabel = "HashMap<Byte, Byte>";
+                standardLabel = "MutableIntIntMap";
                 customLabel = "ByteByteNullMap.RW";
                 break;
             case "Short":
-                standardLabel = "HashMap<Short, Short>";
+                standardLabel = "MutableIntIntMap";
                 customLabel = "ShortShortNullMap.RW";
                 break;
             case "Int":
-                standardLabel = "HashMap<Integer, Integer>";
+                standardLabel = "MutableIntIntMap";
                 customLabel = "IntIntNullMap.RW";
                 break;
             case "Long":
-                standardLabel = "HashMap<Long, Long>";
+                standardLabel = "MutableLongLongMap";
                 customLabel = "LongLongNullMap.RW";
                 break;
             case "Int-Boolean":
-                standardLabel = "HashMap<Integer, Boolean>";
+                standardLabel = "MutableIntIntMap";
                 customLabel = "IntBitsMap.RW";
                 break;
             default:
-                standardLabel = "HashMap<?, ?>";
-                customLabel = "CustomMap";
+                standardLabel = "XXX";
+                customLabel = "XXX";
         }
         
         htmlBuilder.append("new Chart(document.getElementById('").append(chartId).append("').getContext('2d'), {\n")
@@ -253,34 +253,34 @@ public class PerformanceBenchmarks {
 	
 	@State( Scope.Thread )
 	public static class MapState {
-		HashMap< Byte, Byte > empty_byteMap;
+		androidx.collection.MutableIntIntMap  empty_byteMap;
 		ByteByteNullMap.RW    empty_byteAdHoc;
 		
-		HashMap< Short, Short > empty_shortMap;
+		androidx.collection.MutableIntIntMap  empty_shortMap;
 		ShortShortNullMap.RW    empty_shortAdHoc;
 		
-		HashMap< Integer, Integer > empty_intMap;
+		androidx.collection.MutableIntIntMap  empty_intMap;
 		IntIntNullMap.RW            empty_intAdHoc;
 		
-		HashMap< Long, Long > empty_longMap;
+		androidx.collection.MutableLongLongMap empty_longMap;
 		LongLongNullMap.RW    empty_longAdHoc;
 		
-		HashMap< Integer, Boolean > empty_intBoolMap;
+		androidx.collection.MutableIntIntMap empty_intBoolMap;
 		IntBitsMap.RW               empty_intBoolAdHoc;
 		
-		HashMap< Byte, Byte > byteMap;
+		androidx.collection.MutableIntIntMap  byteMap;
 		ByteByteNullMap.RW    byteAdHoc;
 		
-		HashMap< Short, Short > shortMap;
+		androidx.collection.MutableIntIntMap  shortMap;
 		ShortShortNullMap.RW    shortAdHoc;
 		
-		HashMap< Integer, Integer > intMap;
+		androidx.collection.MutableIntIntMap  intMap;
 		IntIntNullMap.RW            intAdHoc;
 		
-		HashMap< Long, Long > longMap;
+		androidx.collection.MutableLongLongMap longMap;
 		LongLongNullMap.RW    longAdHoc;
 		
-		HashMap< Integer, Boolean > intBoolMap;
+		androidx.collection.MutableIntIntMap intBoolMap;
 		IntBitsMap.RW               intBoolAdHoc;
 		
 		byte[]  byteKeys;
@@ -289,7 +289,7 @@ public class PerformanceBenchmarks {
 		long[]  longKeys;
 		
 		@Setup( Level.Trial )
-		public void setupTrial( PerformanceBenchmarks benchmark ) {
+		public void setupTrial( AndroidxPerformanceBenchmarks benchmark ) {
 			this.byteKeys  = benchmark.byteKeys;
 			this.shortKeys = benchmark.shortKeys;
 			this.intKeys   = benchmark.intKeys;
@@ -298,34 +298,34 @@ public class PerformanceBenchmarks {
 		
 		@Setup( Level.Iteration )
 		public void setupIteration() {
-			empty_byteMap   = new HashMap<>();
+			empty_byteMap   = new androidx.collection.MutableIntIntMap();
 			empty_byteAdHoc = new ByteByteNullMap.RW( 0 );
 			
-			empty_shortMap   = new HashMap<>();
+			empty_shortMap   = new androidx.collection.MutableIntIntMap();
 			empty_shortAdHoc = new ShortShortNullMap.RW( 0 );
 			
-			empty_intMap   = new HashMap<>();
+			empty_intMap   = new androidx.collection.MutableIntIntMap();
 			empty_intAdHoc = new IntIntNullMap.RW( 0 );
 			
-			empty_longMap   = new HashMap<>();
+			empty_longMap   = new androidx.collection.MutableLongLongMap();
 			empty_longAdHoc = new LongLongNullMap.RW( 0 );
 			
-			empty_intBoolMap   = new HashMap<>();
+			empty_intBoolMap   = new androidx.collection.MutableIntIntMap();
 			empty_intBoolAdHoc = new IntBitsMap.RW( 0, 2, 2 );
 			
-			byteMap   = new HashMap<>();
+			byteMap   = new androidx.collection.MutableIntIntMap();
 			byteAdHoc = new ByteByteNullMap.RW( 0 );
 			
-			shortMap   = new HashMap<>();
+			shortMap   = new androidx.collection.MutableIntIntMap();
 			shortAdHoc = new ShortShortNullMap.RW( 0 );
 			
-			intMap   = new HashMap<>();
+			intMap   = new androidx.collection.MutableIntIntMap();
 			intAdHoc = new IntIntNullMap.RW( 0 );
 			
-			longMap   = new HashMap<>();
+			longMap   = new androidx.collection.MutableLongLongMap();
 			longAdHoc = new LongLongNullMap.RW( 0 );
 			
-			intBoolMap   = new HashMap<>();
+			intBoolMap   = new androidx.collection.MutableIntIntMap();
 			intBoolAdHoc = new IntBitsMap.RW( 0, 2, 2 );
 			
 			for( byte key : byteKeys ) byteMap.put( key, key );
@@ -340,7 +340,7 @@ public class PerformanceBenchmarks {
 			for( long key : longKeys ) longMap.put( key, key );
 			for( long key : longKeys ) longAdHoc.put( key, key );
 			
-			for( int key : intKeys ) intBoolMap.put( key, key % 2 == 0 );
+			for( int key : intKeys ) intBoolMap.put( key, key % 2  );
 			for( int key : intKeys )
 				intBoolAdHoc.put( key, key % 2 == 0 ?
 						1 :
@@ -366,7 +366,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Byte_Map_Get( MapState state ) {
 		for( byte key : byteKeys )
 			if( state.byteMap.containsKey( key ) )
-				by = state.byteMap.get( key );
+				i = state.byteMap.get( key );
 	}
 	
 	@Benchmark public void Byte_Map_Delete( MapState state ) {
@@ -405,7 +405,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void Short_Map_Get( MapState state ) {
 		for( short key : shortKeys )
 			if( state.shortMap.containsKey( key ) )
-				s = state.shortMap.get( key );
+				i = state.shortMap.get( key );
 	}
 	
 	@Benchmark public void Short_Map_Delete( MapState state ) {
@@ -512,7 +512,7 @@ public class PerformanceBenchmarks {
 	
 	// Int-Boolean Benchmarks
 	@Benchmark public void IntBool_Map_Insert( MapState state ) {
-		for( int key : intKeys ) state.empty_intBoolMap.put( key, key % 2 == 0 );
+		for( int key : intKeys ) state.empty_intBoolMap.put( key, key % 2  );
 	}
 	
 	@Benchmark public void IntBool_Map_Search( MapState state ) {
@@ -522,7 +522,7 @@ public class PerformanceBenchmarks {
 	@Benchmark public void IntBool_Map_Get( MapState state ) {
 		for( int key : intKeys )
 			if( state.intBoolMap.containsKey( key ) )
-				b = state.intBoolMap.get( key );
+				i = state.intBoolMap.get( key );
 	}
 	
 	@Benchmark public void IntBool_Map_Delete( MapState state ) {
