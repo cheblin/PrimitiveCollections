@@ -70,6 +70,8 @@ public interface BitsList {
 		 */
 		public final int bits;
 		
+		protected int bits_per_item() { return 32 - Long.numberOfLeadingZeros( mask ); }
+		
 		/**
 		 * Default value for new items, masked to fit within {@code bits} per item.
 		 */
@@ -166,9 +168,9 @@ public interface BitsList {
 		 * Resets the size to 0.
 		 */
 		protected void clear() {
-			java.util.Arrays.fill( values, 0, size * bits >> LEN, 0L );
+			if( size == 0 ) return;
+			java.util.Arrays.fill( values, 0, len4bits( size * bits ), 0L );
 			size = 0;
-			
 		}
 		
 		/**

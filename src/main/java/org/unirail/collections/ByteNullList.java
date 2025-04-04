@@ -123,44 +123,6 @@ public interface ByteNullList {
 			this.values        = Array.EqualHashOf.bytes     .O; // Initialize with an empty array.
 		}
 		
-		/**
-		 * Switches the storage strategy to <b>Flat (One-to-One) Strategy</b>.
-		 * before call this method, nulls must be in the final, updated state.
-		 */
-		protected void switchToFlatStrategy() {
-			if( size() == 0 )//the collection is empty
-			{
-				if( values.length == 0 ) values = new byte[ 16 ];
-				isFlatStrategy = true;
-				return;
-			}
-			
-			byte[] flat = new byte[ nulls.last1() + 1 ]; // Allocate flat array with some extra capacity for growth.
-			for( int i = nulls.next1( 0 ), ii = 0; ii < cardinality; i = nulls.next1( i + 1 ) )
-			     flat[ i ] = values[ ii++ ];
-			
-			this.values    = flat;
-			isFlatStrategy = true;
-		}
-		
-		
-		/**
-		 * Switches the storage strategy to <b>Compressed (Rank-Based) Strategy</b>.
-		 * <p>
-		 * If the list is already in compressed strategy, this method does nothing. Otherwise, it converts
-		 * the internal data representation from flat to compressed. This involves creating a new array
-		 * that is just large enough to hold the non-null values and copying only the non-null values
-		 * from the flat array into this new compressed array.
-		 */
-		protected void switchToCompressedStrategy() {
-			
-			cardinality = nulls.cardinality(); // Count of non-null elements.
-			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
-				if( i != ii ) values[ ii++ ] = values[ i ];// Pack non-null values sequentially in the same array.
-			
-			isFlatStrategy = false;
-		}
-		
 		
 		public int length() { return values.length; }
 		
@@ -263,9 +225,7 @@ public interface ByteNullList {
 		 * @param value The non-null value to check for.
 		 * @return {@code true} if the list contains the {@code value}, {@code false} otherwise.
 		 */
-		public boolean contains( byte value ) {
-			return indexOf( value ) != -1;
-		}
+		public boolean contains( byte value ) { return indexOf( value ) != -1; }
 		
 		/**
 		 * Checks if the list contains the specified {@code value} (which can be null).
@@ -460,71 +420,7 @@ public interface ByteNullList {
 			return true;
 		}
 		
-		/**
-		 * Sets a value at a specific index in the list. This helper method is used by {@link RW}.
-		 * It handles both null and non-null {@code value} inputs.
-		 * <p>
-		 * If {@code value} is null:
-		 * - Sets the corresponding bit in {@code nulls} to {@code false} (marking it as null).
-		 * - If the index was previously non-null, it removes the associated value
-		 * <p>
-		 *
-		 * @param dst   The target {@code R} instance to modify.
-		 * @param index The index at which to set the value.
-		 * @param value The  value to set (can be null).
-		 */
-		protected static void set( R dst, int index,  Byte      value ) {
-			if( value == null ) {
-				if( dst.nulls.last1() < index ) dst.nulls.set0( index ); // If index is beyond current length, extend and set as null.
-				else if( dst.nulls.get( index ) ) { // If index was previously non-null, convert to null.
-					if( !dst.isFlatStrategy )
-						dst.cardinality = Array.resize( dst.values, dst.values, dst.nulls.rank( index ) - 1, dst.cardinality, -1 ); // Remove value from compressed array.
-					dst.nulls.set0( index );
-				}
-			}
-			else set( dst, index, value.byteValue     () ); // Delegate to primitive int setter for non-null value.
-		}
 		
-		/**
-		 * Sets a non-null value at a specific index in the list. This helper method is used by {@link RW}.
-		 * <p>
-		 * - If the index already contains a non-null value, it updates the value at that index.
-		 * - If the index is currently null, it marks it as non-null in {@code nulls} and adds the
-		 * given {@code value} to the {@code values} array at the appropriate position (either directly
-		 * in flat strategy or at the correct rank in compressed strategy).
-		 *
-		 * @param dst   The destination {@code R} instance to modify.
-		 * @param index The index at which to set the value.
-		 * @param value The non-null value to set.
-		 */
-		protected static void set( R dst, int index, byte value ) {
-			
-			if( dst.isFlatStrategy ) {
-				if( dst.values.length <= index )
-					dst.values = Arrays.copyOf( dst.values, Math.max( index + 1, dst.values.length + dst.values.length / 2 ) ); // Ensure array capacity.
-				dst.values[ index ] = ( byte ) value; // Set value in flat array.
-				dst.nulls.set1( index ); // Mark as non-null.
-			}
-			else // Index already non-null in compressed strategy.
-				if( dst.nulls.get( index ) ) dst.values[ dst.nulls.rank( index ) - 1 ] = ( byte ) value; // Update existing value.
-				else { // Index was null, need to insert value in compressed strategy.
-					int rank = dst.nulls.rank( index ); // Calculate index for insertion.
-					int max  = Math.max( rank, dst.cardinality );
-					
-					if( dst.values.length <= max && dst.flatStrategyThreshold < dst.nulls.used * 64 ) {
-						dst.nulls.set1( index ); // Mark as non-null.
-						dst.switchToFlatStrategy(); // Switch before modification if threshold is met and resize is needed.
-						dst.values[ index ] = ( byte ) value; // Set value in flat array.
-					}
-					else {
-						dst.cardinality    = Array.resize( dst.values, dst.values.length <= max ?
-								( dst.values = new byte[ max + ( max >>> 1 ) ] ) :
-								dst.values, rank, dst.cardinality, 1 ); // Insert a slot for the new value.
-						dst.values[ rank ] = ( byte ) value; // Set the new value in compressed array.
-						dst.nulls.set1( index ); // Mark as non-null.
-					}
-				}
-		}
 	}
 	
 	/**
@@ -999,7 +895,7 @@ public interface ByteNullList {
 		 *
 		 * @return This {@code RW} instance (for method chaining).
 		 */
-		public RW Trim() {
+		public RW trim() {
 			int last = nulls.last1() + 1; // Find index of last non-null element + 1.
 			length( last ); // Set length to trim trailing nulls.
 			if( isFlatStrategy && nulls.used * 64 < flatStrategyThreshold ) switchToCompressedStrategy(); // Potentially switch back to compressed if null density is low enough.
@@ -1075,6 +971,112 @@ public interface ByteNullList {
 			}
 			
 			return this;
+		}
+		
+		/**
+		 * Switches the storage strategy to <b>Flat (One-to-One) Strategy</b>.
+		 * before call this method, nulls must be in the final, updated state.
+		 */
+		protected void switchToFlatStrategy() {
+			if( size() == 0 )//the collection is empty
+			{
+				if( values.length == 0 ) values = new byte[ 16 ];
+				isFlatStrategy = true;
+				return;
+			}
+			
+			byte[] flat = new byte[ nulls.last1() + 1 ]; // Allocate flat array with some extra capacity for growth.
+			for( int i = nulls.next1( 0 ), ii = 0; ii < cardinality; i = nulls.next1( i + 1 ) )
+			     flat[ i ] = values[ ii++ ];
+			
+			this.values    = flat;
+			isFlatStrategy = true;
+		}
+		
+		
+		/**
+		 * Switches the storage strategy to <b>Compressed (Rank-Based) Strategy</b>.
+		 * <p>
+		 * If the list is already in compressed strategy, this method does nothing. Otherwise, it converts
+		 * the internal data representation from flat to compressed. This involves creating a new array
+		 * that is just large enough to hold the non-null values and copying only the non-null values
+		 * from the flat array into this new compressed array.
+		 */
+		protected void switchToCompressedStrategy() {
+			
+			cardinality = nulls.cardinality(); // Count of non-null elements.
+			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
+				if( i != ii ) values[ ii++ ] = values[ i ];// Pack non-null values sequentially in the same array.
+			
+			isFlatStrategy = false;
+		}
+		
+		/**
+		 * Sets a value at a specific index in the list. This helper method is used by {@link RW}.
+		 * It handles both null and non-null {@code value} inputs.
+		 * <p>
+		 * If {@code value} is null:
+		 * - Sets the corresponding bit in {@code nulls} to {@code false} (marking it as null).
+		 * - If the index was previously non-null, it removes the associated value
+		 * <p>
+		 *
+		 * @param dst   The target {@code R} instance to modify.
+		 * @param index The index at which to set the value.
+		 * @param value The  value to set (can be null).
+		 */
+		protected static void set( R dst, int index,  Byte      value ) {
+			if( value == null ) {
+				if( dst.nulls.last1() < index ) dst.nulls.set0( index ); // If index is beyond current length, extend and set as null.
+				else if( dst.nulls.get( index ) ) { // If index was previously non-null, convert to null.
+					if( !dst.isFlatStrategy )
+						dst.cardinality = Array.resize( dst.values, dst.values, dst.nulls.rank( index ) - 1, dst.cardinality, -1 ); // Remove value from compressed array.
+					dst.nulls.set0( index );
+				}
+			}
+			else set( dst, index, value.byteValue     () ); // Delegate to primitive int setter for non-null value.
+		}
+		
+		/**
+		 * Sets a non-null value at a specific index in the list. This helper method is used by {@link RW}.
+		 * <p>
+		 * - If the index already contains a non-null value, it updates the value at that index.
+		 * - If the index is currently null, it marks it as non-null in {@code nulls} and adds the
+		 * given {@code value} to the {@code values} array at the appropriate position (either directly
+		 * in flat strategy or at the correct rank in compressed strategy).
+		 *
+		 * @param dst   The destination {@code R} instance to modify.
+		 * @param index The index at which to set the value.
+		 * @param value The non-null value to set.
+		 */
+		protected static void set( RW dst, int index, byte value ) {
+			
+			if( dst.isFlatStrategy ) {
+				if( dst.values.length <= index )
+					dst.values = Arrays.copyOf( dst.values, Math.max( index + 1, dst.values.length + dst.values.length / 2 ) ); // Ensure array capacity.
+				dst.values[ index ] = ( byte ) value; // Set value in flat array.
+				dst.nulls.set1( index ); // Mark as non-null.
+			}
+			else // Index already non-null in compressed strategy.
+				if( dst.nulls.get( index ) ) dst.values[ dst.nulls.rank( index ) - 1 ] = ( byte ) value; // Update existing value.
+				else { // Index was null, need to insert value in compressed strategy.
+					int rank = dst.nulls.rank( index ); // Calculate index for insertion.
+					int max  = Math.max( rank, dst.cardinality );
+					
+					if( dst.values.length <= max && dst.flatStrategyThreshold < dst.nulls.used * 64 ) {
+						dst.nulls.set1( index ); // Mark as non-null.
+						dst.switchToFlatStrategy(); // Switch before modification if threshold is met and resize is needed.
+						dst.values[ index ] = ( byte ) value; // Set value in flat array.
+					}
+					else {
+						dst.cardinality    = Array.resize( dst.values,
+						                                   dst.values.length <= max ?
+								                                   ( dst.values = new byte[ 2 + max * 3 / 2 ] ) :
+								                                   dst.values,
+						                                   rank, dst.cardinality, 1 ); // Insert a slot for the new value.
+						dst.values[ rank ] = ( byte ) value; // Set the new value in compressed array.
+						dst.nulls.set1( index ); // Mark as non-null.
+					}
+				}
 		}
 	}
 }

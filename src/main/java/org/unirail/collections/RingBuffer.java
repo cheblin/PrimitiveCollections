@@ -34,8 +34,8 @@
 package org.unirail.collections;
 
 import java.lang.reflect.Array;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 /**
  * A generic, thread-safe, fixed-size ring buffer (circular buffer) implementation.

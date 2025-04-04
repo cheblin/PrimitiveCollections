@@ -67,9 +67,10 @@ public interface ObjectSet {
 		protected static final long INVALID_TOKEN   = -1L;
 		
 		@Override public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		public int count()                 { return size(); }
@@ -168,11 +169,15 @@ public interface ObjectSet {
 			int a = 0, b = 0, c = 1;
 			for( long token = token(); index( token ) < _count; token = token( token ) ) {
 				final int h = Array.hash( key( token ) );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			if( hasNullKey ) {
 				final int h = Array.hash( seed );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
@@ -286,7 +291,7 @@ public interface ObjectSet {
 				return true;
 			}
 			
-			if( _buckets == null ) initialize( 0 );
+			if( _buckets == null ) initialize( 7 );
 			long[] _hash_nexts    = hash_nexts;
 			int    hash           = equal_hash_K.hashCode( key );
 			int    collisionCount = 0;
@@ -445,7 +450,8 @@ public interface ObjectSet {
 		}
 		
 		private int initialize( int capacity ) {
-			capacity   = Array.prime( capacity );
+			_version++;
+			
 			_buckets   = new int[ capacity ];
 			hash_nexts = new long[ capacity ];
 			keys       = equal_hash_K.copyOf( null, capacity );
@@ -481,11 +487,13 @@ public interface ObjectSet {
 		private void copy( long[] old_hash_next, K[] old_keys, int old_count ) {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
-				if( next( old_hash_next[ i ] ) < -1 ) continue;
-				hash_nexts[ new_count ] = old_hash_next[ i ];
-				keys[ new_count ]       = old_keys[ i ];
-				int bucketIndex = bucketIndex( hash( old_hash_next[ i ] ) );
-				next( hash_nexts, new_count, _buckets[ bucketIndex ] - 1 );
+				final long hn = old_hash_next[ i ];
+				if( next( hn ) < -1 ) continue;
+				
+				keys[ new_count ] = old_keys[ i ];
+				int bucketIndex = bucketIndex( hash( hn ) );
+				hash_nexts[ i ] = hn & 0xFFFF_FFFF_0000_0000L | _buckets[ bucketIndex ] - 1;
+				
 				_buckets[ bucketIndex ] = new_count + 1;
 				new_count++;
 			}

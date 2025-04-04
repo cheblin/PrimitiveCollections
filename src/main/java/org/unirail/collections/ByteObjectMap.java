@@ -74,7 +74,8 @@ public interface ByteObjectMap {
 		 * If there is no mapping for a {@code null} key, this field will typically be {@code null}.
 		 */
 		protected       V                      nullKeyValue;
-		public V nullKeyValue() { return  nullKeyValue; }
+		
+		public V nullKeyValue() { return nullKeyValue; }
 		
 		/**
 		 * Protected constructor to initialize a read-only {@code ByteObjectMap}.
@@ -179,7 +180,9 @@ public interface ByteObjectMap {
 				int h = Array.mix( seed, super.hashCode() );
 				h = Array.mix( h, Array.hash( h, values, 0, cardinality ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			if( hasNullKey ) {
 				int h = Array.hash( seed );
@@ -187,7 +190,9 @@ public interface ByteObjectMap {
 						                              equal_hash_V.hashCode( nullKeyValue ) :
 						                              seed ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}

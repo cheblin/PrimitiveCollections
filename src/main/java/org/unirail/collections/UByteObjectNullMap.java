@@ -81,7 +81,7 @@ public interface UByteObjectNullMap {
 		 */
 		protected       V                      nullKeyValue;
 		
-		public V nullKeyValue() { return  nullKeyValue; }
+		public V nullKeyValue() { return nullKeyValue; }
 		
 		/**
 		 * Protected constructor for {@code R}. Initializes the read-only map with a value type class.
@@ -190,7 +190,9 @@ public interface UByteObjectNullMap {
 				h = Array.mix( h, nulls.hashCode() ); // Mix with hashCode of nulls array
 				h = Array.mix( h, Array.hash( h, values, 0, nulls.cardinality ) ); // Mix with hash of values array
 				h = Array.finalizeHash( h, 2 ); // Finalize hash for this part
-				a += h; b ^= h; c *= h | 1; // Accumulate hash components
+				a += h;
+				b ^= h;
+				c *= h | 1; // Accumulate hash components
 			}
 			
 			if( hasNullKey ) {
@@ -200,7 +202,9 @@ public interface UByteObjectNullMap {
 						                              equal_hash_V.hashCode( nullKeyValue ) :
 						                              seed ) );
 				h = Array.finalizeHash( h, 2 ); // Finalize hash for null key part
-				a += h; b ^= h; c *= h | 1; // Accumulate hash components
+				a += h;
+				b ^= h;
+				c *= h | 1; // Accumulate hash components
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() ); // Finalize overall hash with size and accumulated components
 		}

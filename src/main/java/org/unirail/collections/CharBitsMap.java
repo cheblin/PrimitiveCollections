@@ -1,193 +1,225 @@
-//MIT License
-//
-//Copyright © 2020 Chikirev Sirguy, Unirail Group. All rights reserved.
-//For inquiries, please contact:  al8v5C6HU4UtqE9@gmail.com
-//GitHub Repository: https://github.com/AdHoc-Protocol
-//
-//Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-//1. The above copyright notice and this permission notice must be included in all
-//   copies or substantial portions of the Software.
-//
-//2. Users of the Software must provide a clear acknowledgment in their user
-//   documentation or other materials that their solution includes or is based on
-//   this Software. This acknowledgment should be prominent and easily visible,
-//   and can be formatted as follows:
-//   "This product includes software developed by Chikirev Sirguy and the Unirail Group
-//   (https://github.com/AdHoc-Protocol)."
-//
-//3. If you modify the Software and distribute it, you must include a prominent notice
-//   stating that you have changed the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 package org.unirail.collections;
+
 
 import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 
+
 /**
- * A specialized Map interface for storing integer key-value pairs with efficient operations.
- * Supports null keys and implements a hash table with separate chaining for collision resolution.
+ * A specialized map for mapping char/short keys (65,536 distinct values) to primitive values.
+ * Implements a HYBRID strategy:
+ * 1. Starts as a hash map with separate chaining, optimized for sparse data.
+ * Uses short[] for next pointers, limiting this phase's capacity.
+ * 2. Automatically transitions to a direct-mapped flat array when the hash map
+ * reaches its capacity limit (~32,749 entries) and needs to grow further.
+ * This approach balances memory efficiency for sparse maps with guaranteed O(1)
+ * performance and full key range support for dense maps.
  */
 public interface CharBitsMap {
 	
-	
 	/**
 	 * Abstract base class providing read-only operations for the map.
+	 * Handles the underlying structure which can be either a hash map or a flat array.
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
-		protected boolean       hasNullKey;          // Indicates if the map contains a null key.
-		protected byte          nullKeyValue;        // Value for the null key, stored separately.
-		protected int[] _buckets;            // Hash table buckets array (1-based indices to chain heads).
-		protected int[] nexts;          // Packed entries: hashCode (upper 32 bits) | next index (lower 32 bits).
+		
+		protected boolean        hasNullKey;          // Indicates if the map contains a null key
+		protected byte           nullKeyValue;        // Value for the null key, stored separately.
+		protected char[]         _buckets;            // Hash table buckets array (1-based indices to chain heads).
+		protected short[]        nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
 		protected char[] keys = Array.EqualHashOf.chars     .O; // Keys array.
-		protected BitsList.RW   values;              // Values array.
-		protected int           _count;              // Total number of entries in arrays (including free slots).
-		protected int           _freeList;           // Index of the first entry in the free list (-1 if empty).
-		protected int           _freeCount;          // Number of free entries in the free list.
-		protected int           _version;            // Version counter for concurrent modification detection.
+		protected BitsList.RW    values;              // Values array.
+		protected int            _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
+		protected int            _freeList;           // Index of the first entry in the free list (-1 if empty).
+		protected int            _freeCount;          // Number of free entries in the free list.
+		protected int            _version;            // Version counter for concurrent modification detection.
 		
-		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'next' field.
-		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL; // Mask for index in token.
+		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
+		protected static final long INDEX_MASK      = 0xFFFF_FFFFL; // Mask for index in token.
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
+		// Special index used in tokens to represent the null key. Outside valid array index ranges.
+		protected static final int  NULL_KEY_INDEX  = 0x1_FFFF; // 65537
 		
-        protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
+		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
+		
+		
+		/**
+		 * Flag indicating if the map is operating in flat array mode.
+		 */
+		protected boolean isFlatStrategy = false;
+		
+		/**
+		 * Bitset to track presence of keys in flat mode. Size 1024 longs = 65536 bits.
+		 */
+		protected long[] flat_bits; // Size: 65536 / 64 = 1024
+		
+		// Constants for Flat Mode
+		protected static final int FLAT_ARRAY_SIZE  = 0x10000;
+		protected static final int FLAT_BITSET_SIZE = FLAT_ARRAY_SIZE / 64; // 1024
+		
 		
 		/**
 		 * Checks if the map is empty.
 		 *
 		 * @return True if the map contains no key-value mappings.
 		 */
-		public boolean isEmpty() {
-			return size() == 0;
-		}
+		public boolean isEmpty() { return size() == 0; }
 		
 		/**
 		 * Returns the number of key-value mappings in the map.
+		 * Calculation depends on the current mode (hash map or flat array).
 		 *
-		 * @return The total number of mappings, including null key if present.
+		 * @return The total number of mappings, including the conceptual null key if present.
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			// Hash Mode: _count includes free slots, subtract _freeCount for actual entries.
+			// Flat Mode: _count is the number of set bits (actual entries).
+			// Add 1 if the null key is present in either mode.
+			return (
+					       isFlatStrategy ?
+							       _count :
+							       _count - _freeCount ) + (
+					       hasNullKey ?
+							       1 :
+							       0 );
 		}
 		
-        public int count() { return size(); }
+		
+		public int count() { return size(); }
 		
 		/**
-		 * Returns the allocated capacity of the internal arrays.
+		 * Returns the allocated capacity of the internal structure.
+		 * In hash map mode, it's the length of the internal arrays.
+		 * In flat mode, it's the fixed size (65536).
 		 *
-		 * @return The length of the internal arrays, or 0 if uninitialized.
+		 * @return The capacity.
 		 */
 		public int length() {
-			return nexts == null ?
-					0 :
-					nexts.length;
+			return isFlatStrategy ?
+					FLAT_ARRAY_SIZE :
+					( nexts == null ?
+							0 :
+							nexts.length );
 		}
 		
 		/**
-		 * Checks if the map contains a mapping for the specified key.
+		 * Checks if the map contains a mapping for the specified key (boxed Character).
 		 *
-		 * @param key The key to check (boxed Integer).
+		 * @param key The key to check.
 		 * @return True if the key exists in the map.
 		 */
 		public boolean contains(  Character key ) {
 			return key == null ?
 					hasNullKey :
-					contains( key.charValue     () );
+					contains( ( char ) ( key + 0 ) );
 		}
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
 		 *
-		 * @param key The primitive int key.
+		 * @param key The primitive char key (0 to 65535).
 		 * @return True if the key exists in the map.
 		 */
 		public boolean contains( char key ) {
-			return tokenOf( key ) != INVALID_TOKEN;
+			return isFlatStrategy ?
+					exists( ( char ) key ) :
+					tokenOf( key ) != INVALID_TOKEN;
 		}
 		
 		/**
 		 * Checks if the map contains the specified value.
+		 * This operation can be slow (O(N)).
 		 *
 		 * @param value The value to search for.
 		 * @return True if the value exists in the map.
 		 */
-        public boolean containsValue(long value) { return _count != 0 || hasNullKey && values.contains(value); }
+		public boolean containsValue( long value ) { return _count != 0 || hasNullKey && values.contains( value ); }
+		
 		
 		/**
-		 * Returns a token for the specified key (boxed Integer).
+		 * Returns a token for the specified key (boxed Character).
 		 *
-         * @param key The key to find (can be null).
-         * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
+		 * @param key The key.
+		 * @return A token representing the key's location if found, or INVALID_TOKEN if not found.
 		 */
 		public long tokenOf(  Character key ) {
 			return key == null ?
 					( hasNullKey ?
-							token( _count ) :
+							token( NULL_KEY_INDEX ) :
 							INVALID_TOKEN ) :
-					tokenOf( key.charValue     () );
+					tokenOf( ( char ) ( key + 0 ) );
 		}
 		
 		/**
 		 * Returns a token for the specified primitive key.
 		 *
-		 * @param key The primitive int key.
-         * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
+		 * @param key The primitive char key.
+		 * @return A token representing the key's location if found, or INVALID_TOKEN if not found.
 		 */
 		public long tokenOf( char key ) {
-			if( _buckets == null ) return INVALID_TOKEN;
+			if( isFlatStrategy )
+				return exists( ( char ) key ) ?
+						token( ( char ) key ) :
+						INVALID_TOKEN;
+			
+			if( _buckets == null || size() == 0 ) return INVALID_TOKEN; // Check size() to account for only null key present
+			
 			int hash = Array.hash( key );
-			int i    = _buckets[ bucketIndex( hash ) ] - 1;
+			int i    = ( _buckets[ bucketIndex( hash ) ] ) - 1;
 			
 			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < nexts.length; ) {
 				if( keys[ i ] == key ) return token( i );
 				i = nexts[ i ];
-				if( nexts.length <= collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				if( nexts.length < ++collisionCount ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
 			return INVALID_TOKEN;
 		}
 		
+		
 		/**
-		 * Returns the initial token for iteration.
+		 * Returns the initial token for iteration. Starts with the first non-null key.
+		 * If only the null key exists, returns the null key token.
 		 *
-         * @return The first valid token to begin iteration, or {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * @return The first valid token to begin iteration, or INVALID_TOKEN if the map is empty.
 		 */
 		public long token() {
-			for( int i = 0; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return token( i );
-			return hasNullKey ?
-					token( _count ) :
-					INVALID_TOKEN;
+			int index = -1;
+			if( isFlatStrategy )
+				index = next1( 0 );
+			
+			else if( 0 < _count )
+				for( index = 0; nexts[ index ] < -1; index++ ) ;
+			
+			return index == -1 ?
+					hasNullKey ?
+							token( NULL_KEY_INDEX ) :
+							INVALID_TOKEN :
+					token( index );
 		}
 		
 		/**
 		 * Returns the next token in iteration.
 		 *
 		 * @param token The current token.
-         * @return The next valid token for iteration, or {@link #INVALID_TOKEN} (-1) if there are no more entries or if the map was modified since the token was obtained.
+		 * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
 		 */
 		public long token( final long token ) {
-            if (token == INVALID_TOKEN || version(token) != _version) return INVALID_TOKEN;
-			for( int i = index( token ) + 1; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return token( i );
-            return hasNullKey && index(token) < _count ? token(_count) : INVALID_TOKEN;
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			
+			int index = index( token );
+			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN;
+			index = unsafe_token( index );
+			
+			return index == -1 ?
+					hasNullKey ?
+							token( NULL_KEY_INDEX ) :
+							INVALID_TOKEN :
+					token( index );
 		}
+		
+		
 		/**
 		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
 		 * skipping concurrency and modification checks.
@@ -200,79 +232,79 @@ public interface CharBitsMap {
 		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
 		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
 		 *
-		 * @param token The previous token, or {@code -1} to begin iteration.
+		 * @param token The previous token (index), or {@code -1} to begin iteration.
 		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
 		 * @see #token(long) For safe iteration including the null key.
 		 * @see #hasNullKey() To check for a null key.
 		 * @see #nullKeyValue() To get the null key’s value.
 		 */
 		public int unsafe_token( final int token ) {
-			for( int i =  token  + 1; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return i;
-			return -1;
+			if( isFlatStrategy )
+				return next1( index( token ) + 1 );
+			else
+				for( int i = token + 1; i < _count; i++ )
+					if( -2 < nexts[ i ] ) return i;
+			
+			return -1; // No more entries
 		}
 		
 		/**
-		 * Checks if the map contains a mapping for the null key.
-		 *
-		 * @return True if the map contains a null key, false otherwise.
+		 * Checks if the map contains the conceptual null key.
 		 */
-		public boolean hasNullKey() {
-			return hasNullKey;
-		}
-		
-		public char nullKeyValue() { return (char) nullKeyValue; }
-		
-	
+		public boolean hasNullKey() { return hasNullKey; }
 		
 		/**
-		 * Checks if the map contains a key associated with the given token.
-		 *
-		 * @param token The token to check.
-         * @return True if a key is associated with the token, false if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
+		 * Returns the value associated with the conceptual null key. Behavior undefined if null key doesn't exist.
 		 */
-		public boolean hasKey( long token ) {
-            return  (index(token) < _count || hasNullKey);
-		}
+		public long nullKeyValue() { return (char) nullKeyValue; }
+		
+		/**
+		 * Checks if the token corresponds to a non-null key.
+		 */
+		public boolean hasKey( long token ) { return index( token ) != NULL_KEY_INDEX; }
 		
 		/**
 		 * Retrieves the key associated with a token.
+		 * Throws if the token represents the null key.
 		 *
-		 * @param token The token representing the key-value pair.
-         * @return The integer key associated with the token, or undefined behavior if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
+		 * @param token The token representing a non-null key-value pair.
+		 * @return The char key associated with the token.
+		 * @throws ArrayIndexOutOfBoundsException if the token is for the null key or invalid.
 		 */
-		public char key( long token ) { return (char)  keys[ index( token ) ]; }
+		public char key( long token ) {
+			return ( char ) (char) (
+					isFlatStrategy ?
+							index( token ) :
+							keys[ index( token ) ] );
+		}
+		
 		
 		/**
 		 * Retrieves the value associated with a token.
 		 *
 		 * @param token The token representing the key-value pair.
-         * @return The byte value associated with the token, or undefined behavior if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
+		 * @return The integer value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
 		 */
 		public byte value( long token ) {
-				return index( token ) == _count ?
-						nullKeyValue :
-						values.get( index( token ) ); // Handle null key value.
+			return index( token ) == _count ?
+					nullKeyValue :
+					values.get( index( token ) );
 		}
 		
 		/**
-		 * Computes an order-independent hash code for the map.
-		 * This hash code is consistent as long as the map's contents remain unchanged.
+		 * Computes an order-independent hash code.
 		 *
 		 * @return The hash code of the map.
 		 */
+		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-			
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
-				int h = Array.mix( seed, Array.hash( key( token ) ) );
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
+				int h = Array.mix( seed, Array.hash( isFlatStrategy ?
+						                                     token :
+						                                     keys[ token ] ) );
+				h = Array.mix( h, Array.hash( value( token ) ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h;
-				b ^= h;
-				c *= h | 1;
-			}
-			{
-				int h = Array.mix( seed, values.hashCode() );
 				a += h;
 				b ^= h;
 				c *= h | 1;
@@ -292,33 +324,37 @@ public interface CharBitsMap {
 		
 		private static final int seed = R.class.hashCode();
 		
-		public boolean equals( Object obj ) {
-			return obj != null && getClass() == obj.getClass() && equals( ( R ) obj );
-		}
+		@Override
+		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R ) obj ); }
 		
 		/**
 		 * Compares this map with another R instance for equality.
-		 * Two maps are considered equal if they contain the same key-value mappings.
 		 *
 		 * @param other The other map to compare.
-		 * @return True if the maps are equal, false otherwise.
+		 * @return True if the maps are equal.
 		 */
 		public boolean equals( R other ) {
 			if( other == null || hasNullKey != other.hasNullKey ||
 			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || size() != other.size() )
 				return false;
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );
 				if( t == INVALID_TOKEN || value( token ) != other.value( t ) ) return false;
 			}
 			return true;
 		}
 		
+		
+		@Override
 		public R clone() {
 			try {
 				R dst = ( R ) super.clone();
-				if( _buckets != null ) {
+				if( isFlatStrategy ) {
+					dst.flat_bits = flat_bits.clone();
+					dst.values    = values.clone();
+				}
+				else if( _buckets != null ) {
 					dst._buckets = _buckets.clone();
 					dst.nexts    = nexts.clone();
 					dst.keys     = keys.clone();
@@ -331,42 +367,92 @@ public interface CharBitsMap {
 			return null;
 		}
 		
-		public String toString() {
-			return toJSON();
-		}
+		@Override
+		public String toString() { return toJSON(); }
 		
-		public String toJSON() {
-			return JsonWriter.Source.super.toJSON();
-		}
 		
+		@Override
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 );
 			json.enterObject();
 			
-			if( hasNullKey ) json.name( "null" ).value( nullKeyValue ); // Represent null key explicitly in JSON
+			if( hasNullKey ) json.name().value( nullKeyValue );
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) )
-			     json.name( String.valueOf( keys[ index( token ) ] ) ).value( value( token ) );
+			if( isFlatStrategy )
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
+				     json.name( token ).value( value( token ) );
+			else
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
+				     json.name( keys[ token ] ).value( value( token ) );
+			
 			
 			json.exitObject();
 		}
 		
-		// Helper methods
+		// --- Helper methods ---
+		
+		/**
+		 * Calculates bucket index in hash map mode. Ensures non-negative index.
+		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
-        protected long token(int index) { return (long) _version << VERSION_SHIFT | index & INDEX_MASK; }
+		/**
+		 * Creates a token combining version and index.
+		 */
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index & INDEX_MASK ); }
 		
-        protected int index(long token) { return (int) (token & INDEX_MASK); }
+		/**
+		 * Extracts index from a token.
+		 */
+		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
 		
-		protected int version( long token ) {			return ( int ) ( token >>> VERSION_SHIFT );		}
+		/**
+		 * Extracts version from a token.
+		 */
+		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
+		
+		
+		/**
+		 * Checks if a key is present in flat mode using the bitset. Assumes flat_bits is not null.
+		 */
+		protected final boolean exists( char key ) { return ( flat_bits[ key >>> 6 ] & 1L << key ) != 0; }
+		
+		
+		public int next1( int key ) { return next1( key, flat_bits ); }
+		
+		public static int next1( int bit, long[] bits ) {
+			
+			int index = bit >>> 6; // Index in bits array (word index)
+			if( bits.length <= index ) return -1;
+			
+			int pos = bit & 63;   // Bit position within the long (0-63)
+			
+			// Mask to consider only bits from pos onward in the first long
+			long mask  = -1L << pos; // 1s from pos to end
+			long value = bits[ index ] & mask; // Check for '1's from pos
+			
+			// Check the first long
+			if( value != 0 ) return ( index << 6 ) + Long.numberOfTrailingZeros( value );
+			
+			// Search subsequent longs
+			for( int i = index + 1; i < 1024; i++ ) {
+				value = bits[ i ];
+				if( value != 0 ) return ( i << 6 ) + Long.numberOfTrailingZeros( value );
+			}
+			
+			// No '1' found, return -1
+			return -1;
+		}
+		
 	}
 	
 	/**
-	 * Read-write implementation of the map, extending read-only functionality provided by {@link R}.
-	 * Allows modification operations such as put, remove, and clear.
+	 * Read-write implementation of the map, extending read-only functionality.
 	 */
 	class RW extends R {
-		
+		// The threshold capacity determining the switch to flat strategy.
+		// Set to the max capacity of the hash phase (due to short[] nexts).
+		protected static int flatStrategyThreshold = 0x7FFF;
 		
 		/**
 		 * Constructs an empty map with default capacity and a specified number of bits per value item.
@@ -397,161 +483,80 @@ public interface CharBitsMap {
 			values = new BitsList.RW( bits_per_item, defaultValue, capacity );
 		}
 		
+		
 		/**
-		 * Initializes the internal hash table arrays.
+		 * Initializes the internal arrays with a specified capacity.
 		 *
-		 * @param capacity The initial capacity of the hash table. Will be adjusted to the nearest prime number greater than or equal to capacity.
-		 * @return The actual capacity after adjusting to a prime number.
+		 * @param capacity The desired capacity.
+		 * @return The initialized capacity (prime number).
 		 */
 		private int initialize( int capacity ) {
-			capacity  = Array.prime( capacity );
-			_buckets  = new int[ capacity ];
-			nexts     = new int[ capacity ];
+			_version++;
+			if( flatStrategyThreshold < capacity ) {
+				isFlatStrategy = true;
+				flat_bits      = new long[ FLAT_BITSET_SIZE ]; // 1024 longs
+				_count         = 0; // Flat mode _count tracks actual entries
+				return FLAT_ARRAY_SIZE;
+			}
+			_buckets  = new char[ capacity ];
+			nexts     = new short[ capacity ];
 			keys      = new char[ capacity ];
 			_freeList = -1;
-			return capacity;
+			_count    = 0;
+			return length();
 		}
 		
 		/**
-		 * Associates a value with a key (boxed Integer).
-		 * If the key already exists, the value is updated.
+		 * Associates a value with a key (boxed Character).
 		 *
-		 * @param key   The key (can be null).
-		 * @param value The value to be associated with the key.
-		 * @return True if the map was modified structurally (key was newly inserted or value was updated), false otherwise.
+		 * @param key   The key.
+		 * @param value The value.
+		 * @return True if the map was modified (key inserted or updated).
 		 */
 		public boolean put(  Character key, long value ) {
 			return key == null ?
-					tryInsert( value, 1 ) :
-					tryInsert( key, value, 1 );
+					put( value ) :
+					put( key, value );
 		}
+		
 		
 		/**
 		 * Associates a value with a primitive key.
-		 * If the key already exists, the value is updated.
 		 *
-		 * @param key   The primitive int key.
-		 * @param value The value to be associated with the key.
-		 * @return True if the map was modified structurally (key was newly inserted or value was updated), false otherwise.
+		 * @param key   The primitive char key.
+		 * @param value The value.
+		 * @return True if the map was modified (key inserted or updated).
 		 */
 		public boolean put( char key, long value ) {
-			return tryInsert( key, value, 1 );
-		}
-		
-		/**
-		 * Associates a value with the null key.
-		 * If the null key already exists, the value is updated.
-		 *
-		 * @param value The value to be associated with the null key.
-		 * @return True if the map was modified structurally (null key was newly inserted or value was updated), false otherwise.
-		 */
-		public boolean put( long value ) {
-			return tryInsert( value, 1 );
-		}
-		
-		/**
-		 * Inserts a key-value pair only if the key doesn’t already exist in the map.
-		 *
-		 * @param key   The key to insert.
-		 * @param value The value to associate with the key.
-		 * @return True if the key-value pair was inserted because the key did not exist, false if the key already existed.
-		 */
-		public boolean putNotExist( char key, long value ) {
-			return tryInsert( key, value, 2 );
-		}
-		
-		/**
-		 * Inserts a key-value pair only if the key doesn’t already exist in the map (boxed Integer key).
-		 *
-		 * @param key   The key to insert (boxed Integer, can be null).
-		 * @param value The value to associate with the key.
-		 * @return True if the key-value pair was inserted, false if the key already existed.
-		 */
-		public boolean putNotExist(  Character key, long value ) {
-			return key == null ?
-					tryInsert( value, 2 ) :
-					tryInsert( key.charValue     (), value, 2 );
-		}
-		
-		/**
-		 * Inserts a value for the null key only if the null key doesn't already exist.
-		 *
-		 * @param value The value to associate with the null key.
-		 * @return True if the null key-value pair was inserted, false if the null key already existed.
-		 */
-		public boolean putNotExist( long value ) {
-			return tryInsert( value, 2 );
-		}
-		
-		/**
-		 * Inserts a key-value pair, throwing an exception if the key already exists.
-		 *
-		 * @param key   The key to insert.
-		 * @param value The value to associate with the key.
-		 * @throws IllegalArgumentException If a mapping for the specified key already exists in the map.
-		 */
-		public void putTry( char key, long value ) {
-			tryInsert( key, value, 0 );
-		}
-		
-		/**
-		 * Inserts a key-value pair (boxed Integer key), throwing an exception if the key already exists.
-		 *
-		 * @param key   The key to insert (boxed Integer, can be null).
-		 * @param value The value to associate with the key.
-		 * @throws IllegalArgumentException If a mapping for the specified key already exists in the map.
-		 */
-		public void putTry(  Character key, long value ) {
-			if( key == null )
-				tryInsert( value, 0 );
-			else
-				tryInsert( key.charValue     (), value, 0 );
-		}
-		
-		/**
-		 * Inserts a value for the null key, throwing an exception if the null key already exists.
-		 *
-		 * @param value The value to associate with the null key.
-		 * @throws IllegalArgumentException If a mapping for the null key already exists in the map.
-		 */
-		public void putTry( long value ) {
-			tryInsert( value, 0 );
-		}
-		
-		/**
-		 * Core insertion logic with behavior control.
-		 * Handles insertion, update, and "put if not exists" semantics for integer keys.
-		 *
-		 * @param key      The primitive key to insert or update.
-		 * @param value    The value to associate with the key.
-		 * @param behavior 0=throw if exists, 1=put (update/insert), 2=put if not exists.
-		 * @return True if the map was structurally modified (insertion or update), false otherwise (only for behavior 2 if key exists).
-		 * @throws IllegalArgumentException        if behavior is 0 and the key already exists.
-		 * @throws ConcurrentModificationException if concurrent modification is detected during collision resolution.
-		 */
-		private boolean tryInsert( char key, long value, int behavior ) {
-			if( _buckets == null ) initialize( 0 );
-			int[] _nexts         = nexts;
-			int           hash           = Array.hash( key );
-			int           collisionCount = 0;
-			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = _buckets[ bucketIndex ] - 1;
+			if( isFlatStrategy ) {
+				boolean ret;
+				if( ret = !exists( ( char ) key ) ) {
+					exists1( ( char ) key );
+					_count++;
+				}
+				
+				values.set1( ( char ) key, value );
+				_version++;
+				return ret;
+			}
+			
+			
+			if( _buckets == null ) initialize( 7 );
+			short[] _nexts         = nexts;
+			int     hash           = Array.hash( key );
+			int     collisionCount = 0;
+			int     bucketIndex    = bucketIndex( hash );
+			int     bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key )
-					switch( behavior ) {
-						case 1:
-							values.set1( next, ( byte ) value );
-							_version++;
-							return true;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				if( keys[ next ] == key ) {
+					values.set1( next, value );
+					_version++;
+					return false;
+				}
+				
 				next = _nexts[ next ];
-				if( _nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				if( _nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
 			
 			int index;
@@ -562,77 +567,89 @@ public interface CharBitsMap {
 			}
 			else {
 				if( _count == _nexts.length ) {
-					resize( Array.prime( _count * 2 ) );
-					bucket =  ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
+					int i = Array.prime( _count * 2 );
+					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
+					
+					resize( i );
+					if( isFlatStrategy ) {
+						exists1( ( char ) key );
+						values.set1( ( char ) key, value );
+						_count++;
+						return true;
+					}
+					
+					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
 				}
 				index = _count++;
 			}
 			
-			nexts[ index ] = ( int ) bucket;
+			nexts[ index ] = ( short ) bucket;
 			keys[ index ]  = ( char ) key;
-			values.set1( index, ( byte ) value );
-			_buckets[ bucketIndex ] =   index + 1;
+			values.set1( index, value );
+			_buckets[ bucketIndex ] = ( char ) ( index + 1 );
 			_version++;
 			
 			return true;
 		}
 		
 		/**
-		 * Handles null key insertion.
+		 * Inserts or updates the value for the conceptual null key.
 		 *
-		 * @param value    The value for the null key.
-		 * @param behavior 0=throw if exists, 1=put (update/insert), 2=put if not exists.
-		 * @return True if the map was structurally modified (insertion or update), false otherwise (only for behavior 2 if key exists).
-		 * @throws IllegalArgumentException if behavior is 0 and the null key already exists.
+		 * @param value The value.
+		 * @return True if the null key was newly inserted or updated.
 		 */
-		private boolean tryInsert( long value, int behavior ) {
-			if( hasNullKey ) switch( behavior ) {
-				case 1:
-                    break;
-				case 0:
-					throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
-				default:
-					return false;
-			}
+		public boolean put( long value ) {
+			boolean b = hasNullKey;
 			hasNullKey   = true;
 			nullKeyValue = ( byte ) value;
 			_version++;
-			return true;
+			return b != hasNullKey;
 		}
 		
 		/**
-		 * Removes a key-value pair associated with the given key (boxed Integer).
+		 * Removes a key-value pair (boxed Integer key).
 		 *
-		 * @param key The key to remove (boxed Integer, can be null).
-         * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
+		 * @param key The key to remove.
+		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
 		 */
 		public long remove(  Character key ) {
 			return key == null ?
 					removeNullKey() :
-					remove( key.charValue     () );
+					remove( ( char ) ( key + 0 ) );
 		}
 		
 		/**
-		 * Removes the mapping for the null key.
+		 * Removes the conceptual null key mapping.
 		 *
-         * @return The token of the removed entry if the null key was found and removed, or {@link #INVALID_TOKEN} (-1) if the null key was not present.
+		 * @return The token representing the null key if it was present and removed, or INVALID_TOKEN otherwise.
 		 */
 		private long removeNullKey() {
 			if( !hasNullKey ) return INVALID_TOKEN;
 			hasNullKey = false;
 			_version++;
-            return token(_count);
+			// Return a token representing the null key conceptually
+			return token( NULL_KEY_INDEX );
 		}
 		
 		/**
-		 * Removes a key-value pair associated with the given primitive key.
+		 * Removes a key-value pair (primitive key).
 		 *
-		 * @param key The primitive key to remove.
-         * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
-		 * @throws ConcurrentModificationException if concurrent modification is detected during collision resolution.
+		 * @param key The primitive char key to remove.
+		 * @return The token of the removed entry if found and removed, or INVALID_TOKEN if not found.
 		 */
 		public long remove( char key ) {
-			if( _buckets == null || _count == 0 ) return INVALID_TOKEN;
+			if( _count == 0 ) return INVALID_TOKEN;
+			
+			if( isFlatStrategy ) {
+				if( exists( ( char ) key ) ) {
+					exists0( ( char ) key );
+					_count--;
+					_version++;
+					return token( ( char ) key );
+				}
+				return INVALID_TOKEN;
+			}
+			if( _buckets == null ) return INVALID_TOKEN;
 			
 			int collisionCount = 0;
 			int last           = -1;
@@ -641,143 +658,189 @@ public interface CharBitsMap {
 			int i              = _buckets[ bucketIndex ] - 1;
 			
 			while( -1 < i ) {
-				int next = nexts[ i ];
+				short next = nexts[ i ];
 				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] =  ( next + 1 ); // Update bucket head if removing the head of the chain
-					else nexts[ last ] = next; // Update the 'next' pointer of the previous entry in the chain
-					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Mark the removed entry as free and point to the old free list head
-					values.set1( i, values.default_value ); // Reset value to default
-					_freeList = i; // Update free list head to the newly freed entry
-					_freeCount++; // Increment free count
+					if( last < 0 ) _buckets[ bucketIndex ] = ( char ) ( next + 1 );
+					else nexts[ last ] = next;
+					nexts[ i ] = ( short ) ( StartOfFreeList - _freeList );
+					_freeList  = i;
+					_freeCount++;
 					_version++;
 					return token( i );
 				}
 				last = i;
 				i    = next;
-				if( nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-            return INVALID_TOKEN;
+			return INVALID_TOKEN;
 		}
 		
 		/**
-		 * Clears all mappings from the map, including the null key mapping.
-		 * Resets the map to its initial empty state.
+		 * Clears all mappings from the map.
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets,  0 );
-			Arrays.fill( nexts, 0, _count, ( int ) 0 );
-			Arrays.fill( keys, 0, _count, ( char ) 0 );
-			values.clear();
+			if( isFlatStrategy )
+				Array.fill( flat_bits, 0 );
+			else {
+				Arrays.fill( _buckets, ( char ) 0 );
+				Arrays.fill( nexts, ( short ) 0 );
+				Arrays.fill( keys, ( char ) 0 );
+				_freeList  = -1;
+				_freeCount = 0;
+			}
 			_count     = 0;
-			_freeList  = -1;
-			_freeCount = 0;
 			hasNullKey = false;
 			_version++;
 		}
 		
 		/**
 		 * Ensures the map’s capacity is at least the specified value.
-		 * If the current capacity is less than the specified capacity, the map is resized to accommodate more entries.
+		 * May trigger resize or switch to flat mode.
 		 *
 		 * @param capacity The minimum desired capacity.
-		 * @return The new capacity of the map after ensuring it meets the minimum requirement.
-		 * @throws IllegalArgumentException if the capacity is negative.
+		 * @return The actual capacity after ensuring.
 		 */
 		public int ensureCapacity( int capacity ) {
-			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
-			int currentCapacity = length();
-			if( capacity <= currentCapacity ) return currentCapacity;
-			_version++;
-			if( _buckets == null ) return initialize( capacity );
-			int newSize = Array.prime( capacity );
-			resize( newSize );
-			return newSize;
+			if( capacity <= length() ) return length();
+			return !isFlatStrategy && _buckets == null ?
+					initialize( capacity ) :
+					resize( Array.prime( capacity ) );
 		}
 		
 		/**
-		 * Trims the capacity of the map to the current number of entries, effectively reducing memory usage.
-		 * If the current capacity is already at or below the size, no action is taken.
+		 * Trims the capacity to the current number of entries.
 		 */
-		public void trim() {
-			trim( size() );
-		}
+		public void trim() { trim( size() ); }
 		
 		/**
-		 * Trims the capacity of the map to the specified value, but only if it's not less than the current size.
-		 * If the specified capacity is less than the current size, an IllegalArgumentException is thrown.
+		 * Trims the capacity to the specified value (at least the current size).
+		 * May switch from flat mode back to hash mode if trimmed below threshold.
 		 *
-		 * @param capacity The desired capacity to trim to. Must be at least the current size of the map.
-		 * @throws IllegalArgumentException if the capacity is less than the current size of the map.
+		 * @param capacity The desired capacity.
 		 */
 		public void trim( int capacity ) {
-			if( capacity < size() ) throw new IllegalArgumentException( "capacity is less than Count." );
-			int currentCapacity = length();
-			int newSize         = Array.prime( capacity );
-			if( currentCapacity <= newSize ) return;
+			capacity = Array.prime( capacity );
+			if( length() <= capacity ) return;
+			if( isFlatStrategy ) {
+				if( capacity <= flatStrategyThreshold ) resize( capacity );
+				return;
+			}
 			
-			int[] old_next  = nexts;
+			short[]        old_next  = nexts;
 			char[] old_keys  = keys;
-			int           old_count = _count;
+			int            old_count = _count;
 			_version++;
-			initialize( newSize );
+			initialize( capacity );
 			copy( old_next, old_keys, old_count );
 		}
 		
 		/**
-		 * Resizes the internal hash table to a new prime capacity.
-		 * Rehashes and redistributes existing key-value pairs into the new buckets.
+		 * Resizes the map to a new prime capacity.
 		 *
-		 * @param newSize The new size of the hash table (must be a prime number).
+		 * @param newSize The new size (prime number).
 		 */
-		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Character.BYTES * 8 ); // Limit max size to avoid integer overflow
-			_version++; // Increment version before and after array operations for invalidation safety during resize
-			_version++;
-			int[] new_next = Arrays.copyOf( nexts, newSize );
-			char[] new_keys = Arrays.copyOf( keys, newSize );
-			final int     count    = _count;
+		private int resize( int newSize ) {
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Character.BYTES * 8 );
 			
-			_buckets = new int[ newSize ]; // Create new bucket array with the new size
+			if( isFlatStrategy ) {
+				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
+				{
+					BitsList.RW _values = values;
+					values = new BitsList.RW( values.bits_per_item(), newSize );
+					
+					isFlatStrategy = false;
+					
+					initialize( newSize );
+					for( int token = -1; ( token = next1( token + 1, flat_bits ) ) != -1; )
+					     put( ( char ) token, _values.get( token ) );
+					flat_bits = null;
+				}
+				return length();
+			}
+			else if( flatStrategyThreshold < newSize ) {
+				
+				BitsList.RW _values = values;
+				values = new BitsList.RW( values.bits_per_item(), newSize );
+				
+				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
+				
+				for( int i = 0; i < _count; i++ )
+					if( -2 < nexts[ i ] ) {
+						char key = ( char ) keys[ i ];
+						exists1( key );
+						values.set1( key, _values.get( i ) );
+					}
+				
+				isFlatStrategy = true;
+				
+				_buckets = null;
+				nexts    = null;
+				keys     = null;
+				values   = _values;
+				
+				_count -= _freeCount;
+				
+				_freeList  = -1;
+				_freeCount = 0;
+				return length();
+			}
+			
+			
+			_version++;
+			short[]        new_next = Arrays.copyOf( nexts, newSize );
+			char[] new_keys = Arrays.copyOf( keys, newSize );
+			final int      count    = _count;
+			
+			_buckets = new char[ newSize ];
 			for( int i = 0; i < count; i++ )
-				if( -2 < new_next[ i ] ) { // Skip free list entries
-					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Recalculate bucket index in the new bucket array size
-					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Prepend current entry to the new bucket's chain
-					_buckets[ bucketIndex ] =  ( i + 1 ); // Update bucket head to the current entry's index
+				if( -2 < new_next[ i ] ) {
+					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
+					new_next[ i ]           = ( short ) ( _buckets[ bucketIndex ] - 1 ); //relink chain
+					_buckets[ bucketIndex ] = ( char ) ( i + 1 );
 				}
 			
-			nexts = new_next; // Replace old arrays with new resized arrays
+			nexts = new_next;
 			keys  = new_keys;
+			return length();
 		}
 		
 		/**
-		 * Copies entries from old arrays to the newly resized arrays during trimming.
-		 * Only copies live entries, skipping entries marked as free in the old arrays.
+		 * Copies entries during trimming.
 		 *
-		 * @param old_next  Old hash_nexts array.
+		 * @param old_nexts Old hash_nexts array.
 		 * @param old_keys  Old keys array.
-		 * @param old_count Old count of entries (including free slots).
+		 * @param old_count Old count.
 		 */
-		private void copy( int[] old_next, char[] old_keys, int old_count ) {
+		private void copy( short[] old_nexts, char[] old_keys, int old_count ) {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
-				if( old_next[ i ] < -1 ) continue; // Skip free list entries
-				nexts[ new_count ] = old_next[ i ]; // Copy 'next' value
-				keys[ new_count ]  = old_keys[ i ];  // Copy key
-				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Calculate new bucket index for the resized bucket array
-				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Prepend to new bucket chain
-				_buckets[ bucketIndex ] =  ( new_count + 1 ); // Update bucket head
-				new_count++; // Increment count for the new compacted array
+				if( old_nexts[ i ] < -1 ) continue;
+				
+				keys[ new_count ] = old_keys[ i ];
+				
+				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
+				nexts[ new_count ]      = ( short ) ( _buckets[ bucketIndex ] - 1 );
+				_buckets[ bucketIndex ] = ( char ) ( new_count + 1 );
+				new_count++;
 			}
-			_count     = new_count; // Update the main count to reflect only live entries
-			_freeCount = 0; // Reset free count as all entries are now compacted
+			_count     = new_count;
+			_freeCount = 0;
+			_freeList  = -1; // Reset free list
 		}
 		
 		
 		@Override
-		public RW clone() {
-			return ( RW ) super.clone();
-		}
+		public RW clone() { return ( RW ) super.clone(); }
+		
+		/**
+		 * Sets a key as present in flat mode using the bitset.
+		 */
+		protected final void exists1( char key ) { flat_bits[ key >>> 6 ] |= 1L << key; }
+		
+		/**
+		 * Clears a key's presence in flat mode using the bitset.
+		 */
+		protected final void exists0( char key ) { flat_bits[ key >>> 6 ] &= ~( 1L << key ); }
 	}
 }

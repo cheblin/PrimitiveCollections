@@ -88,9 +88,10 @@ public interface ObjectLongMap {
 		public boolean isEmpty() { return size() == 0; }
 		
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		public int count() { return size(); }
@@ -120,11 +121,12 @@ public interface ObjectLongMap {
 		
 		public long nullKeyValue() { return  nullKeyValue; }
 		
-        /**
-         * Returns the token associated with the specified key, or INVALID_TOKEN (-1) if the key is not present.
-         * @param key The key to look up.
-         * @return A token for iteration, or INVALID_TOKEN (-1) if the key is not found.
-         */
+		/**
+		 * Returns the token associated with the specified key, or INVALID_TOKEN (-1) if the key is not present.
+		 *
+		 * @param key The key to look up.
+		 * @return A token for iteration, or INVALID_TOKEN (-1) if the key is not found.
+		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
 					token( _count ) :
@@ -144,10 +146,11 @@ public interface ObjectLongMap {
 			return INVALID_TOKEN;
 		}
 		
-        /**
-         * Returns the first valid token for iteration, or INVALID_TOKEN (-1) if the map is empty.
-         * @return A token for iteration, or INVALID_TOKEN (-1) if no entries exist.
-         */
+		/**
+		 * Returns the first valid token for iteration, or INVALID_TOKEN (-1) if the map is empty.
+		 *
+		 * @return A token for iteration, or INVALID_TOKEN (-1) if no entries exist.
+		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
 				if( -2 < next( hash_nexts[ i ] ) ) return token( i );
@@ -156,20 +159,22 @@ public interface ObjectLongMap {
 					INVALID_TOKEN;
 		}
 		
-        /**
-         * Returns the next valid token after the given token, or INVALID_TOKEN (-1) if no further entries exist
-         * or if the provided token is invalid due to modification.
-         * @param token The current token.
-         * @return The next token for iteration, or INVALID_TOKEN (-1) if no next entry exists or the token is invalid.
-         */
+		/**
+		 * Returns the next valid token after the given token, or INVALID_TOKEN (-1) if no further entries exist
+		 * or if the provided token is invalid due to modification.
+		 *
+		 * @param token The current token.
+		 * @return The next token for iteration, or INVALID_TOKEN (-1) if no next entry exists or the token is invalid.
+		 */
 		public long token( final long token ) {
-            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
 			return hasNullKey && index( token ) < _count ?
 					token( _count ) :
 					INVALID_TOKEN;
 		}
+		
 		/**
 		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
 		 * skipping concurrency and modification checks.
@@ -193,26 +198,29 @@ public interface ObjectLongMap {
 				if( -2 < next( hash_nexts[ i ] ) ) return i;
 			return -1;
 		}
-        /**
-         * Returns the key associated with the given token.
-         * @param token The token to query.
-         * @return The key, or null if the token corresponds to the null key entry.
-         */
+		
+		/**
+		 * Returns the key associated with the given token.
+		 *
+		 * @param token The token to query.
+		 * @return The key, or null if the token corresponds to the null key entry.
+		 */
 		public K key( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						null :
-						keys[ index( token ) ];
+			return hasNullKey && index( token ) == _count ?
+					null :
+					keys[ index( token ) ];
 		}
 		
-        /**
-         * Returns the value associated with the given token.
-         * @param token The token to query.
-         * @return The value associated with the token.
-         */
+		/**
+		 * Returns the value associated with the given token.
+		 *
+		 * @param token The token to query.
+		 * @return The value associated with the token.
+		 */
 		public long value( long token ) {
-				return ( index( token ) == _count ?
-						nullKeyValue :
-						values[ index( token ) ] );
+			return ( index( token ) == _count ?
+					nullKeyValue :
+					values[ index( token ) ] );
 		}
 		
 		@Override
@@ -222,13 +230,17 @@ public interface ObjectLongMap {
 				int h = Array.mix( seed, Array.hash( key( token ) ) );
 				h = Array.mix( h, Array.hash( value( token ) ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			if( hasNullKey ) {
 				int h = Array.hash( seed );
 				h = Array.mix( h, Array.hash( nullKeyValue ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
@@ -358,11 +370,6 @@ public interface ObjectLongMap {
 			if( capacity > 0 ) initialize( capacity );
 		}
 		
-		public boolean put( K key, long value )         { return tryInsert( key, value, 1 ); }
-		
-		public boolean putNotExist( K key, long value ) { return tryInsert( key, value, 2 ); }
-		
-		public void putTry( K key, long value )         { tryInsert( key, value, 0 ); }
 		
 		public void clear() {
 			if( _count == 0 ) return;
@@ -442,24 +449,24 @@ public interface ObjectLongMap {
 			copy( old_hash_next, old_keys, old_values, old_count );
 		}
 		
-		private boolean tryInsert( K key, long value, int behavior ) {
+		/**
+		 * Associates the specified value with the specified primitive key in this map.
+		 * If the map previously contained a mapping for the key, the behavior is determined by the {@code onExists} predicate.
+		 *
+		 * @param key   The primitive char key with which the specified value is to be associated.
+		 * @param value The value to be associated with the specified key.
+		 * @throws ConcurrentModificationException if excessive collisions are detected in hash mode.
+		 */
+		public boolean put( K key, long value ) {
 			if( key == null ) {
-				if( hasNullKey )
-					switch( behavior ) {
-						case 1:
-							break;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				boolean b = !hasNullKey;
 				hasNullKey   = true;
 				nullKeyValue = ( long ) value;
 				_version++;
-				return true;
+				return b;
 			}
 			
-			if( _buckets == null ) initialize( 0 );
+			if( _buckets == null ) initialize( 7 );
 			long[] _hash_nexts    = hash_nexts;
 			int    hash           = equal_hash_K.hashCode( key );
 			int    collisionCount = 0;
@@ -467,17 +474,12 @@ public interface ObjectLongMap {
 			int    bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _hash_nexts.length; ) {
-				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) )
-					switch( behavior ) {
-						case 1:
-							values[ next ] = ( long ) value;
-							_version++;
-							return true;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) ) {
+					values[ next ] = ( long ) value;
+					_version++;
+					return false;
+				}
+				
 				next = next( _hash_nexts[ next ] );
 				if( _hash_nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -535,7 +537,7 @@ public interface ObjectLongMap {
 		}
 		
 		private int initialize( int capacity ) {
-			capacity   = Array.prime( capacity );
+			_version++;
 			_buckets   = new int[ capacity ];
 			hash_nexts = new long[ capacity ];
 			keys       = equal_hash_K.copyOf( null, capacity );
@@ -547,12 +549,13 @@ public interface ObjectLongMap {
 		private void copy( long[] old_hash_next, K[] old_keys, long[] old_values, int old_count ) {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
-				if( next( old_hash_next[ i ] ) < -1 ) continue;
-				hash_nexts[ new_count ] = old_hash_next[ i ];
-				keys[ new_count ]       = old_keys[ i ];
-				values[ new_count ]     = old_values[ i ];
-				int bucketIndex = bucketIndex( hash( old_hash_next[ i ] ) );
-				next( hash_nexts, new_count, _buckets[ bucketIndex ] - 1 );
+				final long hn = old_hash_next[ i ];
+				if( next( hn ) < -1 ) continue;
+				
+				keys[ new_count ]   = old_keys[ i ];
+				values[ new_count ] = old_values[ i ];
+				int bucketIndex = bucketIndex( hash( hn ) );
+				hash_nexts[ new_count ] = hn & 0xFFFF_FFFF_0000_0000L | _buckets[ bucketIndex ] - 1;
 				_buckets[ bucketIndex ] = new_count + 1;
 				new_count++;
 			}

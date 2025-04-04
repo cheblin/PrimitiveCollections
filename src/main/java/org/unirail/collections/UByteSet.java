@@ -35,8 +35,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import java.util.ConcurrentModificationException;
-
 /**
  * {@code ByteSet} interface defines the contract for a set that efficiently stores byte values.
  * Implementations of this interface are designed to be memory-compact and optimized for byte data.
@@ -463,10 +461,22 @@ public interface UByteSet {
 		 */
 		public boolean retainAll( R src ) {
 			boolean ret = false; // Flag to track if any modification occurred.
-			if( _1 != src._1 ) { _1 &= src._1; ret = true; } // Intersect _1 with src._1, set modification flag if changed.
-			if( _2 != src._2 ) { _2 &= src._2; ret = true; } // Intersect _2 with src._2, set modification flag if changed.
-			if( _3 != src._3 ) { _3 &= src._3; ret = true; } // Intersect _3 with src._3, set modification flag if changed.
-			if( _4 != src._4 ) { _4 &= src._4; ret = true; } // Intersect _4 with src._4, set modification flag if changed.
+			if( _1 != src._1 ) {
+				_1 &= src._1;
+				ret = true;
+			} // Intersect _1 with src._1, set modification flag if changed.
+			if( _2 != src._2 ) {
+				_2 &= src._2;
+				ret = true;
+			} // Intersect _2 with src._2, set modification flag if changed.
+			if( _3 != src._3 ) {
+				_3 &= src._3;
+				ret = true;
+			} // Intersect _3 with src._3, set modification flag if changed.
+			if( _4 != src._4 ) {
+				_4 &= src._4;
+				ret = true;
+			} // Intersect _4 with src._4, set modification flag if changed.
 			if( ret ) {
 				
 				cardinality = Math.max( cardinality, src.cardinality ); // Size might change after intersection.

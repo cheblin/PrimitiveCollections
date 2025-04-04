@@ -34,7 +34,9 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.ConcurrentModificationException;
+import java.util.Objects;
 
 /**
  * {@code IntObjectNullMap} is a generic interface for a map that stores key-value pairs
@@ -72,11 +74,11 @@ public interface UIntObjectNullMap {
 		/**
 		 * Array of buckets for the hash table. Each bucket is an index to the first entry in a chain.
 		 */
-		protected       int[]          _buckets;
+		protected       int[]                  _buckets;
 		/**
 		 * Array of 'next' indices for each entry, forming linked lists for collision resolution.
 		 */
-		protected       int[]          nexts;
+		protected       int[]                  nexts;
 		/**
 		 * Array of integer keys.
 		 */
@@ -119,7 +121,7 @@ public interface UIntObjectNullMap {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-         * Represents an invalid token, indicating that a key is not found or a token is invalid. Value is -1.
+		 * Represents an invalid token, indicating that a key is not found or a token is invalid. Value is -1.
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -145,9 +147,10 @@ public interface UIntObjectNullMap {
 		 * @return the number of key-value mappings in this map.
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		/**
@@ -190,6 +193,7 @@ public interface UIntObjectNullMap {
 					hasNullKey :
 					tokenOf( key ) != INVALID_TOKEN;
 		}
+		
 		/**
 		 * Checks if this map contains a mapping for the null key.
 		 *
@@ -198,7 +202,7 @@ public interface UIntObjectNullMap {
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		
-		public V nullKeyValue() { return  nullKeyValue; }
+		public V nullKeyValue() { return nullKeyValue; }
 		
 		
 		/**
@@ -218,12 +222,12 @@ public interface UIntObjectNullMap {
 		
 		/**
 		 * Returns a token associated with the specified boxed Integer key, if present.
-         * A token is a long value that uniquely identifies an entry in the map and includes a version.
-         * Returns {@link #INVALID_TOKEN} (-1) if the key is not found or if the map has been modified since the token was issued.
+		 * A token is a long value that uniquely identifies an entry in the map and includes a version.
+		 * Returns {@link #INVALID_TOKEN} (-1) if the key is not found or if the map has been modified since the token was issued.
 		 * Handles null keys.
 		 *
 		 * @param key The key for which to retrieve the token.
-         * @return The token associated with the key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
+		 * @return The token associated with the key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
 		 */
 		public long tokenOf(  Long      key ) {
 			return key == null ?
@@ -235,11 +239,11 @@ public interface UIntObjectNullMap {
 		
 		/**
 		 * Returns a token associated with the specified primitive integer key, if present.
-         * A token is a long value that uniquely identifies an entry in the map and includes a version.
-         * Returns {@link #INVALID_TOKEN} (-1) if the key is not found or if the map has been modified since the token was issued.
+		 * A token is a long value that uniquely identifies an entry in the map and includes a version.
+		 * Returns {@link #INVALID_TOKEN} (-1) if the key is not found or if the map has been modified since the token was issued.
 		 *
 		 * @param key The key for which to retrieve the token.
-         * @return The token associated with the key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
+		 * @return The token associated with the key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
 		 */
 		public long tokenOf( long key ) {
 			if( _buckets == null ) return INVALID_TOKEN; // Map is not initialized, no buckets exist
@@ -260,9 +264,9 @@ public interface UIntObjectNullMap {
 		/**
 		 * Returns a token for the first entry in the map.
 		 * This can be used to iterate through the map using {@link #token(long)}.
-         * Returns {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * Returns {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 *
-         * @return A token for the first entry, or {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * @return A token for the first entry, or {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -276,13 +280,13 @@ public interface UIntObjectNullMap {
 		/**
 		 * Returns a token for the next entry in the map after the entry represented by the given token.
 		 * This is used for iteration.
-         * Returns {@link #INVALID_TOKEN} (-1) if there are no more entries after the current one or if the token is invalid due to map modification.
+		 * Returns {@link #INVALID_TOKEN} (-1) if there are no more entries after the current one or if the token is invalid due to map modification.
 		 *
 		 * @param token The token of the current entry.
-         * @return A token for the next entry, or {@link #INVALID_TOKEN} (-1) if no more entries exist or the token is invalid.
+		 * @return A token for the next entry, or {@link #INVALID_TOKEN} (-1) if no more entries exist or the token is invalid.
 		 */
 		public long token( final long token ) {
-            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( nexts[ i ] >= -1 ) return token( i ); // Find the next valid entry after the current index
 			return hasNullKey && index( token ) < _count ?
@@ -290,6 +294,7 @@ public interface UIntObjectNullMap {
 					// If no more regular entries, check for null key (if current token is not for null key)
 					INVALID_TOKEN;      // No more entries
 		}
+		
 		/**
 		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
 		 * skipping concurrency and modification checks.
@@ -309,28 +314,29 @@ public interface UIntObjectNullMap {
 		 * @see #nullKeyValue() To get the null key’s value.
 		 */
 		public int unsafe_token( final int token ) {
-			for( int i =  token  + 1; i < _count; i++ )
+			for( int i = token + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return i;
 			return -1;
 		}
+		
 		/**
 		 * Checks if the entry associated with the given token represents the null key entry.
 		 *
 		 * @param token The token to check.
 		 * @return {@code true} if the token corresponds to the null key, {@code false} otherwise.
 		 */
-        boolean isKeyNull( long token ) { return index( token ) == _count; }
+		boolean isKeyNull( long token ) { return index( token ) == _count; }
 		
 		/**
 		 * Returns the primitive integer key associated with the given token.
 		 *
 		 * @param token The token for which to retrieve the key.
-         * @return The integer key associated with the token, or 0 if the token corresponds to the null key.
+		 * @return The integer key associated with the token, or 0 if the token corresponds to the null key.
 		 */
 		public long key( long token ) {
-				return   ( hasNullKey && index( token ) == _count ?
-						0 :
-						keys[ index( token ) ] ); // Return the actual key from the keys array
+			return   ( hasNullKey && index( token ) == _count ?
+					0 :
+					keys[ index( token ) ] ); // Return the actual key from the keys array
 		}
 		
 		/**
@@ -341,10 +347,10 @@ public interface UIntObjectNullMap {
 		 * @return {@code true} if the entry has a non-null value, {@code false} if it has a null value.
 		 */
 		public boolean hasValue( long token ) {
-				return index( token ) == _count ?
-						nullKeyValue != null :
-						// For null key entry, check if nullKeyValue is not null
-						values.hasValue( index( token ) ); // For regular entries, use ObjectNullList's hasValue
+			return index( token ) == _count ?
+					nullKeyValue != null :
+					// For null key entry, check if nullKeyValue is not null
+					values.hasValue( index( token ) ); // For regular entries, use ObjectNullList's hasValue
 		}
 		
 		/**
@@ -354,10 +360,10 @@ public interface UIntObjectNullMap {
 		 * @return The value associated with the token.
 		 */
 		public V value( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						nullKeyValue :
-						// Return nullKeyValue if it's the null key entry
-						values.get( index( token ) ); // Return the value from the values list
+			return hasNullKey && index( token ) == _count ?
+					nullKeyValue :
+					// Return nullKeyValue if it's the null key entry
+					values.get( index( token ) ); // Return the value from the values list
 		}
 		
 		/**
@@ -426,7 +432,9 @@ public interface UIntObjectNullMap {
 						                              // Use seed for null value hash to differentiate from hash(null)
 						                              equal_hash_V.hashCode( value( token ) ) ) ); // Mix with value hash
 				h = Array.finalizeHash( h, 2 ); // Finalize hash for the entry
-				a += h; b ^= h; c *= h | 1; // Accumulate hash components
+				a += h;
+				b ^= h;
+				c *= h | 1; // Accumulate hash components
 			}
 			if( hasNullKey ) {
 				int h = Array.hash( seed ); // Start hash for null key entry with seed
@@ -435,7 +443,9 @@ public interface UIntObjectNullMap {
 						                              // Hash null key value
 						                              seed ) ); // Use seed if nullKeyValue is null
 				h = Array.finalizeHash( h, 2 ); // Finalize hash for null key entry
-				a += h; b ^= h; c *= h | 1; // Accumulate hash components
+				a += h;
+				b ^= h;
+				c *= h | 1; // Accumulate hash components
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() ); // Finalize hash for the entire map
 		}
@@ -471,10 +481,10 @@ public interface UIntObjectNullMap {
 			    ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) || // Null key value equality check
 			    size() != other.size() ) return false; // Size check
 			
-			// Compare key-value mappings for regular entries
-			for( long token = token(), t; index( token ) < _count; token = token( token ) )
-				if( ( t = other.tokenOf( key( token ) ) ) == INVALID_TOKEN || // Check if key exists in the other map
-				    !Objects.equals( value( token ), other.value( t ) ) ) return false; // Value equality check
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
+				long t = other.tokenOf( key( token ) );
+				if( t == INVALID_TOKEN || !Objects.equals( value( token ), other.value( t ) ) ) return false;
+			}
 			return true; // All key-value pairs are equal
 		}
 		
@@ -603,139 +613,12 @@ public interface UIntObjectNullMap {
 		
 		
 		/**
-		 * Associates the specified value with the specified boxed Integer key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * Handles null keys.
-		 *
-		 * @param key   The key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
-		 */
-		public V put(  Long      key, V value ) {
-			long token = tokenOf( key ); // Check if the key already exists
-			V ret = token == INVALID_TOKEN ?
-					null :
-					// Key not found, so no previous value
-					value( token ); // Key found, get the previous value
-			
-			if( key == null )
-				tryInsert( value, 1 ); // Insert or update value for null key
-			else
-				tryInsert( key, value, 1 ); // Insert or update value for non-null key
-			
-			return ret; // Return the previous value (or null if no previous mapping)
-		}
-		
-		/**
-		 * Associates the specified value with the null key in this map.
-		 * If the map previously contained a mapping for the null key, the old value is replaced.
-		 *
-		 * @param value The value to be associated with the null key.
-		 * @return The previous value associated with the null key, or {@code null} if there was no mapping for the null key.
-		 */
-		public V put( V value ) {
-			long token = tokenOf( null ); // Check if null key already exists
-			V ret = token == INVALID_TOKEN ?
-					null :
-					// Null key not found, so no previous value
-					value( token ); // Null key found, get the previous value
-			
-			tryInsert( value, 1 ); // Insert or update value for null key
-			return ret; // Return the previous value (or null if no previous mapping)
-		}
-		
-		/**
-		 * Associates the specified value with the specified primitive integer key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 *
-		 * @param key   The key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
-		 */
-		public V put( long key, V value ) {
-			long token = tokenOf( key ); // Check if the key already exists
-			V ret = token == INVALID_TOKEN ?
-					null :
-					// Key not found, so no previous value
-					value( token ); // Key found, get the previous value
-			tryInsert( key, value, 1 ); // Insert or update value for the key
-			return ret; // Return the previous value (or null if no previous mapping)
-		}
-		
-		/**
-		 * Associates the specified value with the specified boxed Integer key in this map only if the key is not already present.
-		 * Handles null keys.
-		 *
-		 * @param key   The key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @return {@code true} if a new mapping was added, {@code false} if the key was already present.
-		 */
-		public boolean putNotExist(  Long      key, V value ) {
-			return key == null ?
-					tryInsert( value, 2 ) :
-					// Try to insert value for null key if not exists
-					tryInsert( key, value, 2 ); // Try to insert value for non-null key if not exists
-		}
-		
-		/**
-		 * Associates the specified value with the null key in this map only if the null key is not already present.
-		 *
-		 * @param value The value to be associated with the null key.
-		 * @return {@code true} if a new mapping was added, {@code false} if the null key was already present.
-		 */
-		public boolean putNotExist( V value ) { return tryInsert( value, 2 ); }
-		
-		/**
-		 * Associates the specified value with the specified primitive integer key in this map only if the key is not already present.
-		 *
-		 * @param key   The key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @return {@code true} if a new mapping was added, {@code false} if the key was already present.
-		 */
-		public boolean putNotExist( long key, V value ) { return tryInsert( key, value, 2 ); }
-		
-		/**
-		 * Associates the specified value with the specified boxed Integer key in this map.
-		 * If the map already contains a mapping for this key, it throws an {@link IllegalArgumentException}.
-		 * Handles null keys.
-		 *
-		 * @param key   The key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @throws IllegalArgumentException if the map already contains a mapping for the specified key.
-		 */
-		public void putTry(  Long      key, V value ) {
-			if( key == null )
-				tryInsert( value, 0 ); // Try to insert value for null key, throw exception if exists
-			else
-				tryInsert( key, value, 0 ); // Try to insert value for non-null key, throw exception if exists
-		}
-		
-		/**
-		 * Associates the specified value with the specified primitive integer key in this map.
-		 * If the map already contains a mapping for this key, it throws an {@link IllegalArgumentException}.
-		 *
-		 * @param key   The key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @throws IllegalArgumentException if the map already contains a mapping for the specified key.
-		 */
-		public void putTry( long key, V value ) { tryInsert( key, value, 0 ); }
-		
-		/**
-		 * Associates the specified value with the null key in this map.
-		 * If the map already contains a mapping for the null key, it throws an {@link IllegalArgumentException}.
-		 *
-		 * @param value The value to be associated with the null key.
-		 * @throws IllegalArgumentException if the map already contains a mapping for the null key.
-		 */
-		public void putTry( V value ) { tryInsert( value, 0 ); }
-		
-		/**
 		 * Removes all of the mappings from this map.
 		 * The map will be empty after this call.
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return; // Map is already empty
-			Arrays.fill( _buckets,  0 ); // Clear buckets array
+			Arrays.fill( _buckets, 0 ); // Clear buckets array
 			Arrays.fill( nexts, 0, _count, ( int ) 0 ); // Clear nexts array
 			Arrays.fill( keys, 0, _count, ( int ) 0 ); // Clear keys array
 			values.clear(); // Clear values list
@@ -797,7 +680,7 @@ public interface UIntObjectNullMap {
 					// Step 1: Unlink the entry at 'i' from its chain
 					if( last < 0 )
 						// If 'i' is the head, update bucket to point to the next entry
-						_buckets[ bucketIndex ] =  ( next + 1 );
+						_buckets[ bucketIndex ] = ( next + 1 );
 					
 					else
 						// Otherwise, link the previous entry to the next, bypassing 'i'
@@ -813,7 +696,7 @@ public interface UIntObjectNullMap {
 						// Step 2a: Copy key, next, and value from lastNonNullValue to i
 						int   keyToMove          = keys[ lastNonNullValue ];
 						int           BucketOf_KeyToMove = bucketIndex( Array.hash( keyToMove ) );
-						int   _next              = nexts[ lastNonNullValue ];
+						int           _next              = nexts[ lastNonNullValue ];
 						
 						keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
 						nexts[ i ] = _next;         // Copy the next to the entry being removed
@@ -827,7 +710,7 @@ public interface UIntObjectNullMap {
 						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
 							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 						
-						_buckets[ BucketOf_KeyToMove ] =  ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+						_buckets[ BucketOf_KeyToMove ] = ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
 						
 						if( -1 < prev ) nexts[ prev ] = _next; // Update next pointer of the previous entry
 						
@@ -893,7 +776,7 @@ public interface UIntObjectNullMap {
 			int new_size        = Array.prime( capacity ); // Calculate new prime size
 			if( currentCapacity <= new_size ) return; // No need to trim if current capacity is already smaller or equal
 			
-			int[]          old_next   = nexts; // Store old arrays for copying
+			int[]                  old_next   = nexts; // Store old arrays for copying
 			int[]          old_keys   = keys;
 			ObjectNullList.RW< V > old_values = values.clone(); // Clone old values list
 			int                    old_count  = _count; // Store old count
@@ -903,23 +786,29 @@ public interface UIntObjectNullMap {
 		}
 		
 		/**
-		 * Tries to insert a value associated with the null key.
+		 * Associates the specified value with the specified boxed Integer key in this map.
+		 * If the map previously contained a mapping for the key, the old value is replaced.
+		 * Handles null keys.
 		 *
-		 * @param value    The value to insert.
-		 * @param behavior 0: throw exception if key exists, 1: update if key exists, 2: return false if key exists.
-		 * @return {@code true} if insertion was successful or value updated, {@code false} if insertion was not performed due to existing key and behavior 2.
-		 * @throws IllegalArgumentException if key exists and behavior is 0.
+		 * @param key   The key with which the specified value is to be associated.
+		 * @param value The value to be associated with the specified key.
 		 */
-		private boolean tryInsert( V value, int behavior ) {
-			if( hasNullKey )
-				switch( behavior ) {
-					case 1: // Update existing
-						break;
-					case 0: // Throw exception if exists
-						throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
-					default: // Do not insert if exists
-						return false;
-				}
+		public boolean put(  Long      key, V value ) {
+			return key == null ?
+					put( value ) :
+					put( key, value ); // Insert or update value for null key
+			
+		}
+		
+		
+		/**
+		 * Associates the specified value with the null key in this map.
+		 * If the map previously contained a mapping for the null key, the old value is replaced.
+		 *
+		 * @param value The value to be associated with the null key.
+		 */
+		public boolean put( V value ) {
+			boolean b = !hasNullKey;
 			hasNullKey   = true; // Set null key flag
 			nullKeyValue = value; // Set null key value
 			_version++; // Increment version
@@ -927,38 +816,29 @@ public interface UIntObjectNullMap {
 		}
 		
 		/**
-		 * Tries to insert a key-value pair into the map.
-		 * Handles resizing and collision resolution.
+		 * Associates the specified value with the specified primitive integer key in this map.
+		 * If the map previously contained a mapping for the key, the old value is replaced.
 		 *
-		 * @param key      The key to insert.
-		 * @param value    The value to associate with the key.
-		 * @param behavior 0: throw exception if key exists, 1: update if key exists, 2: return false if key exists.
-		 * @return {@code true} if insertion was successful or value updated, {@code false} if insertion was not performed due to existing key and behavior 2.
-		 * @throws IllegalArgumentException        if key exists and behavior is 0.
-		 * @throws ConcurrentModificationException if concurrent operations are detected.
+		 * @param key   The key with which the specified value is to be associated.
+		 * @param value The value to be associated with the specified key.
 		 */
-		private boolean tryInsert( long key, V value, int behavior ) {
+		public boolean put( long key, V value ) {
 			
-			if( _buckets == null ) initialize( 0 ); // Initialize if not yet initialized
+			if( _buckets == null ) initialize( 7 ); // Initialize if not yet initialized
 			int[] _nexts         = nexts; // Get nexts array
-			int           hash           = Array.hash( key ); // Hash the key
-			int           collisionCount = 0; // Collision counter
-			int           bucketIndex    = bucketIndex( hash ); // Get bucket index
-			int           bucket         = _buckets[ bucketIndex ] - 1; // Get head of chain (0-based index)
+			int   hash           = Array.hash( key ); // Hash the key
+			int   collisionCount = 0; // Collision counter
+			int   bucketIndex    = bucketIndex( hash ); // Get bucket index
+			int   bucket         = _buckets[ bucketIndex ] - 1; // Get head of chain (0-based index)
 			
 			// Traverse the chain to check for existing key
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key )
-					switch( behavior ) {
-						case 1: // Update existing value
-							values.set1( next, value ); // Set new value
-							_version++; // Increment version
-							return true; // Update successful
-						case 0: // Throw exception if exists
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default: // Do not insert if exists
-							return false; // Insertion not performed
-					}
+				if( keys[ next ] == key ) {
+					values.set1( next, value ); // Set new value
+					_version++; // Increment version
+					return false; // Update successful
+				}
+				
 				next = _nexts[ next ]; // Move to next entry in chain
 				if( _nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." ); // Detect concurrent modification
@@ -981,7 +861,7 @@ public interface UIntObjectNullMap {
 			nexts[ index ] = ( int ) bucket; // Set next pointer for new entry
 			keys[ index ]  = ( int ) key; // Set key for new entry
 			values.set1( index, value ); // Set value for new entry
-			_buckets[ bucketIndex ] =   index + 1; // Update bucket to point to the new entry (1-based)
+			_buckets[ bucketIndex ] = index + 1; // Update bucket to point to the new entry (1-based)
 			_version++; // Increment version
 			
 			return true; // Insertion successful
@@ -996,23 +876,20 @@ public interface UIntObjectNullMap {
 		private void resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 ); // Limit max size to avoid potential issues
 			_version++; // Increment version before resize
-			int[]          new_next   = Arrays.copyOf( nexts, newSize ); // Create new nexts array
-			int[]          new_keys   = Arrays.copyOf( keys, newSize ); // Create new keys array
-			ObjectNullList.RW< V > new_values = values.clone(); // Clone values list
-			new_values.length( newSize ); // Adjust capacity of values list
-			final int count = _count; // Store current count
+			int[]         new_next = Arrays.copyOf( nexts, newSize ); // Create new nexts array
+			int[] new_keys = Arrays.copyOf( keys, newSize ); // Create new keys array
+			final int     count    = _count; // Store current count
 			
 			_buckets = new int[ newSize ]; // Create new buckets array
 			for( int i = 0; i < count; i++ )
 				if( -2 < new_next[ i ] ) { // Process only valid (non-free) entries
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Recalculate bucket index for the key
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Link current entry to the head of the new bucket chain
-					_buckets[ bucketIndex ] =  ( i + 1 ); // Update bucket head to point to the current entry (1-based)
+					_buckets[ bucketIndex ] = ( i + 1 ); // Update bucket head to point to the current entry (1-based)
 				}
 			
-			nexts  = new_next; // Replace old arrays with new ones
-			keys   = new_keys;
-			values = new_values;
+			nexts = new_next; // Replace old arrays with new ones
+			keys  = new_keys;
 		}
 		
 		/**
@@ -1022,7 +899,7 @@ public interface UIntObjectNullMap {
 		 * @return The initialized capacity.
 		 */
 		private int initialize( int capacity ) {
-			capacity  = Array.prime( capacity ); // Get the next prime number for capacity
+			_version++;
 			_buckets  = new int[ capacity ]; // Initialize buckets array
 			nexts     = new int[ capacity ]; // Initialize nexts array
 			keys      = new int[ capacity ]; // Initialize keys array
@@ -1044,12 +921,11 @@ public interface UIntObjectNullMap {
 			int new_count = 0; // Counter for new entry index
 			for( int i = 0; i < old_count; i++ ) {
 				if( old_next[ i ] < -1 ) continue; // Skip free/invalid entries
-				nexts[ new_count ] = old_next[ i ]; // Copy next pointer
-				keys[ new_count ]  = old_keys[ i ]; // Copy key
+				keys[ new_count ] = old_keys[ i ]; // Copy key
 				values.set1( new_count, old_values.get( i ) ); // Copy value
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Recalculate bucket index in new buckets array
 				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Link to the head of the new bucket chain
-				_buckets[ bucketIndex ] =  ( new_count + 1 ); // Update bucket head to point to the new entry (1-based)
+				_buckets[ bucketIndex ] = ( new_count + 1 ); // Update bucket head to point to the new entry (1-based)
 				new_count++; // Increment new entry count
 			}
 			_count     = new_count; // Update total entry count

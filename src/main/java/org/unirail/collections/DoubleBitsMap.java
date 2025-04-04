@@ -51,8 +51,8 @@ public interface DoubleBitsMap {
 	abstract class R implements Cloneable, JsonWriter.Source {
 		protected boolean       hasNullKey;          // Indicates if the map contains a null key.
 		protected byte          nullKeyValue;        // Value for the null key, stored separately.
-		protected int[] _buckets;            // Hash table buckets array (1-based indices to chain heads).
-		protected int[] nexts;          // Packed entries: hashCode (upper 32 bits) | next index (lower 32 bits).
+		protected int[]         _buckets;            // Hash table buckets array (1-based indices to chain heads).
+		protected int[]         nexts;          // Packed entries: hashCode (upper 32 bits) | next index (lower 32 bits).
 		protected double[] keys = Array.EqualHashOf.doubles     .O; // Keys array.
 		protected BitsList.RW   values;              // Values array.
 		protected int           _count;              // Total number of entries in arrays (including free slots).
@@ -64,7 +64,7 @@ public interface DoubleBitsMap {
 		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL; // Mask for index in token.
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
 		
-        protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
+		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
 		/**
 		 * Checks if the map is empty.
@@ -81,12 +81,13 @@ public interface DoubleBitsMap {
 		 * @return The total number of mappings, including null key if present.
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
-        public int count() { return size(); }
+		public int count() { return size(); }
 		
 		/**
 		 * Returns the allocated capacity of the internal arrays.
@@ -117,9 +118,7 @@ public interface DoubleBitsMap {
 		 * @param key The primitive int key.
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains( double key ) {
-			return tokenOf( key ) != INVALID_TOKEN;
-		}
+		public boolean contains( double key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.
@@ -127,13 +126,13 @@ public interface DoubleBitsMap {
 		 * @param value The value to search for.
 		 * @return True if the value exists in the map.
 		 */
-        public boolean containsValue(long value) { return _count != 0 || hasNullKey && values.contains(value); }
+		public boolean containsValue( long value ) { return _count != 0 || hasNullKey && values.contains( value ); }
 		
 		/**
 		 * Returns a token for the specified key (boxed Integer).
 		 *
-         * @param key The key to find (can be null).
-         * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
+		 * @param key The key to find (can be null).
+		 * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
 		 */
 		public long tokenOf(  Double    key ) {
 			return key == null ?
@@ -147,7 +146,7 @@ public interface DoubleBitsMap {
 		 * Returns a token for the specified primitive key.
 		 *
 		 * @param key The primitive int key.
-         * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
+		 * @return A token representing the key's location if found, or {@link #INVALID_TOKEN} (-1) if the key is not present.
 		 */
 		public long tokenOf( double key ) {
 			if( _buckets == null ) return INVALID_TOKEN;
@@ -166,7 +165,7 @@ public interface DoubleBitsMap {
 		/**
 		 * Returns the initial token for iteration.
 		 *
-         * @return The first valid token to begin iteration, or {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * @return The first valid token to begin iteration, or {@link #INVALID_TOKEN} (-1) if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -180,14 +179,17 @@ public interface DoubleBitsMap {
 		 * Returns the next token in iteration.
 		 *
 		 * @param token The current token.
-         * @return The next valid token for iteration, or {@link #INVALID_TOKEN} (-1) if there are no more entries or if the map was modified since the token was obtained.
+		 * @return The next valid token for iteration, or {@link #INVALID_TOKEN} (-1) if there are no more entries or if the map was modified since the token was obtained.
 		 */
 		public long token( final long token ) {
-            if (token == INVALID_TOKEN || version(token) != _version) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
-            return hasNullKey && index(token) < _count ? token(_count) : INVALID_TOKEN;
+			return hasNullKey && index( token ) < _count ?
+					token( _count ) :
+					INVALID_TOKEN;
 		}
+		
 		/**
 		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
 		 * skipping concurrency and modification checks.
@@ -207,7 +209,7 @@ public interface DoubleBitsMap {
 		 * @see #nullKeyValue() To get the null key’s value.
 		 */
 		public int unsafe_token( final int token ) {
-			for( int i =  token  + 1; i < _count; i++ )
+			for( int i = token + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return i;
 			return -1;
 		}
@@ -223,23 +225,22 @@ public interface DoubleBitsMap {
 		
 		public double nullKeyValue() { return  nullKeyValue; }
 		
-	
 		
 		/**
 		 * Checks if the map contains a key associated with the given token.
 		 *
 		 * @param token The token to check.
-         * @return True if a key is associated with the token, false if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
+		 * @return True if a key is associated with the token, false if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
 		 */
 		public boolean hasKey( long token ) {
-            return  (index(token) < _count || hasNullKey);
+			return ( index( token ) < _count || hasNullKey );
 		}
 		
 		/**
 		 * Retrieves the key associated with a token.
 		 *
 		 * @param token The token representing the key-value pair.
-         * @return The integer key associated with the token, or undefined behavior if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
+		 * @return The integer key associated with the token, or undefined behavior if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
 		 */
 		public double key( long token ) { return   keys[ index( token ) ]; }
 		
@@ -247,12 +248,12 @@ public interface DoubleBitsMap {
 		 * Retrieves the value associated with a token.
 		 *
 		 * @param token The token representing the key-value pair.
-         * @return The byte value associated with the token, or undefined behavior if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
+		 * @return The byte value associated with the token, or undefined behavior if the token is {@link #INVALID_TOKEN} (-1) or invalid due to map modifications.
 		 */
 		public byte value( long token ) {
-				return index( token ) == _count ?
-						nullKeyValue :
-						values.get( index( token ) ); // Handle null key value.
+			return index( token ) == _count ?
+					nullKeyValue :
+					values.get( index( token ) );
 		}
 		
 		/**
@@ -331,13 +332,8 @@ public interface DoubleBitsMap {
 			return null;
 		}
 		
-		public String toString() {
-			return toJSON();
-		}
+		public String toString() { return toJSON(); }
 		
-		public String toJSON() {
-			return JsonWriter.Source.super.toJSON();
-		}
 		
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 );
@@ -345,8 +341,8 @@ public interface DoubleBitsMap {
 			
 			if( hasNullKey ) json.name( "null" ).value( nullKeyValue ); // Represent null key explicitly in JSON
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) )
-			     json.name( String.valueOf( keys[ index( token ) ] ) ).value( value( token ) );
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
+			     json.name( String.valueOf( keys[ token ] ) ).value( value( token ) );
 			
 			json.exitObject();
 		}
@@ -354,11 +350,11 @@ public interface DoubleBitsMap {
 		// Helper methods
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
-        protected long token(int index) { return (long) _version << VERSION_SHIFT | index & INDEX_MASK; }
+		protected long token( int index )   { return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK; }
 		
-        protected int index(long token) { return (int) (token & INDEX_MASK); }
+		protected int index( long token )   { return ( int ) ( token & INDEX_MASK ); }
 		
-		protected int version( long token ) {			return ( int ) ( token >>> VERSION_SHIFT );		}
+		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 	}
 	
 	/**
@@ -404,7 +400,7 @@ public interface DoubleBitsMap {
 		 * @return The actual capacity after adjusting to a prime number.
 		 */
 		private int initialize( int capacity ) {
-			capacity  = Array.prime( capacity );
+			_version++;
 			_buckets  = new int[ capacity ];
 			nexts     = new int[ capacity ];
 			keys      = new double[ capacity ];
@@ -422,9 +418,10 @@ public interface DoubleBitsMap {
 		 */
 		public boolean put(  Double    key, long value ) {
 			return key == null ?
-					tryInsert( value, 1 ) :
-					tryInsert( key, value, 1 );
+					put( value ) :
+					put( key, value );
 		}
+		
 		
 		/**
 		 * Associates a value with a primitive key.
@@ -435,120 +432,20 @@ public interface DoubleBitsMap {
 		 * @return True if the map was modified structurally (key was newly inserted or value was updated), false otherwise.
 		 */
 		public boolean put( double key, long value ) {
-			return tryInsert( key, value, 1 );
-		}
-		
-		/**
-		 * Associates a value with the null key.
-		 * If the null key already exists, the value is updated.
-		 *
-		 * @param value The value to be associated with the null key.
-		 * @return True if the map was modified structurally (null key was newly inserted or value was updated), false otherwise.
-		 */
-		public boolean put( long value ) {
-			return tryInsert( value, 1 );
-		}
-		
-		/**
-		 * Inserts a key-value pair only if the key doesn’t already exist in the map.
-		 *
-		 * @param key   The key to insert.
-		 * @param value The value to associate with the key.
-		 * @return True if the key-value pair was inserted because the key did not exist, false if the key already existed.
-		 */
-		public boolean putNotExist( double key, long value ) {
-			return tryInsert( key, value, 2 );
-		}
-		
-		/**
-		 * Inserts a key-value pair only if the key doesn’t already exist in the map (boxed Integer key).
-		 *
-		 * @param key   The key to insert (boxed Integer, can be null).
-		 * @param value The value to associate with the key.
-		 * @return True if the key-value pair was inserted, false if the key already existed.
-		 */
-		public boolean putNotExist(  Double    key, long value ) {
-			return key == null ?
-					tryInsert( value, 2 ) :
-					tryInsert( key.doubleValue     (), value, 2 );
-		}
-		
-		/**
-		 * Inserts a value for the null key only if the null key doesn't already exist.
-		 *
-		 * @param value The value to associate with the null key.
-		 * @return True if the null key-value pair was inserted, false if the null key already existed.
-		 */
-		public boolean putNotExist( long value ) {
-			return tryInsert( value, 2 );
-		}
-		
-		/**
-		 * Inserts a key-value pair, throwing an exception if the key already exists.
-		 *
-		 * @param key   The key to insert.
-		 * @param value The value to associate with the key.
-		 * @throws IllegalArgumentException If a mapping for the specified key already exists in the map.
-		 */
-		public void putTry( double key, long value ) {
-			tryInsert( key, value, 0 );
-		}
-		
-		/**
-		 * Inserts a key-value pair (boxed Integer key), throwing an exception if the key already exists.
-		 *
-		 * @param key   The key to insert (boxed Integer, can be null).
-		 * @param value The value to associate with the key.
-		 * @throws IllegalArgumentException If a mapping for the specified key already exists in the map.
-		 */
-		public void putTry(  Double    key, long value ) {
-			if( key == null )
-				tryInsert( value, 0 );
-			else
-				tryInsert( key.doubleValue     (), value, 0 );
-		}
-		
-		/**
-		 * Inserts a value for the null key, throwing an exception if the null key already exists.
-		 *
-		 * @param value The value to associate with the null key.
-		 * @throws IllegalArgumentException If a mapping for the null key already exists in the map.
-		 */
-		public void putTry( long value ) {
-			tryInsert( value, 0 );
-		}
-		
-		/**
-		 * Core insertion logic with behavior control.
-		 * Handles insertion, update, and "put if not exists" semantics for integer keys.
-		 *
-		 * @param key      The primitive key to insert or update.
-		 * @param value    The value to associate with the key.
-		 * @param behavior 0=throw if exists, 1=put (update/insert), 2=put if not exists.
-		 * @return True if the map was structurally modified (insertion or update), false otherwise (only for behavior 2 if key exists).
-		 * @throws IllegalArgumentException        if behavior is 0 and the key already exists.
-		 * @throws ConcurrentModificationException if concurrent modification is detected during collision resolution.
-		 */
-		private boolean tryInsert( double key, long value, int behavior ) {
-			if( _buckets == null ) initialize( 0 );
+			if( _buckets == null ) initialize( 7 );
 			int[] _nexts         = nexts;
-			int           hash           = Array.hash( key );
-			int           collisionCount = 0;
-			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = _buckets[ bucketIndex ] - 1;
+			int   hash           = Array.hash( key );
+			int   collisionCount = 0;
+			int   bucketIndex    = bucketIndex( hash );
+			int   bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key )
-					switch( behavior ) {
-						case 1:
-							values.set1( next, ( byte ) value );
-							_version++;
-							return true;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				if( keys[ next ] == key ) {
+					values.set1( next, ( byte ) value );
+					_version++;
+					return false;
+				}
+				
 				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -571,40 +468,33 @@ public interface DoubleBitsMap {
 			nexts[ index ] = ( int ) bucket;
 			keys[ index ]  = ( double ) key;
 			values.set1( index, ( byte ) value );
-			_buckets[ bucketIndex ] =   index + 1;
+			_buckets[ bucketIndex ] = index + 1;
 			_version++;
 			
 			return true;
 		}
 		
 		/**
-		 * Handles null key insertion.
+		 * Associates a value with the null key.
+		 * If the null key already exists, the value is updated.
 		 *
-		 * @param value    The value for the null key.
-		 * @param behavior 0=throw if exists, 1=put (update/insert), 2=put if not exists.
-		 * @return True if the map was structurally modified (insertion or update), false otherwise (only for behavior 2 if key exists).
-		 * @throws IllegalArgumentException if behavior is 0 and the null key already exists.
+		 * @param value The value to be associated with the null key.
+		 * @return True if the map was modified structurally (null key was newly inserted or value was updated), false otherwise.
 		 */
-		private boolean tryInsert( long value, int behavior ) {
-			if( hasNullKey ) switch( behavior ) {
-				case 1:
-                    break;
-				case 0:
-					throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
-				default:
-					return false;
-			}
+		public boolean put( long value ) {
+			boolean b = !hasNullKey;
+			
 			hasNullKey   = true;
 			nullKeyValue = ( byte ) value;
 			_version++;
-			return true;
+			return b;
 		}
 		
 		/**
 		 * Removes a key-value pair associated with the given key (boxed Integer).
 		 *
 		 * @param key The key to remove (boxed Integer, can be null).
-         * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
+		 * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
 		 */
 		public long remove(  Double    key ) {
 			return key == null ?
@@ -615,20 +505,20 @@ public interface DoubleBitsMap {
 		/**
 		 * Removes the mapping for the null key.
 		 *
-         * @return The token of the removed entry if the null key was found and removed, or {@link #INVALID_TOKEN} (-1) if the null key was not present.
+		 * @return The token of the removed entry if the null key was found and removed, or {@link #INVALID_TOKEN} (-1) if the null key was not present.
 		 */
 		private long removeNullKey() {
 			if( !hasNullKey ) return INVALID_TOKEN;
 			hasNullKey = false;
 			_version++;
-            return token(_count);
+			return token( _count );
 		}
 		
 		/**
 		 * Removes a key-value pair associated with the given primitive key.
 		 *
 		 * @param key The primitive key to remove.
-         * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
+		 * @return The token of the removed entry if the key was found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
 		 * @throws ConcurrentModificationException if concurrent modification is detected during collision resolution.
 		 */
 		public long remove( double key ) {
@@ -643,7 +533,7 @@ public interface DoubleBitsMap {
 			while( -1 < i ) {
 				int next = nexts[ i ];
 				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] =  ( next + 1 ); // Update bucket head if removing the head of the chain
+					if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 ); // Update bucket head if removing the head of the chain
 					else nexts[ last ] = next; // Update the 'next' pointer of the previous entry in the chain
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Mark the removed entry as free and point to the old free list head
 					values.set1( i, values.default_value ); // Reset value to default
@@ -657,7 +547,7 @@ public interface DoubleBitsMap {
 				if( nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-            return INVALID_TOKEN;
+			return INVALID_TOKEN;
 		}
 		
 		/**
@@ -666,7 +556,7 @@ public interface DoubleBitsMap {
 		 */
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets,  0 );
+			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( keys, 0, _count, ( double ) 0 );
 			values.clear();
@@ -700,9 +590,7 @@ public interface DoubleBitsMap {
 		 * Trims the capacity of the map to the current number of entries, effectively reducing memory usage.
 		 * If the current capacity is already at or below the size, no action is taken.
 		 */
-		public void trim() {
-			trim( size() );
-		}
+		public void trim() { trim( size() ); }
 		
 		/**
 		 * Trims the capacity of the map to the specified value, but only if it's not less than the current size.
@@ -717,7 +605,7 @@ public interface DoubleBitsMap {
 			int newSize         = Array.prime( capacity );
 			if( currentCapacity <= newSize ) return;
 			
-			int[] old_next  = nexts;
+			int[]         old_next  = nexts;
 			double[] old_keys  = keys;
 			int           old_count = _count;
 			_version++;
@@ -735,7 +623,7 @@ public interface DoubleBitsMap {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Double   .BYTES * 8 ); // Limit max size to avoid integer overflow
 			_version++; // Increment version before and after array operations for invalidation safety during resize
 			_version++;
-			int[] new_next = Arrays.copyOf( nexts, newSize );
+			int[]         new_next = Arrays.copyOf( nexts, newSize );
 			double[] new_keys = Arrays.copyOf( keys, newSize );
 			final int     count    = _count;
 			
@@ -744,7 +632,7 @@ public interface DoubleBitsMap {
 				if( -2 < new_next[ i ] ) { // Skip free list entries
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Recalculate bucket index in the new bucket array size
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Prepend current entry to the new bucket's chain
-					_buckets[ bucketIndex ] =  ( i + 1 ); // Update bucket head to the current entry's index
+					_buckets[ bucketIndex ] = ( i + 1 ); // Update bucket head to the current entry's index
 				}
 			
 			nexts = new_next; // Replace old arrays with new resized arrays
@@ -763,11 +651,10 @@ public interface DoubleBitsMap {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
 				if( old_next[ i ] < -1 ) continue; // Skip free list entries
-				nexts[ new_count ] = old_next[ i ]; // Copy 'next' value
-				keys[ new_count ]  = old_keys[ i ];  // Copy key
+				keys[ new_count ] = old_keys[ i ];  // Copy key
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Calculate new bucket index for the resized bucket array
 				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Prepend to new bucket chain
-				_buckets[ bucketIndex ] =  ( new_count + 1 ); // Update bucket head
+				_buckets[ bucketIndex ] = ( new_count + 1 ); // Update bucket head
 				new_count++; // Increment count for the new compacted array
 			}
 			_count     = new_count; // Update the main count to reflect only live entries

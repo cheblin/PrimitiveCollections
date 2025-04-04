@@ -201,9 +201,10 @@ public interface ObjectBitsMap {
 		 * @return the number of key-value mappings in this map.
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		/**
@@ -377,13 +378,17 @@ public interface ObjectBitsMap {
 				int h = Array.mix( seed, Array.hash( key( token ) ) ); // Mix seed with key hash
 				h = Array.mix( h, Array.hash( value( token ) ) );     // Mix with value hash
 				h = Array.finalizeHash( h, 2 );                 // Finalize the pair hash
-				a += h; b ^= h; c *= h | 1;                  // Accumulate hash components
+				a += h;
+				b ^= h;
+				c *= h | 1;                  // Accumulate hash components
 			}
 			if( hasNullKey ) { // Include null key entry in hash calculation
 				int h = Array.hash( seed );
 				h = Array.mix( h, Array.hash( nullKeyValue ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() ); // Finalize the map hash
 		}
@@ -629,41 +634,6 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Associates the specified value with the specified key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 *
-		 * @param key   key with which the specified value is to be associated
-		 * @param value value to be associated with the specified key
-		 * @return {@code true} if a new key-value mapping was added, {@code false} if the value for an existing key was updated.
-		 * @throws IllegalArgumentException        if trying to add a duplicate key using {@link #putTry(Object, int)}.
-		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
-		 */
-		public boolean put( K key, int value ) { return tryInsert( key, value, 1 ); }
-		
-		/**
-		 * Associates the specified value with the specified key in this map only if the key is not already present.
-		 *
-		 * @param key   key with which the specified value is to be associated
-		 * @param value value to be associated with the specified key
-		 * @return {@code true} if a new key-value mapping was added, {@code false} if the key was already present.
-		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
-		 */
-		public boolean putNotExist( K key, int value ) { return tryInsert( key, value, 2 ); }
-		
-		/**
-		 * Associates the specified value with the specified key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * <p>
-		 * Throws {@link IllegalArgumentException} if a key already exists, unlike {@link #put(Object, int)} which overwrites.
-		 *
-		 * @param key   key with which the specified value is to be associated
-		 * @param value value to be associated with the specified key
-		 * @throws IllegalArgumentException        if an item with the same key already exists.
-		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
-		 */
-		public void putTry( K key, int value ) { tryInsert( key, value, 0 ); }
-		
-		/**
 		 * Removes all of the mappings from this map. The map will be empty after this call.
 		 */
 		public void clear() {
@@ -733,7 +703,6 @@ public interface ObjectBitsMap {
 		 * @throws IllegalArgumentException if capacity is negative.
 		 */
 		public int ensureCapacity( int capacity ) {
-			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
 			int currentCapacity = length();
 			if( capacity <= currentCapacity ) return currentCapacity; // Already sufficient capacity
 			_version++; // Increment version as structural change is about to occur
@@ -759,7 +728,6 @@ public interface ObjectBitsMap {
 		 * @throws IllegalArgumentException if capacity is less than the current count.
 		 */
 		public void trim( int capacity ) {
-			if( capacity < count() ) throw new IllegalArgumentException( "capacity is less than Count." );
 			int currentCapacity = length();
 			int new_size        = Array.prime( capacity ); // Get next prime size for capacity
 			if( currentCapacity <= new_size ) return; // No need to trim if current capacity is already smaller or equal
@@ -774,37 +742,24 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Attempts to insert a key-value pair into the map.
-		 * Handles different insertion behaviors:
-		 * 0: Throw exception if key exists.
-		 * 1: Update value if key exists, insert if not.
-		 * 2: Insert only if key does not exist.
+		 * Associates the specified value with the specified key in this map.
+		 * If the map previously contained a mapping for the key, the old value is replaced.
 		 *
-		 * @param key      the key to insert
-		 * @param value    the value to associate with the key
-		 * @param behavior insertion behavior code (0, 1, or 2)
-		 * @return {@code true} if insertion was successful (or value updated), {@code false} if insertion was skipped due to behavior 2 and existing key.
-		 * @throws IllegalArgumentException        if behavior is 0 and key already exists.
+		 * @param key   key with which the specified value is to be associated
+		 * @param value value to be associated with the specified key
+		 * @return {@code true} if a new key-value mapping was added, {@code false} if the value for an existing key was updated.
 		 * @throws ConcurrentModificationException if concurrent modifications are detected during hash traversal.
 		 */
-		private boolean tryInsert( K key, int value, int behavior ) {
+		public boolean put( K key, int value ) {
 			if( key == null ) { // Handle null key insertion
-				if( hasNullKey ) // Null key already exists
-					switch( behavior ) {
-						case 1:
-							break; // Update existing null key value
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key ); // Throw exception as requested
-						default:
-							return false; // Do not insert (behavior 2)
-					}
+				boolean b = !hasNullKey;
 				hasNullKey   = true;              // Set null key flag
 				nullKeyValue = ( byte ) value; // Store null key value
 				_version++;                     // Increment version
-				return true;                     // Insertion successful (or update)
+				return b;                     // Insertion successful (or update)
 			}
 			
-			if( _buckets == null ) initialize( 0 ); // Initialize hash table if not yet initialized
+			if( _buckets == null ) initialize( 7 ); // Initialize hash table if not yet initialized
 			long[] _hash_nexts    = hash_nexts;
 			int    hash           = equal_hash_K.hashCode( key );
 			int    collisionCount = 0;
@@ -813,16 +768,12 @@ public interface ObjectBitsMap {
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _hash_nexts.length; ) { // Traverse collision chain
 				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) ) // Key already exists
-					switch( behavior ) {
-						case 1:
-							values.set1( next, ( byte ) value ); // Update existing value
-							_version++;                     // Increment version
-							return true;                     // Value updated
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key ); // Throw exception as requested
-						default:
-							return false; // Do not insert (behavior 2)
-					}
+				{
+					values.set1( next, ( byte ) value ); // Update existing value
+					_version++;                     // Increment version
+					return false;                     // Value updated
+				}
+				
 				next = next( _hash_nexts[ next ] ); // Move to the next entry in the chain
 				if( _hash_nexts.length < collisionCount++ ) // Detect potential infinite loop due to concurrent modification
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -892,7 +843,7 @@ public interface ObjectBitsMap {
 		 * @return the prime number capacity that was actually used for initialization.
 		 */
 		private int initialize( int capacity ) {
-			capacity   = Array.prime( capacity ); // Get the next prime number for capacity
+			_version++;
 			_buckets   = new int[ capacity ];     // Initialize buckets array
 			hash_nexts = new long[ capacity ];  // Initialize hash_nexts array
 			keys       = equal_hash_K.copyOf( null, capacity ); // Initialize keys array
@@ -911,12 +862,15 @@ public interface ObjectBitsMap {
 		private void copy( long[] old_hash_next, K[] old_keys, BitsList.RW old_values, int old_count ) {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
-				if( next( old_hash_next[ i ] ) < -1 ) continue; // Skip free entries in old table
-				hash_nexts[ new_count ] = old_hash_next[ i ];   // Copy hash_next entry
-				keys[ new_count ]       = old_keys[ i ];             // Copy key
+				final long hn = old_hash_next[ i ];
+				if( next( hn ) < -1 ) continue; // Skip free entries in old table
+				
+				keys[ new_count ] = old_keys[ i ];             // Copy key
 				values.set1( new_count, old_values.get( i ) ); // Copy value from BitsList
-				int bucketIndex = bucketIndex( hash( old_hash_next[ i ] ) ); // Calculate new bucket index
-				next( hash_nexts, new_count, _buckets[ bucketIndex ] - 1 ); // Chain to previous bucket head
+				
+				int bucketIndex = bucketIndex( hash( hn ) ); // Calculate new bucket index
+				hash_nexts[ new_count ] = hn & 0xFFFF_FFFF_0000_0000L | _buckets[ bucketIndex ] - 1; // Chain to previous bucket head
+				
 				_buckets[ bucketIndex ] = new_count + 1;                  // Set new bucket head
 				new_count++;                                            // Increment new entry count
 			}

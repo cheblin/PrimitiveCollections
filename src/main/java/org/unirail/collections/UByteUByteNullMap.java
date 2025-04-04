@@ -479,7 +479,8 @@ public interface UByteUByteNullMap {
 		 * <p>
 		 * If a mapping exists for the key, it is removed.
 		 * <p>
-		 * This method handles removal in both **Compressed (Rank-Based)** and **Flat (One-to-One)** strategies, ensuring consistent behavior regardless of the current strategy.
+		 * This method handles removal in both **Compressed (Rank-Based)** and **Flat (One-to-One)** strategies, ensuring consistent behavior
+		 * regardless of the current strategy.
 		 *
 		 * @param key The primitive {@code byte} key whose mapping is to be removed from the map.
 		 * @return {@code true} if a mapping was removed for the key, {@code false} otherwise.

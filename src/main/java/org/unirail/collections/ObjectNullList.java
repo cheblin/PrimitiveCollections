@@ -342,9 +342,7 @@ public interface ObjectNullList< V > {
 		 * @param value The value to check for.
 		 * @return {@code true} if the value exists, {@code false} otherwise.
 		 */
-		public boolean contains( V value ) {
-			return indexOf( value ) != -1;
-		}
+		public boolean contains( V value ) { return indexOf( value ) != -1; }
 		
 		/**
 		 * Finds the last occurrence of a specified value.
@@ -675,7 +673,10 @@ public interface ObjectNullList< V > {
 		 * @param value The value to append.
 		 * @return This instance for chaining.
 		 */
-		public RW< V > add1( V value ) { set( this, size(), value ); return this; }
+		public RW< V > add1( V value ) {
+			set( this, size(), value );
+			return this;
+		}
 		
 		/**
 		 * Inserts a value at a specific index.

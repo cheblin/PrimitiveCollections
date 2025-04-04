@@ -39,13 +39,13 @@ import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 
 /**
- * {@code IntIntNullMap} is a specialized map interface designed for storing integer keys and integer values.
+ * {@code IntIntNullMap} is a specialized map interface designed for storing primitive keys and primitive values.
  * <p>
- * It provides efficient operations for managing key-value pairs where both keys and values are integers.
+ * It provides efficient operations for managing key-value pairs where both keys and values are primitives.
  * The map supports null keys and utilizes a hash table with separate chaining to resolve hash collisions,
  * ensuring good performance even with a large number of entries.
  * <p>
- * This interface defines the contract for maps that need to handle integer-to-integer mappings with null key support,
+ * This interface defines the contract for maps that need to handle primitive-to-primitive mappings with null key support,
  * offering methods for common map operations like insertion, retrieval, deletion, and checking for existence.
  */
 public interface DoubleFloatNullMap {
@@ -61,68 +61,25 @@ public interface DoubleFloatNullMap {
 	 * and serialized to JSON format, respectively.
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
-		/**
-		 * Indicates whether the map contains a null key.
-		 */
-		protected boolean                hasNullKey;
-		/**
-		 * Indicates whether the null key has an associated value.
-		 */
-		protected boolean                nullKeyHasValue;
-		/**
-		 * Stores the value associated with the null key.
-		 */
-		protected float            nullKeyValue;
-		/**
-		 * Array of buckets for the hash table. Each element is a 1-based index pointing to the head of a collision chain in the {@code nexts} array.
-		 */
-		protected int[]                  _buckets;
-		/**
-		 * Array of next indices for collision chains. Each element points to the next entry in the chain or contains special markers like {@code StartOfFreeList}.
-		 */
-		protected int[]          nexts;
-		/**
-		 * Array of keys. Holds the integer keys for each entry in the map.
-		 */
-		protected double[]          keys = Array.EqualHashOf.doubles     .O;
-		/**
-		 * List of values. Manages integer values and null values, associated with keys in the {@code keys} array.
-		 */
-		protected FloatNullList.RW values;
-		/**
-		 * Total number of entries in the internal arrays, including both active entries and free slots.
-		 */
-		protected int                    _count;
-		/**
-		 * Index of the first entry in the free list. -1 indicates that the free list is empty.
-		 */
-		protected int                    _freeList;
-		/**
-		 * Number of free entries available in the free list.
-		 */
-		protected int                    _freeCount;
-		/**
-		 * Version counter used for detecting concurrent modifications. Incremented on structural changes to the map.
-		 */
-		protected int                    _version;
 		
-		/**
-		 * Constant to mark the start of the free list in the 'next' field.
-		 */
-		protected static final int  StartOfFreeList = -3;
-		/**
-		 * Mask to extract the index from a token.
-		 */
-		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL;
-		/**
-		 * Number of bits to shift the version in a token.
-		 */
-		protected static final int  VERSION_SHIFT   = 32;
+		protected boolean hasNullKey;          // Indicates if the map contains a null key
+		protected boolean nullKeyHasValue;
 		
-		/**
-		 * Constant representing an invalid token, equal to -1.
-		 */
-		protected static final long INVALID_TOKEN = -1L;
+		protected float            nullKeyValue;        // Value for the null key, stored separately.
+		protected int[]                  _buckets;            // Hash table buckets array (1-based indices to chain heads).
+		protected int[]                  nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
+		protected double[]          keys = Array.EqualHashOf.doubles     .O; // Keys array.
+		protected FloatNullList.RW values;             // Values array.
+		protected int                    _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
+		protected int                    _freeList;           // Index of the first entry in the free list (-1 if empty).
+		protected int                    _freeCount;          // Number of free entries in the free list.
+		protected int                    _version;            // Version counter for concurrent modification detection.
+		
+		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
+		protected static final long INDEX_MASK      = 0xFFFF_FFFFL; // Mask for index in token.
+		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
+		protected static final long INVALID_TOKEN   = -1L; // Invalid token constant.
+		
 		
 		/**
 		 * Checks if this map is empty (contains no key-value mappings).
@@ -141,9 +98,10 @@ public interface DoubleFloatNullMap {
 		 * @return the number of key-value mappings in this map.
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		/**
@@ -170,7 +128,7 @@ public interface DoubleFloatNullMap {
 		}
 		
 		/**
-		 * Checks if this map contains a mapping for the specified key (boxed Integer).
+		 * Checks if this map contains a mapping for the specified key (boxed).
 		 *
 		 * @param key the key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
@@ -187,21 +145,19 @@ public interface DoubleFloatNullMap {
 		 * @param key the key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean contains( double key ) {
-			return tokenOf( key ) != INVALID_TOKEN;
-		}
+		public boolean contains( double key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if this map contains the specified value (boxed Integer).
+		 * Checks if this map contains the specified value (boxed).
 		 *
 		 * @param value the value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue(  Float     value ) {
-			if( _count == 0 && !hasNullKey ) return false;
-			return value == null ?
-					!nullKeyHasValue :
-					values.indexOf( value ) != -1;
+			return ( _count != 0 || hasNullKey ) && (
+					value == null ?
+							!nullKeyHasValue :
+							values.indexOf( value ) != -1 );
 		}
 		
 		/**
@@ -210,13 +166,10 @@ public interface DoubleFloatNullMap {
 		 * @param value the value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
 		 */
-		public boolean containsValue( float value ) {
-			if( _count == 0 ) return false;
-			return values.indexOf( value ) != -1;
-		}
+		public boolean containsValue( float value ) { return _count != 0 && values.indexOf( value ) != -1; }
 		
 		/**
-		 * Returns a token associated with the specified key (boxed Integer).
+		 * Returns a token associated with the specified key (boxed).
 		 * <p>
 		 * Tokens are used for efficient iteration and access to map entries.
 		 *
@@ -225,9 +178,9 @@ public interface DoubleFloatNullMap {
 		 */
 		public long tokenOf(  Double    key ) {
 			return key == null ?
-					( hasNullKey ?
+					hasNullKey ?
 							token( _count ) :
-							INVALID_TOKEN ) :
+							INVALID_TOKEN :
 					tokenOf( key.doubleValue     () );
 		}
 		
@@ -284,6 +237,7 @@ public interface DoubleFloatNullMap {
 					token( _count ) :
 					INVALID_TOKEN;
 		}
+		
 		/**
 		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
 		 * skipping concurrency and modification checks.
@@ -304,7 +258,7 @@ public interface DoubleFloatNullMap {
 		 * @see #nullKeyValue() To get the null key’s value.
 		 */
 		public int unsafe_token( final int token ) {
-			for( int i =  token  + 1; i < _count; i++ )
+			for( int i = token + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return i;
 			return -1;
 		}
@@ -348,7 +302,7 @@ public interface DoubleFloatNullMap {
 		 * @param token the token for which to retrieve the key.
 		 * @return the key associated with the token.
 		 */
-		public double key( long token ) { return  ( keys[ index( token ) ] ); }
+		public double key( long token ) { return  keys[ index( token ) ]; }
 		
 		/**
 		 * Returns the value associated with the specified token.
@@ -360,9 +314,10 @@ public interface DoubleFloatNullMap {
 		 * @return the value associated with the token, or 0 if the value is null in null-value context.
 		 */
 		public float value( long token ) {
-			return ( index( token ) == _count ?
-					nullKeyValue :
-					values.get( index( token ) ) );
+			return (
+					index( token ) == _count ?
+							nullKeyValue :
+							values.get( index( token ) ) );
 		}
 		
 		/**
@@ -376,7 +331,7 @@ public interface DoubleFloatNullMap {
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				int h = Array.mix( seed, Array.hash( key( token ) ) );
 				h = Array.mix( h, hasValue( token ) ?
 						Array.hash( value( token ) ) :
@@ -426,14 +381,14 @@ public interface DoubleFloatNullMap {
 		 */
 		public boolean equals( R other ) {
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyValue != other.nullKeyValue ) ) ||
+			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyValue != other.nullKeyValue ) ||
 			    size() != other.size() )
 				return false;
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );
 				if( t == INVALID_TOKEN || hasValue( token ) != other.hasValue( t ) ||
-				    ( hasValue( token ) && value( token ) != other.value( t ) ) )
+				    hasValue( token ) && value( token ) != other.value( t ) )
 					return false;
 			}
 			return true;
@@ -469,19 +424,8 @@ public interface DoubleFloatNullMap {
 		 * @return a JSON string representing this map.
 		 */
 		@Override
-		public String toString() {
-			return toJSON();
-		}
+		public String toString() { return toJSON(); }
 		
-		/**
-		 * Returns a JSON string representation of this map.
-		 *
-		 * @return a JSON string representing this map.
-		 */
-		@Override
-		public String toJSON() {
-			return JsonWriter.Source.super.toJSON();
-		}
 		
 		/**
 		 * Writes this map to a {@code JsonWriter}.
@@ -498,7 +442,7 @@ public interface DoubleFloatNullMap {
 						                   nullKeyValue :
 						                   null );
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) )
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 			     json
 					     .name( String.valueOf( keys[ index( token ) ] ) )
 					     .value( hasValue( token ) ?
@@ -522,9 +466,7 @@ public interface DoubleFloatNullMap {
 		 * @param index the index of the entry.
 		 * @return the created token.
 		 */
-		protected long token( int index ) {
-			return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK;
-		}
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK; }
 		
 		/**
 		 * Extracts the index from a token.
@@ -532,9 +474,7 @@ public interface DoubleFloatNullMap {
 		 * @param token the token.
 		 * @return the index extracted from the token.
 		 */
-		protected int index( long token ) {
-			return ( int ) ( token & INDEX_MASK );
-		}
+		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
 		
 		/**
 		 * Extracts the version from a token.
@@ -542,9 +482,7 @@ public interface DoubleFloatNullMap {
 		 * @param token the token.
 		 * @return the version extracted from the token.
 		 */
-		protected int version( long token ) {
-			return ( int ) ( token >>> VERSION_SHIFT );
-		}
+		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 	}
 	
 	/**
@@ -560,9 +498,7 @@ public interface DoubleFloatNullMap {
 		/**
 		 * Constructs an empty {@code RW} map with the default initial capacity.
 		 */
-		public RW() {
-			this( 0 );
-		}
+		public RW() { this( 0 ); }
 		
 		/**
 		 * Constructs an empty {@code RW} map with the specified initial capacity.
@@ -582,9 +518,7 @@ public interface DoubleFloatNullMap {
 		 *
 		 * @param interleavedBits the threshold value for switching strategies.
 		 */
-		public void flatStrategyThreshold( int interleavedBits ) {
-			values.flatStrategyThreshold = interleavedBits;
-		}
+		public void flatStrategyThreshold( int interleavedBits ) { values.flatStrategyThreshold = interleavedBits; }
 		
 		/**
 		 * Initializes the internal arrays of the map with a given capacity.
@@ -595,7 +529,7 @@ public interface DoubleFloatNullMap {
 		 * @return the initialized capacity (which is a prime number).
 		 */
 		private int initialize( int capacity ) {
-			capacity  = Array.prime( capacity );
+			_version++;
 			_buckets  = new int[ capacity ];
 			nexts     = new int[ capacity ];
 			keys      = new double[ capacity ];
@@ -604,24 +538,40 @@ public interface DoubleFloatNullMap {
 			return capacity;
 		}
 		
+		public boolean put(  Double    key,  Float     value ) {
+			return key == null ?
+					value == null ?
+							put() :
+							putNullKey( value ) :
+					value == null ?
+							putNullValue( key ) :
+							put( key.doubleValue     (), value.floatValue     () );
+		}
+		
+		public boolean put( double key,  Float     value ) {
+			return value == null ?
+					putNullValue( key ) :
+					put( key, value.floatValue     () );
+		}
+		
+		public boolean put(  Double    key, float value ) {
+			return key == null ?
+					putNullKey( value ) :
+					put( key.doubleValue     (), value );
+		}
+		
 		/**
-		 * Associates the specified value with the specified key in this map (boxed Integer key and boxed Integer value).
-		 * <p>
-		 * If the map previously contained a mapping for the key, the old value is replaced by the specified value.
+		 * Associates the specified value with the specified key in this map value.
 		 *
 		 * @param key   the key with which the specified value is to be associated.
 		 * @param value the value to be associated with the specified key.
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 */
-		public boolean put(  Double    key,  Float     value ) {
-			return key == null ?
-					tryInsert( value == null ?
-							           0 :
-							           value, value != null, 1 ) :
-					tryInsert( key.doubleValue     (), value == null ?
-							0 :
-							value, value != null, 1 );
-		}
+		public boolean put( double key, float value ) { return put( key, value, true ); }
+		
+		public boolean putNullKey( float  value ) { return put( value, true ); }
+		
+		public boolean putNullValue( double key )  { return put( key, ( float ) 0, true ); }
 		
 		/**
 		 * Associates the specified value with the specified key in this map (primitive int key and primitive int value).
@@ -632,143 +582,22 @@ public interface DoubleFloatNullMap {
 		 * @param value the value to be associated with the specified key.
 		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 */
-		public boolean put( double key, float value ) { return tryInsert( key, value, true, 1 ); }
-		
-		/**
-		 * Associates the specified value with the null key in this map (boxed Integer value).
-		 * <p>
-		 * If the map previously contained a mapping for the null key, the old value is replaced by the specified value.
-		 *
-		 * @param value the value to be associated with the null key.
-		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
-		 */
-		public boolean put(  Float     value ) {
-			return tryInsert( value == null ?
-					                  0 :
-					                  value, value != null, 1 );
-		}
-		
-		/**
-		 * Associates the specified value with the specified key only if the key is not already present in this map (primitive int key and primitive int value).
-		 * <p>
-		 * This is equivalent to put if absent.
-		 *
-		 * @param key   the key with which the specified value is to be associated.
-		 * @param value the value to be associated with the specified key.
-		 * @return {@code true} if a new mapping was added, {@code false} if the key was already present.
-		 */
-		public boolean putNotExist( double key, float value ) {
-			return tryInsert( key, value, true, 2 );
-		}
-		
-		/**
-		 * Associates the specified value with the specified key only if the key is not already present in this map (boxed Integer key and boxed Integer value).
-		 * <p>
-		 * This is equivalent to put if absent.
-		 *
-		 * @param key   the key with which the specified value is to be associated.
-		 * @param value the value to be associated with the specified key.
-		 * @return {@code true} if a new mapping was added, {@code false} if the key was already present.
-		 */
-		public boolean putNotExist(  Double    key,  Float     value ) {
-			return key == null ?
-					tryInsert( value == null ?
-							           0 :
-							           value, value != null, 2 ) :
-					tryInsert( key, value == null ?
-							0 :
-							value, value != null, 2 );
-		}
-		
-		/**
-		 * Associates the specified value with the null key only if the null key is not already present in this map (boxed Integer value).
-		 * <p>
-		 * This is equivalent to put if absent for the null key.
-		 *
-		 * @param value the value to be associated with the null key.
-		 * @return {@code true} if a new mapping was added, {@code false} if the null key was already present.
-		 */
-		public boolean putNotExist(  Float     value ) {
-			return tryInsert( value == null ?
-					                  0 :
-					                  value, value != null, 2 );
-		}
-		
-		/**
-		 * Associates the specified value with the specified key, attempting to add only and throwing an exception if the key already exists (primitive int key and primitive int value).
-		 *
-		 * @param key   the key with which the specified value is to be associated.
-		 * @param value the value to be associated with the specified key.
-		 * @throws IllegalArgumentException if a mapping for the specified key already exists in this map.
-		 */
-		public void putTry( double key, float value ) {
-			tryInsert( key, value, true, 0 );
-		}
-		
-		/**
-		 * Associates the specified value with the specified key, attempting to add only and throwing an exception if the key already exists (boxed Integer key and boxed Integer value).
-		 *
-		 * @param key   the key with which the specified value is to be associated.
-		 * @param value the value to be associated with the specified key.
-		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
-		 * @throws IllegalArgumentException if a mapping for the specified key already exists in this map.
-		 */
-		public boolean putTry(  Double    key,  Float     value ) {
-			return key == null ?
-					tryInsert( value == null ?
-							           0 :
-							           value, value != null, 0 ) :
-					tryInsert( key, value == null ?
-							0 :
-							value, value != null, 0 );
-		}
-		
-		/**
-		 * Associates the specified value with the null key, attempting to add only and throwing an exception if the null key already exists (boxed Integer value).
-		 *
-		 * @param value the value to be associated with the null key.
-		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
-		 * @throws IllegalArgumentException if a mapping for the null key already exists in this map.
-		 */
-		public boolean putTry(  Float     value ) {
-			return tryInsert( value == null ?
-					                  0 :
-					                  value, value != null, 0 );
-		}
-		
-		/**
-		 * Core insertion logic for primitive integer keys.
-		 * <p>
-		 * Handles insertion, update, and "put if not exists" operations based on the behavior parameter.
-		 *
-		 * @param key      the key to insert or update.
-		 * @param value    the value to associate with the key.
-		 * @param hasValue {@code true} if the value is not null, {@code false} otherwise.
-		 * @param behavior 0=throw if exists, 1=put (update/insert), 2=put if not exists.
-		 * @return {@code true} if the map was structurally modified, {@code false} otherwise (depending on behavior).
-		 * @throws IllegalArgumentException        if behavior is 0 and the key already exists.
-		 * @throws ConcurrentModificationException if concurrent operations are detected.
-		 */
-		private boolean tryInsert( double key, float value, boolean hasValue, int behavior ) {
-			if( _buckets == null ) initialize( 0 );
+		private boolean put( double key, float value, boolean hasValue ) {
+			if( _buckets == null ) initialize( 7 );
 			int[] _nexts         = nexts;
-			int           hash           = Array.hash( key );
-			int           collisionCount = 0;
-			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = _buckets[ bucketIndex ] - 1;
+			int   hash           = Array.hash( key );
+			int   collisionCount = 0;
+			int   bucketIndex    = bucketIndex( hash );
+			int   bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key ) switch( behavior ) {
-					case 1:
-						if( hasValue ) values.set1( next, value );
-						else values.set1( next, null );
-						_version++;
-						return true;
-					case 0:
-						throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-					default:
-						return false;
+				if( keys[ next ] == key ) {
+					if( hasValue ) values.set1( next, value );
+					else values.set1( next, null );
+					_version++;
+					return false;
 				}
+				
 				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -783,7 +612,8 @@ public interface DoubleFloatNullMap {
 			else {
 				if( _count == _nexts.length ) {
 					resize( Array.prime( _count * 2 ) );
-					bucket = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1;
+					
+					bucket = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
 				}
 				index = _count++;
 			}
@@ -801,47 +631,31 @@ public interface DoubleFloatNullMap {
 		}
 		
 		/**
-		 * Handles insertion and update logic for the null key.
+		 * Associates the specified value with the null key in this map (boxed value).
+		 * <p>
+		 * If the map previously contained a mapping for the null key, the old value is replaced by the specified value.
 		 *
-		 * @param value    the value to associate with the null key.
-		 * @param hasValue {@code true} if the value is not null, {@code false} otherwise.
-		 * @param behavior 0=throw if exists, 1=put (update/insert), 2=put if not exists.
-		 * @return {@code true} if the map was structurally modified, {@code false} otherwise (depending on behavior).
-		 * @throws IllegalArgumentException if behavior is 0 and the null key already exists.
+		 * @param value the value to be associated with the null key.
+		 * @return {@code true} if the map was structurally modified as a result of this operation, {@code false} otherwise.
 		 */
-		private boolean tryInsert( float value, boolean hasValue, int behavior ) {
-			if( hasNullKey ) switch( behavior ) {
-				case 1:
-					break; // Update allowed.
-				case 0:
-					throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
-				default:
-					return false;
-			}
+		private boolean put( float value, boolean hasValue ) {
+			boolean b = !hasNullKey;
+			
 			hasNullKey = true;
-			if( ( nullKeyHasValue = hasValue ) ) nullKeyValue = ( float ) value;
+			if( nullKeyHasValue = hasValue ) nullKeyValue = ( float ) value;
 			_version++;
-			return true;
+			return b;
 		}
 		
-		/**
-		 * Removes the mapping for the specified key from this map if present (boxed Integer key).
-		 *
-		 * @param key key whose mapping is to be removed from the map.
-		 * @return the token of the removed entry, or -1 ({@link #INVALID_TOKEN}) if no mapping was found for the key.
-		 */
-		public long remove(  Double    key ) {
-			return key == null ?
-					remove() :
-					remove( key.doubleValue     () );
-		}
+		public boolean put() { return put( ( float ) 0, false ); }
+		
 		
 		/**
 		 * Removes the mapping for the null key from this map if present.
 		 *
 		 * @return the token of the removed entry, or -1 ({@link #INVALID_TOKEN}) if no mapping was found for the null key.
 		 */
-		public long remove() {
+		public long removeNullKey() {
 			if( !hasNullKey ) return INVALID_TOKEN;
 			hasNullKey      = false;
 			nullKeyHasValue = false;
@@ -880,7 +694,7 @@ public interface DoubleFloatNullMap {
 					if( values.isFlatStrategy ) {
 						values.nulls.set0( i );//optional
 						
-						if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 );
+						if( last < 0 ) _buckets[ bucketIndex ] = next + 1;
 						else nexts[ last ] = next;
 					}
 					else // values used compressedStrategy
@@ -888,7 +702,7 @@ public interface DoubleFloatNullMap {
 						// Step 1: Unlink the entry at 'i' from its chain
 						if( last < 0 )
 							// If 'i' is the head, update bucket to point to the next entry
-							_buckets[ bucketIndex ] = ( next + 1 );
+							_buckets[ bucketIndex ] = next + 1;
 						
 						else
 							// Otherwise, link the previous entry to the next, bypassing 'i'
@@ -902,9 +716,9 @@ public interface DoubleFloatNullMap {
 						if( i != lastNonNullValue && hasValue ) {
 							// Optimization applies: swap with last non-null entry
 							// Step 2a: Copy key, next, and value from lastNonNullValue to i
-							double   keyToMove          = keys[ lastNonNullValue ];
-							int           BucketOf_KeyToMove = bucketIndex( Array.hash( keyToMove ) );
-							int   _next              = nexts[ lastNonNullValue ];
+							double   keyToMove = keys[ lastNonNullValue ];
+							int           bucket    = bucketIndex( Array.hash( keyToMove ) );
+							int           _next     = nexts[ lastNonNullValue ];
 							
 							keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
 							nexts[ i ] = _next;         // Copy the next to the entry being removed
@@ -915,10 +729,10 @@ public interface DoubleFloatNullMap {
 							collisionCount = 0;// Reset collision counter
 							
 							// Start at chain head
-							for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
+							for( int current = _buckets[ bucket ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
 								if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 							
-							_buckets[ BucketOf_KeyToMove ] = ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+							_buckets[ bucket ] = i + 1;// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
 							
 							if( -1 < prev ) nexts[ prev ] = _next;
 							
@@ -928,7 +742,7 @@ public interface DoubleFloatNullMap {
 						else if( hasValue ) values.set1( i, null );                       // Clear value (may shift if not last)
 					}
 					
-					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Mark 'i' as free
+					nexts[ i ] = StartOfFreeList - _freeList; // Mark 'i' as free
 					
 					_freeList = i;
 					
@@ -977,14 +791,12 @@ public interface DoubleFloatNullMap {
 		 * @throws IllegalArgumentException if the specified capacity is negative.
 		 */
 		public int ensureCapacity( int capacity ) {
-			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
-			int currentCapacity = length();
-			if( capacity <= currentCapacity ) return currentCapacity;
-			_version++;
-			if( _buckets == null ) return initialize( capacity );
-			int newSize = Array.prime( capacity );
-			resize( newSize );
-			return newSize;
+			return capacity <= length() ?
+					length() :
+					_buckets == null ?
+							initialize( capacity ) :
+							resize( Array.prime( capacity ) );
+			
 		}
 		
 		/**
@@ -1010,7 +822,7 @@ public interface DoubleFloatNullMap {
 			int newSize         = Array.prime( capacity );
 			if( currentCapacity <= newSize ) return;
 			
-			int[]          old_next   = nexts;
+			int[]                  old_next   = nexts;
 			double[]          old_keys   = keys;
 			FloatNullList.RW old_values = values;
 			int                    old_count  = _count;
@@ -1026,10 +838,10 @@ public interface DoubleFloatNullMap {
 		 *
 		 * @param newSize the new capacity (must be a prime number).
 		 */
-		private void resize( int newSize ) {
+		private int resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Double   .BYTES * 8 );
 			_version++;
-			int[] new_next = Arrays.copyOf( nexts, newSize );
+			int[]         new_next = Arrays.copyOf( nexts, newSize );
 			double[] new_keys = Arrays.copyOf( keys, newSize );
 			final int     count    = _count;
 			
@@ -1037,12 +849,13 @@ public interface DoubleFloatNullMap {
 			for( int i = 0; i < count; i++ )
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
-					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); //relink chain
-					_buckets[ bucketIndex ] = ( i + 1 );
+					new_next[ i ]           = _buckets[ bucketIndex ] - 1; //relink chain
+					_buckets[ bucketIndex ] = i + 1;
 				}
 			
 			nexts = new_next;
 			keys  = new_keys;
+			return newSize;
 		}
 		
 		/**
@@ -1058,14 +871,13 @@ public interface DoubleFloatNullMap {
 			int ii = 0;
 			for( int i = 0; i < old_count; i++ ) {
 				if( old_next[ i ] < -1 ) continue;
-				nexts[ ii ] = old_next[ i ];
-				keys[ ii ]  = old_keys[ i ];
-				if( old_values.hasValue( i ) )
-					values.set1( ii, old_values.get( i ) );
+				keys[ ii ] = old_keys[ i ];
+				if( old_values.hasValue( i ) ) values.set1( ii, old_values.get( i ) );
 				else values.set1( ii, null );
+				
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
 				nexts[ ii ]             = ( int ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] = ( ii + 1 );
+				_buckets[ bucketIndex ] = ii + 1;
 				ii++;
 			}
 			_count     = ii;

@@ -37,6 +37,7 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
+import java.util.Objects;
 
 /**
  * A specialized Map interface for storing integer key-value pairs with efficient operations.
@@ -52,7 +53,7 @@ public interface FloatByteMap {
 		protected boolean           hasNullKey;          // Indicates if the map contains a null key.
 		protected byte       nullKeyValue;        // Value for the null key, stored separately.
 		protected int[]             _buckets;            // Hash table buckets array (1-based indices to chain heads).
-		protected int[]     nexts;          // Packed entries: hashCode (upper 32 bits) | next index (lower 32 bits).
+		protected int[]             nexts;          // Packed entries: hashCode (upper 32 bits) | next index (lower 32 bits).
 		protected float[]     keys = Array.EqualHashOf.floats     .O; // Keys array.
 		protected byte[]     values;              // Values array.
 		protected int               _count;              // Total number of entries in arrays (including free slots).
@@ -119,9 +120,7 @@ public interface FloatByteMap {
 		 * @param key The primitive int key.
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains( float key ) {
-			return tokenOf( key ) != INVALID_TOKEN;
-		}
+		public boolean contains( float key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.
@@ -132,7 +131,7 @@ public interface FloatByteMap {
 		public boolean containsValue( byte value ) {
 			if( _count == 0 && !hasNullKey ) return false;
 			if( hasNullKey && nullKeyValue == value ) return true;
-			for( int i = 0; i < _count; i++ )
+			for( int i = 0; i < nexts.length; i++ )
 				if( -2 < nexts[ i ] && values[ i ] == value ) return true;
 			return false;
 		}
@@ -160,7 +159,7 @@ public interface FloatByteMap {
 		public long tokenOf( float key ) {
 			if( _buckets == null ) return INVALID_TOKEN;
 			int hash = Array.hash( key );
-			int i    = ( _buckets[ bucketIndex( hash ) ] ) - 1;
+			int i    = _buckets[ bucketIndex( hash ) ] - 1;
 			
 			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < nexts.length; ) {
 				if( keys[ i ] == key ) return token( i );
@@ -177,8 +176,10 @@ public interface FloatByteMap {
 		 */
 		public long token() {
 			
-			for( int i = 0; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return token( i );
+			if( 0 < _count )
+				for( int i = 0; ; i++ )
+					if( -2 < nexts[ i ] ) return token( i );
+			
 			return hasNullKey ?
 					token( _count ) :
 					INVALID_TOKEN;
@@ -219,15 +220,17 @@ public interface FloatByteMap {
 		 * @see #nullKeyValue() To get the null key’s value.
 		 */
 		public int unsafe_token( final int token ) {
-			for( int i =  token  + 1; i < _count; i++ )
+			for( int i = token + 1; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return i;
 			return -1;
 		}
 		
 		
-		public boolean hasNullKey()         { return hasNullKey; }
+		public boolean hasNullKey() { return hasNullKey; }
 		
-		
+		/**
+		 * Returns the value associated with the null key. Behavior undefined if null key doesn't exist.
+		 */
 		public byte nullKeyValue() { return (byte) nullKeyValue; }
 		
 		public boolean hasKey( long token ) { return index( token ) < _count || hasNullKey; }
@@ -285,9 +288,7 @@ public interface FloatByteMap {
 		private static final int seed = R.class.hashCode();
 		
 		@Override
-		public boolean equals( Object obj ) {
-			return obj != null && getClass() == obj.getClass() && equals( ( R ) obj );
-		}
+		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R ) obj ); }
 		
 		/**
 		 * Compares this map with another R instance for equality.
@@ -297,13 +298,14 @@ public interface FloatByteMap {
 		 */
 		public boolean equals( R other ) {
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || size() != other.size() )
+			    ( hasNullKey && Objects.equals( nullKeyValue, other.nullKeyValue ) ) || size() != other.size() )
 				return false;
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );
 				if( t == INVALID_TOKEN || value( token ) != other.value( t ) ) return false;
 			}
+			
 			return true;
 		}
 		
@@ -325,14 +327,8 @@ public interface FloatByteMap {
 		}
 		
 		@Override
-		public String toString() {
-			return toJSON();
-		}
+		public String toString() { return toJSON(); }
 		
-		@Override
-		public String toJSON() {
-			return JsonWriter.Source.super.toJSON();
-		}
 		
 		@Override
 		public void toJSON( JsonWriter json ) {
@@ -341,7 +337,7 @@ public interface FloatByteMap {
 			
 			if( hasNullKey ) json.name().value( nullKeyValue );
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) )
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 			     json.name( String.valueOf( keys[ index( token ) ] ) ).value( value( token ) );
 			
 			json.exitObject();
@@ -385,7 +381,7 @@ public interface FloatByteMap {
 		 * @return The initialized capacity (prime number).
 		 */
 		private int initialize( int capacity ) {
-			capacity  = Array.prime( capacity );
+			_version++;
 			_buckets  = new int[ capacity ];
 			nexts     = new int[ capacity ];
 			keys      = new float[ capacity ];
@@ -403,9 +399,10 @@ public interface FloatByteMap {
 		 */
 		public boolean put(  Float     key, byte value ) {
 			return key == null ?
-					tryInsert( value, 1 ) :
-					tryInsert( key, value, 1 );
+					this.put( value ) :
+					put( key, value );
 		}
+		
 		
 		/**
 		 * Associates a value with a primitive key.
@@ -415,90 +412,20 @@ public interface FloatByteMap {
 		 * @return True if the map was modified structurally.
 		 */
 		public boolean put( float key, byte value ) {
-			return tryInsert( key, value, 1 );
-		}
-		
-		/**
-		 * Inserts a value for the null key.
-		 *
-		 * @param value The value.
-		 * @return True if the null key was newly inserted.
-		 */
-		public boolean put( byte value ) {
-			return tryInsert( value, 1 );
-		}
-		
-		/**
-		 * Inserts a key-value pair only if the key doesn’t exist.
-		 *
-		 * @param key   The key.
-		 * @param value The value.
-		 * @return True if inserted, false if key exists.
-		 */
-		public boolean putNotExist( float key, byte value ) {
-			return tryInsert( key, value, 2 );
-		}
-		
-		public boolean putNotExist(  Float     key, byte value ) {
-			return key == null ?
-					tryInsert( value, 2 ) :
-					tryInsert( key.floatValue     (), value, 2 );
-		}
-		
-		public boolean putNotExist( byte value ) {
-			return tryInsert( value, 2 );
-		}
-		
-		/**
-		 * Inserts a key-value pair, throwing an exception if the key exists.
-		 *
-		 * @param key   The key.
-		 * @param value The value.
-		 * @throws IllegalArgumentException If the key already exists.
-		 */
-		public void putTry( float key, byte value ) {
-			tryInsert( key, value, 0 );
-		}
-		
-		public void putTry(  Float     key, byte value ) {
-			if( key == null )
-				tryInsert( value, 0 );
-			else
-				tryInsert( key.floatValue     (), value, 0 );
-		}
-		
-		public void putTry( byte value ) {
-			tryInsert( value, 0 );
-		}
-		
-		/**
-		 * Core insertion logic with behavior control.
-		 *
-		 * @param key      The primitive key.
-		 * @param value    The value.
-		 * @param behavior 0=throw if exists, 1=put (update/insert), 2=put if not exists.
-		 * @return True if the map was modified structurally.
-		 */
-		private boolean tryInsert( float key, byte value, int behavior ) {
-			if( _buckets == null ) initialize( 0 );
+			if( _buckets == null ) initialize( 7 );
 			int[] _nexts         = nexts;
-			int           hash           = Array.hash( key );
-			int           collisionCount = 0;
-			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = _buckets[ bucketIndex ] - 1;
+			int   hash           = Array.hash( key );
+			int   collisionCount = 0;
+			int   bucketIndex    = bucketIndex( hash );
+			int   bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key )
-					switch( behavior ) {
-						case 1:
-							values[ next ] = ( byte ) value;
-							_version++;
-							return true;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				if( keys[ next ] == key ) {
+					values[ next ] = ( byte ) value;
+					_version++;
+					return false;
+				}
+				
 				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
@@ -527,25 +454,18 @@ public interface FloatByteMap {
 		}
 		
 		/**
-		 * Handles null key insertion.
+		 * Inserts a value for the null key.
 		 *
-		 * @param value    The value for the null key.
-		 * @param behavior The insertion behavior.
+		 * @param value The value.
 		 * @return True if the null key was newly inserted.
 		 */
-		private boolean tryInsert( byte value, int behavior ) {
-			if( hasNullKey ) switch( behavior ) {
-				case 1:
-					break; // Update allowed.
-				case 0:
-					throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
-				default:
-					return false;
-			}
+		public boolean put( byte value ) {
+			boolean b = !hasNullKey;
+			
 			hasNullKey   = true;
 			nullKeyValue = ( byte ) value;
 			_version++;
-			return true;
+			return b;
 		}
 		
 		/**
@@ -566,6 +486,7 @@ public interface FloatByteMap {
 		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not present.
 		 */
 		private long removeNullKey() {
+			
 			if( !hasNullKey ) return INVALID_TOKEN;
 			hasNullKey = false;
 			_version++;
@@ -611,9 +532,8 @@ public interface FloatByteMap {
 		public void clear() {
 			if( _count == 0 && !hasNullKey ) return;
 			Arrays.fill( _buckets, 0 );
-			Arrays.fill( nexts, 0, _count, ( int ) 0 );
-			Arrays.fill( keys, 0, _count, ( float ) 0 );
-			Arrays.fill( values, 0, _count, ( byte ) 0 );
+			Arrays.fill( nexts, ( int ) 0 );
+			Arrays.fill( keys, ( float ) 0 );
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;
@@ -628,9 +548,7 @@ public interface FloatByteMap {
 		 * @return The new capacity.
 		 */
 		public int ensureCapacity( int capacity ) {
-			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
-			int currentCapacity = length();
-			if( capacity <= currentCapacity ) return currentCapacity;
+			if( capacity <= length() ) return length();
 			_version++;
 			if( _buckets == null ) return initialize( capacity );
 			int newSize = Array.prime( capacity );
@@ -651,12 +569,11 @@ public interface FloatByteMap {
 		 * @param capacity The desired capacity.
 		 */
 		public void trim( int capacity ) {
-			if( capacity < size() ) throw new IllegalArgumentException( "capacity is less than Count." );
 			int currentCapacity = length();
 			int newSize         = Array.prime( capacity );
 			if( currentCapacity <= newSize ) return;
 			
-			int[] old_next   = nexts;
+			int[]         old_next   = nexts;
 			float[] old_keys   = keys;
 			byte[] old_values = values;
 			int           old_count  = _count;
@@ -673,7 +590,7 @@ public interface FloatByteMap {
 		private void resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Float    .BYTES * 8 );
 			_version++;
-			int[] new_next   = Arrays.copyOf( nexts, newSize );
+			int[]         new_next   = Arrays.copyOf( nexts, newSize );
 			float[] new_keys   = Arrays.copyOf( keys, newSize );
 			byte[] new_values = Arrays.copyOf( values, newSize );
 			final int     count      = _count;
@@ -703,7 +620,6 @@ public interface FloatByteMap {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
 				if( old_next[ i ] < -1 ) continue;
-				nexts[ new_count ]  = old_next[ i ];
 				keys[ new_count ]   = old_keys[ i ];
 				values[ new_count ] = old_values[ i ];
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );

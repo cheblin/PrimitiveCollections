@@ -34,7 +34,9 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.ConcurrentModificationException;
+import java.util.Objects;
 
 /**
  * {@code IntObjectMap} is a generic interface for a map that stores key-value pairs,
@@ -75,7 +77,7 @@ public interface FloatObjectMap {
 		 * For each entry, it stores the index of the next entry in the same hash bucket,
 		 * or a special value indicating the end of the chain or a free entry.
 		 */
-		protected       int[]          nexts;
+		protected       int[]                  nexts;
 		/**
 		 * Array of integer keys stored in the map.
 		 */
@@ -148,9 +150,10 @@ public interface FloatObjectMap {
 		 * @return The number of key-value pairs in the map.
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		/**
@@ -407,7 +410,9 @@ public interface FloatObjectMap {
 						                              seed :
 						                              equal_hash_V.hashCode( value( token ) ) ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			if( hasNullKey ) {
 				int h = Array.hash( seed );
@@ -415,7 +420,9 @@ public interface FloatObjectMap {
 						                              equal_hash_V.hashCode( nullKeyValue ) :
 						                              seed ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
@@ -590,126 +597,6 @@ public interface FloatObjectMap {
 		
 		
 		/**
-		 * Associates the specified value with the specified key (boxed Integer) in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * Handles null keys.
-		 *
-		 * @param key   The key (Integer) with which the specified value is to be associated (can be null).
-		 * @param value The value to be associated with the specified key.
-		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
-		 */
-		public V put(  Float     key, V value ) {
-			long token = tokenOf( key );
-			V ret = token == INVALID_TOKEN ?
-					null :
-					value( token );
-			
-			if( key == null )
-				tryInsert( value, 1 );
-			else
-				tryInsert( key, value, 1 );
-			
-			return ret;
-		}
-		
-		/**
-		 * Associates the specified value with a null key in this map.
-		 * If the map previously contained a mapping for the null key, the old value is replaced.
-		 *
-		 * @param value The value to be associated with the null key.
-		 * @return The previous value associated with the null key, or {@code null} if there was no mapping for the null key.
-		 */
-		public V put( V value ) {
-			long token = tokenOf( null );
-			V ret = token == INVALID_TOKEN ?
-					null :
-					value( token );
-			
-			tryInsert( value, 1 );
-			return ret;
-		}
-		
-		/**
-		 * Associates the specified value with the specified integer key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 *
-		 * @param key   The integer key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
-		 */
-		public V put( float key, V value ) {
-			long token = tokenOf( key );
-			V ret = token == INVALID_TOKEN ?
-					null :
-					value( token );
-			tryInsert( key, value, 1 );
-			return ret;
-		}
-		
-		/**
-		 * Associates the specified value with the specified key (boxed Integer) in this map only if the key is not already present.
-		 * Handles null keys.
-		 *
-		 * @param key   The key (Integer) with which the specified value is to be associated (can be null).
-		 * @param value The value to be associated with the specified key.
-		 * @return {@code true} if a new key-value pair was inserted, {@code false} if the key was already present.
-		 */
-		public boolean putNotExist(  Float     key, V value ) {
-			return key == null ?
-					tryInsert( value, 2 ) :
-					tryInsert( key, value, 2 );
-		}
-		
-		/**
-		 * Associates the specified value with a null key in this map only if a null key is not already present.
-		 *
-		 * @param value The value to be associated with the null key.
-		 * @return {@code true} if a new key-value pair was inserted (for null key), {@code false} if the null key was already present.
-		 */
-		public boolean putNotExist( V value ) { return tryInsert( value, 2 ); }
-		
-		/**
-		 * Associates the specified value with the specified integer key in this map only if the key is not already present.
-		 *
-		 * @param key   The integer key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @return {@code true} if a new key-value pair was inserted, {@code false} if the key was already present.
-		 */
-		public boolean putNotExist( float key, V value ) { return tryInsert( key, value, 2 ); }
-		
-		/**
-		 * Associates the specified value with the specified key (boxed Integer) in this map, or throws an exception if the key already exists.
-		 * Handles null keys.
-		 *
-		 * @param key   The key (Integer) with which the specified value is to be associated (can be null).
-		 * @param value The value to be associated with the specified key.
-		 * @throws IllegalArgumentException if a key-value pair with the same key already exists in the map.
-		 */
-		public void putTry(  Float     key, V value ) {
-			if( key == null )
-				tryInsert( value, 0 );
-			else
-				tryInsert( key, value, 0 );
-		}
-		
-		/**
-		 * Associates the specified value with the specified integer key in this map, or throws an exception if the key already exists.
-		 *
-		 * @param key   The integer key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
-		 * @throws IllegalArgumentException if a key-value pair with the same key already exists in the map.
-		 */
-		public void putTry( float key, V value ) { tryInsert( key, value, 0 ); }
-		
-		/**
-		 * Associates the specified value with a null key in this map, or throws an exception if a null key already exists.
-		 *
-		 * @param value The value to be associated with the null key.
-		 * @throws IllegalArgumentException if a key-value pair with a null key already exists in the map.
-		 */
-		public void putTry( V value ) { tryInsert( value, 0 ); }
-		
-		/**
 		 * Removes all key-value pairs from this map, making it empty.
 		 */
 		public void clear() {
@@ -824,7 +711,7 @@ public interface FloatObjectMap {
 			int new_size        = Array.prime( capacity );
 			if( currentCapacity <= new_size ) return;
 			
-			int[] old_next   = nexts;
+			int[]         old_next   = nexts;
 			float[] old_keys   = keys;
 			V[]           old_values = values;
 			int           old_count  = _count;
@@ -834,65 +721,61 @@ public interface FloatObjectMap {
 		}
 		
 		/**
+		 * Associates the specified value with the specified key (boxed Integer) in this map.
+		 * If the map previously contained a mapping for the key, the old value is replaced.
+		 * Handles null keys.
+		 *
+		 * @param key   The key (Integer) with which the specified value is to be associated (can be null).
+		 * @param value The value to be associated with the specified key.
+		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
+		 */
+		public boolean put(  Float     key, V value ) {
+			return key == null ?
+					put( value ) :
+					put( key.floatValue     (), value );
+		}
+		
+		
+		/**
 		 * Tries to insert a value associated with a null key into the map.
 		 *
-		 * @param value    The value to insert.
-		 * @param behavior An integer code defining the insertion behavior:
-		 *                 0: Throw exception if key exists.
-		 *                 1: Update value if key exists, otherwise insert.
-		 *                 2: Insert only if key does not exist.
+		 * @param value The value to insert.
 		 * @return {@code true} if insertion occurred, {@code false} otherwise (depending on behavior).
 		 * @throws IllegalArgumentException if behavior is 0 and the key already exists.
 		 */
-		private boolean tryInsert( V value, int behavior ) {
-			if( hasNullKey )
-				switch( behavior ) {
-					case 1:
-						break;
-					case 0:
-						throw new IllegalArgumentException( "An item with the same key has already been added. Key: null" );
-					default:
-						return false;
-				}
+		public boolean put( V value ) {
+			_version++;
+			boolean b = !hasNullKey;
 			hasNullKey   = true;
 			nullKeyValue = value;
-			_version++;
-			return true;
+			return b;
 		}
+		
 		
 		/**
 		 * Tries to insert a key-value pair with the specified integer key and value into the map.
 		 * Handles hash collisions and resizing if necessary.
 		 *
-		 * @param key      The integer key to insert.
-		 * @param value    The value to insert.
-		 * @param behavior An integer code defining the insertion behavior:
-		 *                 0: Throw exception if key exists.
-		 *                 1: Update value if key exists, otherwise insert.
-		 *                 2: Insert only if key does not exist.
+		 * @param key   The integer key to insert.
+		 * @param value The value to insert.
 		 * @return {@code true} if insertion occurred, {@code false} otherwise (depending on behavior).
 		 * @throws IllegalArgumentException if behavior is 0 and the key already exists.
 		 */
-		private boolean tryInsert( float key, V value, int behavior ) {
-			if( _buckets == null ) initialize( 0 );
+		public boolean put( float key, V value ) {
+			if( _buckets == null ) initialize( 7 );
 			int[] _nexts         = nexts;
-			int           hash           = Array.hash( key );
-			int           collisionCount = 0;
-			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = _buckets[ bucketIndex ] - 1;
+			int   hash           = Array.hash( key );
+			int   collisionCount = 0;
+			int   bucketIndex    = bucketIndex( hash );
+			int   bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key )
-					switch( behavior ) {
-						case 1:
-							values[ next ] = value;
-							_version++;
-							return true;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				if( keys[ next ] == key ) {
+					values[ next ] = value;
+					_version++;
+					return false;
+				}
+				
 				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -930,7 +813,7 @@ public interface FloatObjectMap {
 		private void resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Float    .BYTES * 8 ); // Limit size to avoid potential issues
 			_version++; // Increment version before and after resize operation to ensure token invalidation
-			int[] new_next   = Arrays.copyOf( nexts, newSize );
+			int[]         new_next   = Arrays.copyOf( nexts, newSize );
 			float[] new_keys   = Arrays.copyOf( keys, newSize );
 			V[]           new_values = Arrays.copyOf( values, newSize );
 			final int     count      = _count;
@@ -955,7 +838,7 @@ public interface FloatObjectMap {
 		 * @return The actual capacity after adjusting to a prime number.
 		 */
 		private int initialize( int capacity ) {
-			capacity  = Array.prime( capacity );
+			_version++;
 			_buckets  = new int[ capacity ];
 			nexts     = new int[ capacity ];
 			keys      = new float[ capacity ];
@@ -977,7 +860,6 @@ public interface FloatObjectMap {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
 				if( old_next[ i ] < -1 ) continue; // Skip free list entries from old array
-				nexts[ new_count ]  = old_next[ i ];
 				keys[ new_count ]   = old_keys[ i ];
 				values[ new_count ] = old_values[ i ];
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );

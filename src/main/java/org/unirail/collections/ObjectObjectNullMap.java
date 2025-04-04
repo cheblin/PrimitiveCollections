@@ -170,9 +170,10 @@ public interface ObjectObjectNullMap {
 		 */
 		@Override
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		/**
@@ -406,7 +407,9 @@ public interface ObjectObjectNullMap {
 						                              seed :
 						                              equal_hash_V.hashCode( value( token ) ) ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			if( hasNullKey ) {
 				int h = Array.hash( seed );
@@ -414,7 +417,9 @@ public interface ObjectObjectNullMap {
 						                              equal_hash_V.hashCode( nullKeyValue ) :
 						                              seed ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
@@ -1238,39 +1243,6 @@ public interface ObjectObjectNullMap {
 			}
 		}
 		
-		/**
-		 * {@inheritDoc}
-		 *
-		 * @return the previous value associated with {@code key}, or {@code null} if there was no mapping for {@code key}
-		 */
-		@Override
-		public V put( K key, V value ) {
-			long token = tokenOf( key );
-			V ret = token == INVALID_TOKEN ?
-					null :
-					value( token );
-			tryInsert( key, value, 1 );
-			return ret;
-		}
-		
-		/**
-		 * Associates the specified key with the specified value if the key is not already present.
-		 *
-		 * @param key   key with which the specified value is to be associated
-		 * @param value value to be associated with the specified key
-		 * @return {@code true} if a new mapping was added, {@code false} if the key was already present
-		 */
-		public boolean putNotExist( K key, V value ) { return tryInsert( key, value, 2 ); }
-		
-		/**
-		 * Associates the specified key with the specified value, overwriting any existing value.
-		 * If the key is already present, it throws an {@link IllegalArgumentException}.
-		 *
-		 * @param key   key with which the specified value is to be associated
-		 * @param value value to be associated with the specified key
-		 * @throws IllegalArgumentException if a mapping for the {@code key} already exists.
-		 */
-		public void putTry( K key, V value ) { tryInsert( key, value, 0 ); }
 		
 		/**
 		 * {@inheritDoc}
@@ -1427,34 +1399,25 @@ public interface ObjectObjectNullMap {
 		 * Tries to insert a new key-value mapping into the map.
 		 * Handles different insertion behaviors based on the {@code behavior} parameter.
 		 *
-		 * @param key      the key to insert
-		 * @param value    the value to associate with the key
-		 * @param behavior insertion behavior flag:
-		 *                 0: throw exception if key exists,
-		 *                 1: update value if key exists,
-		 *                 2: insert only if key does not exist
+		 * @param key   the key to insert
+		 * @param value the value to associate with the key
 		 * @return {@code true} if insertion was successful, {@code false} otherwise (depending on behavior)
-		 * @throws IllegalArgumentException        if {@code behavior} is 0 and the key already exists
 		 * @throws ConcurrentModificationException if the map is modified during insertion
 		 */
-		private boolean tryInsert( K key, V value, int behavior ) {
+		public V put( K key, V value ) {
 			if( key == null ) {
-				if( hasNullKey )
-					switch( behavior ) {
-						case 1:
-							break;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				_version++;
+				if( hasNullKey ) {
+					V ret = nullKeyValue;
+					nullKeyValue = value;
+					return ret;
+				}
 				hasNullKey   = true;
 				nullKeyValue = value;
-				_version++;
-				return true;
+				return null;
 			}
 			
-			if( _buckets == null ) initialize( 0 );
+			if( _buckets == null ) initialize( 7 );
 			long[] _hash_nexts    = hash_nexts;
 			int    hash           = equal_hash_K.hashCode( key );
 			int    collisionCount = 0;
@@ -1462,17 +1425,14 @@ public interface ObjectObjectNullMap {
 			int    bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _hash_nexts.length; ) {
-				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) )
-					switch( behavior ) {
-						case 1:
-							values.set1( next, value ); // Adjusted to use set1(i, value)
-							_version++;
-							return true;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) ) {
+					_version++;
+					
+					V ret = values.get( next );
+					values.set1( next, value ); // Adjusted to use set1(i, value)
+					return ret;
+				}
+				
 				next = next( _hash_nexts[ next ] );
 				if( _hash_nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -1500,7 +1460,7 @@ public interface ObjectObjectNullMap {
 			
 			if( HashCollisionThreshold < collisionCount && this.forceNewHashCodes != null && key instanceof String )
 				resize( hash_nexts.length, true );
-			return true;
+			return null;
 		}
 		
 		/**
@@ -1547,7 +1507,7 @@ public interface ObjectObjectNullMap {
 		 * @return the initialized capacity
 		 */
 		private int initialize( int capacity ) {
-			capacity   = Array.prime( capacity );
+			_version++;
 			_buckets   = new int[ capacity ];
 			hash_nexts = new long[ capacity ];
 			keys       = equal_hash_K.copyOf( null, capacity );
@@ -1567,12 +1527,12 @@ public interface ObjectObjectNullMap {
 		private void copy( long[] old_hash_next, K[] old_keys, ObjectNullList.RW< V > old_values, int old_count ) {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
-				if( next( old_hash_next[ i ] ) < -1 ) continue;
-				hash_nexts[ new_count ] = old_hash_next[ i ];
-				keys[ new_count ]       = old_keys[ i ];
+				final long hn = old_hash_next[ i ];
+				if( next( hn ) < -1 ) continue;
+				keys[ new_count ] = old_keys[ i ];
 				values.set1( new_count, old_values.get( i ) ); // Adjusted to use set1 and get
-				int bucketIndex = bucketIndex( hash( old_hash_next[ i ] ) );
-				next( hash_nexts, new_count, _buckets[ bucketIndex ] - 1 );
+				int bucketIndex = bucketIndex( hash( hn ) );
+				hash_nexts[ new_count ] = hn & 0xFFFF_FFFF_0000_0000L | _buckets[ bucketIndex ] - 1;
 				_buckets[ bucketIndex ] = new_count + 1;
 				new_count++;
 			}
@@ -1612,7 +1572,10 @@ public interface ObjectObjectNullMap {
 			 *
 			 * @param map the read-write map to back this collection
 			 */
-			public KeyCollection( RW< K, V > map ) { super( map ); _map = map; }
+			public KeyCollection( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			/**
 			 * {@inheritDoc}
@@ -1650,7 +1613,10 @@ public interface ObjectObjectNullMap {
 			 *
 			 * @param map the read-write map to iterate over
 			 */
-			KeyIterator( RW< K, V > map ) { super( map ); _map = map; }
+			KeyIterator( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			/**
 			 * {@inheritDoc}
@@ -1677,7 +1643,10 @@ public interface ObjectObjectNullMap {
 			 *
 			 * @param map the read-write map to back this collection
 			 */
-			public ValueCollection( RW< K, V > map ) { super( map ); _map = map; }
+			public ValueCollection( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			/**
 			 * {@inheritDoc}
@@ -1744,7 +1713,10 @@ public interface ObjectObjectNullMap {
 			 *
 			 * @param map the read-write map to back this set
 			 */
-			public EntrySet( RW< K, V > map ) { super( map ); _map = map; }
+			public EntrySet( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			/**
 			 * {@inheritDoc}
@@ -1790,7 +1762,10 @@ public interface ObjectObjectNullMap {
 			 *
 			 * @param map the read-write map to iterate over
 			 */
-			EntryIterator( RW< K, V > map ) { super( map ); _map = map; }
+			EntryIterator( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			/**
 			 * {@inheritDoc}
@@ -1823,7 +1798,10 @@ public interface ObjectObjectNullMap {
 			 *
 			 * @param map the read-write map to iterate over
 			 */
-			Iterator( RW< K, V > map ) { super( map ); _map = map; }
+			Iterator( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			/**
 			 * {@inheritDoc}

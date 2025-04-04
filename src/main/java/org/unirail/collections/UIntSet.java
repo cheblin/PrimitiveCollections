@@ -34,7 +34,8 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.ConcurrentModificationException;
 
 /**
  * {@code IntSet} is a specialized Set interface designed for efficient storage and manipulation of integer keys.
@@ -54,8 +55,9 @@ public interface UIntSet {
 		/**
 		 * Indicates whether the Set contains a null key. Null keys are handled separately.
 		 */
-		protected boolean       hasNullKey;
-		public boolean hasNullKey()         { return hasNullKey; }
+		protected boolean hasNullKey;
+		
+		public boolean hasNullKey() { return hasNullKey; }
 		
 		
 		/**
@@ -65,7 +67,7 @@ public interface UIntSet {
 		/**
 		 * Array storing the 'next' index for each entry in the hash table, used for collision resolution (chaining).
 		 */
-		protected int[] nexts;
+		protected int[]         nexts;
 		/**
 		 * Array storing the integer keys of the Set.
 		 */
@@ -110,9 +112,10 @@ public interface UIntSet {
 		 * @return the number of elements in this set
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		/**
@@ -218,6 +221,7 @@ public interface UIntSet {
 					// If null key exists and we haven't reached its conceptual index, return null key token
 					INVALID_TOKEN;
 		}
+		
 		/**
 		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
 		 * skipping concurrency and modification checks.
@@ -238,7 +242,7 @@ public interface UIntSet {
 		 */
 		public int unsafe_token( int token ) {
 			for( int i = token + 1; i < _count; i++ )
-				if( -2 < nexts[ i ]  ) return i;
+				if( -2 < nexts[ i ] ) return i;
 			return -1;
 		}
 		
@@ -340,6 +344,14 @@ public interface UIntSet {
 		}
 		
 		/**
+		 * Returns a JSON string representation of this set.
+		 *
+		 * @return a JSON string representation of this set
+		 */
+		@Override
+		public String toString() { return toJSON(); }
+		
+		/**
 		 * Writes the set's content to a {@link JsonWriter} as a JSON array.
 		 *
 		 * @param json the JsonWriter to write to
@@ -356,13 +368,6 @@ public interface UIntSet {
 			json.exitArray(); // End JSON array
 		}
 		
-		/**
-		 * Returns a JSON string representation of this set.
-		 *
-		 * @return a JSON string representation of this set
-		 */
-		@Override
-		public String toString() { return toJSON(); }
 		
 		/**
 		 * Calculates the bucket index for a given hash value.
@@ -441,12 +446,12 @@ public interface UIntSet {
 		 * @return {@code true} if this set did not already contain the specified integer key
 		 */
 		public boolean add( long key ) {
-			if( _buckets == null ) initialize( 0 ); // Initialize buckets if not already initialized
+			if( _buckets == null ) initialize( 7 ); // Initialize buckets if not already initialized
 			int[] _nexts         = nexts;
-			int           hash           = Array.hash( key );
-			int           collisionCount = 0;
-			int           bucketIndex    = bucketIndex( hash );
-			int           bucket         = _buckets[ bucketIndex ] - 1; // Get starting index of the bucket
+			int   hash           = Array.hash( key );
+			int   collisionCount = 0;
+			int   bucketIndex    = bucketIndex( hash );
+			int   bucket         = _buckets[ bucketIndex ] - 1; // Get starting index of the bucket
 			
 			// Check for key existence in the collision chain
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
@@ -606,7 +611,7 @@ public interface UIntSet {
 			int new_size = Array.prime( capacity ); // Get the next prime capacity
 			if( currentCapacity <= new_size ) return; // No need to trim if current capacity is already sufficient
 			
-			int[] old_next  = nexts;
+			int[]         old_next  = nexts;
 			int[] old_keys  = keys;
 			int           old_count = _count;
 			_version++; // Increment version as structure changes
@@ -621,7 +626,7 @@ public interface UIntSet {
 		 * @return the prime capacity used
 		 */
 		private int initialize( int capacity ) {
-			capacity  = Array.prime( capacity ); // Get the next prime capacity
+			_version++;
 			_buckets  = new int[ capacity ]; // Initialize buckets array
 			nexts     = new int[ capacity ]; // Initialize 'next' pointers array
 			keys      = new int[ capacity ]; // Initialize keys array
@@ -637,7 +642,7 @@ public interface UIntSet {
 		private void resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 ); // Limit max size based on Integer size
 			_version++; // Increment version as structure changes
-			int[] new_next = Arrays.copyOf( nexts, newSize ); // Create new 'next' array with new size, copying old data
+			int[]         new_next = Arrays.copyOf( nexts, newSize ); // Create new 'next' array with new size, copying old data
 			int[] new_keys = Arrays.copyOf( keys, newSize ); // Create new 'keys' array with new size, copying old data
 			final int     count    = _count;
 			
@@ -665,8 +670,7 @@ public interface UIntSet {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
 				if( old_next[ i ] < -1 ) continue; // Skip free slots
-				nexts[ new_count ] = old_next[ i ]; // Copy 'next' pointer (though it will be overwritten in re-hashing)
-				keys[ new_count ]  = old_keys[ i ]; // Copy the key
+				keys[ new_count ] = old_keys[ i ]; // Copy the key
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Re-calculate bucket index in the new capacity
 				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Update 'next' pointer to the old bucket head (in new buckets)
 				_buckets[ bucketIndex ] = ( new_count + 1 ); // Set new bucket head to the current element's index

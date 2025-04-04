@@ -232,7 +232,8 @@ public interface BoolNullList {
 		public RW add( boolean value ) {
 			add( this, value ?
 					1 :
-					0 ); return this;
+					0 );
+			return this;
 		}
 		
 		/**
@@ -246,7 +247,8 @@ public interface BoolNullList {
 					2 :
 					value ?
 							1 :
-							0 ); return this;
+							0 );
+			return this;
 		}
 		
 		
@@ -261,7 +263,8 @@ public interface BoolNullList {
 					2 :
 					value ?
 							1 :
-							0 ); return this;
+							0 );
+			return this;
 		}
 		
 		/**
@@ -273,7 +276,8 @@ public interface BoolNullList {
 		public RW remove( boolean value ) {
 			remove( this, value ?
 					1 :
-					0 ); return this;
+					0 );
+			return this;
 		}
 		
 		
@@ -283,7 +287,10 @@ public interface BoolNullList {
 		 * @param item The index of the element to remove.
 		 * @return This RW instance for method chaining.
 		 */
-		public RW removeAt( int item ) { removeAt( this, item ); return this; }
+		public RW removeAt( int item ) {
+			removeAt( this, item );
+			return this;
+		}
 		
 		
 		/**
@@ -295,7 +302,8 @@ public interface BoolNullList {
 		public RW set1( boolean value ) {
 			set1( this, size, value ?
 					1 :
-					0 ); return this;
+					0 );
+			return this;
 		}
 		
 		/**
@@ -309,7 +317,8 @@ public interface BoolNullList {
 					2 :
 					value ?
 							1 :
-							0 ); return this;
+							0 );
+			return this;
 		}
 		
 		
@@ -323,7 +332,8 @@ public interface BoolNullList {
 		public RW set1( int item, boolean value ) {
 			set1( this, item, value ?
 					1 :
-					0 ); return this;
+					0 );
+			return this;
 		}
 		
 		/**
@@ -338,7 +348,8 @@ public interface BoolNullList {
 					2 :
 					value ?
 							1 :
-							0 ); return this;
+							0 );
+			return this;
 		}
 		
 		

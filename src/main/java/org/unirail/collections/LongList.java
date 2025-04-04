@@ -34,6 +34,7 @@
 package org.unirail.collections;
 
 import org.unirail.JsonWriter;
+
 import java.util.Arrays;
 
 public interface LongList {
@@ -102,8 +103,8 @@ public interface LongList {
 		 * Copies a range of elements into a destination array, creating one if none is provided.
 		 *
 		 * @param index Starting index in the destination array.
-		 * @param len Number of elements to copy from the list.
-		 * @param dst Destination array; if null, a new array of size `len` is allocated.
+		 * @param len   Number of elements to copy from the list.
+		 * @param dst   Destination array; if null, a new array of size `len` is allocated.
 		 * @return The populated array, or null if the list is empty.
 		 */
 		public long[] toArray( int index, int len, long[] dst ) {
@@ -144,10 +145,10 @@ public interface LongList {
 		/**
 		 * Copies a range of elements into a destination array with bounds checking.
 		 *
-		 * @param dst Destination array to copy elements into.
+		 * @param dst       Destination array to copy elements into.
 		 * @param dst_index Starting index in the destination array.
 		 * @param src_index Starting index in this list.
-		 * @param len Maximum number of elements to copy.
+		 * @param len       Maximum number of elements to copy.
 		 * @return Number of elements actually copied.
 		 */
 		public int get(long[] dst, int dst_index, int src_index, int len ) {
@@ -155,7 +156,7 @@ public interface LongList {
 			if( len < 1 ) return 0;
 			
 			for( int i = 0; i < len; i++ )
-				dst[ dst_index++ ] =  values[ src_index++ ];
+			     dst[ dst_index++ ] =  values[ src_index++ ];
 			
 			return len;
 		}
@@ -269,13 +270,15 @@ public interface LongList {
 		 * Initializes the list with a default value and size. Negative size sets capacity without initialization.
 		 *
 		 * @param default_value Value used for uninitialized or newly added elements.
-		 * @param size Initial size (if positive) or capacity (if negative, using absolute value).
+		 * @param size          Initial size (if positive) or capacity (if negative, using absolute value).
 		 */
 		public RW( long default_value, int size ) {
 			super( default_value );
 			values = size == 0 ?
 					Array.EqualHashOf.longs     .O :
-					new long[ this.size = size < 0 ? -size : size ];
+					new long[ this.size = size < 0 ?
+							-size :
+							size ];
 			if( size < 1 || default_value == 0 ) return;
 			while( -1 < --size ) values[ size ] = ( long ) default_value;
 		}
@@ -315,10 +318,10 @@ public interface LongList {
 		/**
 		 * Inserts a range of values from an array at a specified index, shifting elements rightward.
 		 *
-		 * @param index Starting position in this list.
-		 * @param src Source array of integers.
+		 * @param index     Starting position in this list.
+		 * @param src       Source array of integers.
 		 * @param src_index Starting index in the source array.
-		 * @param len Number of elements to insert.
+		 * @param len       Number of elements to insert.
 		 * @return This instance for method chaining.
 		 */
 		public RW add( int index, long[] src, int src_index, int len ) {
@@ -354,7 +357,7 @@ public interface LongList {
 		 * Removes a range of elements starting at the specified index.
 		 *
 		 * @param index Starting 0-based index of the range to remove.
-		 * @param len Number of elements to remove.
+		 * @param len   Number of elements to remove.
 		 * @return This instance for method chaining.
 		 */
 		public RW remove( int index, int len ) {
@@ -393,7 +396,7 @@ public interface LongList {
 		 * Sets multiple values from an array starting at a specified index.
 		 *
 		 * @param index Starting 0-based index in this list.
-		 * @param src Array of integers to set.
+		 * @param src   Array of integers to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set( int index, long... src ) { return set( index, src, 0, src.length ); }
@@ -401,15 +404,15 @@ public interface LongList {
 		/**
 		 * Sets a range of values from an array starting at a specified index, expanding if necessary.
 		 *
-		 * @param index Starting 0-based index in this list.
-		 * @param src Source array of integers.
+		 * @param index     Starting 0-based index in this list.
+		 * @param src       Source array of integers.
 		 * @param src_index Starting index in the source array.
-		 * @param len Number of elements to set.
+		 * @param len       Number of elements to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set( int index, long[] src, int src_index, int len ) {
 			for( int i = len; -1 < --i; )
-				set1( index + i, src[ src_index + i ] );
+			     set1( index + i, src[ src_index + i ] );
 			return this;
 		}
 		

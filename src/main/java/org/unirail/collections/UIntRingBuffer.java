@@ -33,8 +33,8 @@
 
 package org.unirail.collections;
 
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 /**
  * {@code IntRingBuffer} implements a fixed-size, thread-safe ring buffer (circular buffer) for integer values.

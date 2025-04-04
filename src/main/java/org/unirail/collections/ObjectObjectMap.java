@@ -135,7 +135,7 @@ public interface ObjectObjectMap {
 		 */
 		protected static final int  VERSION_SHIFT   = 32;
 		/**
-         * Represents an invalid token, typically returned when a key is not found or iteration has completed. Value is -1.
+		 * Represents an invalid token, typically returned when a key is not found or iteration has completed. Value is -1.
 		 */
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -153,9 +153,10 @@ public interface ObjectObjectMap {
 		
 		@Override
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count - _freeCount + (
+					hasNullKey ?
+							1 :
+							0 );
 		}
 		
 		/**
@@ -202,6 +203,7 @@ public interface ObjectObjectMap {
 				if( next( hash_nexts[ i ] ) >= -1 && Objects.equals( values[ i ], value ) ) return true;
 			return false;
 		}
+		
 		/**
 		 * Checks if this map contains a mapping for the null key.
 		 *
@@ -210,13 +212,14 @@ public interface ObjectObjectMap {
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		
-		public V nullKeyValue() { return  nullKeyValue; }
+		public V nullKeyValue() { return nullKeyValue; }
+		
 		/**
 		 * Returns a token associated with the given key, if present in the map.
 		 * A token is a unique identifier that can be used to efficiently access the key-value pair.
 		 *
 		 * @param key the key to find the token for
-         * @return a valid token if the key is found, or {@link #INVALID_TOKEN} (-1) if the key is not found
+		 * @return a valid token if the key is found, or {@link #INVALID_TOKEN} (-1) if the key is not found
 		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
@@ -241,7 +244,7 @@ public interface ObjectObjectMap {
 		 * Returns a token for the first entry in the map.
 		 * Useful for iterating through the map using tokens.
 		 *
-         * @return a token for the first entry, or {@link #INVALID_TOKEN} (-1) if the map is empty
+		 * @return a token for the first entry, or {@link #INVALID_TOKEN} (-1) if the map is empty
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
@@ -255,16 +258,17 @@ public interface ObjectObjectMap {
 		 * Returns a token for the next entry in the map after the entry associated with the given token.
 		 *
 		 * @param token the token of the current entry
-         * @return a token for the next entry, or {@link #INVALID_TOKEN} (-1) if there are no more entries or the token is invalid
+		 * @return a token for the next entry, or {@link #INVALID_TOKEN} (-1) if there are no more entries or the token is invalid
 		 */
 		public long token( final long token ) {
-            if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
 			for( int i = index( token ) + 1; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
 			return hasNullKey && index( token ) < _count ?
 					token( _count ) :
 					INVALID_TOKEN;
 		}
+		
 		/**
 		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
 		 * skipping concurrency and modification checks.
@@ -297,9 +301,9 @@ public interface ObjectObjectMap {
 		 * @throws ConcurrentModificationException if the map has been modified since the token was obtained
 		 */
 		public K key( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						null :
-						keys[ index( token ) ];
+			return hasNullKey && index( token ) == _count ?
+					null :
+					keys[ index( token ) ];
 		}
 		
 		/**
@@ -310,9 +314,9 @@ public interface ObjectObjectMap {
 		 * @throws ConcurrentModificationException if the map has been modified since the token was obtained
 		 */
 		public V value( long token ) {
-				return hasNullKey && index( token ) == _count ?
-						nullKeyValue :
-						values[ index( token ) ];
+			return hasNullKey && index( token ) == _count ?
+					nullKeyValue :
+					values[ index( token ) ];
 		}
 		
 		@Override
@@ -351,7 +355,9 @@ public interface ObjectObjectMap {
 						                              seed :
 						                              equal_hash_V.hashCode( value( token ) ) ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			if( hasNullKey ) {
 				int h = Array.hash( seed );
@@ -359,7 +365,9 @@ public interface ObjectObjectMap {
 						                              equal_hash_V.hashCode( nullKeyValue ) :
 						                              seed ) );
 				h = Array.finalizeHash( h, 2 );
-				a += h; b ^= h; c *= h | 1;
+				a += h;
+				b ^= h;
+				c *= h | 1;
 			}
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
@@ -991,35 +999,6 @@ public interface ObjectObjectMap {
 			}
 		}
 		
-		@Override
-		public V put( K key, V value ) {
-			long token = tokenOf( key );
-			V ret = token == INVALID_TOKEN ?
-					null :
-					value( token );
-			tryInsert( key, value, 1 );
-			return ret;
-		}
-		
-		/**
-		 * Associates the specified key with the specified value in this map if the key is not already present.
-		 *
-		 * @param key   key with which the specified value is to be associated
-		 * @param value value to be associated with the specified key
-		 * @return {@code true} if a new key-value mapping was added, {@code false} if the key was already present
-		 */
-		public boolean putNotExist( K key, V value ) { return tryInsert( key, value, 2 ); }
-		
-		/**
-		 * Associates the specified key with the specified value in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * If insertion fails (e.g., due to duplicate key exception when behavior flag is set), it throws {@link IllegalArgumentException}.
-		 *
-		 * @param key   key with which the specified value is to be associated
-		 * @param value value to be associated with the specified key
-		 * @throws IllegalArgumentException if an item with the same key already exists and behavior is set to throw exception.
-		 */
-		public void putTry( K key, V value ) { tryInsert( key, value, 0 ); }
 		
 		@Override
 		public void putAll( Map< ? extends K, ? extends V > m ) {
@@ -1138,38 +1117,37 @@ public interface ObjectObjectMap {
 			copy( old_hash_next, old_keys, old_values, old_count );
 		}
 		
+		@Override
+		public V put( K key, V value ) {
+			long token = tokenOf( key );
+			V ret = token == INVALID_TOKEN ?
+					null :
+					value( token );
+			
+			put_( key, value );
+			return ret;
+		}
+		
 		/**
 		 * Tries to insert a key-value pair into the map.
 		 * Handles null keys, hash collisions, and resizing.
 		 *
-		 * @param key      The key to insert.
-		 * @param value    The value to associate with the key.
-		 * @param behavior Flag to control insertion behavior.
-		 *                 0: Throw exception if key exists.
-		 *                 1: Update value if key exists, insert if not.
-		 *                 2: Insert only if key does not exist.
+		 * @param key   The key to insert.
+		 * @param value The value to associate with the key.
 		 * @return {@code true} if insertion occurred (or value updated), {@code false} if insertion was prevented by behavior flag.
 		 * @throws IllegalArgumentException        if behavior is 0 and key already exists.
 		 * @throws ConcurrentModificationException if concurrent operations are detected.
 		 */
-		private boolean tryInsert( K key, V value, int behavior ) {
+		public boolean put_( K key, V value ) {
 			if( key == null ) {
-				if( hasNullKey )
-					switch( behavior ) {
-						case 1:
-							break;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				boolean b = !hasNullKey;
 				hasNullKey   = true;
 				nullKeyValue = value;
 				_version++;
-				return true;
+				return b;
 			}
 			
-			if( _buckets == null ) initialize( 0 );
+			if( _buckets == null ) initialize( 7 );
 			long[] _hash_nexts    = hash_nexts;
 			int    hash           = equal_hash_K.hashCode( key );
 			int    collisionCount = 0;
@@ -1177,17 +1155,12 @@ public interface ObjectObjectMap {
 			int    bucket         = _buckets[ bucketIndex ] - 1;
 			
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _hash_nexts.length; ) {
-				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) )
-					switch( behavior ) {
-						case 1:
-							values[ next ] = value;
-							_version++;
-							return true;
-						case 0:
-							throw new IllegalArgumentException( "An item with the same key has already been added. Key: " + key );
-						default:
-							return false;
-					}
+				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) ) {
+					values[ next ] = value;
+					_version++;
+					return false;
+				}
+				
 				next = next( _hash_nexts[ next ] );
 				if( _hash_nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -1258,7 +1231,7 @@ public interface ObjectObjectMap {
 		 * @return The prime number capacity that is actually used.
 		 */
 		private int initialize( int capacity ) {
-			capacity   = Array.prime( capacity );
+			_version++;
 			_buckets   = new int[ capacity ];
 			hash_nexts = new long[ capacity ];
 			keys       = equal_hash_K.copyOf( null, capacity );
@@ -1278,12 +1251,13 @@ public interface ObjectObjectMap {
 		private void copy( long[] old_hash_next, K[] old_keys, V[] old_values, int old_count ) {
 			int new_count = 0;
 			for( int i = 0; i < old_count; i++ ) {
-				if( next( old_hash_next[ i ] ) < -1 ) continue;
-				hash_nexts[ new_count ] = old_hash_next[ i ];
-				keys[ new_count ]       = old_keys[ i ];
-				values[ new_count ]     = old_values[ i ];
-				int bucketIndex = bucketIndex( hash( old_hash_next[ i ] ) );
-				next( hash_nexts, new_count, _buckets[ bucketIndex ] - 1 );
+				final long hn = old_hash_next[ i ];
+				if( next( hn ) < -1 ) continue;
+				
+				keys[ new_count ]   = old_keys[ i ];
+				values[ new_count ] = old_values[ i ];
+				int bucketIndex = bucketIndex( hash( hn ) );
+				hash_nexts[ new_count ] = hn & 0xFFFF_FFFF_0000_0000L | _buckets[ bucketIndex ] - 1;
 				_buckets[ bucketIndex ] = new_count + 1;
 				new_count++;
 			}
@@ -1323,7 +1297,10 @@ public interface ObjectObjectMap {
 			 *
 			 * @param map the read-write map
 			 */
-			public KeyCollection( RW< K, V > map ) { super( map ); _map = map; }
+			public KeyCollection( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			@Override
 			public boolean add( K item ) { return _map.put( item, null ) != null; }
@@ -1348,7 +1325,10 @@ public interface ObjectObjectMap {
 			 *
 			 * @param map the read-write map to iterate over
 			 */
-			KeyIterator( RW< K, V > map ) { super( map ); _map = map; }
+			KeyIterator( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			@Override
 			public void remove() {
@@ -1371,14 +1351,17 @@ public interface ObjectObjectMap {
 			 *
 			 * @param map the read-write map
 			 */
-			public ValueCollection( RW< K, V > map ) { super( map ); _map = map; }
+			public ValueCollection( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			@Override
 			public boolean add( V item ) { return _map.put( null, item ) != null; }
 			
 			@Override
 			public boolean remove( Object item ) {
-                for( long token = _map.token(); token != INVALID_TOKEN; token = _map.token( token ) ) {
+				for( long token = _map.token(); token != INVALID_TOKEN; token = _map.token( token ) ) {
 					if( Objects.equals( _map.value( token ), item ) ) {
 						_map.remove( _map.key( token ) );
 						return true;
@@ -1414,7 +1397,10 @@ public interface ObjectObjectMap {
 			 *
 			 * @param map the read-write map
 			 */
-			public EntrySet( RW< K, V > map ) { super( map ); _map = map; }
+			public EntrySet( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			@Override
 			public boolean add( Entry< K, V > entry ) {
@@ -1445,7 +1431,10 @@ public interface ObjectObjectMap {
 			 *
 			 * @param map the read-write map to iterate over
 			 */
-			EntryIterator( RW< K, V > map ) { super( map ); _map = map; }
+			EntryIterator( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			@Override
 			public void remove() {
@@ -1474,7 +1463,10 @@ public interface ObjectObjectMap {
 			 *
 			 * @param map the read-write map to iterate over
 			 */
-			Iterator( RW< K, V > map ) { super( map ); _map = map; }
+			Iterator( RW< K, V > map ) {
+				super( map );
+				_map = map;
+			}
 			
 			@Override
 			public void remove() {
