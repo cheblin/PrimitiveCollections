@@ -164,6 +164,7 @@ public interface UByteUByteMap {
 		 * @return {@code true} if the maps are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
+			if( other == this ) return true;
 			if( other == null ||
 			    super.equals( other ) || // Compare ByteSet part
 			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || // Compare null key value

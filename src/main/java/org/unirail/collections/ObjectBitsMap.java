@@ -239,10 +239,7 @@ public interface ObjectBitsMap {
 		 * @param value value whose presence in this map is to be tested
 		 * @return {@code true} if this map maps one or more keys to the specified value.
 		 */
-		public boolean containsValue( int value ) {
-			if( _count == 0 && !hasNullKey ) return false;
-			return values.contains( value );
-		}
+		public boolean containsValue( int value ) { return hasNullKey && nullKeyValue == value || 0 < _count && values.contains( value ); }
 		
 		/**
 		 * Checks if this map contains a mapping for the null key.
@@ -637,15 +634,14 @@ public interface ObjectBitsMap {
 		 * Removes all of the mappings from this map. The map will be empty after this call.
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return; // Already empty
+			hasNullKey = false;                       // Remove null key flag
+			if( _count == 0 ) return; // Already empty
 			Arrays.fill( _buckets, 0 ); // Reset buckets
 			Arrays.fill( hash_nexts, 0, _count, 0L ); // Clear hash_nexts entries
-			Arrays.fill( keys, 0, _count, null );      // Clear keys
 			values.clear();                           // Clear values in BitsList
 			_count     = 0;                               // Reset entry count
 			_freeList  = -1;                            // Reset free list
 			_freeCount = 0;                            // Reset free entry count
-			hasNullKey = false;                       // Remove null key flag
 			_version++;                               // Increment version for modification detection
 		}
 		

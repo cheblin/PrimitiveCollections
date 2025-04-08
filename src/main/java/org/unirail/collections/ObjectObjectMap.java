@@ -197,7 +197,6 @@ public interface ObjectObjectMap {
 		
 		@Override
 		public boolean containsValue( Object value ) {
-			if( _count == 0 && !hasNullKey ) return false;
 			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
 			for( int i = 0; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 && Objects.equals( values[ i ], value ) ) return true;
@@ -1007,16 +1006,15 @@ public interface ObjectObjectMap {
 		
 		@Override
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets, 0 );
-			Arrays.fill( hash_nexts, 0, _count, 0L );
-			Arrays.fill( keys, 0, _count, null );
-			Arrays.fill( values, 0, _count, null );
-			_count       = 0;
-			_freeList    = -1;
-			_freeCount   = 0;
 			hasNullKey   = false;
 			nullKeyValue = null;
+			if( _count == 0 ) return;
+			Arrays.fill( _buckets, 0 );
+			Arrays.fill( hash_nexts, 0, _count, 0L );
+			Arrays.fill( values, 0, _count, null );
+			_count     = 0;
+			_freeList  = -1;
+			_freeCount = 0;
 			_version++;
 		}
 		

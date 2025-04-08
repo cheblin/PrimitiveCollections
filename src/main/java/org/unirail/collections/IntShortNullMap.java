@@ -154,10 +154,9 @@ public interface IntShortNullMap {
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue(  Short     value ) {
-			return ( _count != 0 || hasNullKey ) && (
-					value == null ?
-							!nullKeyHasValue :
-							values.indexOf( value ) != -1 );
+			return value == null ?
+					hasNullKey && !nullKeyHasValue || values.nextNullIndex( 0 ) != -1 :
+					hasNullKey && nullKeyHasValue && nullKeyValue == value || values.indexOf( value ) != -1;
 		}
 		
 		/**
@@ -166,7 +165,7 @@ public interface IntShortNullMap {
 		 * @param value the value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
 		 */
-		public boolean containsValue( short value ) { return _count != 0 && values.indexOf( value ) != -1; }
+		public boolean containsValue( short value ) { return  hasNullKey && nullKeyHasValue && nullKeyValue == value ||   values.indexOf( value ) != -1; }
 		
 		/**
 		 * Returns a token associated with the specified key (boxed).
@@ -380,6 +379,7 @@ public interface IntShortNullMap {
 		 * @return {@code true} if the maps are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
+			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
 			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyValue != other.nullKeyValue ) ||
 			    size() != other.size() )
@@ -571,7 +571,7 @@ public interface IntShortNullMap {
 		
 		public boolean putNullKey( short  value ) { return put( value, true ); }
 		
-		public boolean putNullValue( int key )  { return put( key, ( short ) 0, true ); }
+		public boolean putNullValue( int key )  { return put( key, ( short ) 0, false ); }
 		
 		/**
 		 * Associates the specified value with the specified key in this map (primitive int key and primitive int value).
@@ -709,43 +709,41 @@ public interface IntShortNullMap {
 							nexts[ last ] = ( int ) next;
 						
 						// Step 2: Optimize removal if value is non-null and not the last non-null
-						final int     lastNonNullValue = values.nulls.last1(); // Index of last non-null value
-						final boolean hasValue         = values.hasValue( i );
+						final int lastNonNullValue = values.nulls.last1(); // Index of last non-null value
 						
-						// Update free list head
-						if( i != lastNonNullValue && hasValue ) {
-							// Optimization applies: swap with last non-null entry
-							// Step 2a: Copy key, next, and value from lastNonNullValue to i
-							int   keyToMove = keys[ lastNonNullValue ];
-							int           bucket    = bucketIndex( Array.hash( keyToMove ) );
-							int           _next     = nexts[ lastNonNullValue ];
-							
-							keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
-							nexts[ i ] = _next;         // Copy the next to the entry being removed
-							values.set1( i, values.get( lastNonNullValue ) ); // Copy the value to the entry being removed
-							
-							// Step 2b: Update the chain containing keyToMove to point to 'i'
-							int prev = -1;                     // Previous index in keyToMove’s chain
-							collisionCount = 0;// Reset collision counter
-							
-							// Start at chain head
-							for( int current = _buckets[ bucket ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
-								if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-							
-							_buckets[ bucket ] = i + 1;// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
-							
-							if( -1 < prev ) nexts[ prev ] = _next;
-							
-							values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
-							i = lastNonNullValue;
-						}
-						else if( hasValue ) values.set1( i, null );                       // Clear value (may shift if not last)
+						if( values.hasValue( i ) )
+							if( i != lastNonNullValue ) {
+								// Optimization applies: swap with last non-null entry
+								// Step 2a: Copy key, next, and value from lastNonNullValue to i
+								int   keyToMove = keys[ lastNonNullValue ];
+								int           bucket    = bucketIndex( Array.hash( keyToMove ) );
+								int           _next     = nexts[ lastNonNullValue ];
+								
+								keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
+								nexts[ i ] = _next;         // Copy the next to the entry being removed
+								values.set1( i, values.get( lastNonNullValue ) ); // Copy the value to the entry being removed
+								
+								// Step 2b: Update the chain containing keyToMove to point to 'i'
+								int prev = -1;                     // Previous index in keyToMove’s chain
+								collisionCount = 0;// Reset collision counter
+								
+								// Start at chain head
+								for( int current = _buckets[ bucket ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
+									if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+								
+								if( -1 < prev ) nexts[ prev ] = i;
+								else _buckets[ bucket ] = i + 1;// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+								
+								
+								values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
+								i = lastNonNullValue;
+							}
+							else values.set1( i, null );                       // Clear value (may shift if not last)
 					}
 					
 					nexts[ i ] = StartOfFreeList - _freeList; // Mark 'i' as free
 					
 					_freeList = i;
-					
 					_freeCount++;       // Increment count of free entries
 					_version++;         // Increment version for concurrency control
 					return token( i );    // Return token for removed/overwritten entry
@@ -768,15 +766,14 @@ public interface IntShortNullMap {
 		 * The map will be empty after this call.
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey = false;
+			if( _count == 0 ) return;
 			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
-			Arrays.fill( keys, 0, _count, ( int ) 0 );
 			values.clear();
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;
-			hasNullKey = false;
 			_version++;
 		}
 		
@@ -817,10 +814,8 @@ public interface IntShortNullMap {
 		 * @throws IllegalArgumentException if the specified capacity is less than the current size of the map.
 		 */
 		public void trim( int capacity ) {
-			if( capacity < size() ) throw new IllegalArgumentException( "capacity is less than Count." );
-			int currentCapacity = length();
-			int newSize         = Array.prime( capacity );
-			if( currentCapacity <= newSize ) return;
+			int newSize = Array.prime( capacity );
+			if( length() <= newSize ) return;
 			
 			int[]                  old_next   = nexts;
 			int[]          old_keys   = keys;

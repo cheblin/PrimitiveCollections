@@ -213,7 +213,6 @@ public interface FloatObjectNullMap {
 		 * @return {@code true} if this map contains a value equal to the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue( Object value ) {
-			if( _count == 0 && !hasNullKey ) return false;
 			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
 			for( int i = 0; i < _count; i++ )
 				if( nexts[ i ] >= -1 && Objects.equals( values.get( i ), value ) ) return true;
@@ -231,9 +230,9 @@ public interface FloatObjectNullMap {
 		 */
 		public long tokenOf(  Float     key ) {
 			return key == null ?
-					( hasNullKey ?
+					hasNullKey ?
 							token( _count ) :
-							INVALID_TOKEN ) :
+							INVALID_TOKEN :
 					tokenOf( key.floatValue     () );
 		}
 		
@@ -248,7 +247,8 @@ public interface FloatObjectNullMap {
 		public long tokenOf( float key ) {
 			if( _buckets == null ) return INVALID_TOKEN; // Map is not initialized, no buckets exist
 			int hash = Array.hash( key ); // Calculate hash of the key
-			int i    = ( _buckets[ bucketIndex( hash ) ] ) - 1; // Get bucket index and first entry in the chain (0-based index)
+			
+			int i = _buckets[ bucketIndex( hash ) ] - 1; // Get bucket index and first entry in the chain (0-based index)
 			
 			// Traverse the chain in the bucket to find the key
 			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < nexts.length; ) {
@@ -334,9 +334,9 @@ public interface FloatObjectNullMap {
 		 * @return The integer key associated with the token, or 0 if the token corresponds to the null key.
 		 */
 		public float key( long token ) {
-			return   ( hasNullKey && index( token ) == _count ?
+			return   hasNullKey && index( token ) == _count ?
 					0 :
-					keys[ index( token ) ] ); // Return the actual key from the keys array
+					keys[ index( token ) ]; // Return the actual key from the keys array
 		}
 		
 		/**
@@ -478,7 +478,7 @@ public interface FloatObjectNullMap {
 		public boolean equals( R< V > other ) {
 			if( other == this ) return true; // Same instance
 			if( other == null || hasNullKey != other.hasNullKey || // Null check, null key presence check
-			    ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) || // Null key value equality check
+			    hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) || // Null key value equality check
 			    size() != other.size() ) return false; // Size check
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
@@ -551,7 +551,7 @@ public interface FloatObjectNullMap {
 		 * @param index The index of the entry in the internal arrays.
 		 * @return A long token representing the entry.
 		 */
-		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index & INDEX_MASK ); }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK; }
 		
 		/**
 		 * Extracts the index from a token.
@@ -617,16 +617,15 @@ public interface FloatObjectNullMap {
 		 * The map will be empty after this call.
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return; // Map is already empty
-			Arrays.fill( _buckets, 0 ); // Clear buckets array
-			Arrays.fill( nexts, 0, _count, ( int ) 0 ); // Clear nexts array
-			Arrays.fill( keys, 0, _count, ( float ) 0 ); // Clear keys array
-			values.clear(); // Clear values list
-			_count       = 0; // Reset entry count
-			_freeList    = -1; // Reset free list
-			_freeCount   = 0; // Reset free entry count
 			hasNullKey   = false; // Reset null key flag
 			nullKeyValue = null;  // Reset null key value
+			if( _count == 0 ) return; // Map is already empty
+			Arrays.fill( _buckets, 0 ); // Clear buckets array
+			Arrays.fill( nexts, 0, _count, ( int ) 0 ); // Clear nexts array
+			values.clear(); // Clear values list
+			_count     = 0; // Reset entry count
+			_freeList  = -1; // Reset free list
+			_freeCount = 0; // Reset free entry count
 			_version++; // Increment version for concurrency control
 		}
 		
@@ -660,8 +659,7 @@ public interface FloatObjectNullMap {
 		 */
 		public V remove( float key ) {
 			// Handle edge cases: if map is uninitialized or empty, nothing to remove
-			if( _buckets == null || _count == 0 )
-				return null; // Return invalid token indicating no removal
+			if( _buckets == null || _count == 0 )				return null; // Return invalid token indicating no removal
 			
 			// Compute hash and bucket index for the key to locate its chain
 			int hash           = Array.hash( key );                // Hash the key using Array.hash
@@ -680,7 +678,7 @@ public interface FloatObjectNullMap {
 					// Step 1: Unlink the entry at 'i' from its chain
 					if( last < 0 )
 						// If 'i' is the head, update bucket to point to the next entry
-						_buckets[ bucketIndex ] = ( next + 1 );
+						_buckets[ bucketIndex ] = next + 1;
 					
 					else
 						// Otherwise, link the previous entry to the next, bypassing 'i'
@@ -688,10 +686,8 @@ public interface FloatObjectNullMap {
 					
 					// Step 2: Optimize removal if value is non-null and not the last non-null
 					final int     lastNonNullValue = values.nulls.last1(); // Index of last non-null value
-					final boolean hasValue         = values.hasValue( i ); // Check if the entry has a value
-					
-					// Update free list head
-					if( i != lastNonNullValue && hasValue ) {
+					if( values.hasValue( i ) )
+						if( i != lastNonNullValue ) {
 						// Optimization applies: swap with last non-null entry
 						// Step 2a: Copy key, next, and value from lastNonNullValue to i
 						float   keyToMove          = keys[ lastNonNullValue ];
@@ -710,18 +706,18 @@ public interface FloatObjectNullMap {
 						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
 							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 						
-						_buckets[ BucketOf_KeyToMove ] = ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+						if( -1 < prev ) nexts[ prev ] = i; // Update next pointer of the previous entry
+						else _buckets[ BucketOf_KeyToMove ] = i + 1;// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
 						
-						if( -1 < prev ) nexts[ prev ] = _next; // Update next pointer of the previous entry
 						
 						values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
 						i = lastNonNullValue; // Continue freeing operations at swapped position
 					}
-					else if( hasValue ) values.set1( i, null );                       // Clear value (may shift if not last)
+					else values.set1( i, null );                       // Clear value (may shift if not last)
 					
 					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Mark 'i' as free and link to free list
 					_freeList  = i; // Update free list head
-					
+					_count --;
 					_freeCount++;       // Increment count of free entries
 					_version++;         // Increment version for concurrency control
 					return oldValue;    // Return the removed value
@@ -853,7 +849,7 @@ public interface FloatObjectNullMap {
 			else { // No free slots available, need to expand if full
 				if( _count == _nexts.length ) {
 					resize( Array.prime( _count * 2 ) ); // Resize to accommodate new entry
-					bucket =  ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 ); // Recalculate bucket index and chain head after resize
+					bucket =  _buckets[ bucketIndex = bucketIndex( hash ) ] - 1; // Recalculate bucket index and chain head after resize
 				}
 				index = _count++; // Get the next available index and increment count
 			}
@@ -885,7 +881,7 @@ public interface FloatObjectNullMap {
 				if( -2 < new_next[ i ] ) { // Process only valid (non-free) entries
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Recalculate bucket index for the key
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Link current entry to the head of the new bucket chain
-					_buckets[ bucketIndex ] = ( i + 1 ); // Update bucket head to point to the current entry (1-based)
+					_buckets[ bucketIndex ] = i + 1; // Update bucket head to point to the current entry (1-based)
 				}
 			
 			nexts = new_next; // Replace old arrays with new ones
@@ -925,7 +921,7 @@ public interface FloatObjectNullMap {
 				values.set1( new_count, old_values.get( i ) ); // Copy value
 				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Recalculate bucket index in new buckets array
 				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Link to the head of the new bucket chain
-				_buckets[ bucketIndex ] = ( new_count + 1 ); // Update bucket head to point to the new entry (1-based)
+				_buckets[ bucketIndex ] = new_count + 1; // Update bucket head to point to the new entry (1-based)
 				new_count++; // Increment new entry count
 			}
 			_count     = new_count; // Update total entry count

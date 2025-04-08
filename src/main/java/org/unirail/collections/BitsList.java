@@ -68,7 +68,7 @@ public interface BitsList {
 		/**
 		 * Number of bits per item (1 to BITS).
 		 */
-		public final int bits;
+		public final int bits_per_item;
 		
 		protected int bits_per_item() { return 32 - Long.numberOfLeadingZeros( mask ); }
 		
@@ -84,7 +84,7 @@ public interface BitsList {
 		 * @param bits_per_item Number of bits per item (1 to 7(inclusive)).
 		 */
 		protected R( int bits_per_item ) {
-			mask          = mask( bits = bits_per_item );
+			mask          = mask( this.bits_per_item = bits_per_item );
 			default_value = 0;
 		}
 		
@@ -96,8 +96,8 @@ public interface BitsList {
 		 * @param length        Initial capacity in items.
 		 */
 		protected R( int bits_per_item, int length ) {
-			mask          = mask( bits = bits_per_item );
-			values        = new long[ len4bits( length * bits ) ];
+			mask          = mask( this.bits_per_item = bits_per_item );
+			values        = new long[ len4bits( length * this.bits_per_item ) ];
 			default_value = 0;
 		}
 		
@@ -110,14 +110,14 @@ public interface BitsList {
 		 * @param size          Initial size in items (if negative, uses absolute value).
 		 */
 		protected R( int bits_per_item, int default_value, int size ) {
-			mask               = mask( bits = bits_per_item );
+			mask               = mask( this.bits_per_item = bits_per_item );
 			this.size          = size < 0 ?
 					-size :
 					size;
-			values             = new long[ len4bits( this.size * bits ) ];
+			values             = new long[ len4bits( this.size * this.bits_per_item ) ];
 			this.default_value = ( int ) ( default_value & mask );
 			if( this.default_value != 0 && this.size > 0 )
-				for( int i = 0; i < this.size; i++ ) append( this, i, this.default_value );
+				for( int i = 0; i < this.size; i++ ) set_( this, i, this.default_value );
 		}
 		
 		/**
@@ -125,9 +125,7 @@ public interface BitsList {
 		 *
 		 * @return The current size of the list.
 		 */
-		public int size() {
-			return size;
-		}
+		public int size() {			return size;		}
 		
 		/**
 		 * Returns the current capacity of the list in items.
@@ -135,7 +133,7 @@ public interface BitsList {
 		 * @return The capacity, calculated as the number of items that can fit in the {@code values} array.
 		 */
 		public int length() {
-			return values.length * BITS / bits;
+			return values.length * BITS / bits_per_item;
 		}
 		
 		/**
@@ -148,11 +146,11 @@ public interface BitsList {
 		protected void length_( int items ) {
 			if( 0 < items ) {
 				if( items < size ) size = items;
-				int new_length = len4bits( items * bits );
+				int new_length = len4bits( items * bits_per_item );
 				if( values.length != new_length ) values = Arrays.copyOf( values, new_length );
 			}
 			else {
-				int new_length = len4bits( -items * bits );
+				int new_length = len4bits( -items * bits_per_item );
 				if( values.length != new_length ) {
 					values = new_length == 0 ?
 							Array.EqualHashOf._longs.O :
@@ -169,7 +167,7 @@ public interface BitsList {
 		 */
 		protected void clear() {
 			if( size == 0 ) return;
-			java.util.Arrays.fill( values, 0, len4bits( size * bits ), 0L );
+			java.util.Arrays.fill( values, 0, len4bits( size * bits_per_item ), 0L );
 			size = 0;
 		}
 		
@@ -189,8 +187,8 @@ public interface BitsList {
 		 */
 		@Override
 		public int hashCode() {
-			int last_long = index( size * bits );
-			int hash      = Array.hash( 149989999, values[ last_long ] & mask( bit( size * bits ) ) );
+			int last_long = index( size * bits_per_item );
+			int hash      = Array.hash( 149989999, values[ last_long ] & mask( bit( size * bits_per_item ) ) );
 			for( int i = last_long - 1; i >= 0; i-- ) hash = Array.hash( hash, values[ i ] );
 			return Array.finalizeHash( hash, size() );
 		}
@@ -202,9 +200,7 @@ public interface BitsList {
 		 * @return {@code true} if the objects are equal, {@code false} otherwise.
 		 */
 		@Override
-		public boolean equals( Object other ) {
-			return other != null && getClass() == other.getClass() && equals( getClass().cast( other ) );
-		}
+		public boolean equals( Object other ) { return other != null && getClass() == other.getClass() && equals( ( R ) other ); }
 		
 		/**
 		 * Checks if this list is equal to another {@code R} instance.
@@ -214,9 +210,10 @@ public interface BitsList {
 		 * @return {@code true} if the lists are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
+			if( other == this ) return true;
 			if( other == null || other.size != size ) return false;
-			int  last_long = index( size * bits );
-			long last_mask = mask( bit( size * bits ) );
+			int  last_long = index( size * bits_per_item );
+			long last_mask = mask( bit( size * bits_per_item ) );
 			if( ( values[ last_long ] & last_mask ) != ( other.values[ last_long ] & last_mask ) ) return false;
 			for( int i = last_long - 1; i >= 0; i-- ) if( values[ i ] != other.values[ i ] ) return false;
 			return true;
@@ -243,11 +240,11 @@ public interface BitsList {
 		 */
 		public byte get( int item ) {
 			if( item < 0 || item >= size ) throw new IndexOutOfBoundsException( "Index: " + item + ", Size: " + size );
-			int bit_pos = item * bits;
+			int bit_pos = item * bits_per_item;
 			int index   = index( bit_pos );
 			int bit     = bit( bit_pos );
-			return bit + bits > BITS ?
-					value( values[ index ], values[ index + 1 ], bit, bits, mask ) :
+			return bit + bits_per_item > BITS ?
+					value( values[ index ], values[ index + 1 ], bit, bits_per_item, mask ) :
 					value( values[ index ], bit, mask );
 		}
 		
@@ -276,16 +273,11 @@ public interface BitsList {
 				set1( dst, item, value );
 				return;
 			}
-			int total_bits      = dst.size * dst.bits;
-			int insert_bit      = item * dst.bits;
-			int required_length = len4bits( total_bits + dst.bits );
+			int total_bits      = dst.size * dst.bits_per_item;
+			int insert_bit      = item * dst.bits_per_item;
 			
 			
-			dst.values = BitList.RW.shiftLeft( dst.values,
-			                                   dst.values.length < required_length ?
-					                                   new long[ Math.max( dst.values.length + dst.values.length / 2, required_length ) ] :
-					                                   dst.values,
-			                                   0, dst.values.length * BITS, insert_bit, total_bits, dst.bits, true );
+			dst.values = BitList.RW.shiftLeft( dst.values, insert_bit, total_bits, dst.bits_per_item, true );
 			dst.size++;
 			set1( dst, item, value );
 		}
@@ -334,7 +326,7 @@ public interface BitsList {
 		protected static void set1( R dst, int item, long src ) {
 			if( item < 0 ) throw new IndexOutOfBoundsException( "Index: " + item );
 			long v       = src & dst.mask;
-			int  bit_pos = item * dst.bits;
+			int  bit_pos = item * dst.bits_per_item;
 			
 			
 			if( item < dst.size ) {
@@ -342,11 +334,11 @@ public interface BitsList {
 				int bit   = bit( bit_pos );
 				int k     = BITS - bit;
 				
-				if( k < dst.bits ) {// Value spans two longs
+				if( k < dst.bits_per_item ) {// Value spans two longs
 					
 					long mask = ~0L << bit;
 					dst.values[ index ] = dst.values[ index ] & ~mask | v << bit;
-					int bits_in_next = dst.bits - k;
+					int bits_in_next = dst.bits_per_item - k;
 					dst.values[ index + 1 ] = dst.values[ index + 1 ] & ~mask( bits_in_next ) | v >>> k;
 				}
 				else {
@@ -357,12 +349,12 @@ public interface BitsList {
 				return;
 			}
 			
-			if( dst.length() <= item ) dst.length_( Math.max( dst.length() + dst.length() / 2, len4bits( bit_pos + dst.bits ) ) );
+			if( dst.length() <= item ) dst.length_( Math.max( dst.length() + dst.length() / 2, len4bits( bit_pos + dst.bits_per_item ) ) );
 			if( dst.default_value != 0 )
 				for( int i = dst.size; i < item; i++ )
-				     append( dst, i, dst.default_value );
+				     set_( dst, i, dst.default_value );
 			
-			append( dst, item, v );
+			set_( dst, item, v );
 			dst.size = item + 1;
 		}
 		
@@ -374,17 +366,17 @@ public interface BitsList {
 		 * @param item The index to append at.
 		 * @param src  The value to append, masked to fit within {@code bits} per item.
 		 */
-		private static void append( R dst, int item, long src ) {
+		private static void set_( R dst, int item, long src ) {
 			long v       = src & dst.mask;
-			int  bit_pos = item * dst.bits;
+			int  bit_pos = item * dst.bits_per_item;
 			int  index   = index( bit_pos );
 			int  bit     = bit( bit_pos );
 			int  k       = BITS - bit;
-			if( k < dst.bits ) {
+			if( k < dst.bits_per_item ) {
 				// Value spans two longs
 				long mask = ~0L << bit;
 				dst.values[ index ] = dst.values[ index ] & ~mask | v << bit;
-				int bits_in_next = dst.bits - k;
+				int bits_in_next = dst.bits_per_item - k;
 				dst.values[ index + 1 ] = dst.values[ index + 1 ] & ~mask( bits_in_next ) | v >>> k;
 			}
 			else {
@@ -403,13 +395,13 @@ public interface BitsList {
 		 */
 		protected static void removeAt( R dst, int item ) {
 			if( item == dst.size - 1 ) {
-				if( dst.default_value == 0 ) append( dst, item, 0 ); // ensure trailing bits are zeroed if default is zero.
+				if( dst.default_value == 0 ) set_( dst, item, 0 ); // ensure trailing bits are zeroed if default is zero.
 				dst.size--;
 				return;
 			}
-			int from_bit = ( item + 1 ) * dst.bits;
-			int to_bit   = dst.size * dst.bits;
-			BitList.RW.shiftRight( dst.values, dst.values, 0, dst.values.length * BITS, from_bit, to_bit, dst.bits, true );
+			int from_bit = ( item + 1 ) * dst.bits_per_item;
+			int to_bit   = dst.size * dst.bits_per_item;
+			BitList.RW.shiftRight( dst.values, dst.values, from_bit, to_bit, dst.bits_per_item, true );
 			dst.size--;
 		}
 		
@@ -452,13 +444,13 @@ public interface BitsList {
 			if( size > 0 ) {
 				json.preallocate( size * 4 );
 				long src = values[ 0 ];
-				for( int bp = 0, max = size * bits, i = 0; bp < max; bp += bits, i++ ) {
+				for( int bp = 0, max = size * bits_per_item, i = 0; bp < max; bp += bits_per_item, i++ ) {
 					int bit = bit( bp );
-					long value = bit + bits > BITS ?
-							value( src, values[ index( bp ) + 1 ], bit, bits, mask ) :
+					long value = bit + bits_per_item > BITS ?
+							value( src, values[ index( bp ) + 1 ], bit, bits_per_item, mask ) :
 							value( src, bit, mask );
 					json.value( value );
-					if( bit + bits > BITS ) src = values[ index( bp ) + 1 ];
+					if( bit + bits_per_item > BITS ) src = values[ index( bp ) + 1 ];
 				}
 			}
 			json.exitArray();

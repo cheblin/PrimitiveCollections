@@ -195,12 +195,7 @@ public interface ShortFloatMap {
 		 * @return The first valid token to begin iteration, or INVALID_TOKEN if the map is empty.
 		 */
 		public long token() {
-			int index = -1;
-			if( isFlatStrategy )
-				index = next1( 0 );
-			
-			else if( 0 < _count )
-				for( index = 0; nexts[ index ] < -1; index++ ) ;
+			int index = unsafe_token( -1 );
 			
 			return index == -1 ?
 					hasNullKey ?
@@ -345,6 +340,7 @@ public interface ShortFloatMap {
 		 * @return True if the maps are equal.
 		 */
 		public boolean equals( R other ) {
+			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
 			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || size() != other.size() )
 				return false;
@@ -569,12 +565,7 @@ public interface ShortFloatMap {
 					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
 					
 					resize( i );
-					if( isFlatStrategy ) {
-						exists1( ( char ) key );
-						values[ ( char ) key ] = ( float ) value;
-						_count++;
-						return true;
-					}
+					if( isFlatStrategy ) return put( key, value );
 					
 					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
 				}
@@ -677,18 +668,19 @@ public interface ShortFloatMap {
 		 * Clears all mappings from the map.
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey = false;
+			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				Array.fill( flat_bits, 0 );
+				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
+				else flat_bits = null;
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
-				Arrays.fill( keys, ( short ) 0 );
 				_freeList  = -1;
 				_freeCount = 0;
 			}
-			_count     = 0;
-			hasNullKey = false;
+			
+			_count = 0;
 			_version++;
 		}
 		
@@ -740,7 +732,7 @@ public interface ShortFloatMap {
 		 * @param newSize The new size (prime number).
 		 */
 		private int resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Short    .BYTES * 8 );
+			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
 			
 			if( isFlatStrategy ) {
 				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
@@ -757,22 +749,22 @@ public interface ShortFloatMap {
 			}
 			else if( flatStrategyThreshold < newSize ) {
 				
-				float[] _values = new float[ FLAT_ARRAY_SIZE ];
+				float[] _values = values;
+				
+				values    = new float[ FLAT_ARRAY_SIZE ];
 				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
 				
-				for( int i = 0; i < _count; i++ )
-					if( -2 < nexts[ i ] ) {
-						char key = ( char ) keys[ i ];
-						exists1( key );
-						_values[ key ] = values[ i ];
-					}
+				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) {
+					char key = ( char ) keys[ i ];
+					exists1( key );
+					values[ key ] = _values[ i ];
+				}
 				
 				isFlatStrategy = true;
 				
 				_buckets = null;
 				nexts    = null;
 				keys     = null;
-				values   = _values;
 				
 				_count -= _freeCount;
 				

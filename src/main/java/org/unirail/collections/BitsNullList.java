@@ -139,10 +139,10 @@ public interface BitsNullList {
 				json.preallocate( size * 4 ); // Estimate buffer size for JSON output
 				
 				long src = values[ 0 ];
-				for( int bp = 0, max = size * bits, i = 1; bp < max; bp += bits, i++ ) {
+				for( int bp = 0, max = size * bits_per_item, i = 1; bp < max; bp += bits_per_item, i++ ) {
 					final int bit = BitsList.R.bit( bp );
-					long value = ( BitsList.R.BITS < bit + bits ?
-							BitsList.R.value( src, src = values[ BitsList.R.index( bp ) + 1 ], bit, bits, mask ) :
+					long value = ( BitsList.R.BITS < bit + bits_per_item ?
+							BitsList.R.value( src, src = values[ BitsList.R.index( bp ) + 1 ], bit, bits_per_item, mask ) :
 							BitsList.R.value( src, bit, mask ) );
 					
 					if( value == null_val ) json.value(); // Write JSON null for null_val

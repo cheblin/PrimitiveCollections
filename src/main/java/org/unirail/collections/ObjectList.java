@@ -182,7 +182,7 @@ public interface ObjectList {
 		 * @param other The list to compare with.
 		 * @return {@code true} if the lists are equal, {@code false} otherwise.
 		 */
-		public boolean equals( R< V > other ) { return other != null && size == other.size && equal_hash_V.equals( values, other.values, size ); }
+		public boolean equals( R< V > other ) { return other ==this || other != null && size == other.size && equal_hash_V.equals( values, other.values, size ); }
 		
 		public int hashCode() {
 			return Array.finalizeHash( V_is_string ?

@@ -216,12 +216,7 @@ public interface CharObjectMap {
 		 * @return The first valid token to begin iteration, or INVALID_TOKEN if the map is empty.
 		 */
 		public long token() {
-			int index = -1;
-			if( isFlatStrategy )
-				index = next1( 0 );
-			
-			else if( 0 < _count )
-				for( index = 0; nexts[ index ] < -1; index++ ) ;
+			int index = unsafe_token( -1 );
 			
 			return index == -1 ?
 					hasNullKey ?
@@ -702,13 +697,8 @@ public interface CharObjectMap {
 					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
 					
 					resize( i );
-					if( isFlatStrategy ) {
-						
-						exists1( ( char ) key );
-						values[ ( char ) key ] = value;
-						_count++;
-						return true;
-					}
+					if( isFlatStrategy ) return put( key, value );
+					
 					
 					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
 				}
@@ -779,7 +769,6 @@ public interface CharObjectMap {
 					oldValue = values[ key ];
 					if( oldValue != null ) values[ key ] = null;
 					exists0( ( char ) key );
-					_count--;
 					_version++;
 					return oldValue;
 				}
@@ -818,19 +807,19 @@ public interface CharObjectMap {
 		 * Clears all mappings from the map. Resets to initial state (hash or flat depending on initial setup).
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey = false;
+			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				Array.fill( flat_bits, 0 );
+				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
+				else flat_bits = null;
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
-				Arrays.fill( keys, ( char ) 0 );
 				Arrays.fill( values, 0, _count, null ); // Clear value references
 				_freeList  = -1;
 				_freeCount = 0;
 			}
-			_count     = 0;
-			hasNullKey = false;
+			_count = 0;
 			_version++;
 		}
 		
@@ -886,7 +875,7 @@ public interface CharObjectMap {
 		 * @return The new actual capacity after resizing/switching.
 		 */
 		private int resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Character.BYTES * 8 );
+			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
 			
 			if( isFlatStrategy ) {
 				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
@@ -903,22 +892,21 @@ public interface CharObjectMap {
 			}
 			else if( flatStrategyThreshold < newSize ) {
 				
-				V[] _values = equal_hash_V.copyOf( null, FLAT_ARRAY_SIZE );
+				V[] _values = values;
+				values    = equal_hash_V.copyOf( null, FLAT_ARRAY_SIZE );
 				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
 				
-				for( int i = 0; i < _count; i++ )
-					if( -2 < nexts[ i ] ) {
-						char key = ( char ) keys[ i ];
-						exists1( key );
-						_values[ key ] = values[ i ];
-					}
+				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) {
+					char key = ( char ) keys[ i ];
+					exists1( key );
+					values[ key ] = _values[ i ];
+				}
 				
 				isFlatStrategy = true;
 				
 				_buckets = null;
 				nexts    = null;
 				keys     = null;
-				values   = _values;
 				
 				_count -= _freeCount;
 				

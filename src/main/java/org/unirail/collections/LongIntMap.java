@@ -129,8 +129,9 @@ public interface LongIntMap {
 		 * @return True if the value exists in the map.
 		 */
 		public boolean containsValue( int value ) {
-			if( _count == 0 && !hasNullKey ) return false;
 			if( hasNullKey && nullKeyValue == value ) return true;
+			if( _count == 0 ) return false;
+			
 			for( int i = 0; i < nexts.length; i++ )
 				if( -2 < nexts[ i ] && values[ i ] == value ) return true;
 			return false;
@@ -297,6 +298,7 @@ public interface LongIntMap {
 		 * @return True if the maps are equal.
 		 */
 		public boolean equals( R other ) {
+			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
 			    ( hasNullKey && Objects.equals( nullKeyValue, other.nullKeyValue ) ) || size() != other.size() )
 				return false;
@@ -530,14 +532,13 @@ public interface LongIntMap {
 		 * Clears all mappings from the map.
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey = false;
+			if( _count == 0 ) return;
 			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, ( int ) 0 );
-			Arrays.fill( keys, ( long ) 0 );
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;
-			hasNullKey = false;
 			_version++;
 		}
 		

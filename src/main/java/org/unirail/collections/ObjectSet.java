@@ -396,7 +396,6 @@ public interface ObjectSet {
 			if( _count < 1 ) return;
 			Arrays.fill( _buckets, 0 );
 			Arrays.fill( hash_nexts, 0, _count, 0L );
-			Arrays.fill( keys, 0, _count, null );
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;

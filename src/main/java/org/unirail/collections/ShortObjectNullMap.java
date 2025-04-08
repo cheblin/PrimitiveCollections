@@ -253,12 +253,7 @@ public interface ShortObjectNullMap {
 		 * @return The first valid token to begin iteration, or INVALID_TOKEN if the map is empty.
 		 */
 		public long token() {
-			int index = -1;
-			if( isFlatStrategy )
-				index = next1( 0 );
-			
-			else if( 0 < _count )
-				for( index = 0; nexts[ index ] < -1; index++ ) ;
+			int index = unsafe_token( -1 );
 			
 			return index == -1 ?
 					hasNullKey ?
@@ -755,13 +750,7 @@ public interface ShortObjectNullMap {
 					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
 					
 					resize( i );
-					if( isFlatStrategy ) {
-						
-						exists1( ( char ) key );
-						values.set1( ( char ) key, value ); // Set value
-						_count++;
-						return true;
-					}
+					if( isFlatStrategy ) return put( key, value );
 					
 					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
 				}
@@ -865,41 +854,40 @@ public interface ShortObjectNullMap {
 						nexts[ last ] = next;
 					
 					// Step 2: Optimize removal if value is non-null and not the last non-null
-					final int     lastNonNullValue = values.nulls.last1(); // Index of last non-null value
-					final boolean hasValue         = values.hasValue( i ); // Check if the entry has a value
+					final int lastNonNullValue = values.nulls.last1(); // Index of last non-null value
 					
 					// Update free list head
-					if( i != lastNonNullValue && hasValue ) {
-						// Optimization applies: swap with last non-null entry
-						// Step 2a: Copy key, next, and value from lastNonNullValue to i
-						short   keyToMove          = keys[ lastNonNullValue ];
-						int            BucketOf_KeyToMove = bucketIndex( Array.hash( keyToMove ) );
-						short          _next              = nexts[ lastNonNullValue ];
-						
-						keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
-						nexts[ i ] = _next;         // Copy the next to the entry being removed
-						values.set1( i, values.get( lastNonNullValue ) ); // Copy the value to the entry being removed
-						
-						// Step 2b: Update the chain containing keyToMove to point to 'i'
-						int prev = -1;                     // Previous index in keyToMove’s chain
-						collisionCount = 0;// Reset collision counter
-						
-						// Start at chain head
-						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
-							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-						
-						_buckets[ BucketOf_KeyToMove ] = ( char ) ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
-						
-						if( -1 < prev ) nexts[ prev ] = _next; // Update next pointer of the previous entry
-						
-						values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
-						i = lastNonNullValue; // Continue freeing operations at swapped position
-					}
-					else if( hasValue ) values.set1( i, null );                       // Clear value (may shift if not last)
+					if( values.hasValue( i ) )
+						if( i != lastNonNullValue ) {
+							// Optimization applies: swap with last non-null entry
+							// Step 2a: Copy key, next, and value from lastNonNullValue to i
+							short   keyToMove          = keys[ lastNonNullValue ];
+							int            BucketOf_KeyToMove = bucketIndex( Array.hash( keyToMove ) );
+							short          _next              = nexts[ lastNonNullValue ];
+							
+							keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
+							nexts[ i ] = _next;         // Copy the next to the entry being removed
+							values.set1( i, values.get( lastNonNullValue ) ); // Copy the value to the entry being removed
+							
+							// Step 2b: Update the chain containing keyToMove to point to 'i'
+							int prev = -1;                     // Previous index in keyToMove’s chain
+							collisionCount = 0;// Reset collision counter
+							
+							// Start at chain head
+							for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
+								if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+							
+							if( -1 < prev ) nexts[ prev ] = ( short ) i; // Update next pointer of the previous entry
+							else _buckets[ BucketOf_KeyToMove ] = ( char ) ( i + 1 );// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+							
+							
+							values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
+							i = lastNonNullValue; // Continue freeing operations at swapped position
+						}
+						else values.set1( i, null );                       // Clear value (may shift if not last)
 					
 					nexts[ i ] = ( short ) ( StartOfFreeList - _freeList ); // Mark 'i' as free and link to free list
 					_freeList  = i; // Update free list head
-					
 					_freeCount++;       // Increment count of free entries
 					_version++;         // Increment version for concurrency control
 					return oldValue;    // Return the removed value
@@ -919,19 +907,20 @@ public interface ShortObjectNullMap {
 		 * Clears all mappings from the map. Resets to initial state (hash or flat depending on initial setup).
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey = false;
+			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				Array.fill( flat_bits, 0 );
+				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
+				else flat_bits = null;
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
-				Arrays.fill( keys, ( short ) 0 );
-				values.clear(); // Clear values list
+				
 				_freeList  = -1;
 				_freeCount = 0;
 			}
-			_count     = 0;
-			hasNullKey = false;
+			values.clear(); // Clear values list
+			_count = 0;
 			_version++;
 		}
 		
@@ -987,7 +976,7 @@ public interface ShortObjectNullMap {
 		 * @return The new actual capacity after resizing/switching.
 		 */
 		private int resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Short    .BYTES * 8 );
+			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
 			
 			if( isFlatStrategy ) {
 				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
@@ -1004,22 +993,21 @@ public interface ShortObjectNullMap {
 			}
 			else if( flatStrategyThreshold < newSize ) {
 				
-				ObjectNullList.RW< V > _values = new ObjectNullList.RW<>( equal_hash_V, FLAT_ARRAY_SIZE );
+				ObjectNullList.RW< V > _values = values;
+				values    = new ObjectNullList.RW<>( equal_hash_V, FLAT_ARRAY_SIZE );
 				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
 				
-				for( int i = 0; i < _count; i++ )
-					if( -2 < nexts[ i ] ) {
-						char key = ( char ) keys[ i ];
-						exists1( key );
-						_values.set1( key, values.get( i ) );
-					}
+				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) {
+					char key = ( char ) keys[ i ];
+					exists1( key );
+					values.set1( key, _values.get( i ) );
+				}
 				
 				isFlatStrategy = true;
 				
 				_buckets = null;
 				nexts    = null;
 				keys     = null;
-				values   = _values;
 				
 				_count -= _freeCount;
 				

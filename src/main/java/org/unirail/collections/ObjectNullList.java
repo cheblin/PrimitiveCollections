@@ -333,7 +333,7 @@ public interface ObjectNullList< V > {
 			int i = Array.indexOf( values, value, 0, size_card );
 			return i < 0 ?
 					-1 :
-					nulls.bit( i );
+					nulls.bit( i +1);
 		}
 		
 		/**
@@ -397,6 +397,7 @@ public interface ObjectNullList< V > {
 		public boolean equals( R< V > other ) {
 			int size;
 			
+			if( other == this ) return true;
 			if( other == null || ( size = size() ) != other.size() ) return false;
 			
 			for( int i = 0; i < size; i++ ) {
@@ -488,8 +489,8 @@ public interface ObjectNullList< V > {
 				int rank = dst.nulls.rank( index );
 				
 				if( dst.values.length <= rank && dst.flatStrategyThreshold < dst.nulls.used * 64 ) {
-					dst.nulls.set1( index ); // before call switchToFlatStrategy() must be applied
 					dst.switchToFlatStrategy();
+					dst.nulls.set1( index );  // Mark as non-null.
 					dst.values[ index ] = value;
 				}
 				else {

@@ -225,12 +225,7 @@ public interface ShortSet {
 		 * @return a token for the first element, or -1 ({@link #INVALID_TOKEN}) if the set is empty
 		 */
 		public long token() {
-			int index = -1;
-			if( isFlatStrategy )
-				index = next1( 0 );
-			
-			else if( 0 < _count )
-				for( index = 0; nexts[ index ] < -1; index++ ) ;
+			int index = unsafe_token( -1 );
 			
 			return index == -1 ?
 					hasNullKey ?
@@ -608,21 +603,13 @@ public interface ShortSet {
 				// Allocate a new slot
 				if( _count == _nexts.length ) {
 					// Resize needed
-					int newSize = Array.prime( _count * 2 );
-					if( newSize > flatStrategyThreshold && _count < flatStrategyThreshold ) {
-						// Grow beyond threshold, but still below max short index -> limit to threshold
-						newSize = flatStrategyThreshold;
-					}
+					int i = Array.prime( _count * 2 );
+					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
 					
-					resize( newSize ); // Resize might switch to flat mode
+					resize( i ); // Resize might switch to flat mode
 					
-					if( isFlatStrategy ) { // If resize switched to flat mode, re-add there
-						exists1( ( char ) key );
-						_count++;
-						_version++; // Version already incremented in resize
-						return true;
-					}
-					// Re-calculate bucket after hash mode resize
+					if( isFlatStrategy ) return add( key );
+					
 					bucketIndex = bucketIndex( hash );
 					bucket      = _buckets[ bucketIndex ] - 1;
 				}
@@ -726,19 +713,18 @@ public interface ShortSet {
 		 * Resets the mode if necessary (stays in flat mode if it was already there, hash mode resets arrays).
 		 */
 		public void clear() {
-			if( size() == 0 ) return; // Already empty
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey = false;
+			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				Array.fill( flat_bits, 0 );
+				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
+				else flat_bits = null;
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
-				Arrays.fill( keys, ( short ) 0 );
 				_freeList  = -1;
 				_freeCount = 0;
 			}
-			_count     = 0;
-			hasNullKey = false;
+			_count = 0;
 			_version++;
 		}
 		
@@ -828,7 +814,7 @@ public interface ShortSet {
 		 * @return the new actual capacity.
 		 */
 		private int resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Short    .BYTES * 8 );
+			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
 			
 			if( isFlatStrategy ) {
 				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
@@ -846,8 +832,7 @@ public interface ShortSet {
 				
 				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
 				
-				for( int i = 0; i < _count; i++ )
-					if( -2 < nexts[ i ] ) exists1( ( char ) keys[ i ] );
+				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) exists1( ( char ) keys[ i ] );
 				
 				isFlatStrategy = true;
 				

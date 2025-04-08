@@ -172,9 +172,7 @@ public interface ShortNullList {
 		 * @param index The starting index for the search.
 		 * @return The index of the next null value, or -1 if no null value is found from {@code index} onwards.
 		 */
-		public @Positive_OK int nextNullIndex( int index ) {
-			return nulls.next0( index );
-		}
+		public @Positive_OK int nextNullIndex( int index ) { return nulls.next0( index ); }
 		
 		/**
 		 * Finds the index of the previous null value before the given {@code index} (exclusive).
@@ -182,9 +180,7 @@ public interface ShortNullList {
 		 * @param index The starting index for the backward search.
 		 * @return The index of the previous null value, or -1 if no null value is found before {@code index}.
 		 */
-		public @Positive_OK int prevNullIndex( int index ) {
-			return nulls.prev0( index );
-		}
+		public @Positive_OK int prevNullIndex( int index ) { return nulls.prev0( index ); }
 		
 		/**
 		 * Retrieves the value at the specified {@code index}.
@@ -216,7 +212,7 @@ public interface ShortNullList {
 			return i < 0 ?
 					-1 :
 					// Value not found in compressed array.
-					nulls.bit( i ); // Convert rank in compressed array to logical index.
+					nulls.bit( i + 1 ); // Convert rank in compressed array to logical index.
 		}
 		
 		/**
@@ -257,7 +253,7 @@ public interface ShortNullList {
 				return i < 0 ?
 						-1 :
 						// Value not found in compressed array.
-						nulls.bit( i ); // Convert rank to logical index.
+						nulls.bit( i + 1 ); // Convert rank to logical index.
 			}
 		}
 		
@@ -304,6 +300,7 @@ public interface ShortNullList {
 		 */
 		public boolean equals( R other ) {
 			int size;
+			if( other == this ) return true;
 			if( other == null || ( size = size() ) != other.size() || !nulls.equals( other.nulls ) || cardinality != other.cardinality ) return false; // Quick checks for inequality.
 			
 			boolean b;
@@ -1063,8 +1060,8 @@ public interface ShortNullList {
 					int max  = Math.max( rank, dst.cardinality );
 					
 					if( dst.values.length <= max && dst.flatStrategyThreshold < dst.nulls.used * 64 ) {
+						dst.switchToFlatStrategy();
 						dst.nulls.set1( index ); // Mark as non-null.
-						dst.switchToFlatStrategy(); // Switch before modification if threshold is met and resize is needed.
 						dst.values[ index ] = ( short ) value; // Set value in flat array.
 					}
 					else {

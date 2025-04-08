@@ -567,7 +567,6 @@ public interface IntSet {
 			if( _count < 1 && !hasNullKey ) return; // Set is already empty
 			Arrays.fill( _buckets, 0 ); // Clear buckets
 			Arrays.fill( nexts, 0, _count, ( int ) 0 ); // Clear 'next' pointers for used slots
-			Arrays.fill( keys, 0, _count, ( int ) 0 ); // Clear keys for used slots
 			_count     = 0; // Reset element count
 			_freeList  = -1; // Reset free list
 			_freeCount = 0; // Reset free count

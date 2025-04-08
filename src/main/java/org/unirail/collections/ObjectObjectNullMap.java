@@ -221,7 +221,6 @@ public interface ObjectObjectNullMap {
 		 */
 		@Override
 		public boolean containsValue( Object value ) {
-			if( _count == 0 && !hasNullKey ) return false;
 			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
 			for( int i = 0; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 && Objects.equals( values.get( i ), value ) ) return true;
@@ -1257,16 +1256,15 @@ public interface ObjectObjectNullMap {
 		 */
 		@Override
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
-			Arrays.fill( _buckets, 0 );
-			Arrays.fill( hash_nexts, 0, _count, 0L );
-			Arrays.fill( keys, 0, _count, null );
-			values.clear(); // Adjusted to use clear() from ObjectNullList.RW
-			_count       = 0;
-			_freeList    = -1;
-			_freeCount   = 0;
 			hasNullKey   = false;
 			nullKeyValue = null;
+			if( _count == 0 ) return;
+			Arrays.fill( _buckets, 0 );
+			Arrays.fill( hash_nexts, 0, _count, 0L );
+			values.clear(); // Adjusted to use clear() from ObjectNullList.RW
+			_count     = 0;
+			_freeList  = -1;
+			_freeCount = 0;
 			_version++;
 		}
 		
@@ -1311,27 +1309,26 @@ public interface ObjectObjectNullMap {
 					if( last < 0 ) _buckets[ bucketIndex ] = next( hash_next ) + 1;
 					else next( hash_nexts, last, next( hash_next ) );
 					
-					final int     lastNonNullValue = values.nulls.last1();
-					final boolean hasValue         = values.hasValue( i );
-					
-					if( i != lastNonNullValue && hasValue ) {
-						int BucketOf_KeyToMove = bucketIndex( Array.hash( keys[ lastNonNullValue ] ) );
-						keys[ i ] = keys[ lastNonNullValue ];
-						next( hash_nexts, i, next( hash_nexts[ lastNonNullValue ] ) );
-						values.set1( i, values.get( lastNonNullValue ) );
-						
-						int prev = -1;
-						collisionCount = 0;
-						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = next( hash_nexts[ current ] ) )
-							if( hash_nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-						
-						if( prev < 0 ) _buckets[ BucketOf_KeyToMove ] = i + 1;
-						else next( hash_nexts, prev, next( hash_nexts[ lastNonNullValue ] ) );
-						
-						values.set1( lastNonNullValue, null );
-						i = lastNonNullValue;
-					}
-					else if( hasValue ) values.set1( i, null );
+					final int lastNonNullValue = values.nulls.last1();
+					if( values.hasValue( i ) )
+						if( i != lastNonNullValue ) {
+							int BucketOf_KeyToMove = bucketIndex( Array.hash( keys[ lastNonNullValue ] ) );
+							keys[ i ] = keys[ lastNonNullValue ];
+							next( hash_nexts, i, next( hash_nexts[ lastNonNullValue ] ) );
+							values.set1( i, values.get( lastNonNullValue ) );
+							
+							int prev = -1;
+							collisionCount = 0;
+							for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = next( hash_nexts[ current ] ) )
+								if( hash_nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+							
+							if( -1 < prev ) next( hash_nexts, prev, i );
+							else _buckets[ BucketOf_KeyToMove ] = i + 1;
+							
+							values.set1( lastNonNullValue, null );
+							i = lastNonNullValue;
+						}
+						else values.set1( i, null );
 					
 					next( hash_nexts, i, StartOfFreeList - _freeList );
 					keys[ i ] = null;

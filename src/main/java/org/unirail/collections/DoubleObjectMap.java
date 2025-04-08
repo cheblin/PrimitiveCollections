@@ -214,7 +214,6 @@ public interface DoubleObjectMap {
 		 * @return {@code true} if the map contains a key-value pair with the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue( Object value ) {
-			if( _count == 0 && !hasNullKey ) return false;
 			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
 			for( int i = 0; i < _count; i++ )
 				if( -2 < nexts[ i ] && Objects.equals( values[ i ], value ) ) return true;
@@ -600,16 +599,15 @@ public interface DoubleObjectMap {
 		 * Removes all key-value pairs from this map, making it empty.
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey   = false;
+			nullKeyValue = null;
+			if( _count == 0 ) return;
 			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
-			Arrays.fill( keys, 0, _count, ( double ) 0 );
 			Arrays.fill( values, 0, _count, null );
 			_count       = 0;
 			_freeList    = -1;
 			_freeCount   = 0;
-			hasNullKey   = false;
-			nullKeyValue = null;
 			_version++;
 		}
 		

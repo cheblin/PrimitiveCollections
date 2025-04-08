@@ -237,6 +237,7 @@ public interface UByteUIntNullMap {
 		 * @return {@code true} if the maps are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
+			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
 			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyValue != other.nullKeyValue ) ||
 			    size() != other.size() ||

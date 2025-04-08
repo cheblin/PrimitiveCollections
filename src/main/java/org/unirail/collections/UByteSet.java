@@ -284,7 +284,8 @@ public interface UByteSet {
 		 * @return {@code true} if the sets are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
-			if( cardinality != other.cardinality || hasNullKey != other.hasNullKey ) return false; // Quick check for size and null key status.
+			if( other == this ) return true;
+			if( other == null || cardinality != other.cardinality || hasNullKey != other.hasNullKey ) return false; // Quick check for size and null key status.
 			return _4 == other._4 && _3 == other._3 && _2 == other._2 && _1 == other._1; // Compare the four long segments for equality.
 		}
 		

@@ -180,13 +180,14 @@ public interface FloatList {
 		/**
 		 * Compares this list with another object for equality.
 		 *
-		 * @param obj The object to compare against.
+		 * @param other The object to compare against.
 		 * @return true if the object is an equal list of the same class, false otherwise.
 		 */
-		public boolean equals( Object obj ) {
-			return obj != null &&
-			       getClass() == obj.getClass() &&
-			       equals( getClass().cast( obj ) );
+		public boolean equals( Object other ) {
+			if( other == this ) return true;
+			return other != null &&
+			       getClass() == other.getClass() &&
+			       equals( getClass().cast( other ) );
 		}
 		
 		/**
@@ -195,7 +196,7 @@ public interface FloatList {
 		 * @param other The R instance to compare with.
 		 * @return true if both lists have identical elements in the same order, false otherwise.
 		 */
-		public boolean equals( R other ) { return other != null && other.size == size && Array.equals( values, other.values, 0, size ); }
+		public boolean equals( R other ) { return other== this || other != null && other.size == size && Array.equals( values, other.values, 0, size ); }
 		
 		/**
 		 * Generates a hash code based on the list's elements and their order.

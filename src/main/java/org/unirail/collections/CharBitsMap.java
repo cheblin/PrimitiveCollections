@@ -135,7 +135,7 @@ public interface CharBitsMap {
 		 * @param value The value to search for.
 		 * @return True if the value exists in the map.
 		 */
-		public boolean containsValue( long value ) { return _count != 0 || hasNullKey && values.contains( value ); }
+		public boolean containsValue( long value ) { return hasNullKey && nullKeyValue == value || hasNullKey && values.contains( value ); }
 		
 		
 		/**
@@ -185,12 +185,7 @@ public interface CharBitsMap {
 		 * @return The first valid token to begin iteration, or INVALID_TOKEN if the map is empty.
 		 */
 		public long token() {
-			int index = -1;
-			if( isFlatStrategy )
-				index = next1( 0 );
-			
-			else if( 0 < _count )
-				for( index = 0; nexts[ index ] < -1; index++ ) ;
+			int index = unsafe_token( -1 );
 			
 			return index == -1 ?
 					hasNullKey ?
@@ -286,7 +281,7 @@ public interface CharBitsMap {
 		 * @return The integer value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
 		 */
 		public byte value( long token ) {
-			return index( token ) == _count ?
+			return index( token ) == NULL_KEY_INDEX ?
 					nullKeyValue :
 					values.get( index( token ) );
 		}
@@ -334,6 +329,7 @@ public interface CharBitsMap {
 		 * @return True if the maps are equal.
 		 */
 		public boolean equals( R other ) {
+			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
 			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || size() != other.size() )
 				return false;
@@ -571,12 +567,7 @@ public interface CharBitsMap {
 					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
 					
 					resize( i );
-					if( isFlatStrategy ) {
-						exists1( ( char ) key );
-						values.set1( ( char ) key, value );
-						_count++;
-						return true;
-					}
+					if( isFlatStrategy ) return put( key, value );
 					
 					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
 				}
@@ -679,18 +670,19 @@ public interface CharBitsMap {
 		 * Clears all mappings from the map.
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey = false;
+			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				Array.fill( flat_bits, 0 );
+				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
+				else flat_bits = null;
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
-				Arrays.fill( keys, ( char ) 0 );
 				_freeList  = -1;
 				_freeCount = 0;
 			}
-			_count     = 0;
-			hasNullKey = false;
+			values.clear();
+			_count = 0;
 			_version++;
 		}
 		
@@ -741,7 +733,7 @@ public interface CharBitsMap {
 		 * @param newSize The new size (prime number).
 		 */
 		private int resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Character.BYTES * 8 );
+			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
 			
 			if( isFlatStrategy ) {
 				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
@@ -765,19 +757,17 @@ public interface CharBitsMap {
 				
 				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
 				
-				for( int i = 0; i < _count; i++ )
-					if( -2 < nexts[ i ] ) {
-						char key = ( char ) keys[ i ];
-						exists1( key );
-						values.set1( key, _values.get( i ) );
-					}
+				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) {
+					char key = ( char ) keys[ i ];
+					exists1( key );
+					values.set1( key, _values.get( i ) );
+				}
 				
 				isFlatStrategy = true;
 				
 				_buckets = null;
 				nexts    = null;
 				keys     = null;
-				values   = _values;
 				
 				_count -= _freeCount;
 				

@@ -232,6 +232,7 @@ public interface UByteObjectNullMap {
 		 * @return {@code true} if the maps are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R< V > other ) {
+			if( other == this ) return true;
 			return other != null &&
 			       super.equals( other ) && // Compare ByteSet.R part
 			       nulls.equals( other.nulls ) && // Compare nulls arrays

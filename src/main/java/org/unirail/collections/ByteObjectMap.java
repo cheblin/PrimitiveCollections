@@ -222,6 +222,7 @@ public interface ByteObjectMap {
 		 * @return {@code true} if the {@code other} map is equal to this map; {@code false} otherwise.
 		 */
 		public boolean equals( R< V > other ) {
+			if( other == this ) return true;
 			return other != null &&
 			       super.equals( other ) &&
 			       equal_hash_V.equals( values, other.values, cardinality ) &&

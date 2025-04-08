@@ -126,7 +126,7 @@ public interface UIntBitsMap {
 		 * @param value The value to search for.
 		 * @return True if the value exists in the map.
 		 */
-		public boolean containsValue( long value ) { return _count != 0 || hasNullKey && values.contains( value ); }
+		public boolean containsValue( long value ) { return hasNullKey && nullKeyValue == value || values.contains( value ); }
 		
 		/**
 		 * Returns a token for the specified key (boxed Integer).
@@ -305,6 +305,7 @@ public interface UIntBitsMap {
 		 * @return True if the maps are equal, false otherwise.
 		 */
 		public boolean equals( R other ) {
+			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
 			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || size() != other.size() )
 				return false;
@@ -555,15 +556,14 @@ public interface UIntBitsMap {
 		 * Resets the map to its initial empty state.
 		 */
 		public void clear() {
-			if( _count == 0 && !hasNullKey ) return;
+			hasNullKey = false;
+			if( _count == 0 ) return;
 			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
-			Arrays.fill( keys, 0, _count, ( int ) 0 );
 			values.clear();
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;
-			hasNullKey = false;
 			_version++;
 		}
 		
@@ -600,10 +600,8 @@ public interface UIntBitsMap {
 		 * @throws IllegalArgumentException if the capacity is less than the current size of the map.
 		 */
 		public void trim( int capacity ) {
-			if( capacity < size() ) throw new IllegalArgumentException( "capacity is less than Count." );
-			int currentCapacity = length();
-			int newSize         = Array.prime( capacity );
-			if( currentCapacity <= newSize ) return;
+			int newSize = Array.prime( capacity );
+			if( length() <= newSize ) return;
 			
 			int[]         old_next  = nexts;
 			int[] old_keys  = keys;
