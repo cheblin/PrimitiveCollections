@@ -514,7 +514,6 @@ public interface BitList {
 		 * @return The total number of '1' bits in the range [0, bit].
 		 */
 		public int rank( int bit ) {
-			// Handle invalid bit position or empty list.
 			if( bit < 0 || size == 0 ) return 0;
 			if( size <= bit ) bit = size - 1;
 			if( bit < trailingOnesCount ) return bit + 1;
@@ -525,7 +524,7 @@ public interface BitList {
 			
 			// Calculate rank for bits beyond trailing ones.
 			int index = bit - trailingOnesCount >> LEN; // Index of the long containing the bit.
-			int sum = trailingOnesCount + Long.bitCount( values[ index ] << BITS - 1 - ( bit - trailingOnesCount ) );
+			int sum   = trailingOnesCount + Long.bitCount( values[ index ] << BITS - 1 - ( bit - trailingOnesCount ) );
 			// Add '1' counts from all preceding longs in the values array.
 			for( int i = 0; i < index; i++ )
 			     sum += Long.bitCount( values[ i ] );
@@ -554,14 +553,11 @@ public interface BitList {
 		 */
 		public int bit( int cardinality ) {
 			// Handle invalid cardinality
-			if( cardinality <= 0 )
-				return -1; // No position has zero or negative '1's
-			if( cardinality > rank( size() - 1 ) )
-				return -1; // Exceeds total '1's in list
+			if( cardinality <= 0 ) return -1; // No position has zero or negative '1's
+			if( cardinality > rank( size() - 1 ) ) return -1; // Exceeds total '1's in list
 			
 			// If within trailing ones, return cardinality - 1 (since all are '1's)
-			if( cardinality <= trailingOnesCount )
-				return cardinality - 1; // 0-based index of the cardinality-th '1'
+			if( cardinality <= trailingOnesCount ) return cardinality - 1; // 0-based index of the cardinality-th '1'
 			
 			// Adjust cardinality for bits beyond trailing ones
 			int remainingCardinality = cardinality - trailingOnesCount;
@@ -798,11 +794,7 @@ public interface BitList {
 		 *             a default initial capacity might be used or allocation
 		 *             deferred.
 		 */
-		public RW( int bits ) {
-			if( 0 < bits )
-				values = new long[ len4bits( bits ) ]; // If bits > 0, allocate an array of longs to hold the bits. The size
-			// of the array is calculated using len4bits.
-		}
+		public RW( int bits ) { if( 0 < bits ) values = new long[ len4bits( bits ) ]; }
 		
 		/**
 		 * Constructs a new {@code RW} BitList of a specified initial size, with all
@@ -844,10 +836,8 @@ public interface BitList {
 				size = end;
 			
 			for( int i = 0; i < values.length; i++ )
-				if( values[ i ] )
-					set1( index + i );
-				else
-					set0( index + i );
+				if( values[ i ] ) set1( index + i );
+				else set0( index + i );
 			return this;
 		}
 		
@@ -911,8 +901,7 @@ public interface BitList {
 		 * @return This {@code RW} instance for method chaining.
 		 */
 		public RW set( int from_bit, int to_bit, boolean value ) {
-			if( from_bit >= to_bit || from_bit < 0 )
-				return this;
+			if( from_bit >= to_bit || from_bit < 0 ) return this;
 			if( size < to_bit ) size = to_bit;
 			return value ?
 					set1( from_bit, to_bit ) :
@@ -1418,7 +1407,7 @@ public interface BitList {
 		 * Sets the logical size of this {@code BitList}.
 		 * If the new size is smaller than the current size, the list is truncated,
 		 * discarding bits at indices {@code newSize} and above. This is similar to
-		 * {@link #length(int)} but might not shrink the underlying array capacity.
+		 * {@link #length} but might not shrink the underlying array capacity.
 		 * If the new size is larger, the list is expanded, conceptually padding with
 		 * '0' bits.
 		 *
@@ -1427,14 +1416,12 @@ public interface BitList {
 		 */
 		public RW size( int size ) {
 			if( size < this.size )
-				if( size < 1 )
-					clear();
+				if( size < 1 ) clear();
 				else {
 					set0( size, size() );
 					this.size = size;
 				}
-			else if( size() < size )
-				this.size = size;
+			else if( size() < size ) this.size = size;
 			return this;
 		}
 		
@@ -1447,7 +1434,7 @@ public interface BitList {
 		 * @return This {@code RW} instance after clearing.
 		 */
 		public RW clear() {
-			java.util.Arrays.fill( values, 0, used, 0L );
+			java.util.Arrays.fill( values, 0, used(), 0L );
 			used              = 0;
 			size              = 0;
 			trailingOnesCount = 0;

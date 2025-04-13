@@ -302,7 +302,7 @@ public interface CharUShortNullMap {
 		
 		/**
 		 * Returns the token for the first entry in the map for iteration purposes.
-		 * If the map contains only the null key, its token ({@link #token(int)} with {@link #NULL_KEY_INDEX}) is returned.
+		 * If the map contains only the null key, its token ({@link #token} with {@link #NULL_KEY_INDEX}) is returned.
 		 * If the map contains non-null keys, the token of the first non-null key according to internal order is returned.
 		 * Internal order depends on the current strategy (bit order in flat mode, slot order in hash mode).
 		 *

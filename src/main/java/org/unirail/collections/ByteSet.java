@@ -56,12 +56,11 @@ public interface ByteSet {
 		protected boolean hasNullKey; // A flag indicating whether the set contains a null key.
 		
 		// Constants and fields for token-based iteration. Tokens are used for safe iteration and modification detection.
-		protected static final long KEY_MASK      = 0x1_FFL; // Bits 0-9 for key
-		protected static final long RANK_MASK     = 0x3_FE_00L; // Bits 9-18 for rank
-		protected static final int  RANK_SHIFT    = 9;                      // Shift for key position
-		protected static final int  VERSION_SHIFT = 32;                    // Number of bits to shift to get the version from an iteration token.
-		protected static final long VERSION_MASK  = 0xFFFF_FFFF_0000_0000L;                    // Number of bits to shift to get the version from an iteration token.
+		protected static final int KEY_MASK = 0x1_FF; // Bits 0-9 for key
+		protected static final int KEY_LEN  = 9; // Bits 0-9 for key
 		
+		protected static final int  VERSION_SHIFT = 32;                    // Number of bits to shift to get the version from an iteration token.
+		protected static final long VERSION_MASK  = 0xFFFF_FFFF_0000_0000L;
 		protected static final long INVALID_TOKEN = -1L;                   // Special token value (-1) indicating an invalid iteration state or end of iteration.
 		
 		/**
@@ -104,7 +103,7 @@ public interface ByteSet {
 		 * @param key The primitive byte value to check for presence in the set (valid range is 0-255).
 		 * @return {@code true} if the set contains the specified byte value, {@code false} otherwise.
 		 */
-		protected boolean contains( byte key ) { return get( ( byte ) key ); }
+		protected boolean contains( byte key ) { return get_( ( byte ) key ); }
 		
 		/**
 		 * Returns the first valid iteration token for traversing the set.
@@ -115,11 +114,10 @@ public interface ByteSet {
 		 */
 		public long token() {
 			return 0 < cardinality ?
-					token( 1, first1() ) :
+					tokenOf( next1( -1 ) ) :
 					hasNullKey ?
-							// If no byte values but null key is present.
 							token_nullKey() :
-							INVALID_TOKEN;// If the set is empty (no byte values or null key).
+							INVALID_TOKEN;
 		}
 		
 		/**
@@ -134,17 +132,14 @@ public interface ByteSet {
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN || token >>> VERSION_SHIFT != _version ) return INVALID_TOKEN;
 			
-			int index = ( int ) ( token & KEY_MASK ); // Extract the index (byte value or 256 for null) from the token.
-			return 0xFF < index ?
+			int key = ( int ) ( token & KEY_MASK ); // Extract the key (byte value or 256 for null) from the token.
+			return 0xFF < key ?
 					INVALID_TOKEN :
-					( index = next1( index ) ) == -1 ?
+					( key = next1( key ) ) == -1 ?
 							hasNullKey ?
-									// If no more byte values, check for null index.
 									token_nullKey() :
-									// Return token for null index.
 									INVALID_TOKEN :
-							// No more elements (neither byte values nor null index).
-							token_next_existing_key( token, index ); // Move to next existing key.
+							token( token, key );
 		}
 		
 		/**
@@ -163,12 +158,7 @@ public interface ByteSet {
 		 * @see #token(long) For safe iteration including the null key.
 		 * @see #hasNullKey() To check for a null key.
 		 */
-		public int unsafe_token( final int token ) {
-			int index = token + 1;
-			return cardinality <= index ?
-					-1 :
-					next1( index );
-		}
+		public int unsafe_token( final int token ) { return next1( token ); }
 		
 		/**
 		 * Checks if the given iteration {@code token} represents the null key.
@@ -176,7 +166,7 @@ public interface ByteSet {
 		 * @param token The iteration token to check.
 		 * @return {@code true} if the token is valid and represents the null key, {@code false} otherwise.
 		 */
-		boolean isKeyNull( long token ) { return 0xFF < ( KEY_MASK & token ); }
+		boolean isKeyNull( long token ) { return 0xFF < ( token & KEY_MASK ); }
 		
 		/**
 		 * Gets the byte value associated with the given iteration {@code token}.
@@ -191,16 +181,11 @@ public interface ByteSet {
 			return ( byte )  ( KEY_MASK & token );    // Return the extracted index as byte value.
 		}
 		
-		protected long token_nullKey()                                { return ( long ) _version << VERSION_SHIFT | 0x100; }
+		protected long token_nullKey()              { return ( long ) _version << VERSION_SHIFT | 0x100; }
 		
-		protected long token( int key )                               { return ( long ) _version << VERSION_SHIFT | key & 0xFF; }
+		protected long token( long token, int key ) { return ( long ) _version << VERSION_SHIFT | key; }
 		
-		protected long token_next_existing_key( long token, int key ) { return token & VERSION_MASK | ( token & KEY_MASK ) + 1L << RANK_SHIFT | key; }//step on next existing key
-		
-		protected long token( int rank, int key )                     { return ( long ) _version << VERSION_SHIFT | ( long ) rank << 9 | key; }
-		
-		protected int rank( long token )                              { return ( int ) ( token & RANK_MASK ) >>> RANK_SHIFT; }
-		
+		protected long tokenOf( int key )           { return ( long ) _version << VERSION_SHIFT | key; }
 		
 		/**
 		 * Retrieves the iteration token for a boxed {@code Byte} value.
@@ -216,7 +201,6 @@ public interface ByteSet {
 							token_nullKey() :
 							// Return token for null key.
 							INVALID_TOKEN :
-					// Null key not present, return invalid token.
 					tokenOf( ( byte ) ( key + 0 ) ); // Unbox Byte and call primitive tokenOf method. Adding 0 ensures byte conversion.
 		}
 		
@@ -228,10 +212,8 @@ public interface ByteSet {
 		 * @return The iteration token for the given value, or {@link #INVALID_TOKEN} (-1) if the value is not in the set.
 		 */
 		public long tokenOf( byte key ) {
-			return contains( key ) ?
-					// Check if the set contains the byte value.
-					token( key ) :
-					// Create and return a token for the byte value.
+			return get_( ( byte ) key ) ?
+					tokenOf( key & 0xFF ) :
 					INVALID_TOKEN; // Byte value not present, return invalid token.
 		}
 		
@@ -319,7 +301,7 @@ public interface ByteSet {
 			
 			if( 0 < cardinality ) { // If there are byte values in the set.
 				json.preallocate( cardinality * 10 ); // Pre-allocate buffer for JSON string to improve performance.
-				for( long token = token(); ( token & KEY_MASK ) < 0x100; token = token( token ) ) // Iterate through the set using tokens.
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) // Iterate through the set using tokens.
 				     json.name( key( token ) ).value(); // For each element, add a name-value pair to the JSON object, using byte value as name.
 			}
 			json.exitObject(); // End JSON object representation.
@@ -405,7 +387,7 @@ public interface ByteSet {
 		 *
 		 * @param items An array of boxed {@code Byte} values to initialize the set with. Can contain null values.
 		 */
-		public RW(  Byte     ... items ) { for(  Byte      key : items ) add( key ); } // Add each Byte value from the array to the set.
+		public RW(  Byte     [] items ) { for(  Byte      key : items ) add( key ); } // Add each Byte value from the array to the set.
 		
 		/**
 		 * Adds a boxed {@code Byte} value to the set.
@@ -461,29 +443,34 @@ public interface ByteSet {
 		 * @return {@code true} if this set was modified as a result of this operation, {@code false} otherwise.
 		 */
 		public boolean retainAll( R src ) {
-			boolean ret = false; // Flag to track if any modification occurred.
+			boolean modified = false; // Flag to track if any modification occurred.
 			if( _1 != src._1 ) {
 				_1 &= src._1;
-				ret = true;
+				modified = true;
 			} // Intersect _1 with src._1, set modification flag if changed.
 			if( _2 != src._2 ) {
 				_2 &= src._2;
-				ret = true;
+				modified = true;
 			} // Intersect _2 with src._2, set modification flag if changed.
 			if( _3 != src._3 ) {
 				_3 &= src._3;
-				ret = true;
+				modified = true;
 			} // Intersect _3 with src._3, set modification flag if changed.
 			if( _4 != src._4 ) {
 				_4 &= src._4;
-				ret = true;
+				modified = true;
 			} // Intersect _4 with src._4, set modification flag if changed.
-			if( ret ) {
+			
+			if( modified ) {
 				
-				cardinality = Math.max( cardinality, src.cardinality ); // Size might change after intersection.
+				cardinality = Long.bitCount( _1 ) +
+				              Long.bitCount( _2 ) +
+				              Long.bitCount( _3 ) +
+				              Long.bitCount( _4 );
 				_version++; // Increment version if modified.
 			}
-			if( !hasNullKey || src.hasNullKey ) return ret;
+			
+			if( !hasNullKey || src.hasNullKey ) return modified;
 			hasNullKey = false;
 			
 			_version++;
@@ -499,19 +486,39 @@ public interface ByteSet {
 		 * @return This {@code RW} instance after adding all elements from the source set.
 		 */
 		public RW addAll( R src ) {
-			var __1 = _1;
-			var __2 = _2;
-			var __3 = _3;
-			var __4 = _4;
-			var c   = cardinality;
-			cardinality = ( Long.bitCount( _1 |= src._1 ) +
-			                Long.bitCount( _2 |= src._2 ) +
-			                Long.bitCount( _3 |= src._3 ) +
-			                Long.bitCount( _4 |= src._4 ) );
+			boolean modified = false; // Flag to track if any modification occurred.
 			
-			if( hasNullKey != src.hasNullKey || c != cardinality || __1 != _1 || __2 != _2 || __3 != _3 || __4 != _4 ) _version++;
-			if( src.hasNullKey ) hasNullKey = true; // If source has null key, add null key to this set.
-			return this; // Return instance for chaining.
+			if( _1 != src._1 ) {
+				_1 |= src._1;
+				modified = true;
+			}
+			if( _2 != src._2 ) {
+				_2 |= src._2;
+				modified = true;
+			}
+			if( _3 != src._3 ) {
+				_3 |= src._3;
+				modified = true;
+			}
+			if( _4 != src._4 ) {
+				_4 |= src._4;
+				modified = true;
+			}
+			
+			if( modified ) { //recount
+				
+				cardinality = Long.bitCount( _1 ) +
+				              Long.bitCount( _2 ) +
+				              Long.bitCount( _3 ) +
+				              Long.bitCount( _4 );
+				_version++; // Increment version if modified.
+			}
+			
+			if( hasNullKey || !src.hasNullKey ) return this;
+			hasNullKey = true;
+			_version++;
+			
+			return this;
 		}
 		
 		/**

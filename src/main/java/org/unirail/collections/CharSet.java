@@ -100,8 +100,8 @@ public interface CharSet {
 		
 		
 		/**
-		 * Returns the number of elements in this set (excluding any elements in the free list, but including a potential null key).
-		 * Calculation depends on the current mode (hash set or flat bitset).
+		 * Returns the number of elements in this set (its cardinality).
+		 * Corresponds to {@code Set.size()}.
 		 *
 		 * @return the number of elements in this set
 		 */

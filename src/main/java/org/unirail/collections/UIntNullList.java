@@ -184,7 +184,7 @@ public interface UIntNullList {
 		
 		/**
 		 * Retrieves the value at the specified {@code index}.
-		 * Callers should use {@link #hasValue(int)} to check for nullity before calling {@code get}
+		 * Callers should use {@link #hasValue} to check for nullity before calling {@code get}
 		 *
 		 * @param index The index of the element to retrieve.
 		 * @return The value at the specified {@code index}, or 0 if the value is logically null.

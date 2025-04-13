@@ -37,9 +37,9 @@ package org.unirail.collections;
 import org.unirail.JsonWriter;
 
 /**
- * {@code ByteIntMap} is an interface defining a map that associates byte keys with integer values.
+ * {@code ByteIntMap} is an interface defining a map that associates byte keys with primitive values.
  * <p>
- * This map is specifically designed for scenarios requiring efficient storage and retrieval of integer values
+ * This map is specifically designed for scenarios requiring efficient storage and retrieval of primitive values
  * based on byte keys. It supports null values, allowing the map to explicitly store and represent the absence
  * of a value or a value that is intentionally set to null. This feature distinguishes it from maps that might
  * implicitly treat the absence of a key as a null value.
@@ -62,47 +62,54 @@ public interface UByteByteMap {
 	abstract class R extends UByteSet.R implements Cloneable, JsonWriter.Source {
 		
 		/**
-		 * Array to store integer values associated with the byte keys.
-		 * The index in this array corresponds to the rank of the key in the underlying {@code ByteSet}.
+		 * Array to store primitive values associated with byte keys.
+		 * <p>
+		 * In sparse mode (less than 128 keys), the array is dynamically resized, and each index corresponds to the
+		 * rank of a key in the underlying {@code ByteSet} minus 1 (since ranks start at 1). In flat mode (128 or more
+		 * keys), the array is fixed at 256 elements, and each index directly corresponds to a byte key treated as an
+		 * unsigned value (0 to 255, computed as {@code key & 0xFF}). This dual-mode design optimizes memory usage for
+		 * small maps and lookup speed for larger ones.
 		 */
 		protected byte[] values;
 		/**
-		 * Stores the integer value associated with the null key.
+		 * Stores the primitive value associated with the null key.
 		 * Default value is 0.
 		 */
 		protected byte   nullKeyValue = 0;
 		
+		/**
+		 * Retrieves the value associated with the null key.
+		 *
+		 * @return The value associated with the null key, or 0 if no null key is present.
+		 */
 		public byte nullKeyValue() { return (byte) nullKeyValue; }
 		
 		/**
-		 * Retrieves the integer value associated with the given token.
+		 * Retrieves the primitive value associated with the given token.
 		 * <p>
 		 * A token is an encoded representation of a key that efficiently identifies its position within the map.
 		 *
 		 * @param token The token representing the key to look up.
-		 * @return The integer value associated with the key represented by the token.
-		 * Returns {@code nullKeyValue} if the token represents a null key.
-		 * Returns the value from the {@code values} array if the token represents a byte key.
+		 * @return The primitive value associated with the key.
 		 */
 		public byte value( long token ) {
-			int r;
 			return (byte) ( isKeyNull( token ) ?
 					nullKeyValue :
-					values[ ( ( r = ( int ) ( token & RANK_MASK ) ) == 0 ?
-							rank( ( byte ) ( token & KEY_MASK ) ) :
-							r >>> RANK_SHIFT ) - 1 ] );
+					values[ ( int ) token >>> KEY_LEN ] );
 		}
+	
 		
 		/**
-		 * Checks if the map contains the specified integer value.
+		 * Checks if the map contains the specified primitive value.
 		 * <p>
 		 * This method iterates through all the values in the map (including the null key value if present)
 		 * to determine if the given value exists.
 		 *
-		 * @param value The integer value to search for.
+		 * @param value The primitive value to search for.
 		 * @return {@code true} if the map contains the specified value, {@code false} otherwise.
 		 */
-		public boolean containsValue( byte value ) { return Array.indexOf( values, ( byte ) value, 0, cardinality ) != -1; }
+		public boolean containsValue( byte value ) { return tokenOfValue( value ) != -1; }
+		
 		
 		/**
 		 * Calculates the hash code for this {@code ByteIntMap}.
@@ -115,18 +122,20 @@ public interface UByteByteMap {
 		 */
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
+			int h =  seed;
 			
-			int key;
-			for( long token = token(); ( key = ( int ) ( token & KEY_MASK ) ) < 0x100; token = token( token ) ) {
-				int h = Array.mix( seed, Array.hash( values[ rank( token ) - 1 ] ) );
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
+				h = Array.mix( h, Array.hash( values[ token >>> KEY_LEN ] ) );
+				
 				h = Array.finalizeHash( h, 2 );
 				a += h;
 				b ^= h;
 				c *= h | 1;
 			}
+		
 			
 			if( hasNullKey ) {
-				int h = Array.hash( seed );
+				h = Array.hash( seed );
 				h = Array.mix( h, Array.hash( nullKeyValue ) );
 				h = Array.finalizeHash( h, 2 );
 				a += h;
@@ -166,22 +175,89 @@ public interface UByteByteMap {
 		public boolean equals( R other ) {
 			if( other == this ) return true;
 			if( other == null ||
-			    super.equals( other ) || // Compare ByteSet part
-			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || // Compare null key value
+			    !super.equals( other ) || // Compare ByteSet part
+			    hasNullKey && nullKeyValue != other.nullKeyValue || // Compare null key value
 			    size() != other.size() ) // Compare sizes. Important to check size before array iteration
 				return false;
-			
-			for( int i = 0; i < cardinality; i++ )
-				if( values[ i ] != other.values[ i ] ) return false; // Compare value arrays
-			
+			long t;
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
+				if( ( t = other.tokenOf( key( token ) ) ) == -1 || other.value( t ) != values[ token >>> KEY_LEN ] ) return false;
 			return true;
+		}
+		
+		
+		protected long token( long token, int key ) {
+			return ( long ) _version << VERSION_SHIFT | (
+					values.length == 256 ?
+							( long ) key << KEY_LEN :
+							( token & ( long ) ~KEY_MASK ) + ( 1 << KEY_LEN )
+			) | key;
+		}
+		
+		protected long tokenOf( int key ) {
+			return ( long ) _version << VERSION_SHIFT | (
+					                                            values.length == 256 ?
+							                                            ( long ) key :
+							                                            rank( ( byte ) key ) - 1
+			                                            ) << KEY_LEN | key;
+		}
+		
+		
+		/**
+		 * Finds the first token associated with the specified primitive value.
+		 * <p>
+		 * Searches {@code nullKeyValue} first (if the null key exists), then iterates through the {@code values} array
+		 * using tokens to find a matching value.
+		 *
+		 * @param value The primitive value to search for.
+		 * @return The token of the key associated with the value, or -1 if not found.
+		 */
+		public long tokenOfValue( byte value ) {
+			if( hasNullKey && nullKeyValue == value ) return token_nullKey();
+			
+			for( int t = -1; ( t = unsafe_token( t ) ) != -1; ) if( values[ t >>> KEY_LEN ] == value ) return t;
+			return -1;
+		}
+		
+		
+		/**
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
+		 * skipping concurrency and modification checks.
+		 *
+		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
+		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()}
+		 *
+		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
+		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
+		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 *
+		 * @param token The previous token, or {@code -1} to begin iteration.
+		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @see #token(long) For safe iteration including the null key.
+		 * @see #hasNullKey() To check for a null key.
+		 */
+		@Override public int unsafe_token( int token ) {
+			if( token == -1 ) {
+				
+				int ret = next1( -1 );
+				
+				return ret == -1 ?
+						-1 :
+						( int ) tokenOf( ret );
+			}
+			
+			int next = next1( token & KEY_MASK );
+			
+			return next == -1 ?
+					-1 :
+					( int ) token( token, next );
 		}
 		
 		/**
 		 * Creates and returns a shallow copy of this {@code ByteIntMap} instance.
 		 * <p>
 		 * The clone will contain copies of the keys and values. The {@code ByteSet} and {@code values} array
-		 * are cloned, but the integer values themselves are not deep-copied (if they were objects).
+		 * are cloned, but the primitive values themselves are not deep-copied (if they were objects).
 		 *
 		 * @return A clone of this {@code ByteIntMap} instance.
 		 */
@@ -212,10 +288,10 @@ public interface UByteByteMap {
 			json.preallocate( size() * 10 ); // Pre-allocate buffer for better performance
 			json.enterObject();              // Start JSON object
 			if( hasNullKey ) json.name().value( nullKeyValue ); // Write null key value
-			int key;
-			for( long token = token(); ( key = ( int ) ( token & KEY_MASK ) ) < 0x100; token = token( token ) ) // Iterate over byte keys
-			     json.name( String.valueOf( key ) ).value( values[ rank( token ) - 1 ] ); // Write key-value pair
-			json.exitObject();               // End JSON object
+			
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) // Iterate over byte keys
+			     json.name( String.valueOf( key( token ) ) ).value( values[ token >>> KEY_LEN ] ); // Write key-value pair
+			json.exitObject();
 		}
 		
 	}
@@ -242,7 +318,7 @@ public interface UByteByteMap {
 		/**
 		 * Clears all key-value mappings from this {@code ByteIntMap}.
 		 * <p>
-		 * This method resets the map to an empty state, removing all byte keys and their associated integer values,
+		 * This method resets the map to an empty state, removing all byte keys and their associated primitive values,
 		 * including the null key and its value.
 		 *
 		 * @return This {@code RW} instance to allow for method chaining.
@@ -252,50 +328,62 @@ public interface UByteByteMap {
 			return this;
 		}
 		
+		
 		/**
-		 * Associates the specified integer value with the specified key in this map.
+		 * Associates the specified primitive value with the specified key in this map.
 		 * <p>
 		 * If the map previously contained a mapping for the key, the old value is replaced by the specified value.
 		 *
 		 * @param key   The byte key with which the specified value is to be associated. A {@code null} key is permitted.
-		 * @param value The integer value to be associated with the specified key.
+		 * @param value The primitive value to be associated with the specified key.
 		 * @return {@code true} if a new key-value mapping was added (i.e., the key was not previously in the map),
 		 * {@code false} if an existing mapping was updated.
 		 */
 		public boolean put(  Character key, byte value ) {
-			if( key == null ) {
-				nullKeyValue = ( byte ) value;
-				return _add(); // Add null key to ByteSet if not already present
-			}
-			return put( ( char ) ( key + 0 ), value ); // Unbox Byte and call byte version of put
+			if( key != null ) return put( ( char ) ( key + 0 ), value );
+			nullKeyValue = ( byte ) value;
+			return _add();
 		}
 		
 		
 		/**
-		 * Associates the specified integer value with the specified byte key in this map.
+		 * Associates the specified primitive value with the specified byte key in this map.
 		 * <p>
 		 * If the map previously contained a mapping for this key, the old value is replaced by the specified value.
 		 *
 		 * @param key   The byte key with which the specified value is to be associated.
-		 * @param value The integer value to be associated with the specified key.
+		 * @param value The primitive value to be associated with the specified key.
 		 * @return {@code true} if a new key-value mapping was added (i.e., the key was not previously in the map),
 		 * {@code false} if an existing mapping was updated.
 		 */
 		public boolean put( char key, byte value ) {
-			if( set1( ( byte ) key ) )  // If the key was newly added to the ByteSet (not already present)
-			{
-				int i = rank( ( byte ) key ) - 1; // Get the rank/index for the key
-				Array.resize( values, i < values.length ?
-						// Resize values array if needed
-						values :
-						( values = new byte[ Math.min( values.length * 2, 0x100 ) ] ), i, cardinality - 1, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
-				values[ i ] = ( byte ) value;
-				return true;
+			if( get_( ( byte ) key ) ) {
+				values[ values.length == 256 ?
+						key & 0xFF :
+						rank( ( byte ) key ) - 1 ] = ( byte ) value; // Set or update the value at the calculated index
+				return false;
 			}
 			
-			values[ rank( ( byte ) key ) - 1 ] = ( byte ) value; // Set or update the value at the calculated index
+			if( values.length == 256 ) values[ key & 0xFF ] = ( byte ) value;
+			else if( cardinality == 127 ) {//switch to flat mode
+				byte[] values_ = new byte[ 256 ];
+				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )
+				     values_[ token & KEY_MASK ] = values[ ii++ ];
+				
+				( values = values_ )[ key & 0xFF ] = ( byte ) value;
+			}
+			else {
+				
+				int r = rank( ( byte ) key ); // Get the rank for the key
+				
+				Array.resize( values,
+				              cardinality < values.length ?
+						              values :
+						              ( values = new byte[ values.length * 2 ] ), r, cardinality, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
+				values[ r ] = ( byte ) value;
+			}
 			
-			return false; // Return true if key was added (new mapping), false otherwise (existing mapping updated)
+			return set1( ( byte ) key );
 		}
 		
 		/**
@@ -305,8 +393,10 @@ public interface UByteByteMap {
 		 * @return {@code true} if a mapping was removed as a result of this call, {@code false} if no mapping existed for the key.
 		 */
 		public boolean remove(  Character key ) {
-			if( key == null ) remove( null ); // Handle null key removal
-			return remove( ( char ) ( key + 0 ) ); // Unbox Byte and call byte version of remove
+			return key == null ?
+					_remove() :
+					remove( ( char ) ( key + 0 ) ); // Handle null key removal
+			
 		}
 		
 		/**
@@ -316,8 +406,10 @@ public interface UByteByteMap {
 		 * @return {@code true} if a mapping was removed as a result of this call, {@code false} if no mapping existed for the key.
 		 */
 		public boolean remove( char key ) {
-			if( !set0( ( byte ) key ) ) return false; // Remove key from ByteSet, return false if key not found
-			Array.resize( values, values, rank( key ) - 1, cardinality, -1 ); // Resize values array to remove the value at the index of removed key
+			if( !set0( ( byte ) key ) ) return false;
+			if( values.length == 256 ) return true;
+			
+			Array.resize( values, values, rank( ( byte ) key ), cardinality + 1, -1 ); // Resize values array to remove the value at the index of removed key
 			return true; // Return true if key was successfully removed
 		}
 		
@@ -330,6 +422,9 @@ public interface UByteByteMap {
 		 * @return A clone of this {@code RW} instance.
 		 */
 		@Override
-		public RW clone() { return ( RW ) super.clone(); } // Call super.clone() to clone the base class part
+		public RW clone() {
+			
+			return ( RW ) super.clone();
+		} // Call super.clone() to clone the base class part
 	}
 }

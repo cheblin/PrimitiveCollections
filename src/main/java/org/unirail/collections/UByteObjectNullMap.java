@@ -34,108 +34,187 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import java.util.ConcurrentModificationException;
-
 /**
- * {@code ByteObjectNullMap} is an interface defining a map that uses primitive {@code byte} values as keys and stores objects as values.
+ * {@code ByteObjectNullMap} is an interface defining a map that uses primitive {@code byte} values as keys
+ * and stores objects of type {@code V} as values.
  * <p>
- * It extends the functionality of a standard map by explicitly supporting {@code null} keys and {@code null} values.
- * Implementations of this interface provide efficient storage and retrieval of object values based on byte keys,
- * with specific considerations for handling null keys and values.
+ * It extends the functionality of a standard map by explicitly supporting a {@code null} key (distinct from byte keys)
+ * and allowing {@code null} values to be associated with both byte keys and the null key.
+ * Implementations provide efficient storage and retrieval of object values based on byte keys,
+ * with specific mechanisms for handling the null key and null values.
  */
 public interface UByteObjectNullMap {
 	
 	/**
-	 * {@code R} (Read-only) is an abstract base class that provides the foundation for read-only operations on a byte-keyed object map.
+	 * {@code R} (Read-only) is an abstract base class providing the foundation for read operations on a byte-keyed object map
+	 * supporting a null key.
 	 * <p>
-	 * It manages the underlying storage for keys and values, and implements a token-based mechanism with versioning to ensure safe and consistent iteration
-	 * even when concurrent modifications might occur.
+	 * It extends {@link ByteSet.R} to manage the set of present byte keys and inherits its token-based mechanism with versioning
+	 * for safe iteration over byte keys. This class manages the storage for object values associated with byte keys
+	 * and the separate value associated with the null key.
 	 * <p>
-	 * This class is designed to be extended by concrete implementations that require read-only or read-write functionalities.
+	 * It supports two internal storage strategies for byte key values:
+	 * <ul>
+	 *     <li><b>Compressed (Rank-Based):</b> Used when the number of non-null values is relatively small. Values are stored contiguously,
+	 *     and their positions are determined by the rank of the key in the {@link #nulls} bitset.</li>
+	 *     <li><b>Flat (One-to-One):</b> Used when the map becomes denser. More then 127 items with none-null values, Values are stored in a fixed-size array (256 elements),
+	 *     where the index directly corresponds to the byte key (0-255).</li>
+	 * </ul>
+	 * This class is designed to be extended by concrete implementations like {@link RW} that add modification capabilities.
 	 *
 	 * @param <V> The type of values stored in this map.
 	 */
 	abstract class R< V > extends UByteSet.R implements Cloneable, JsonWriter.Source {
+		/**
+		 * Bitset tracking which byte keys (0-255) are associated with non-null values.
+		 * <p>
+		 * In <b>both Compressed and Flat strategies</b>:
+		 * If {@code nulls.get_(key)} is {@code true}, it indicates that the given byte key has a non-null value stored.
+		 * If {@code false}, the key either is not present in the map (according to the underlying {@link ByteSet.R})
+		 * or it is present but associated with a {@code null} value.
+		 * <p>
+		 * In <b>Compressed (Rank-Based) Strategy</b> (when {@code values.length < 256}):
+		 * This bitset is also used to calculate the rank via {@code nulls.rank(key)}. The rank (minus 1) determines the index
+		 * in the compact {@link #values} array where the non-null value for that key is stored.
+		 * <p>
+		 * In <b>Flat (One-to-One) Strategy</b> when more then 127 items with none-null values:
+		 * This bitset is not used for indexing (direct key-to-index mapping is used), but it is still maintained
+		 * by modification methods (like {@link RW#put}) to track non-null value presence, although read methods like {@link #value(byte)}
+		 * might rely directly on the {@code values} array content in this mode.
+		 * It might become {@code null} when switching to flat mode.
+		 */
+		protected Array.FF nulls = new Array.FF() { };
 		
 		/**
-		 * {@code nulls} is an internal array used to track the presence and order of non-null byte keys.
-		 * It is a {@link Array.FF} (Fixed-size Flag Array) which is optimized for boolean flags associated with byte keys.
-		 */
-		protected       Array.FF               nulls = new Array.FF() { };
-		/**
-		 * {@code values} is the array storing the object values associated with the byte keys.
-		 * The index of a value in this array corresponds to the rank of its key as determined by the {@code nulls} array.
+		 * Array storing the object values associated with byte keys.
+		 * The interpretation and size of this array depend on the current storage strategy:
 		 * <p>
-		 * Values are stored in the same order as their corresponding keys are tracked in {@code nulls}.
+		 * <b>Compressed (Rank-Based) Strategy ({@code values.length < 256}):</b>
+		 * <ul>
+		 *     <li>Stores only the non-null values contiguously.</li>
+		 *     <li>The size of this array is related to {@code nulls.cardinality()} (the count of non-null values).</li>
+		 *     <li>The non-null value for a key `k` (where `nulls.get_(k)` is true) is located at index `nulls.rank(k) - 1`.</li>
+		 * </ul>
+		 * <p>
+		 * <b>Flat (One-to-One) Strategy - when more then 127 items with none-null values ({@code values.length == 256}):</b>
+		 * <ul>
+		 *     <li>Has a fixed size of 256.</li>
+		 *     <li>The value for a key `k` is located directly at index `k & 0xFF`.</li>
+		 *     <li>Entries corresponding to keys not present in the map or keys associated with {@code null} will hold {@code null}.</li>
+		 * </ul>
 		 */
 		public          V[]                    values;
 		/**
-		 * {@code equal_hash_V} is a helper object responsible for determining equality and generating hash codes for values of type {@code V}.
-		 * It is an instance of {@link Array.EqualHashOf}, which provides a strategy for handling potentially complex value types.
+		 * Helper object for determining equality and generating hash codes for values of type {@code V}.
+		 * An instance of {@link Array.EqualHashOf} provides strategies suitable for the value type.
 		 */
 		protected final Array.EqualHashOf< V > equal_hash_V;
 		/**
-		 * {@code nullKeyValue} stores the value associated with the null key in this map.
-		 * Since primitive bytes cannot be null, a separate mechanism is needed to handle a null key.
-		 * This field holds the value that is returned when a null key is queried.
+		 * Stores the value associated with the special {@code null} key.
+		 * This field holds the value mapped to the null key, which can itself be {@code null}.
+		 * Use {@link #hasNullKey()} from the parent {@link ByteSet.R} to check if a null key mapping exists.
 		 */
 		protected       V                      nullKeyValue;
 		
+		/**
+		 * Returns the value associated with the {@code null} key.
+		 * Use {@link #hasNullKey()} to check if a mapping for the null key actually exists.
+		 *
+		 * @return The value mapped to the null key, which might be {@code null}.
+		 */
 		public V nullKeyValue() { return nullKeyValue; }
 		
 		/**
-		 * Protected constructor for {@code R}. Initializes the read-only map with a value type class.
-		 * <p>
-		 * This constructor is intended for use by subclasses. It sets up the {@link Array.EqualHashOf} strategy based on the provided class of the value type {@code V}.
+		 * Protected constructor for initializing the read-only base map.
+		 * Sets up the value equality and hashing strategy using {@link Array#get(Class)}.
+		 * Intended for use by subclasses.
 		 *
-		 * @param clazz The class of the value type {@code V}. Used to determine equality and hashing strategies for values.
+		 * @param clazz The {@link Class} object for the value type {@code V}. Used to obtain the default {@link Array.EqualHashOf} strategy.
 		 */
-		protected R( Class< V > clazz ) {
-			this.equal_hash_V = Array.get( clazz );
-		}
+		protected R( Class< V > clazz ) { this.equal_hash_V = Array.get( clazz ); }
 		
 		/**
-		 * Constructor for {@code R} that accepts a custom equality and hashing strategy for values.
-		 * <p>
-		 * This constructor allows for more control over how values of type {@code V} are compared and hashed,
-		 * by providing a custom {@link Array.EqualHashOf} implementation.
+		 * Protected constructor for initializing the read-only base map with a custom value handling strategy.
+		 * Allows specifying a custom {@link Array.EqualHashOf} for comparing and hashing values.
+		 * Intended for use by subclasses.
 		 *
-		 * @param equal_hash_V Custom {@link Array.EqualHashOf} instance to be used for value type {@code V}.
+		 * @param equal_hash_V A custom {@link Array.EqualHashOf} instance for handling values of type {@code V}.
 		 */
-		public R( Array.EqualHashOf< V > equal_hash_V ) {
-			this.equal_hash_V = equal_hash_V;
-		}
+		public R( Array.EqualHashOf< V > equal_hash_V ) { this.equal_hash_V = equal_hash_V; }
 		
 		
 		/**
-		 * Retrieves the value associated with a given token.
-		 * <p>
-		 * Tokens are used as an efficient and versioned way to access elements within the map, especially during iteration.
+		 * Checks if this map contains the specified value among its mappings.
+		 * This includes checking the value associated with the null key (if present)
+		 * and all values associated with byte keys. Handles checking for {@code null} values correctly.
 		 *
-		 * @param token The token representing a key-value pair in the map.
-		 * @return The value associated with the token. Returns {@code nullKeyValue} if the token represents the null key. May return {@code null} if the key exists but has a null value.
-		 * @throws ConcurrentModificationException If the token is no longer valid due to structural modifications of the map since the token was obtained.
+		 * @param value The  value to search for. Can be {@code null}.
+		 * @return {@code true} if the map maps one or more keys (null or byte) to the specified value, {@code false} otherwise.
+		 */
+		public boolean containsValue( V value ) { return tokenOfValue( value ) != -1; }
+		
+		/**
+		 * Finds the token associated with the *first* occurrence of the given value in the map.
+		 * Searches the null key's value first (if the null key is present), then iterates through the byte key mappings.
+		 * Handles comparison correctly if the search `value` is {@code null}.
+		 *
+		 * @param value The value to search for. Can be {@code null}.
+		 * @return The token of the first entry found with the specified value, or `-1` if the value is not found in the map.
+		 * The token can represent the null key (check with {@link #isKeyNull(long)}) or a byte key.
+		 */
+		public long tokenOfValue( V value ) {
+			if( hasNullKey && equal_hash_V.equals( value, nullKeyValue ) ) return token_nullKey();
+			
+			if( values.length == 256 ) {
+				for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
+					if( equal_hash_V.equals( value, values[ t & KEY_MASK ] ) ) return t;
+			}
+			else
+				for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
+					if( nulls.get_( ( byte ) ( t & KEY_MASK ) ) ) { if( equal_hash_V.equals( value, values[ t >>> KEY_LEN ] ) ) return t; }
+					else if( value == null ) return t;
+			
+			return -1;
+		}
+		
+		/**
+		 * Checks if the key represented by the given token exists in the map AND is associated with a non-null value.
+		 *
+		 * @param token The token representing a potential key-value pair.
+		 * @return {@code true} if the token represents a key present in the map
+		 * with an associated non-null value,
+		 * {@code false} otherwise (key not present,
+		 * xkey present but value is null, or token invalid).
+		 */
+		public boolean hasValue( long token ) {
+			return isKeyNull( token ) ?
+					hasNullKey && nullKeyValue != null :
+					-1 < ( int ) token;
+		}
+		
+		/**
+		 * Retrieves the non-null value associated with the key represented by a given token.
+		 * <p>
+		 * <b>Precondition:</b> {@link #hasValue(long)} must return {@code true} for the given
+		 * {@code token} before calling this method.
+		 *
+		 * @param token The token representing a key-value pair with a non-null value.
+		 * @return The non-null value associated with the key represented by the token.
 		 */
 		public V value( long token ) {
-			int i;
 			return isKeyNull( token ) ?
 					nullKeyValue :
-					// Return nullKeyValue if it's the null key token
-					nulls.get( ( byte ) ( i = ( int ) ( token & KEY_MASK ) ) ) ?
-							values.length == 256 ?
-									values[ i ] :
-									values[ nulls.rank( ( byte ) i ) - 1 ] :
-							// If key exists, get the value from values array using key's rank
-							null; // Key not found (or was removed after token was issued)
+					values[ ( int ) token >> KEY_LEN ];
 		}
 		
 		/**
 		 * Gets the value associated with a boxed {@link Byte} key.
-		 * <p>
-		 * Allows retrieval of a value using a {@link Byte} object as the key. Handles null keys by returning the {@code nullKeyValue}.
+		 * Allows using a {@code Byte} object (including {@code null}) as the key.
 		 *
 		 * @param key The boxed {@link Byte} key to look up. Can be {@code null}.
-		 * @return The associated value, or {@code null} if the key is not found (or associated with a null value, or if the key itself is null and {@code nullKeyValue} is null).
+		 * @return The value associated with the key. Returns {@link #nullKeyValue()} if the key is {@code null}.
+		 * Returns the value associated with the byte key if the key is non-null and present.
+		 * Returns {@code null} if the key is non-null but not found, or if the key is found but its associated value is {@code null}.
 		 */
 		public V value(  Character key ) {
 			return key == null ?
@@ -148,55 +227,42 @@ public interface UByteObjectNullMap {
 		 * Gets the value associated with a primitive {@code byte} key.
 		 *
 		 * @param key The primitive {@code byte} key to look up.
-		 * @return The associated value, or {@code null} if the key is not found (or associated with a null value).
+		 * @return The value associated with the key. Returns {@code null} if the key is not found in the map,
+		 * or if the key is found but its associated value is {@code null}.
 		 */
 		public V value( char key ) {
-			return nulls.get( ( byte ) ( key + 0 ) ) ?
+			return
 					values.length == 256 ?
 							values[ key & 0xFF ] :
-							values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] :
-					// Retrieve value by key's rank if key exists
-					null; // Key not found
+							nulls.get_( ( byte ) ( key + 0 ) ) ?
+									values[ nulls.rank( ( byte ) ( key + 0 ) ) - 1 ] :
+									null;
 		}
 		
-		/**
-		 * Checks if the map contains a specific value.
-		 * <p>
-		 * Iterates through the values in the map to determine if the given value is present.
-		 * Handles null values correctly by comparing with {@code nullKeyValue} and values in the {@code values} array.
-		 *
-		 * @param value The value to search for (can be {@code null}).
-		 * @return {@code true} if the value is found in the map, {@code false} otherwise.
-		 */
-		public boolean containsValue( V value ) {
-			return value == null ?
-					hasNullKey && equal_hash_V.equals( value, nullKeyValue ) :
-					// Check for null value against nullKeyValue
-					Array.indexOf( values, value, 0, nulls.cardinality ) != -1; // Search for non-null value in the values array
-		}
 		
 		/**
 		 * Computes the hash code for this map.
-		 * <p>
-		 * The hash code is calculated based on the keys and values in the map, as well as the map's structure and versioning information inherited from {@link ByteSet.R}.
-		 * This ensures that maps with the same key-value pairs (and null key status) will have the same hash code.
+		 * The hash code is based on the hash codes of the key-value mappings (including the null key mapping, if present)
+		 * and incorporates the structural state and version information from the parent {@link ByteSet.R}.
+		 * It uses the {@link #equal_hash_V} strategy to compute hash codes for values.
 		 *
 		 * @return The hash code of this map.
 		 */
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-			{
-				int h = Array.mix( seed, super.hashCode() ); // Mix seed with superclass hashCode (ByteSet.R)
-				h = Array.mix( h, nulls.hashCode() ); // Mix with hashCode of nulls array
-				h = Array.mix( h, Array.hash( h, values, 0, nulls.cardinality ) ); // Mix with hash of values array
-				h = Array.finalizeHash( h, 2 ); // Finalize hash for this part
-				a += h;
-				b ^= h;
-				c *= h | 1; // Accumulate hash components
-			}
+			int h = Array.mix( seed, super.hashCode() ); // Mix seed with superclass hashCode (ByteSet.R)
 			
+			for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
+				if( hasValue( t ) ) {
+					h = Array.mix( h, Array.hash( value( t ) ) );
+					
+					h = Array.finalizeHash( h, 2 ); // Finalize hash for this part
+					a += h;
+					b ^= h;
+					c *= h | 1; // Accumulate hash components
+				}
 			if( hasNullKey ) {
-				int h = Array.hash( seed ); // Start hash for null key
+				h = Array.hash( seed ); // Start hash for null key
 				h = Array.mix( h, Array.hash( nullKeyValue != null ?
 						                              // Mix with hash of nullKeyValue (or seed if nullKeyValue is null)
 						                              equal_hash_V.hashCode( nullKeyValue ) :
@@ -213,9 +279,10 @@ public interface UByteObjectNullMap {
 		
 		/**
 		 * Checks if this map is equal to another object.
-		 * <p>
-		 * Equality is determined by comparing the class, the underlying {@link ByteSet.R} state, the {@code nulls} array,
-		 * the values array (up to the size of the map), and the {@code nullKeyValue}.
+		 * Equality requires the other object to be of the same class (or a compatible {@code R})
+		 * and to have the same key-value mappings (including null key status and value)
+		 * and the same underlying {@link ByteSet.R} state.
+		 * Value comparison uses the {@link #equal_hash_V} strategy.
 		 *
 		 * @param obj The object to compare with.
 		 * @return {@code true} if the objects are equal, {@code false} otherwise.
@@ -225,28 +292,129 @@ public interface UByteObjectNullMap {
 		
 		/**
 		 * Compares this map to another {@code R} instance for equality.
-		 * <p>
-		 * Performs a deep comparison to check if both maps contain the same key-value mappings and null key status.
 		 *
 		 * @param other The other {@code R} instance to compare with.
-		 * @return {@code true} if the maps are equal, {@code false} otherwise.
+		 * @return {@code true} if the maps represent the same mappings, {@code false} otherwise.
 		 */
 		public boolean equals( R< V > other ) {
 			if( other == this ) return true;
-			return other != null &&
-			       super.equals( other ) && // Compare ByteSet.R part
-			       nulls.equals( other.nulls ) && // Compare nulls arrays
-			       equal_hash_V.equals( values, other.values, nulls.cardinality ) && // Compare values arrays (up to map size) using equal_hash_V strategy
-			       ( !hasNullKey || equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ); // Compare null key status and nullKeyValues
+			if( other == null ||
+			    hasNullKey != other.hasNullKey || hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ||
+			    size() != other.size() ||
+			    !super.equals( other ) || !nulls.equals( other.nulls ) )
+				return false;
+			
+			if( values.length == 256 && other.values.length == 256 || values.length != 256 && other.values.length != 256 )
+				return Array.equals( values, other.values, 0, nulls.cardinality );
+			
+			int t1 = -1, t2 = -1;
+			for( t1 = unsafe_token( t1 ), t2 = other.unsafe_token( t2 ); t1 != -1 && t2 != -1; t1 = unsafe_token( t1 ), t2 = other.unsafe_token( t2 ) )
+				if( hasValue( t1 ) && ( !other.hasValue( t2 ) || !equal_hash_V.equals( value( t1 ), other.value( t2 ) ) ) ) return false;
+			
+			return t1 == t2;
+		}
+		
+		/**
+		 * Internal helper to potentially update a token structure.
+		 * Seems intended to adjust the index part based on strategy, but implementation details are unclear
+		 * and might be outdated or specific to a particular use case not fully shown.
+		 * The current implementation seems complex and potentially incorrect as it mixes adding offsets
+		 * with bitwise operations in a non-standard way.
+		 * It's generally safer to rely on `tokenOf(key)` for fresh tokens.
+		 *
+		 * @param token The previous token.
+		 * @param key   The current key being processed.
+		 * @return An updated token representation (structure might depend on strategy).
+		 */
+		protected long token( long token, int key ) {
+			return ( long ) _version << VERSION_SHIFT | (
+					
+					values.length == 256 ?
+							values[ key ] == null ?
+									-1 :
+									( long ) key << KEY_LEN :
+							nulls.get_( ( byte ) key ) ?
+									( ( int ) token & ~KEY_MASK ) + ( 1 << KEY_LEN ) & 0x7FFF_FFFFL :
+									token & ( long ) ~KEY_MASK | 0x8000_0000L
+			) | key;
+		}
+		
+		/**
+		 * Internal helper to create a token for a given byte key.
+		 * The token encodes the map version, the key, and information about the value's location
+		 * (index in `values` array if non-null and compressed, or just the key if flat)
+		 * or an indicator if the value is null.
+		 *
+		 * @param key The byte key (0-255).
+		 * @return A token representing the key and its value state/location.
+		 */
+		protected long tokenOf( int key ) {
+			return ( long ) _version << VERSION_SHIFT |
+			       (
+					       values.length == 256 ?
+							       values[ key ] == null ?
+									       -1 :
+									       ( long ) key << KEY_LEN :
+							       nulls.get_( ( byte ) key ) ?
+									       nulls.rank( ( byte ) key ) - 1L << KEY_LEN :
+									       ~KEY_MASK & 0xFFFF_FFFFL
+			       ) | key;
+		}
+		
+		
+		/**
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over the byte keys present in the map's underlying {@link ByteSet}.
+		 * This iterator yields tokens for <strong>all present byte keys</strong> (as managed by {@link ByteSet.R}),
+		 * regardless of whether their associated value in this map is null or non-null.
+		 * It does NOT iterate over the special null key. Use {@link #hasNullKey()} and {@link #nullKeyValue()} separately for the null key mapping.
+		 * <p>
+		 * Start iteration by passing {@code -1} to this method. In subsequent calls, pass the previously returned *integer* token
+		 * (lower 32 bits of the long token if using that type elsewhere) to get the next one.
+		 * Iteration ends when {@code -1} is returned.
+		 * <p>
+		 * <strong>Warning:</strong> This method bypasses concurrency checks (version checking is NOT performed during iteration).
+		 * If the map's structure (keys added/removed) or value associations (affecting compressed mode ranks) are modified concurrently
+		 * (even in the same thread via {@link RW} methods), the behavior of the iteration is undefined and may lead to incorrect results,
+		 * missed/repeated elements, {@link IndexOutOfBoundsException}, or other errors. Use this method only when certain that the map
+		 * will not be modified during the iteration loop. For safe iteration, consider collecting keys/tokens first or using higher-level iteration mechanisms if available.
+		 * <p>
+		 * The returned {@code int} token represents the lower 32 bits of the internal token structure, primarily containing the key.
+		 * To get the full {@code long} token (including version and potential index info), you might need internal helpers like {@link #tokenOf},
+		 * but using the returned {@code int} token directly with {@link #key(long)} (after casting) is typical.
+		 * Use {@link #value(byte)} with {@code key(token)} to get the value associated with the iterated key safely (though null checks might be needed).
+		 *
+		 * @param token The previous integer token returned by this method, or {@code -1} to start the iteration.
+		 *              The internal state of the iterator uses the key part of the token.
+		 * @return The next integer token representing a byte key present in the map's key set, or {@code -1} if iteration is complete.
+		 * @see #key(long) To get the byte key from a token (cast int token to long if needed, or use internal structure knowledge).
+		 * @see #value(byte) To get the value for the key obtained from the token.
+		 * @see #hasNullKey() To check for the presence of the null key separately.
+		 */
+		@Override public int unsafe_token( int token ) {
+			if( token == -1 ) {
+				
+				int ret = next1( -1 );
+				
+				return ret == -1 ?
+						-1 :
+						( int ) tokenOf( ret );
+			}
+			
+			int next = next1( token & KEY_MASK );
+			
+			return next == -1 ?
+					-1 :
+					( int ) token( token, next );
 		}
 		
 		/**
 		 * Creates and returns a shallow copy of this {@code R} instance.
-		 * <p>
-		 * The clone will contain shallow copies of the {@code values} and {@code nulls} arrays.
-		 * The values themselves are not deep-copied, meaning if values are mutable objects, changes to them will be reflected in both the original and the cloned map.
+		 * The clone will have its own copies of the internal arrays (e.g., {@code values}) and the {@code nulls} bitset.
+		 * However, the values themselves (if they are objects) are not deep-copied; both the original and the clone will reference the same value objects.
+		 * The clone will share the same {@link #equal_hash_V} strategy instance.
 		 *
-		 * @return A shallow copy of this map. Returns {@code null} if cloning is not supported or fails.
+		 * @return A shallow copy of this map.
+		 * @throws RuntimeException wrapping the {@link CloneNotSupportedException} if cloning fails (should not happen as {@code R} implements {@link Cloneable}).
 		 */
 		@SuppressWarnings( "unchecked" )
 		public R< V > clone() {
@@ -262,8 +430,7 @@ public interface UByteObjectNullMap {
 		
 		/**
 		 * Returns a JSON string representation of this map.
-		 * <p>
-		 * Uses the {@link #toJSON(JsonWriter)} method to generate the JSON output.
+		 * Delegates to {@link #toJSON(JsonWriter)}.
 		 *
 		 * @return A JSON string representing the map's contents.
 		 */
@@ -271,8 +438,10 @@ public interface UByteObjectNullMap {
 		
 		/**
 		 * Writes the contents of this map in JSON format to the provided {@link JsonWriter}.
-		 * <p>
-		 * The JSON output will be an object where keys are string representations of the byte keys (or "null" for the null key) and values are JSON representations of the object values.
+		 * Outputs a JSON object where keys are string representations of the byte keys (e.g., "10", "-1")
+		 * or the literal string "null" for the null key. Values are the JSON representations of the corresponding
+		 * object values (or JSON `null` if the value is {@code null}).
+		 * Iteration uses the potentially unsafe {@link #unsafe_token} for performance; ensure no concurrent modification.
 		 *
 		 * @param json The {@link JsonWriter} to write the JSON output to.
 		 */
@@ -280,39 +449,52 @@ public interface UByteObjectNullMap {
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 ); // Pre-allocate buffer space for JSON output (heuristic size)
 			json.enterObject(); // Begin JSON object
-			if( hasNullKey ) json.name( "null" ).value( nullKeyValue ); // Write null key entry if present
-			int key;
-			for( long token = token(); ( key = ( int ) ( token & KEY_MASK ) ) < 0x100; token = token( token ) ) // Iterate through tokens for byte keys
-			     json.name( String.valueOf( key ) ).value( values[ nulls.rank( ( byte ) key ) - 1 ] ); // Write each key-value pair
+			if( hasNullKey )
+				json.name().value( nullKeyValue );
+			
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
+				json.name( key( token ) );
+				if( hasValue( token ) )
+					json.value( value( token ) ); // Compressed (Rank-Based) Strategy - Rank calculation for sparse access
+				else
+					json.value(); // Output null for null value
+			}
+			
 			json.exitObject(); // End JSON object
 		}
 	}
 	
 	/**
 	 * {@code RW} (Read-Write) is a concrete implementation of {@link ByteObjectNullMap} that extends the read-only base class {@link R}
-	 * and provides full read and write capabilities.
+	 * and provides methods for modifying the map (adding, updating, removing entries).
 	 * <p>
-	 * It allows modification of the map, including adding, updating, and removing key-value pairs.
+	 * It supports both compressed and flat storage strategies, automatically transitioning from compressed to flat
+	 * when the map becomes dense enough to benefit from direct indexing when more then 127 items with none-null values. All modification operations update the
+	 * map's version for concurrency control.
 	 *
 	 * @param <V> The type of values stored in this map.
 	 */
 	class RW< V > extends R< V > {
 		
 		/**
-		 * Constructs a new {@code RW} map with a specified initial capacity and using the default equality/hashing strategy for the value type.
+		 * Constructs a new, empty read-write map with an estimated initial capacity,
+		 * using the default equality/hashing strategy for the specified value type.
 		 *
-		 * @param clazz  The class of the value type {@code V}. Used to determine the default equality and hashing strategy.
-		 * @param length The initial capacity of the map. This is a hint and the actual initial capacity might be adjusted.
+		 * @param clazz  The {@link Class} of the value type {@code V}. Used to obtain the default {@link Array.EqualHashOf} strategy.
+		 * @param length A hint for the initial capacity (number of expected entries). The actual internal storage size might differ.
+		 *               If length >= 128 (a threshold suggesting potential density), it might start in Flat mode directly.
 		 */
 		public RW( Class< V > clazz, int length ) {
 			this( Array.get( clazz ), length );
 		}
 		
 		/**
-		 * Constructs a new {@code RW} map with a specified initial capacity and a custom equality/hashing strategy for the value type.
+		 * Constructs a new, empty read-write map with an estimated initial capacity and a custom equality/hashing strategy
+		 * for the value type.
 		 *
-		 * @param equal_hash_V The custom {@link Array.EqualHashOf} instance to be used for value type {@code V}.
-		 * @param length       The initial capacity of the map. This is a hint and the actual initial capacity might be adjusted.
+		 * @param equal_hash_V The custom {@link Array.EqualHashOf} instance to use for value comparisons and hashing.
+		 * @param length       A hint for the initial capacity. If length suggests high density (e.g., >= 128),
+		 *                     it might initialize directly into the Flat storage strategy.
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int length ) {
 			super( equal_hash_V );
@@ -320,97 +502,95 @@ public interface UByteObjectNullMap {
 		}
 		
 		/**
-		 * Clears all key-value mappings from this map.
-		 * <p>
-		 * Resets the map to an empty state, removing all keys and values, including the null key mapping.
+		 * Removes all mappings from this map. The map will be empty after this call returns.
+		 * Resets the null key mapping and clears all byte key mappings. Resets internal structures and increments the version.
 		 *
 		 * @return This {@code RW} instance, allowing for method chaining.
 		 */
 		public RW< V > clear() {
+			if( 0 < cardinality ) {
+				if( values.length < 256 ) nulls._clear();
+				java.util.Arrays.fill( values, null ); // Clear values array
+			}
 			_clear(); // Clear ByteSet.R state
-			java.util.Arrays.fill( values, 0, cardinality, null ); // Clear values array
 			nullKeyValue = null; // Reset null key value
-			nulls._clear(); // Clear nulls array
 			return this;
 		}
 		
 		/**
-		 * Associates the specified value with the specified boxed {@link Byte} key in this map.
-		 * <p>
-		 * If the map previously contained a mapping for this key, the old value is replaced. Allows {@code null} keys.
+		 * Associates the specified value with the null key in this map.
+		 * If the map previously contained a mapping for the null key, the old value is replaced.
 		 *
-		 * @param key   The boxed {@link Byte} key with which the specified value is to be associated. Can be {@code null}.
-		 * @param value The value to be associated with the specified key. Can be {@code null}.
-		 * @return {@code true} if a new key-value mapping was added, {@code false} if the key already existed and the value was updated.
+		 * @param value The value to be associated with the null key. Can be {@code null}.
+		 * @return {@code true} if the null key was not present before this call (a new mapping was added),
+		 * {@code false} if the null key was already present (the value was updated).
+		 * The return value reflects the change in the presence of the *key*.
 		 */
 		public boolean put(  Character key, V value ) {
-			if( key == null ) {
-				nullKeyValue = value; // Set null key value
-				return _add(); // Add null key entry (ByteSet.R logic)
-			}
-			return put( ( char ) ( key + 0 ), value ); // Delegate to primitive byte key put method
+			if( key != null ) return put( ( char ) ( key + 0 ), value ); // Delegate to primitive byte key put method
+			
+			nullKeyValue = value; // Set null key value
+			return _add(); // Add null key entry (ByteSet.R logic)
 		}
 		
 		/**
 		 * Associates the specified value with the specified primitive {@code byte} key in this map.
-		 * <p>
-		 * If the map previously contained a mapping for this key, the old value is replaced.
-		 * If the provided value is {@code null}, it effectively removes the mapping for the given key.
+		 * If the map previously contained a mapping for this key, the old value is replaced by the specified value.
+		 * Handles the transition from compressed to flat storage strategy when more then 127 items with none-null values.
+		 * If the provided `value` is {@code null}, this method effectively ensures the key exists but is mapped to `null`.
+		 * If the intent is to *remove* the key entirely when setting the value to null, use {@link #remove(byte)} instead.
 		 *
 		 * @param key   The primitive {@code byte} key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key. If {@code null}, the mapping for the key is removed.
-		 * @return {@code true} if a new key-value mapping was added, {@code false} if the key already existed and the value was updated.
+		 * @param value The value to be associated with the specified key. Can be {@code null}.
+		 * @return {@code true} if the key was not present before this call (a new mapping was added),
+		 * {@code false} if the key was already present (the value was updated or set to null).
+		 * The return value reflects the change in the presence of the *key*.
 		 */
 		public boolean put( char key, V value ) {
 			
 			if( value == null ) {
-				if( nulls.set0( ( byte ) key ) )// if in the nulls exists it means the key is present
-				{
-					if( values.length == 256 ) return false;
+				
+				if( values.length == 256 ) values[ key & 0xFF ] = null;
+				else if( nulls.set0( ( byte ) key ) ) {
 					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.cardinality + 1, -1 ); // Remove key from nulls array and resize values array if needed
-					return false;
+					values[ nulls.cardinality ] = null;
 				}
-				//maybe the key does not present
-				return set1( ( byte ) key ); // return true if key was added, false otherwise (ByteSet.R logic, tracks key presence regardless of value)
 			}
-			
-			if( !nulls.set1( ( byte ) key ) ) {
-				values[ values.length == 256 ?
-						key & 0xFF :
-						nulls.rank( ( byte ) key ) - 1 ] = value;
+			else if( values.length == 256 ) values[ key & 0xFF ] = value;
+			else if( nulls.cardinality == 127 && !nulls.get_( ( byte ) key ) ) {//switch to flat mode
+				V[] values_ = equal_hash_V.copyOf( null, 256 );
+				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )
+					if( hasValue( token ) )
+						values_[ token & KEY_MASK ] = values[ ii++ ];
 				
-				return false;
-			}
-			
-			int i;
-			if( values.length == 256 ) i = key & 0xFF;
-			else if( nulls.cardinality == 128 ) {
-				V[] newValues = equal_hash_V.copyOf( null, 256 );
-				i = key & 0xFF;
-				
-				for( int ii = nulls.first1(), k = 0; -1 < ii; ii = nulls.next1( ii ), k++ )
-				     newValues[ ii ] = values[ k ];
-				values = newValues;
+				nulls                              = null; // Discard nulls bitset (no longer used for indexing)
+				( values = values_ )[ key & 0xFF ] = value;
 			}
 			else {
-				i = nulls.rank( ( byte ) key ) - 1;
 				
-				if( i + 1 < nulls.cardinality || values.length < nulls.cardinality )
-					Array.resize( values, values.length < nulls.cardinality ?
-							( values = equal_hash_V.copyOf( null, Math.min( values.length * 2, 0x100 ) ) ) :
-							values, i, nulls.cardinality - 1, 1 );
+				int r = nulls.rank( ( byte ) key ); // Get the rank for the key
+				if( nulls.set1( ( byte ) key ) )
+					Array.resize( values,
+					              nulls.cardinality < values.length ?
+							              values :
+							              ( values = equal_hash_V.copyOf( null, values.length * 2 ) ), r, nulls.cardinality - 1, 1 );
+				else r--;
+				
+				values[ r ] = value;
 			}
-			values[ i ] = value;
+			
+			
 			return set1( ( byte ) key ); // return true if key was added, false otherwise
 		}
 		
 		/**
-		 * Removes the mapping for a boxed {@link Byte} key from this map if it is present.
-		 * <p>
-		 * Also handles the removal of the null key mapping if the provided key is {@code null}.
+		 * Removes the mapping for the specified key from this map if present.
+		 * Handles both the null key and byte keys.
 		 *
-		 * @param key The boxed {@link Byte} key whose mapping is to be removed from the map. Can be {@code null}.
-		 * @return {@code true} if a mapping was removed as a result of this call, {@code false} if no mapping existed for the key.
+		 * @param key The key whose mapping is to be removed. Can be {@code null} to remove the null key mapping,
+		 *            or a boxed {@link Byte} for a byte key.
+		 * @return {@code true} if a mapping was removed as a result of this call (i.e., the key was present),
+		 * {@code false} if the key was not found in the map.
 		 */
 		public boolean remove(  Character key ) {
 			if( key != null ) return remove( ( char ) ( key + 0 ) ); // Delegate to primitive byte key remove if key is not null
@@ -420,29 +600,32 @@ public interface UByteObjectNullMap {
 		}
 		
 		/**
-		 * Removes the mapping for a primitive {@code byte} key from this map if it is present.
+		 * Removes the mapping for the specified primitive {@code byte} key from this map if present.
 		 *
-		 * @param key The primitive {@code byte} key whose mapping is to be removed from the map.
-		 * @return {@code true} if a mapping was removed as a result of this call, {@code false} if no mapping existed for the key.
+		 * @param key The primitive {@code byte} key whose mapping is to be removed.
+		 * @return {@code true} if a mapping was removed as a result of this call (i.e., the key was present),
+		 * {@code false} if the key was not found in the map.
 		 */
 		public boolean remove( char key ) {
 			if( !set0( ( byte ) key ) ) return false; // Remove key from ByteSet.R, return false if key wasn't present
 			
-			if( nulls.set0( ( byte ) key ) ) // Remove key from nulls array if present
-				if( values.length == 256 )
-					values[ key & 0xFF ] = null;
-				else
-					Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.cardinality + 1, -1 ); // Resize values array to remove the gap
+			if( values.length == 256 ) values[ key & 0xFF ] = null;
+			else if( nulls.set0( ( byte ) key ) ) {
+				Array.resize( values, values, nulls.rank( ( byte ) key ), nulls.cardinality + 1, -1 ); // Resize values array to remove the gap
+				values[ nulls.cardinality ] = null;
+			}
+			
 			return true; // Mapping removed
 		}
 		
 		/**
-		 * Creates and returns a deep copy of this {@code RW} instance.
-		 * <p>
-		 * The clone will be a new {@code RW} map with the same key-value mappings as this map.
-		 * The values themselves are still shallow-copied, similar to {@link R#clone()}.
+		 * Creates and returns a shallow copy of this {@code RW} instance.
+		 * This is equivalent to calling {@link R#clone()} but returns the type {@code RW<V>}.
+		 * The clone is a new {@code RW} map with the same initial mappings, but modifications
+		 * to one map (e.g., adding/removing keys) will not affect the other. The referenced values
+		 * themselves are not deep-copied.
 		 *
-		 * @return A cloned instance of this map.
+		 * @return A shallow copy (clone) of this map instance.
 		 */
 		public RW< V > clone() { return ( RW< V > ) super.clone(); } // Simply cast the shallow clone from superclass to RW<V>
 		
@@ -451,12 +634,12 @@ public interface UByteObjectNullMap {
 	}
 	
 	/**
-	 * Provides a static method to obtain an {@link Array.EqualHashOf} instance for {@code RW<V>}.
-	 * <p>
-	 * This allows for custom equality and hashing comparisons of {@code RW<V>} map instances.
+	 * Provides a static factory method to obtain an {@link Array.EqualHashOf} instance suitable for
+	 * comparing {@link ByteObjectNullMap.RW RW<V>} map instances themselves based on their content.
+	 * Note: This compares the maps, not the values *within* the maps (which use `equal_hash_V`).
 	 *
-	 * @param <V> The value type of the {@code RW} map.
-	 * @return An {@link Array.EqualHashOf} instance for {@code RW<V>}.
+	 * @param <V> The value type parameter of the {@code RW} maps to be compared.
+	 * @return A shared {@link Array.EqualHashOf} instance capable of comparing {@code RW<V>} maps.
 	 */
 	@SuppressWarnings( "unchecked" )
 	static < V > Array.EqualHashOf< RW< V > > equal_hash() {

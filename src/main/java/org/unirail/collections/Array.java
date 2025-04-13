@@ -2691,33 +2691,22 @@ public interface Array {
 							Long.bitCount( _1 << 63 - key );
 		}
 		
-		/**
-		 * Returns the smallest byte value (0-255) currently present in the set.
-		 *
-		 * @return The smallest byte value in the set, or -1 if the set is empty.
-		 */
-		protected int first1() {
-			if( 0 < cardinality )
-				if( _1 != 0 ) return Long.numberOfTrailingZeros( _1 ); // Find the first set bit in _1 (smallest byte value in 0-63 range).
-				else if( _2 != 0 ) return 64 + Long.numberOfTrailingZeros( _2 ); // Find the first set bit in _2 (smallest byte value in 64-127 range).
-				else if( _3 != 0 ) return 128 + Long.numberOfTrailingZeros( _3 ); // Find the first set bit in _3 (smallest byte value in 128-191 range).
-				else if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // Find the first set bit in _4 (smallest byte value in 192-255 range).
-			return -1; // Set is empty.
-		}
 		
 		/**
-		 * Returns the smallest byte value (0-255) in the set that is strictly greater than the given {@code index}.
+		 * Finds the index of the first set bit after the given index.
 		 *
-		 * @param index The reference byte value. The search starts from the next byte value (index + 1).
-		 * @return The smallest byte value greater than {@code index}, or -1 if no such value exists in the set.
+		 * @param index The starting index (0-255) to search from.
+		 * @return The index of the next set bit (0-255), or -1 if no set bit exists after {@code index}.
 		 */
 		protected int next1( int index ) {
+			if( cardinality == 0 ) return -1;
 			long l;
 			index++; // Start searching for the next set bit from the byte value immediately after the current one.
 			
 			if( 127 < index )
 				if( 191 < index )// Values 192-255
 				{
+					if( 0xFF < index ) return -1;
 					l = _4 >>> index; // Right-shift _4 to start searching from 'index' onwards.
 					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
 				}
@@ -2734,6 +2723,7 @@ public interface Array {
 				
 			}
 			else {
+				
 				l = _1 >>> index; // Right-shift _1 to start searching from 'index' onwards.
 				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
 				if( _2 != 0 ) return 64 + Long.numberOfTrailingZeros( _2 ); // If no set bit in the remaining part of _1, check if there are any set bits in _2 and return the smallest one.
@@ -2743,6 +2733,47 @@ public interface Array {
 			
 			return -1;
 		}
+		
+		
+		/**
+		 * Finds the index of the first unset bit after the given index.
+		 *
+		 * @param index The starting index (0-255) to search from.
+		 * @return The index of the next unset bit (0-255), or -1 if no unset bit exists after {@code index}.
+		 */
+		protected int next0( int index ) {
+			long l;
+			index++; // Start searching for the next unset bit from the position immediately after the current one
+			
+			if( 127 < index ) {
+				if( 191 < index ) { // Values 192-255
+					if( 0xFF < index ) return -1;
+					l = ~_4 >>> index; // Invert _4 and right-shift to start searching from 'index' onwards
+					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found an unset bit, return its position
+				}
+				else {
+					l = ~_3 >>> index; // Invert _3 and right-shift to start searching from 'index' onwards
+					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found an unset bit, return its position
+					if( _4 != -1 ) return 192 + Long.numberOfTrailingZeros( ~_4 ); // Check for unset bits in _4
+				}
+			}
+			else if( 63 < index ) {
+				l = ~_2 >>> index; // Invert _2 and right-shift to start searching from 'index' onwards
+				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found an unset bit, return its position
+				if( _3 != -1 ) return 128 + Long.numberOfTrailingZeros( ~_3 ); // Check for unset bits in _3
+				if( _4 != -1 ) return 192 + Long.numberOfTrailingZeros( ~_4 ); // Check for unset bits in _4
+			}
+			else {
+				l = ~_1 >>> index; // Invert _1 and right-shift to start searching from 'index' onwards
+				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found an unset bit, return its position
+				if( _2 != -1 ) return 64 + Long.numberOfTrailingZeros( ~_2 ); // Check for unset bits in _2
+				if( _3 != -1 ) return 128 + Long.numberOfTrailingZeros( ~_3 ); // Check for unset bits in _3
+				if( _4 != -1 ) return 192 + Long.numberOfTrailingZeros( ~_4 ); // Check for unset bits in _4
+			}
+			
+			return -1;
+		}
+		
 		
 		/**
 		 * Removes a byte value from the set.
@@ -2802,7 +2833,7 @@ public interface Array {
 		 * @param key The byte value to check for presence in the set (valid range is 0-255).
 		 * @return {@code true} if the set contains the specified byte value, {@code false} otherwise.
 		 */
-		protected boolean get( byte key ) {
+		protected boolean get_( byte key ) {
 			if( cardinality == 0 ) return false; // Optimization: empty set cannot contain any value.
 			
 			return ( ( key < 0 ?

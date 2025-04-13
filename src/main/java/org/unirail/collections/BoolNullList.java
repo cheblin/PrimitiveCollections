@@ -136,73 +136,15 @@ public interface BoolNullList {
 		@Override public R clone() { return ( R ) super.clone(); }
 	}
 	
-	/**
-	 * Interface defining read and write operations for BoolNullList implementations.
-	 */
-	interface Interface {
-		/**
-		 * Returns the number of elements in the list.
-		 *
-		 * @return The size of the list.
-		 */
-		int size();
-		
-		/**
-		 * Gets the boolean value at the specified index as a {@link Boolean} object.
-		 *
-		 * @param index The index of the boolean value to retrieve.
-		 * @return {@link Boolean#TRUE} if the value is true, {@link Boolean#FALSE} if false, and {@code null} if the value is null.
-		 */
-		Boolean get_Boolean( int index );
-		
-		/**
-		 * Checks if the boolean value at the given index is not null.
-		 *
-		 * @param index The index to check.
-		 * @return {@code true} if the value at the index is either true or false (not null), {@code false} otherwise (null).
-		 */
-		boolean hasValue( int index );
-		
-		/**
-		 * Sets the boolean value at the end of the list to the given boolean value.
-		 *
-		 * @param value The boolean value to set (true or false).
-		 * @return The RW instance for method chaining.
-		 */
-		RW set1( boolean value );
-		
-		/**
-		 * Sets the boolean value at the end of the list to the given {@link Boolean} value.
-		 *
-		 * @param value The {@link Boolean} value to set ({@code true}, {@code false}, or {@code null}).
-		 * @return The RW instance for method chaining.
-		 */
-		RW set1( Boolean value );
-		
-		/**
-		 * Adds a new boolean value to the end of the list.
-		 *
-		 * @param value The boolean value to add (true or false).
-		 * @return The RW instance for method chaining.
-		 */
-		RW add( boolean value );
-		
-		/**
-		 * Adds a new {@link Boolean} value to the end of the list.
-		 *
-		 * @param value The {@link Boolean} value to add ({@code true}, {@code false}, or {@code null}).
-		 * @return The RW instance for method chaining.
-		 */
-		RW add( Boolean value );
-	}
+	
 	
 	/**
 	 * Concrete implementation of {@link BoolNullList} that allows read and write operations for tri-state boolean lists.
 	 * <p>
-	 * Extends {@link BoolNullList.R} and implements {@link BoolNullList.Interface}, providing a mutable list
+	 * Extends {@link BoolNullList.R} providing a mutable list
 	 * capable of storing boolean true, boolean false, and null values efficiently using bits.
 	 */
-	class RW extends R implements Interface {
+	class RW extends R {
 		
 		/**
 		 * Constructs a new RW boolean list with a specified initial length.
