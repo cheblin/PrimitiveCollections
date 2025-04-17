@@ -74,7 +74,7 @@ public interface BitsList {
 		 *
 		 * @return The number of bits per item.
 		 */
-		protected int bits_per_item() { return 32 - Long.numberOfLeadingZeros( mask ); }
+		protected int bits_per_item() { return 32 - Integer.numberOfLeadingZeros( ( int ) mask ); }
 		
 		/**
 		 * The default value for new items, masked to fit within {@code bits_per_item}.
@@ -118,7 +118,7 @@ public interface BitsList {
 		 *                      If negative, sets the initial number of items to `abs(size)` no filling occurs.
 		 */
 		protected R( int bits_per_item, int default_value, int size ) {
-			if( bits_per_item < 1 ||  7 < bits_per_item  ) throw new IllegalArgumentException();
+			if( bits_per_item < 1 || 7 < bits_per_item ) throw new IllegalArgumentException();
 			mask               = mask( this.bits_per_item = bits_per_item );
 			this.size          =
 					size < 0 ?
@@ -143,9 +143,7 @@ public interface BitsList {
 		 *
 		 * @return The maximum number of items that can be stored without resizing.
 		 */
-		public int length() {
-			return values.length * BITS / bits_per_item;
-		}
+		public int length() { return ( values.length << LEN ) / bits_per_item; }
 		
 		/**
 		 * Adjusts the storage capacity of the list.
@@ -176,7 +174,7 @@ public interface BitsList {
 		 * Clears all items in the list by resetting their bits to zero and setting size to 0.
 		 */
 		protected void clear() {
-			if( size == 0 ) return;
+			if( size() == 0 ) return;
 			java.util.Arrays.fill( values, 0, len4bits( size * bits_per_item ), 0L );
 			size = 0;
 		}
@@ -223,12 +221,10 @@ public interface BitsList {
 		public boolean equals( R other ) {
 			if( other == this ) return true;
 			if( other == null || other.size != size ) return false;
-			if( size == 0 ) return true;
 			
-			int  last_long = index( size * bits_per_item );
-			long last_mask = mask( bit( size * bits_per_item ) );
-			if( ( values[ last_long ] & last_mask ) != ( other.values[ last_long ] & last_mask ) ) return false;
-			for( int i = last_long - 1; i >= 0; i-- ) if( values[ i ] != other.values[ i ] ) return false;
+			for( int i = 0; i < size; i++ )
+				if( get( i ) != other.get( i ) ) return false;
+			
 			return true;
 		}
 		
@@ -236,7 +232,6 @@ public interface BitsList {
 		 * Retrieves the value of the last item in the list.
 		 *
 		 * @return The value of the last item as a {@code byte}.
-		 * @throws IndexOutOfBoundsException if the list is empty.
 		 */
 		public byte get() {
 			if( size == 0 ) throw new IndexOutOfBoundsException( "List is empty" );
@@ -248,7 +243,6 @@ public interface BitsList {
 		 *
 		 * @param item The index of the item (0 to {@code size-1}).
 		 * @return The value at the specified index as a {@code byte}.
-		 * @throws IndexOutOfBoundsException if {@code item} is out of bounds.
 		 */
 		public byte get( int item ) {
 			if( item < 0 || size <= item ) throw new IndexOutOfBoundsException( "Index: " + item + ", Size: " + size );
@@ -277,7 +271,6 @@ public interface BitsList {
 		 * @param dst   The {@code BitsList} instance to modify.
 		 * @param item  The index to insert at (0 to {@code size}).
 		 * @param value The value to insert, masked to fit within {@code bits_per_item}.
-		 * @throws IndexOutOfBoundsException if {@code item} is negative.
 		 */
 		protected static void add( R dst, int item, long value ) {
 			if( item < 0 ) throw new IndexOutOfBoundsException( "Index: " + item );
@@ -298,7 +291,6 @@ public interface BitsList {
 		 * @param dst  The {@code BitsList} instance to modify.
 		 * @param from The starting index (0 or greater).
 		 * @param src  The array of values to set.
-		 * @throws IndexOutOfBoundsException if {@code from} is negative.
 		 */
 		protected static void set( R dst, int from, byte... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
@@ -311,7 +303,6 @@ public interface BitsList {
 		 * @param dst  The {@code BitsList} instance to modify.
 		 * @param from The starting index (0 or greater).
 		 * @param src  The array of values to set.
-		 * @throws IndexOutOfBoundsException if {@code from} is negative.
 		 */
 		protected static void set( R dst, int from, char... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
@@ -324,7 +315,6 @@ public interface BitsList {
 		 * @param dst  The {@code BitsList} instance to modify.
 		 * @param from The starting index (0 or greater).
 		 * @param src  The array of values to set.
-		 * @throws IndexOutOfBoundsException if {@code from} is negative.
 		 */
 		protected static void set( R dst, int from, short... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
@@ -337,7 +327,6 @@ public interface BitsList {
 		 * @param dst  The {@code BitsList} instance to modify.
 		 * @param from The starting index (0 or greater).
 		 * @param src  The array of values to set.
-		 * @throws IndexOutOfBoundsException if {@code from} is negative.
 		 */
 		protected static void set( R dst, int from, int... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
@@ -350,7 +339,6 @@ public interface BitsList {
 		 * @param dst  The {@code BitsList} instance to modify.
 		 * @param from The starting index (0 or greater).
 		 * @param src  The array of values to set.
-		 * @throws IndexOutOfBoundsException if {@code from} is negative.
 		 */
 		protected static void set( R dst, int from, long... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
@@ -363,7 +351,6 @@ public interface BitsList {
 		 * @param dst  The {@code BitsList} instance to modify.
 		 * @param item The index to set (0 or greater).
 		 * @param src  The value to set, masked to fit within {@code bits_per_item}.
-		 * @throws IndexOutOfBoundsException if {@code item} is negative.
 		 */
 		protected static void set1( R dst, int item, long src ) {
 			if( item < 0 ) throw new IndexOutOfBoundsException( "Index: " + item );
@@ -389,8 +376,8 @@ public interface BitsList {
 				return;
 			}
 			
-			if( dst.length() <= item )
-				dst.length_( Math.max( dst.length() + dst.length() / 2, len4bits( bit_pos + dst.bits_per_item ) ) );
+			if( dst.length() <= item ) dst.length_( Math.max( dst.length() * 3 / 2, item + 1 ) );
+			
 			if( dst.default_value != 0 )
 				for( int i = dst.size; i < item; i++ )
 				     set_( dst, i, dst.default_value );
@@ -433,7 +420,7 @@ public interface BitsList {
 		 * @param item The index to remove (0 to {@code size-1}).
 		 */
 		protected static void removeAt( R dst, int item ) {
-			if( dst.size == 0 || item < 0 ) return;
+			if( dst.size == 0 || item < 0 || dst.size <= item ) return;
 			if( item == dst.size - 1 ) {
 				if( dst.default_value == 0 ) set_( dst, item, 0 ); // Ensure trailing bits are zeroed
 				dst.size--;
@@ -699,7 +686,6 @@ public interface BitsList {
 		 * @param index The index to insert at (0 to {@code size}).
 		 * @param src   The value to insert, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW add1( int index, long src ) {
 			add( this, index, src );
@@ -732,7 +718,6 @@ public interface BitsList {
 		 * Removes the last item and returns this instance for chaining.
 		 *
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if the list is empty.
 		 */
 		public RW remove() {
 			if( size == 0 ) throw new IndexOutOfBoundsException( "List is empty" );
@@ -745,7 +730,6 @@ public interface BitsList {
 		 *
 		 * @param value The value to set, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if the list is empty.
 		 */
 		public RW set1( long value ) {
 			set1( this, size - 1, value );
@@ -758,7 +742,6 @@ public interface BitsList {
 		 * @param item  The index to set (0 or greater).
 		 * @param value The value to set, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if {@code item} is negative.
 		 */
 		public RW set1( int item, long value ) {
 			set1( this, item, value );
@@ -771,7 +754,6 @@ public interface BitsList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The values to set, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, byte... values ) {
 			set( this, index, values );
@@ -786,7 +768,6 @@ public interface BitsList {
 		 * @param src_index The starting index in the source array.
 		 * @param len       The number of elements to set.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative or source bounds are exceeded.
 		 */
 		public RW set( int index, byte[] src, int src_index, int len ) {
 			if( index < 0 ) throw new IndexOutOfBoundsException( "Index: " + index );
@@ -802,7 +783,6 @@ public interface BitsList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The values to set, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, char... values ) {
 			set( this, index, values );
@@ -815,7 +795,6 @@ public interface BitsList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The values to set, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, short... values ) {
 			set( this, index, values );
@@ -828,7 +807,6 @@ public interface BitsList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The values to set, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, int... values ) {
 			set( this, index, values );
@@ -841,7 +819,6 @@ public interface BitsList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The values to set, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, long... values ) {
 			set( this, index, values );

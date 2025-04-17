@@ -7,22 +7,20 @@ import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.Objects;
 
-
 /**
- * A specialized map for mapping char/short keys (65,536 distinct values) to object values of type V.
+ * A specialized map for mapping 2 bytes primitive keys to a none-null object values.
  * Implements a HYBRID strategy:
- * 1. Starts as a hash map with separate chaining, optimized for sparse data.
- * Uses short[] for next pointers, limiting this phase's capacity.
- * 2. Automatically transitions to a direct-mapped flat array when the hash map
- * reaches its capacity limit (~32,749 entries) and needs to grow further.
- * This approach balances memory efficiency for sparse maps with guaranteed O(1)
- * performance and full key range support for dense maps.
+ * 1. Starts as a hash map with separate chaining, optimized for sparse data distribution across the key range.
+ * 2. Automatically transitions to a direct-mapped flat array when the hash map is full and reaches its capacity limit
+ * ({@link RW#flatStrategyThreshold} which is 0x7FFF = 32767 entries, excluding the null key entry) and needs to grow further.
+ * This approach balances memory efficiency for sparse maps with guaranteed O(1) performance and full key range support for dense maps.
  */
 public interface CharObjectMap {
 	
 	/**
 	 * Abstract base class providing read-only operations for the map.
-	 * Handles the underlying structure which can be either a hash map or a flat array.
+	 * Handles the underlying structure which can be either a hash map or a flat array,
+	 * determined by the {@link #isFlatStrategy} flag.
 	 *
 	 * @param <V> The type of values stored in the map.
 	 */
@@ -32,7 +30,7 @@ public interface CharObjectMap {
 		protected V              nullKeyValue;        // Value for the null key, stored separately.
 		protected char[]         _buckets;            // Hash table buckets array (1-based indices to chain heads).
 		protected short[]        nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
-		protected char[] keys = Array.EqualHashOf.chars     .O; // Keys array.
+		protected char[] keys; // Keys array.
 		protected V[]            values;              // Values array.
 		protected int            _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
 		protected int            _freeList;           // Index of the first entry in the free list (-1 if empty).
@@ -45,33 +43,37 @@ public interface CharObjectMap {
 		protected final Array.EqualHashOf< V > equal_hash_V;
 		
 		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
-		protected static final long INDEX_MASK      = 0xFFFF_FFFFL; // Mask for index in token.
+		
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
 		// Special index used in tokens to represent the null key. Outside valid array index ranges.
 		protected static final int  NULL_KEY_INDEX  = 0x1_FFFF; // 65537
 		
 		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
-		
 		/**
-		 * Flag indicating if the map is operating in flat array mode.
+		 * Flag indicating if the map is currently operating in flat array mode (true) or hash map mode (false).
 		 */
 		protected boolean isFlatStrategy = false;
 		
+		// --- Flat Array Mode Fields & Constants ---
 		/**
-		 * Bitset to track presence of keys in flat mode. Size 1024 longs = 65536 bits.
+		 * Bitset used in flat array mode to track the presence of keys. Size 1024 longs = 65536 bits. Null in hash map mode.
 		 */
-		protected long[] flat_bits; // Size: 65536 / 64 = 1024
-		
-		// Constants for Flat Mode
-		protected static final int FLAT_ARRAY_SIZE  = 0x10000;
-		protected static final int FLAT_BITSET_SIZE = FLAT_ARRAY_SIZE / 64; // 1024
+		protected              long[] flat_bits;
+		/**
+		 * Fixed size of the `values` array and the conceptual key space in flat array mode (65536).
+		 */
+		protected static final int    FLAT_ARRAY_SIZE  = 0x10000;
+		/**
+		 * Size of the {@link #flat_bits} array (number of longs needed for 65536 bits).
+		 */
+		protected static final int    FLAT_BITSET_SIZE = FLAT_ARRAY_SIZE / 64; // 1024
 		
 		
 		/**
 		 * Constructs a new read-only map base with the specified value equality/hash strategy.
 		 *
-		 * @param equal_hash_V The strategy for comparing values and calculating hash codes.
+		 * @param equal_hash_V The strategy for comparing values and calculating hash codes. Must not be null.
 		 */
 		protected R( Array.EqualHashOf< V > equal_hash_V ) {
 			this.equal_hash_V = equal_hash_V;
@@ -79,17 +81,17 @@ public interface CharObjectMap {
 		
 		
 		/**
-		 * Checks if the map is empty.
+		 * Checks if the map is empty (contains no key-value mappings).
 		 *
-		 * @return True if the map contains no key-value mappings.
+		 * @return True if the map contains no mappings (including the null key).
 		 */
 		public boolean isEmpty() { return size() == 0; }
 		
 		/**
-		 * Returns the number of key-value mappings in the map.
-		 * Calculation depends on the current mode (hash map or flat array).
+		 * Returns the number of key-value mappings currently in the map.
+		 * The calculation depends on the current mode (hash map or flat array) and whether the null key is present.
 		 *
-		 * @return The total number of mappings, including the conceptual null key if present.
+		 * @return The total number of mappings (size).
 		 */
 		public int size() {
 			// Hash Mode: _count includes free slots, subtract _freeCount for actual entries.
@@ -105,12 +107,13 @@ public interface CharObjectMap {
 		}
 		
 		
+		/**
+		 * Alias for {@link #size()}.
+		 */
 		public int count() { return size(); }
 		
 		/**
 		 * Returns the allocated capacity of the internal structure.
-		 * In hash map mode, it's the length of the internal arrays.
-		 * In flat mode, it's the fixed size (65536).
 		 *
 		 * @return The capacity.
 		 */
@@ -125,8 +128,8 @@ public interface CharObjectMap {
 		/**
 		 * Checks if the map contains a mapping for the specified key (boxed Character).
 		 *
-		 * @param key The key to check.
-		 * @return True if the key exists in the map.
+		 * @param key The key to check (can be null).
+		 * @return True if a mapping for the key exists.
 		 */
 		public boolean contains(  Character key ) {
 			return key == null ?
@@ -138,7 +141,7 @@ public interface CharObjectMap {
 		 * Checks if the map contains a mapping for the specified primitive key.
 		 *
 		 * @param key The primitive char key (0 to 65535).
-		 * @return True if the key exists in the map.
+		 * @return True if a mapping for the key exists.
 		 */
 		public boolean contains( char key ) {
 			return isFlatStrategy ?
@@ -147,10 +150,10 @@ public interface CharObjectMap {
 		}
 		
 		/**
-		 * Checks if the map contains the specified value.
-		 * This operation can be slow (O(N)).
+		 * Checks if the map contains one or more mappings to the specified value.
+		 * This operation iterates through all entries and can be relatively slow (O(N) where N is the size).
 		 *
-		 * @param value The value to search for. Can be null.
+		 * @param value The value to search for (comparison uses {@code Objects.equals}). Can be null.
 		 * @return True if the value exists in the map.
 		 */
 		public boolean containsValue( Object value ) {
@@ -170,10 +173,11 @@ public interface CharObjectMap {
 		}
 		
 		/**
-		 * Returns a token for the specified key (boxed Character).
+		 * Returns a token representing the location of the specified boxed  key .
+		 * A token combines the map's version and the entry's index.
 		 *
 		 * @param key The key (can be null).
-		 * @return A token representing the key's location if found, or INVALID_TOKEN if not found.
+		 * @return A long token if the key is found, or {@link #INVALID_TOKEN} (-1L) if not found.
 		 */
 		public long tokenOf(  Character key ) {
 			return key == null ?
@@ -184,10 +188,11 @@ public interface CharObjectMap {
 		}
 		
 		/**
-		 * Returns a token for the specified primitive key.
+		 * Returns a token representing the location of the specified primitive  key.
+		 * Behavior depends on the current mode (flat or hash).
 		 *
 		 * @param key The primitive char key.
-		 * @return A token representing the key's location if found, or INVALID_TOKEN if not found.
+		 * @return A long token if the key is found, or {@link #INVALID_TOKEN} (-1L) if not found.
 		 */
 		public long tokenOf( char key ) {
 			if( isFlatStrategy )
@@ -210,10 +215,10 @@ public interface CharObjectMap {
 		
 		
 		/**
-		 * Returns the initial token for iteration. Starts with the first non-null key.
-		 * If only the null key exists, returns the null key token.
+		 * Returns the initial token for iterating through the map's entries.
+		 * If the map is empty, {@link #INVALID_TOKEN} is returned.
 		 *
-		 * @return The first valid token to begin iteration, or INVALID_TOKEN if the map is empty.
+		 * @return The first valid token, or {@link #INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
 			int index = unsafe_token( -1 );
@@ -226,13 +231,14 @@ public interface CharObjectMap {
 		}
 		
 		/**
-		 * Returns the next token in iteration.
+		 * Returns the next token in the iteration sequence.
 		 *
-		 * @param token The current token.
-		 * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
+		 * @param token The current token obtained from {@link #token()} or a previous call to this method.
+		 * @return The next valid token, or {@link #INVALID_TOKEN} (-1L) if there are no more entries or if a concurrent modification occurred.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			
 			int index = index( token );
 			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN;
@@ -243,6 +249,7 @@ public interface CharObjectMap {
 							token( NULL_KEY_INDEX ) :
 							INVALID_TOKEN :
 					token( index );
+			
 		}
 		
 		
@@ -275,12 +282,16 @@ public interface CharObjectMap {
 		}
 		
 		/**
-		 * Checks if the map contains the conceptual null key.
+		 * Checks if the map contains a mapping for the conceptual null key.
+		 *
+		 * @return True if the null key is present.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		/**
-		 * Returns the value associated with the conceptual null key. Returns null if null key doesn't exist.
+		 * Returns the value associated with the conceptual null key.
+		 *
+		 * @return The value mapped to the null key, or {@code null} if the null key is not present in the map.
 		 */
 		public V nullKeyValue() {
 			return hasNullKey ?
@@ -288,18 +299,14 @@ public interface CharObjectMap {
 					null;
 		}
 		
-		/**
-		 * Checks if the token corresponds to a non-null key.
-		 */
-		public boolean hasKey( long token ) { return index( token ) != NULL_KEY_INDEX; }
+		
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Retrieves the key associated with a token.
-		 * Throws if the token represents the null key or is invalid.
+		 * Retrieves the primitive key associated with a given token.  Before calling this method ensure that this token is not point to the isKeyNull
 		 *
-		 * @param token The token representing a non-null key-value pair.
+		 * @param token The token representing a non-null key-value pair. Must be valid and not for the null key.
 		 * @return The char key associated with the token.
-		 * @throws ArrayIndexOutOfBoundsException if the token is for the null key or invalid/out of bounds.
 		 */
 		public char key( long token ) {
 			return ( char ) (char) (
@@ -310,7 +317,8 @@ public interface CharObjectMap {
 		
 		
 		/**
-		 * Retrieves the value associated with a token.
+		 * Retrieves the value associated with a given token.
+		 * Handles both regular tokens and the special token for the null key.
 		 *
 		 * @param token The token representing the key-value pair.
 		 * @return The value associated with the token, or {@code null} if the token is invalid or represents the null key which holds a null value.
@@ -318,16 +326,17 @@ public interface CharObjectMap {
 		 */
 		public V value( long token ) {
 			return
-					index( token ) == NULL_KEY_INDEX ?
+					isKeyNull( token ) ?
 							nullKeyValue :
 							values[ index( token ) ];
 		}
 		
 		/**
-		 * Retrieves the value associated with the specified key (boxed Character).
+		 * Retrieves the value associated with the specified boxed key .
+		 * Returns {@code null} if the key is not found or if the key maps to {@code null}.
 		 *
-		 * @param key The key (can be null).
-		 * @return The associated value, or null if the key is not found.
+		 * @param key The key whose associated value is to be returned (can be null).
+		 * @return The associated value, or {@code null} if the key is not found.
 		 */
 		public V get(  Character key ) {
 			long token = tokenOf( key );
@@ -337,10 +346,11 @@ public interface CharObjectMap {
 		}
 		
 		/**
-		 * Retrieves the value associated with the specified primitive key.
+		 * Retrieves the value associated with the specified primitive  key.
+		 * Returns {@code null} if the key is not found or if the key maps to {@code null}.
 		 *
-		 * @param key The primitive char key.
-		 * @return The associated value, or null if the key is not found.
+		 * @param key The primitive char key whose associated value is to be returned.
+		 * @return The associated value, or {@code null} if the key is not found.
 		 */
 		public V get( char key ) {
 			long token = tokenOf( key );
@@ -350,11 +360,12 @@ public interface CharObjectMap {
 		}
 		
 		/**
-		 * Retrieves the value associated with the specified key (boxed Character), or returns defaultValue if the key is not found.
+		 * Retrieves the value associated with the specified boxed key ,
+		 * or returns {@code defaultValue} if the key is not found.
 		 *
-		 * @param key          The key (can be null).
+		 * @param key          The key whose associated value is to be returned (can be null).
 		 * @param defaultValue The value to return if the key is not found.
-		 * @return The associated value, or defaultValue if the key is not found.
+		 * @return The associated value, or {@code defaultValue} if the key is not found.
 		 */
 		public V getOrDefault(  Character key, V defaultValue ) {
 			long token = tokenOf( key );
@@ -365,11 +376,12 @@ public interface CharObjectMap {
 		}
 		
 		/**
-		 * Retrieves the value associated with the specified primitive key, or returns defaultValue if the key is not found.
+		 * Retrieves the value associated with the specified primitive  key,
+		 * or returns {@code defaultValue} if the key is not found.
 		 *
-		 * @param key          The primitive char key.
+		 * @param key          The primitive char key whose associated value is to be returned.
 		 * @param defaultValue The value to return if the key is not found.
-		 * @return The associated value, or defaultValue if the key is not found.
+		 * @return The associated value, or {@code defaultValue} if the key is not found.
 		 */
 		public V getOrDefault( char key, V defaultValue ) {
 			long token = tokenOf( key );
@@ -381,7 +393,8 @@ public interface CharObjectMap {
 		
 		
 		/**
-		 * Computes an order-independent hash code.
+		 * Computes an order-independent hash code for the map based on its key-value pairs.
+		 * Iterates through all entries (including the null key, if present) safely.
 		 *
 		 * @return The hash code of the map.
 		 */
@@ -389,8 +402,8 @@ public interface CharObjectMap {
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
 			// Iterate using safe tokens to handle potential modifications during iteration by other threads (though ideally avoid)
-			for( long token = token(); token != INVALID_TOKEN; token = token( token ) ) {
-				if( index( token ) == NULL_KEY_INDEX ) continue; // Skip null key here, handle below
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1;  ) {
+				if( isKeyNull( token ) ) continue; // Skip null key here, handle below
 				
 				int keyHash = Array.hash( key( token ) ); // Get key using safe method
 				V   val     = value( token ); // Get value using safe method
@@ -422,6 +435,14 @@ public interface CharObjectMap {
 		
 		private static final int seed = R.class.hashCode();
 		
+		/**
+		 * Compares this map with the specified object for equality.
+		 * Returns true if the object is also a CharObjectMap.R, has the same size,
+		 * contains the same key-value mappings, and uses the same value equality strategy implicitly.
+		 *
+		 * @param obj The object to compare with.
+		 * @return True if the objects are equal.
+		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj ); }
@@ -434,9 +455,12 @@ public interface CharObjectMap {
 		 * @return True if the maps are equal.
 		 */
 		public boolean equals( R< V > other ) {
+			
+			
 			if( other == this ) return true;
-			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && Objects.equals( nullKeyValue, other.nullKeyValue ) ) || size() != other.size() )
+			if( other == null ||
+			    hasNullKey != other.hasNullKey || ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) ||
+			    size() != other.size() )
 				return false;
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
@@ -447,6 +471,11 @@ public interface CharObjectMap {
 		}
 		
 		
+		/**
+		 * Creates a shallow clone of this map instance.
+		 *
+		 * @return A shallow clone of this map.
+		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
 		public R< V > clone() {
@@ -474,6 +503,15 @@ public interface CharObjectMap {
 		public String toString() { return toJSON(); }
 		
 		
+		/**
+		 * Appends a JSON representation of this map to the given JsonWriter.
+		 * Outputs a JSON object where keys are char codes (represented as numbers or potentially strings depending on JsonWriter)
+		 * and values are the JSON representation of the mapped values.
+		 * The null key is represented by the JSON key "null".
+		 * Uses unsafe iteration for performance.
+		 *
+		 * @param json The JsonWriter to append to.
+		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 15 ); // Guestimate size increase for object values
@@ -495,34 +533,56 @@ public interface CharObjectMap {
 		// --- Helper methods ---
 		
 		/**
-		 * Calculates bucket index in hash map mode. Ensures non-negative index.
+		 * Calculates the bucket index for a given hash code in hash map mode.
+		 * Ensures a non-negative index within the bounds of the `_buckets` array.
+		 * Assumes `_buckets` is not null and has length > 0 when called.
+		 *
+		 * @param hash The hash code of the key.
+		 * @return The bucket index.
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
 		/**
-		 * Creates a token combining version and index.
+		 * Creates a long token combining the current map version and an entry index.
+		 *
+		 * @param index The index of the entry (or {@link #NULL_KEY_INDEX} for the null key).
+		 * @return The combined token.
 		 */
-		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index & INDEX_MASK ); }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index  ); }
 		
 		/**
-		 * Extracts index from a token.
+		 * Extracts the index part from a long token.
+		 *
+		 * @param token The token.
+		 * @return The index encoded in the token.
 		 */
-		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token ) { return ( int ) ( token  ); }
 		
 		/**
-		 * Extracts version from a token.
+		 * Extracts the version part from a long token.
+		 *
+		 * @param token The token.
+		 * @return The map version encoded in the token.
 		 */
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 		
 		
 		/**
-		 * Checks if a key is present in flat mode using the bitset. Assumes flat_bits is not null.
+		 * Checks if a key is present in flat array mode by inspecting the {@link #flat_bits} bitset.
+		 * Assumes {@link #isFlatStrategy} is true and {@link #flat_bits} is not null.
+		 *
+		 * @param key The primitive char key.
+		 * @return True if the bit corresponding to the key is set.
 		 */
 		protected final boolean exists( char key ) { return ( flat_bits[ key >>> 6 ] & 1L << key ) != 0; }
 		
 		
 		/**
-		 * Finds the next set bit >= 'bit' in the bitset
+		 * Finds the index of the next set bit (representing an existing key) in the {@link #flat_bits} array,
+		 * starting from or after the specified bit index. Used for iteration in flat mode.
+		 *
+		 * @param bit The bit index (inclusive) to start searching from (0 to 65535).
+		 * @return The index of the next set bit, or -1 if no set bit is found at or after {@code fromBitIndex}.
 		 */
 		public int next1( int bit ) { return next1( bit, flat_bits ); }
 		
@@ -556,7 +616,11 @@ public interface CharObjectMap {
 	}
 	
 	/**
-	 * Read-write implementation of the map, extending read-only functionality.
+	 * Read-write implementation of the CharObjectMap, extending the read-only functionality {@link R}.
+	 * Provides methods for adding, removing, and modifying mappings, handling resizing and
+	 * the transition between hash map and flat array modes.
+	 *
+	 * @param <V> The type of values stored in the map.
 	 */
 	class RW< V > extends R< V > {
 		// The threshold capacity determining the switch to flat strategy.
@@ -599,7 +663,7 @@ public interface CharObjectMap {
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int capacity ) {
 			super( equal_hash_V );
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 )initialize( Array.prime( capacity ) );
 		}
 		
 		
@@ -627,13 +691,14 @@ public interface CharObjectMap {
 			_freeList = -1;
 			_count    = 0;
 			values    = equal_hash_V.copyOf( null, capacity ); // Use strategy for V[] creation
-			_freeList = -1;
 			return length();
 		}
 		
 		
 		/**
-		 * Associates a value with a key (boxed Character). Replaces existing value.
+		 * Associates the specified value with the specified key (boxed Character).
+		 * If the map previously contained a mapping for the key, the old value is replaced.
+		 * Handles null key separately.
 		 *
 		 * @param key   The key (can be null).
 		 * @param value The value (can be null).
@@ -641,8 +706,8 @@ public interface CharObjectMap {
 		 */
 		public boolean put(  Character key, V value ) {
 			return key == null ?
-					put( value ) :
-					put( key, value );
+					putNullKey( value ) :
+					put( ( char ) ( key + 0 ), value );
 		}
 		
 		
@@ -720,7 +785,7 @@ public interface CharObjectMap {
 		 * @param value The value (can be null).
 		 * @return The previous value associated with the null key, or null if none.
 		 */
-		public boolean put( V value ) {
+		public boolean putNullKey( V value ) {
 			boolean b = !hasNullKey;
 			
 			hasNullKey   = true;
@@ -769,6 +834,7 @@ public interface CharObjectMap {
 					oldValue = values[ key ];
 					if( oldValue != null ) values[ key ] = null;
 					exists0( ( char ) key );
+					_count--;
 					_version++;
 					return oldValue;
 				}
@@ -786,7 +852,7 @@ public interface CharObjectMap {
 				short next = nexts[ i ];
 				if( keys[ i ] == key ) {
 					oldValue = values[ i ];
-					if( oldValue != null ) values[ key ] = null;
+					if( oldValue != null ) values[ i ] = null;
 					
 					if( last < 0 ) _buckets[ bucketIndex ] = ( char ) ( next + 1 );
 					else nexts[ last ] = next;
@@ -807,11 +873,12 @@ public interface CharObjectMap {
 		 * Clears all mappings from the map. Resets to initial state (hash or flat depending on initial setup).
 		 */
 		public void clear() {
+			_version++;
+			
 			hasNullKey = false;
 			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
-				else flat_bits = null;
+				Array.fill( flat_bits, 0 );
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
@@ -820,7 +887,6 @@ public interface CharObjectMap {
 				_freeCount = 0;
 			}
 			_count = 0;
-			_version++;
 		}
 		
 		/**
@@ -863,9 +929,11 @@ public interface CharObjectMap {
 			char[] old_keys   = keys;
 			V[]            old_values = values;
 			int            old_count  = _count;
-			_version++;
+			boolean        b          = 0 < _count - _freeCount;
 			initialize( capacity );
-			copy( old_next, old_keys, old_values, old_count );
+			if( b )
+				for( int i = 0; i < old_count; i++ )
+					if( -2 < old_next[ i ] ) put(  (char) old_keys[ i ], old_values[ i ] );
 		}
 		
 		/**
@@ -934,32 +1002,6 @@ public interface CharObjectMap {
 			keys   = new_keys;
 			values = new_values;
 			return length();
-		}
-		
-		/**
-		 * Copies entries during trimming.
-		 *
-		 * @param old_nexts  Old hash_nexts array.
-		 * @param old_keys   Old keys array.
-		 * @param old_values Old values array.
-		 * @param old_count  Old count.
-		 */
-		private void copy( short[] old_nexts, char[] old_keys, V[] old_values, int old_count ) {
-			int new_count = 0;
-			for( int i = 0; i < old_count; i++ ) {
-				if( old_nexts[ i ] < -1 ) continue;
-				
-				keys[ new_count ]   = old_keys[ i ];
-				values[ new_count ] = old_values[ i ];
-				
-				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ new_count ]      = ( short ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] = ( char ) ( new_count + 1 );
-				new_count++;
-			}
-			_count     = new_count;
-			_freeCount = 0;
-			_freeList  = -1; // Reset free list
 		}
 		
 		

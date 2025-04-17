@@ -44,30 +44,30 @@ import org.unirail.JsonWriter;
  * <p>
  * <b>Restrictions:</b>
  * <ul>
- *   <li>{@code bits_per_item} must be between 1 and 7 (inclusive), as inherited from {@link BitsList.R}. Values outside this range will throw an
- *       {@code IllegalArgumentException}.</li>
- *   <li>The maximum value per item is limited by the number of bits (e.g., 2^bits_per_item - 1), and all values (including {@code null_val} and
- *       {@code default_value}) are masked to fit within this range.</li>
- *   <li>Negative indices are not allowed and will throw an {@code IndexOutOfBoundsException} in methods that access or modify the list.</li>
+ *   <li><code>bits_per_item</code> must be between 1 and 7 (inclusive), as inherited from {@link BitsList.R}. Values outside this range will throw an
+ *       {@code IllegalArgumentException} during construction.</li>
+ *   <li>The maximum value per item is limited by the number of bits (e.g., 2<sup>bits_per_item</sup> - 1). All values, including <code>null_val</code> and
+ *       <code>default_value</code>, are masked to fit within this range (<code>value & mask</code>).</li>
+ *   <li>Negative indices are not allowed and will generally throw an {@code IndexOutOfBoundsException} in methods that access or modify the list at specific indices.</li>
  * </ul>
  */
 public interface BitsNullList {
 	
 	/**
-	 * Abstract base class for {@link BitsList} implementations that support a designated null value.
+	 * Abstract base class for {@link BitsNullList} implementations that support a designated null value.
 	 * <p>
 	 * Extends {@link BitsList.R} to add support for a specific integer value representing null elements. This class provides the core functionality
 	 * for reading list contents, with bit-packed storage in an array of {@code long}s. Each item occupies a fixed number of bits (1 to 7), and the
-	 * null value is used to distinguish missing or undefined elements.
+	 * {@code null_val} is used to distinguish missing or undefined elements.
 	 * <p>
 	 * <b>Restrictions:</b>
 	 * <ul>
-	 *   <li>{@code bits_per_item} must be between 1 and 7 (inclusive). Values outside this range will throw an {@code IllegalArgumentException}
+	 *   <li><code>bits_per_item</code> must be between 1 and 7 (inclusive). Values outside this range will throw an {@code IllegalArgumentException}
 	 *       during construction.</li>
-	 *   <li>{@code null_val} must fit within the range defined by {@code bits_per_item} (0 to 2^bits_per_item - 1). It is masked to ensure compliance.</li>
-	 *   <li>{@code default_value}, if specified, must also fit within the same range and is masked accordingly.</li>
-	 *   <li>Indices must be non-negative and within the current size (0 to {@code size-1}) for methods like {@code get}. Otherwise, an
-	 *       {@code IndexOutOfBoundsException} is thrown.</li>
+	 *   <li><code>null_val</code> must fit within the range defined by <code>bits_per_item</code> (0 to 2<sup>bits_per_item</sup> - 1). It is masked (<code>null_val & mask</code>) to ensure compliance during construction.</li>
+	 *   <li><code>default_value</code>, if specified, must also fit within the same range and is masked accordingly during construction.</li>
+	 *   <li>Indices must be non-negative and within the current size (0 to <code>size() - 1</code>) for methods like {@link #get(int)}. Otherwise, an
+	 *       {@code IndexOutOfBoundsException} may be thrown.</li>
 	 * </ul>
 	 */
 	abstract class R extends BitsList.R {
@@ -75,7 +75,7 @@ public interface BitsNullList {
 		/**
 		 * The integer value that represents a null element in this list.
 		 * <p>
-		 * This value is masked to fit within {@code bits_per_item} bits (i.e., 0 to 2^bits_per_item - 1).
+		 * This value is masked during construction to fit within <code>bits_per_item</code> bits (i.e., <code>0</code> to <code>2<sup>bits_per_item</sup> - 1</code>).
 		 */
 		public final int null_val;
 		
@@ -83,7 +83,7 @@ public interface BitsNullList {
 		 * Constructs an empty {@code BitsNullList.R} with the specified bits per item and null value.
 		 *
 		 * @param bits_per_item The number of bits used to store each item (must be 1 to 7).
-		 * @param null_val      The integer value to represent null elements, masked to fit within {@code bits_per_item}.
+		 * @param null_val      The integer value to represent null elements. This value will be masked to fit within {@code bits_per_item}.
 		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
 		 */
 		protected R( int bits_per_item, int null_val ) {
@@ -92,14 +92,12 @@ public interface BitsNullList {
 		}
 		
 		/**
-		 * Constructs a {@code BitsNullList.R} with the specified bits per item, null value, and initial size.
+		 * Constructs a {@code BitsNullList.R} with the specified bits per item, null value, and initial size configuration.
 		 * <p>
-		 * The list is initialized with the null value as the default if size is positive.
 		 *
 		 * @param bits_per_item The number of bits used to store each item (must be 1 to 7).
-		 * @param null_val      The integer value representing null, masked to fit within {@code bits_per_item}.
-		 * @param size          If positive, sets the initial number of items to this value and fills the
-		 *                      list with the effective `default_value`. If negative or zero, sets the initial number of items to `abs(size)` (no filling occurs).
+		 * @param null_val      The integer value representing null. This value will be masked to fit within {@code bits_per_item}.
+		 * @param size          Determines the initial size and fill behavior. Positive fills with {@code null_val}, negative sets size without filling.
 		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
 		 */
 		protected R( int bits_per_item, int null_val, int size ) {
@@ -108,15 +106,13 @@ public interface BitsNullList {
 		}
 		
 		/**
-		 * Constructs a {@code BitsNullList.R} with the specified bits per item, null value, default value, and initial size.
+		 * Constructs a {@code BitsNullList.R} with the specified bits per item, null value, default value, and initial size configuration.
 		 * <p>
-		 * If size is positive, the list is populated with the default value; if negative, the absolute value is used, and the list remains empty.
 		 *
 		 * @param bits_per_item The number of bits used to store each item (must be 1 to 7).
-		 * @param null_val      The integer value representing null, masked to fit within {@code bits_per_item}.
-		 * @param default_value The default value for initializing list elements, masked to fit within {@code bits_per_item}.
-		 * @param size          If positive, sets the initial number of items to this value and fills the
-		 *                      list with the effective `default_value`. If negative or zero, sets the initial number of items to `abs(size)` (no filling occurs).
+		 * @param null_val      The integer value representing null. This value will be masked to fit within {@code bits_per_item}.
+		 * @param default_value The default value for initializing list elements if {@code size > 0}. This value will be masked to fit within {@code bits_per_item}.
+		 * @param size          Determines the initial size and fill behavior. Positive fills with {@code null_val}, negative sets size without filling.
 		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
 		 */
 		protected R( int bits_per_item, int null_val, int default_value, int size ) {
@@ -125,43 +121,61 @@ public interface BitsNullList {
 		}
 		
 		/**
-		 * Checks if the element at the specified index is not the null value.
+		 * Checks if the element at the specified index is *not* the null value.
 		 *
-		 * @param index The index to check (0 to {@code size-1}).
-		 * @return {@code true} if the element at the index is not {@code null_val}, {@code false} otherwise.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative or exceeds {@code size-1}.
+		 * @param index The index to check (must be <code>0 <= index < size()</code>).
+		 * @return {@code true} if the element at the index is not equal to {@code null_val}, {@code false} otherwise.
+		 * @throws IndexOutOfBoundsException if {@code index} is out of bounds (<code>index < 0 || index >= size()</code>).
 		 */
 		public boolean hasValue( int index ) { return get( index ) != null_val; }
 		
 		/**
-		 * Checks if this list contains the specified value, excluding the null value unless explicitly searched for.
+		 * Checks if this list contains the specified {@code long} value.
+		 * Note: This method searches for the value *after* it has been masked to fit within {@code bits_per_item}.
+		 * To search for the null representation, pass {@code null_val}.
 		 *
-		 * @param value The value to search for (masked to fit within {@code bits_per_item}).
-		 * @return {@code true} if the list contains the value, {@code false} otherwise.
+		 * @param value The {@code long} value to search for. It will be effectively masked (<code>value & mask</code>) before searching.
+		 * @return {@code true} if the list contains at least one element equal to the masked value, {@code false} otherwise.
 		 */
 		public boolean contains( long value ) { return -1 != indexOf( value ); }
 		
+		/**
+		 * Checks if this list contains the specified {@code Integer} value.
+		 * If the input {@code value} is {@code null}, this method searches for {@code null_val}.
+		 * Otherwise, it searches for the integer value masked to fit within {@code bits_per_item}.
+		 *
+		 * @param value The {@code Integer} value to search for (can be {@code null}).
+		 * @return {@code true} if the list contains the corresponding value (either {@code null_val} for {@code null} input, or the masked integer value), {@code false} otherwise.
+		 */
 		public boolean contains( Integer value ) { return -1 != indexOf( value ); }
 		
+		/**
+		 * Returns the index of the first occurrence of the specified {@code Integer} value in this list, or -1 if this list does not contain the value.
+		 * If the input {@code value} is {@code null}, this method searches for the first occurrence of {@code null_val}.
+		 * Otherwise, it searches for the first occurrence of the integer value masked to fit within {@code bits_per_item}.
+		 *
+		 * @param value The {@code Integer} value to search for (can be {@code null}).
+		 * @return The index of the first occurrence, or -1 if not found.
+		 */
 		public int indexOf( Integer value ) {
 			return indexOf( value == null ?
-					         null_val :
-					         value);
+					                null_val :
+					                value );
 		}
 		
 		/**
 		 * Creates and returns a shallow copy of this {@code BitsNullList.R} instance.
-		 * <p>
+		 * The underlying {@code long[]} array is copied, but the data itself is primitive.
 		 * The cloned instance shares the same {@code bits_per_item} and {@code null_val} constraints.
 		 *
-		 * @return A new {@code R} instance identical to this one.
+		 * @return A new {@code R} instance containing the same elements as this one.
 		 */
 		@Override public R clone() { return ( R ) super.clone(); }
 		
 		/**
 		 * Returns a JSON-formatted string representation of the list.
-		 * <p>
-		 * Elements equal to {@code null_val} are represented as JSON {@code null}.
+		 * Elements equal to {@code null_val} are represented as JSON {@code null}. Other elements are represented as JSON numbers.
+		 * Example: {@code [1, null, 3, 0]}
 		 *
 		 * @return A JSON string representing the list contents.
 		 */
@@ -172,7 +186,7 @@ public interface BitsNullList {
 		 * <p>
 		 * Elements equal to {@code null_val} are written as JSON {@code null}, while other values are written as integers.
 		 *
-		 * @param json The {@code JsonWriter} to write the JSON representation to.
+		 * @param json The {@code JsonWriter} to write the JSON representation to. Must not be null.
 		 */
 		@Override public void toJSON( JsonWriter json ) {
 			
@@ -203,19 +217,20 @@ public interface BitsNullList {
 	 * Concrete implementation of {@link BitsNullList} that supports both read and write operations with null value handling.
 	 * <p>
 	 * Extends {@link BitsNullList.R} to provide a fully mutable list where each element occupies a fixed number of bits (1 to 7),
-	 * and a designated {@code null_val} represents null elements. Methods support chaining for fluent usage and handle null inputs
-	 * by converting them to {@code null_val}.
+	 * and a designated {@code null_val} represents null elements. Methods support chaining (returning {@code this}) for fluent usage.
+	 * Null wrapper type inputs (e.g., {@code Integer null}) are automatically converted to {@code null_val} before storage.
+	 * Non-null wrapper type inputs are converted to their primitive integer representation, potentially masked with {@code & 0xFF} (see specific method docs),
+	 * and then masked again by {@code bits_per_item} before being stored.
 	 * <p>
 	 * <b>Restrictions:</b>
 	 * <ul>
-	 *   <li>{@code bits_per_item} must be between 1 and 7 (inclusive). Values outside this range will throw an {@code IllegalArgumentException}
-	 *       during construction.</li>
-	 *   <li>{@code null_val} and {@code default_value} must fit within the range defined by {@code bits_per_item} (0 to 2^bits_per_item - 1).
-	 *       They are masked to ensure compliance.</li>
-	 *   <li>Indices must be non-negative in all modification methods (e.g., {@code add1}, {@code set1}). Negative indices throw an
-	 *       {@code IndexOutOfBoundsException}.</li>
-	 *   <li>Array-based setters (e.g., {@code set(int, byte...)}) must not exceed source array bounds, or an {@code IndexOutOfBoundsException}
-	 *       is thrown.</li>
+	 *   <li><code>bits_per_item</code> must be between 1 and 7 (inclusive).</li>
+	 *   <li><code>null_val</code> and <code>default_value</code> are masked to fit within <code>bits_per_item</code>.</li>
+	 *   <li>Indices for modification methods (e.g., {@link #add1(int, long)}, {@link #set1(int, long)}, {@link #removeAt(int)}) must be non-negative.
+	 *       Accessing or modifying outside valid bounds (typically <code>0</code> to <code>size()</code> for add, <code>0</code> to <code>size()-1</code> for get/set/remove)
+	 *       will result in an {@code IndexOutOfBoundsException}.</li>
+	 *   <li>Array-based setters (e.g., {@link #set(int, byte[], int, int)}) must respect the source array bounds, otherwise an {@code IndexOutOfBoundsException}
+	 *       or {@code ArrayIndexOutOfBoundsException} may be thrown.</li>
 	 * </ul>
 	 */
 	class RW extends R {
@@ -223,7 +238,7 @@ public interface BitsNullList {
 		 * Constructs an empty {@code RW} list with the specified bits per item and null value.
 		 *
 		 * @param bits_per_item Number of bits per item (must be 1 to 7).
-		 * @param null_val      Value used to represent null, masked to fit within {@code bits_per_item}.
+		 * @param null_val      Value used to represent null. Will be masked to fit within {@code bits_per_item}.
 		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
 		 */
 		public RW( int bits_per_item, int null_val ) { super( bits_per_item, null_val ); }
@@ -236,9 +251,7 @@ public interface BitsNullList {
 		 *
 		 * @param bits_per_item Number of bits per item (must be 1 to 7).
 		 * @param null_val      Value used to represent null, masked to fit within {@code bits_per_item}.
-		 * @param size          If positive, sets the initial number of items to this value and fills the
-		 *                      list with the effective `default_value`. If negative or zero, sets the initial number of items to `abs(size)` (no filling occurs).
-		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
+		 * @param size          Determines the initial size and fill behavior. Positive fills with {@code null_val}, negative sets size without filling.
 		 */
 		public RW( int bits_per_item, int null_val, int size ) { super( bits_per_item, null_val, size ); }
 		
@@ -251,9 +264,7 @@ public interface BitsNullList {
 		 * @param bits_per_item Number of bits per item (must be 1 to 7).
 		 * @param null_val      Value used to represent null, masked to fit within {@code bits_per_item}.
 		 * @param default_value Default value for elements, masked to fit within {@code bits_per_item}.
-		 * @param size          If positive, sets the initial number of items to this value and fills the
-		 *                      list with the effective `default_value`. If negative or zero, sets the initial number of items to `abs(size)` (no filling occurs).
-		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
+		 * @param size          Determines the initial size and fill behavior. Positive fills with {@code null_val}, negative sets size without filling.
 		 */
 		public RW( int bits_per_item, int null_val, int default_value, int size ) { super( bits_per_item, null_val, default_value, size ); }
 		
@@ -266,9 +277,7 @@ public interface BitsNullList {
 		 * @param bits_per_item Number of bits per item (must be 1 to 7).
 		 * @param null_val      Value used to represent null, masked to fit within {@code bits_per_item}.
 		 * @param default_value Default value for elements (if null, uses {@code null_val}), masked to fit within {@code bits_per_item}.
-		 * @param size          If positive, sets the initial number of items to this value and fills the
-		 *                      list with the effective `default_value`. If negative or zero, sets the initial number of items to `abs(size)` (no filling occurs).
-		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
+		 * @param size          Determines the initial size and fill behavior. Positive fills with {@code null_val}, negative sets size without filling.
 		 */
 		public RW( int bits_per_item, int null_val, Integer default_value, int size ) {
 			super( bits_per_item, null_val, default_value == null ?
@@ -454,6 +463,11 @@ public interface BitsNullList {
 			return this;
 		}
 		
+		public RW remove() {
+			removeAt( size() - 1 );
+			return this;
+		}
+		
 		/**
 		 * Removes the all occurrence of an {@code Integer} value. Null values are treated as {@code null_val}.
 		 *
@@ -461,7 +475,7 @@ public interface BitsNullList {
 		 * @return This {@code RW} instance for chaining.
 		 */
 		public RW removeAll( Integer value ) {
-			remove( value == null ?
+			remove(this, value == null ?
 					        null_val :
 					        value & 0xFF );
 			return this;
@@ -483,7 +497,6 @@ public interface BitsNullList {
 		 *
 		 * @param item The index to remove (0 to {@code size-1}).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code item} is negative or exceeds {@code size-1}.
 		 */
 		public RW removeAt( int item ) {
 			removeAt( this, item );
@@ -496,7 +509,6 @@ public interface BitsNullList {
 		 * @param index The index to set (0 or greater).
 		 * @param value The {@code Byte} value to set (or null).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set1( int index, Byte value ) {
 			return set1( index, value == null ?
@@ -510,7 +522,6 @@ public interface BitsNullList {
 		 * @param index The index to set (0 or greater).
 		 * @param value The {@code Character} value to set (or null).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set1( int index, Character value ) {
 			return set1( index, value == null ?
@@ -524,7 +535,6 @@ public interface BitsNullList {
 		 * @param index The index to set (0 or greater).
 		 * @param value The {@code Short} value to set (or null).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set1( int index, Short value ) {
 			return set1( index, value == null ?
@@ -538,7 +548,6 @@ public interface BitsNullList {
 		 * @param index The index to set (0 or greater).
 		 * @param value The {@code Integer} value to set (or null).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set1( int index, Integer value ) {
 			return set1( index, value == null ?
@@ -552,7 +561,6 @@ public interface BitsNullList {
 		 * @param index The index to set (0 or greater).
 		 * @param value The {@code Long} value to set (or null).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set1( int index, Long value ) {
 			return set1( index, value == null ?
@@ -566,12 +574,12 @@ public interface BitsNullList {
 		 * @param index The index to set (0 or greater).
 		 * @param value The {@code long} value to set, masked to fit within {@code bits_per_item}.
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set1( int index, long value ) {
 			set1( this, index, value );
 			return this;
 		}
+		
 		
 		/**
 		 * Sets multiple elements starting at the specified index with {@code Byte} values. Null values are stored as {@code null_val}.
@@ -579,7 +587,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code Byte} values to set (may include nulls).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set_( int index, Byte... values ) {
 			
@@ -598,7 +605,6 @@ public interface BitsNullList {
 		 * @param src_index The starting index in the source array.
 		 * @param len       The number of elements to set.
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative or source bounds are exceeded.
 		 */
 		public RW set__( int index, Byte[] values, int src_index, int len ) {
 			for( int i = len; -1 < --i; )
@@ -614,7 +620,6 @@ public interface BitsNullList {
 		 * @param item   The starting index (0 or greater).
 		 * @param values The {@code Character} values to set (may include nulls).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code item} is negative.
 		 */
 		public RW set_( int item, Character... values ) {
 			
@@ -631,7 +636,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code Short} values to set (may include nulls).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set_( int index, Short... values ) {
 			
@@ -648,7 +652,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code Integer} values to set (may include nulls).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set_( int index, Integer... values ) {
 			
@@ -665,7 +668,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code Long} values to set (may include nulls).
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set_( int index, Long... values ) {
 			
@@ -682,7 +684,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code byte} values to set.
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, byte... values ) {
 			set( this, index, values );
@@ -697,7 +698,6 @@ public interface BitsNullList {
 		 * @param src_index The starting index in the source array.
 		 * @param len       The number of elements to set.
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative or source bounds are exceeded.
 		 */
 		public RW set( int index, byte[] src, int src_index, int len ) {
 			for( int i = len; -1 < --i; )
@@ -711,7 +711,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code char} values to set.
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, char... values ) {
 			set( this, index, values );
@@ -724,7 +723,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code short} values to set.
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, short... values ) {
 			set( this, index, values );
@@ -737,7 +735,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code int} values to set.
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, int... values ) {
 			set( this, index, values );
@@ -750,7 +747,6 @@ public interface BitsNullList {
 		 * @param index  The starting index (0 or greater).
 		 * @param values The {@code long} values to set.
 		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
 		 */
 		public RW set( int index, long... values ) {
 			set( this, index, values );

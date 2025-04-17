@@ -62,7 +62,7 @@ public interface ObjectSet {
 		protected static final int  StartOfFreeList = -3;
 		protected static final long HASH_CODE_MASK  = 0xFFFFFFFF00000000L;
 		protected static final long NEXT_MASK       = 0x00000000FFFFFFFFL;
-		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL;
+		protected static final int  NULL_KEY_INDEX  = 0x7FFF_FFFF;
 		protected static final int  VERSION_SHIFT   = 32;
 		protected static final long INVALID_TOKEN   = -1L;
 		
@@ -84,7 +84,7 @@ public interface ObjectSet {
 		
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 			if( _buckets == null ) return INVALID_TOKEN;
 			
@@ -113,7 +113,7 @@ public interface ObjectSet {
 			for( int i = 0; i < _count; i++ )
 				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
 			return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -127,11 +127,15 @@ public interface ObjectSet {
 		 * @return The next iteration token, or {@link #INVALID_TOKEN} (-1) if there are no more elements or the token is invalid.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
-			for( int i = index( token ) + 1; i < _count; i++ )
-				if( -2 < next( hash_nexts[ i ] ) ) return token( i );
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			int i = index( token );
+			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
+			if( 0 < _count - _freeCount )
+				for( i++; i < _count; i++ )
+					if( -2 < next( hash_nexts[ i ] ) ) return token( i );
 			return hasNullKey && index( token ) < _count ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -159,15 +163,17 @@ public interface ObjectSet {
 			return -1;
 		}
 		
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
+		
 		public K key( long token ) {
-			return hasNullKey && index( token ) == _count ?
+			return index( token ) == _count ?
 					null :
 					keys[ index( token ) ];
 		}
 		
 		@Override public int hashCode() {
 			int a = 0, b = 0, c = 1;
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				final int h = Array.hash( key( token ) );
 				a += h;
 				b ^= h;
@@ -193,7 +199,7 @@ public interface ObjectSet {
 		public boolean equals( R< K > other ) {
 			if( other == this ) return true;
 			if( other == null || other.size() != size() || other.hasNullKey != hasNullKey ) return false;
-			for( long token = token(); index( token ) < _count; token = token( token ) )
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				if( !other.contains_( key( token ) ) ) return false;
 			return true;
 		}
@@ -221,7 +227,7 @@ public interface ObjectSet {
 				if( hasNullKey ) json.name().value();
 				if( size > 0 ) {
 					json.preallocate( size * 10 );
-					for( long token = token(); index( token ) < _count; token = token( token ) )
+					for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 					     json.name( key( token ).toString() ).value();
 				}
 				json.exitObject();
@@ -248,11 +254,11 @@ public interface ObjectSet {
 		protected static int next( long hash_next ) { return ( int ) ( hash_next & NEXT_MASK ); }
 		
 		protected long token( int index ) {
-			return ( ( long ) _version << VERSION_SHIFT ) | ( index & INDEX_MASK );
+			return ( ( long ) _version << VERSION_SHIFT ) | ( index );
 		}
 		
 		protected int index( long token ) {
-			return ( int ) ( token & INDEX_MASK );
+			return ( int ) ( token );
 		}
 		
 		protected int version( long token ) {
@@ -275,7 +281,7 @@ public interface ObjectSet {
 		
 		public RW( Array.EqualHashOf< K > equal_hash_K, int capacity ) {
 			this.equal_hash_K = equal_hash_K;
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 ) initialize( Array.prime( capacity ) );
 		}
 		
 		public RW( Array.EqualHashOf< K > equal_hash_K, Collection< ? extends K > collection ) {
@@ -393,14 +399,14 @@ public interface ObjectSet {
 		}
 		
 		@Override public void clear() {
+			_version++;
+			hasNullKey = false;
 			if( _count < 1 ) return;
 			Arrays.fill( _buckets, 0 );
 			Arrays.fill( hash_nexts, 0, _count, 0L );
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;
-			hasNullKey = false;
-			_version++;
 		}
 		
 		@Override public java.util.Iterator< K > iterator() {
@@ -455,6 +461,8 @@ public interface ObjectSet {
 			hash_nexts = new long[ capacity ];
 			keys       = equal_hash_K.copyOf( null, capacity );
 			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return capacity;
 		}
 		

@@ -8,14 +8,11 @@ import java.util.ConcurrentModificationException;
 
 
 /**
- * A specialized map for mapping char/short keys (65,536 distinct values) to primitive values.
+ * A specialized map for mapping 2 bytes primitive keys (65,536 distinct values) to a primitive values.
  * Implements a HYBRID strategy:
  * 1. Starts as a hash map with separate chaining, optimized for sparse data.
- * Uses short[] for next pointers, limiting this phase's capacity.
- * 2. Automatically transitions to a direct-mapped flat array when the hash map
- * reaches its capacity limit (~32,749 entries) and needs to grow further.
- * This approach balances memory efficiency for sparse maps with guaranteed O(1)
- * performance and full key range support for dense maps.
+ * 2. Automatically transitions to a direct-mapped flat array when the hash map is full and reaches its capacity 0x7FFF entries (exclude nullKey entity) and needs to grow further.
+ * This approach balances memory efficiency for sparse maps with guaranteed O(1) performance and full key range support for dense maps.
  */
 public interface ShortBitsMap {
 	
@@ -29,18 +26,17 @@ public interface ShortBitsMap {
 		protected byte           nullKeyValue;        // Value for the null key, stored separately.
 		protected char[]         _buckets;            // Hash table buckets array (1-based indices to chain heads).
 		protected short[]        nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
-		protected short[] keys = Array.EqualHashOf.shorts     .O; // Keys array.
+		protected short[] keys; // Keys array.
 		protected BitsList.RW    values;              // Values array.
 		protected int            _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
 		protected int            _freeList;           // Index of the first entry in the free list (-1 if empty).
 		protected int            _freeCount;          // Number of free entries in the free list.
 		protected int            _version;            // Version counter for concurrent modification detection.
 		
-		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
-		protected static final long INDEX_MASK      = 0xFFFF_FFFFL; // Mask for index in token.
-		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
+		protected static final int StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
+		protected static final int VERSION_SHIFT   = 32; // Bits to shift version in token.
 		// Special index used in tokens to represent the null key. Outside valid array index ranges.
-		protected static final int  NULL_KEY_INDEX  = 0x1_FFFF; // 65537
+		protected static final int NULL_KEY_INDEX  = 0x1_FFFF; // 65537
 		
 		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
@@ -86,8 +82,9 @@ public interface ShortBitsMap {
 							       0 );
 		}
 		
+		public int bits_per_value() { return values.bits_per_item(); }
 		
-		public int count() { return size(); }
+		public int count()          { return size(); }
 		
 		/**
 		 * Returns the allocated capacity of the internal structure.
@@ -201,7 +198,8 @@ public interface ShortBitsMap {
 		 * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			
 			int index = index( token );
 			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN;
@@ -227,7 +225,7 @@ public interface ShortBitsMap {
 		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
 		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
 		 *
-		 * @param token The previous token (index), or {@code -1} to begin iteration.
+		 * @param token The previous token , or {@code -1} to begin iteration.
 		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
 		 * @see #token(long) For safe iteration including the null key.
 		 * @see #hasNullKey() To check for a null key.
@@ -253,14 +251,11 @@ public interface ShortBitsMap {
 		 */
 		public long nullKeyValue() { return (short) nullKeyValue; }
 		
-		/**
-		 * Checks if the token corresponds to a non-null key.
-		 */
-		public boolean hasKey( long token ) { return index( token ) != NULL_KEY_INDEX; }
+		
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Retrieves the key associated with a token.
-		 * Throws if the token represents the null key.
+		 * Retrieves the key associated with a token. Before calling this method ensure that this token is not point to the isKeyNull
 		 *
 		 * @param token The token representing a non-null key-value pair.
 		 * @return The char key associated with the token.
@@ -281,7 +276,7 @@ public interface ShortBitsMap {
 		 * @return The integer value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
 		 */
 		public byte value( long token ) {
-			return index( token ) == NULL_KEY_INDEX ?
+			return isKeyNull( token ) ?
 					nullKeyValue :
 					values.get( index( token ) );
 		}
@@ -395,12 +390,12 @@ public interface ShortBitsMap {
 		/**
 		 * Creates a token combining version and index.
 		 */
-		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index & INDEX_MASK ); }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index ); }
 		
 		/**
 		 * Extracts index from a token.
 		 */
-		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token ) { return ( int ) ( token ); }
 		
 		/**
 		 * Extracts version from a token.
@@ -453,7 +448,7 @@ public interface ShortBitsMap {
 		/**
 		 * Constructs an empty map with default capacity and a specified number of bits per value item.
 		 *
-		 * @param bits_per_item The number of bits to allocate for each value item in the internal {@link BitsList}.
+		 * @param bits_per_item The number of bits to allocate for each item's value must be between 1 and 7 (inclusive).
 		 */
 		public RW( int bits_per_item ) {
 			this( 0, bits_per_item );
@@ -463,7 +458,7 @@ public interface ShortBitsMap {
 		 * Constructs an empty map with a specified initial capacity and bits per value item.
 		 *
 		 * @param capacity      The initial capacity of the map. It will be rounded up to the nearest prime number.
-		 * @param bits_per_item The number of bits per value item.
+		 * @param bits_per_item The number of bits to allocate for each item's value must be between 1 and 7 (inclusive).
 		 */
 		public RW( int capacity, int bits_per_item ) { this( capacity, bits_per_item, 0 ); }
 		
@@ -471,11 +466,11 @@ public interface ShortBitsMap {
 		 * Constructs an empty map with a specified initial capacity, bits per value item, and default value.
 		 *
 		 * @param capacity      The initial capacity of the map. Rounded up to the nearest prime number.
-		 * @param bits_per_item The number of bits per value item.
+		 * @param bits_per_item The number of bits to allocate for each item's value must be between 1 and 7 (inclusive).
 		 * @param defaultValue  The default value used when initializing the {@link BitsList} and for reset operations.
 		 */
 		public RW( int capacity, int bits_per_item, int defaultValue ) {
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 )initialize( Array.prime( capacity ) );
 			values = new BitsList.RW( bits_per_item, defaultValue, capacity );
 		}
 		
@@ -497,8 +492,9 @@ public interface ShortBitsMap {
 			_buckets  = new char[ capacity ];
 			nexts     = new short[ capacity ];
 			keys      = new short[ capacity ];
-			_freeList = -1;
-			_count    = 0;
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return length();
 		}
 		
@@ -590,11 +586,11 @@ public interface ShortBitsMap {
 		 * @return True if the null key was newly inserted or updated.
 		 */
 		public boolean put( long value ) {
-			boolean b = hasNullKey;
+			boolean b = !hasNullKey;
 			hasNullKey   = true;
-			nullKeyValue = ( byte ) value;
+			nullKeyValue = ( byte ) ( value & values.mask );
 			_version++;
-			return b != hasNullKey;
+			return b;
 		}
 		
 		/**
@@ -614,7 +610,7 @@ public interface ShortBitsMap {
 		 *
 		 * @return The token representing the null key if it was present and removed, or INVALID_TOKEN otherwise.
 		 */
-		private long removeNullKey() {
+		public long removeNullKey() {
 			if( !hasNullKey ) return INVALID_TOKEN;
 			hasNullKey = false;
 			_version++;
@@ -670,11 +666,11 @@ public interface ShortBitsMap {
 		 * Clears all mappings from the map.
 		 */
 		public void clear() {
+			_version++;
 			hasNullKey = false;
 			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
-				else flat_bits = null;
+				Array.fill( flat_bits, 0 );
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
@@ -683,7 +679,6 @@ public interface ShortBitsMap {
 			}
 			values.clear();
 			_count = 0;
-			_version++;
 		}
 		
 		/**

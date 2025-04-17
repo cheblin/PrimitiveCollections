@@ -56,11 +56,9 @@ public interface ByteSet {
 		protected boolean hasNullKey; // A flag indicating whether the set contains a null key.
 		
 		// Constants and fields for token-based iteration. Tokens are used for safe iteration and modification detection.
-		protected static final int KEY_MASK = 0x1_FF; // Bits 0-9 for key
-		protected static final int KEY_LEN  = 9; // Bits 0-9 for key
-		
+		protected static final int  KEY_MASK      = 0x1_FF; // Bits 0-9 for key
+		protected static final int  KEY_LEN       = 9; // Bits 0-9 for key
 		protected static final int  VERSION_SHIFT = 32;                    // Number of bits to shift to get the version from an iteration token.
-		protected static final long VERSION_MASK  = 0xFFFF_FFFF_0000_0000L;
 		protected static final long INVALID_TOKEN = -1L;                   // Special token value (-1) indicating an invalid iteration state or end of iteration.
 		
 		/**
@@ -116,7 +114,7 @@ public interface ByteSet {
 			return 0 < cardinality ?
 					tokenOf( next1( -1 ) ) :
 					hasNullKey ?
-							token_nullKey() :
+							token( KEY_MASK ) :
 							INVALID_TOKEN;
 		}
 		
@@ -137,7 +135,7 @@ public interface ByteSet {
 					INVALID_TOKEN :
 					( key = next1( key ) ) == -1 ?
 							hasNullKey ?
-									token_nullKey() :
+									token( KEY_MASK ) :
 									INVALID_TOKEN :
 							token( token, key );
 		}
@@ -166,22 +164,17 @@ public interface ByteSet {
 		 * @param token The iteration token to check.
 		 * @return {@code true} if the token is valid and represents the null key, {@code false} otherwise.
 		 */
-		boolean isKeyNull( long token ) { return 0xFF < ( token & KEY_MASK ); }
+		public boolean isKeyNull( long token ) { return ( token & KEY_MASK ) == KEY_MASK; }
 		
 		/**
-		 * Gets the byte value associated with the given iteration {@code token}.
-		 * For null key tokens, it returns 0 (as byte). Use {@link #isKeyNull(long)} to differentiate between
-		 * byte value 0 and null key. Returns the byte value directly without throwing exceptions for invalid tokens,
-		 * but the result is only meaningful if the token is valid.
+		 * Gets the byte value associated with the given iteration {@code token}.  Before calling this method ensure that this token is not point to the isKeyNull
 		 *
 		 * @param token The iteration token from which to extract the byte value.
 		 * @return The byte value represented by the token, or 0 if the token is for a null key or invalid.
 		 */
-		public byte key( long token ) {
-			return ( byte )  ( KEY_MASK & token );    // Return the extracted index as byte value.
-		}
+		public byte key( long token ) { return ( byte )  ( KEY_MASK & token ); }
 		
-		protected long token_nullKey()              { return ( long ) _version << VERSION_SHIFT | 0x100; }
+		public long token(int key) { return ( long ) _version << VERSION_SHIFT | key; }
 		
 		protected long token( long token, int key ) { return ( long ) _version << VERSION_SHIFT | key; }
 		
@@ -198,7 +191,7 @@ public interface ByteSet {
 			return key == null ?
 					hasNullKey ?
 							// Check if null key is present in the set.
-							token_nullKey() :
+							token( KEY_MASK ) :
 							// Return token for null key.
 							INVALID_TOKEN :
 					tokenOf( ( byte ) ( key + 0 ) ); // Unbox Byte and call primitive tokenOf method. Adding 0 ensures byte conversion.

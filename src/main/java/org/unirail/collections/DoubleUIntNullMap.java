@@ -68,7 +68,7 @@ public interface DoubleUIntNullMap {
 		protected int            nullKeyValue;        // Value for the null key, stored separately.
 		protected int[]                  _buckets;            // Hash table buckets array (1-based indices to chain heads).
 		protected int[]                  nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
-		protected double[]          keys = Array.EqualHashOf.doubles     .O; // Keys array.
+		protected double[]          keys; // Keys array.
 		protected UIntNullList.RW values;             // Values array.
 		protected int                    _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
 		protected int                    _freeList;           // Index of the first entry in the free list (-1 if empty).
@@ -76,10 +76,9 @@ public interface DoubleUIntNullMap {
 		protected int                    _version;            // Version counter for concurrent modification detection.
 		
 		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
-		protected static final long INDEX_MASK      = 0xFFFF_FFFFL; // Mask for index in token.
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
 		protected static final long INVALID_TOKEN   = -1L; // Invalid token constant.
-		
+		protected static final int  NULL_KEY_INDEX  = 0x7FFF_FFFF;
 		
 		/**
 		 * Checks if this map is empty (contains no key-value mappings).
@@ -154,8 +153,10 @@ public interface DoubleUIntNullMap {
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue(  Long      value ) {
+			int i;
 			return value == null ?
-					hasNullKey && !nullKeyHasValue || values.nextNullIndex( 0 ) != -1 :
+					hasNullKey && !nullKeyHasValue || ( i = values.nextNullIndex( 1 ) ) != -1 &&
+					                                  i < _count - _freeCount :
 					hasNullKey && nullKeyHasValue && nullKeyValue == value || values.indexOf( value ) != -1;
 		}
 		
@@ -165,7 +166,7 @@ public interface DoubleUIntNullMap {
 		 * @param value the value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping with the specified value, {@code false} otherwise.
 		 */
-		public boolean containsValue( long value ) { return  hasNullKey && nullKeyHasValue && nullKeyValue == value ||   values.indexOf( value ) != -1; }
+		public boolean containsValue( long value ) { return hasNullKey && nullKeyHasValue && nullKeyValue == value || values.indexOf( value ) != -1; }
 		
 		/**
 		 * Returns a token associated with the specified key (boxed).
@@ -178,7 +179,7 @@ public interface DoubleUIntNullMap {
 		public long tokenOf(  Double    key ) {
 			return key == null ?
 					hasNullKey ?
-							token( _count ) :
+							token( NULL_KEY_INDEX ) :
 							INVALID_TOKEN :
 					tokenOf( key.doubleValue     () );
 		}
@@ -216,7 +217,7 @@ public interface DoubleUIntNullMap {
 			for( int i = 0; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -229,11 +230,19 @@ public interface DoubleUIntNullMap {
 		 * @return the next valid token in the iteration, or -1 ({@link #INVALID_TOKEN}) if there are no more entries or if the token is invalid due to structural modification.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
-			for( int i = index( token ) + 1; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return token( i );
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			
+			
+			int i = index( token );
+			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
+			
+			if( 0 < _count - _freeCount )
+				for( i++; i < _count; i++ )
+					if( -2 < nexts[ i ] ) return token( i );
+			
 			return hasNullKey && index( token ) < _count ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -269,17 +278,12 @@ public interface DoubleUIntNullMap {
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
-		public boolean nullKeyHasValue() { return nullKeyHasValue; }
+		public boolean nullKeyHasValue()       { return nullKeyHasValue; }
 		
 		public long nullKeyValue() { return (0xFFFFFFFFL &  nullKeyValue); }
 		
-		/**
-		 * Checks if the entry associated with the given token has a key.
-		 *
-		 * @param token the token to check.
-		 * @return {@code true} if the token is valid and associated with a key, {@code false} otherwise.
-		 */
-		public boolean hasKey( long token ) { return index( token ) < _count || hasNullKey; }
+		
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
 		 * Checks if the entry associated with the given token has a value (not null in the context of null-value support).
@@ -288,15 +292,13 @@ public interface DoubleUIntNullMap {
 		 * @return {@code true} if the entry has a value and the token is valid, {@code false} otherwise.
 		 */
 		public boolean hasValue( long token ) {
-			return index( token ) == _count ?
+			return isKeyNull( token ) ?
 					nullKeyHasValue :
 					values.hasValue( index( token ) );
 		}
 		
 		/**
-		 * Returns the key associated with the specified token.
-		 * <p>
-		 * The result is undefined if the token is -1 ({@link #INVALID_TOKEN}) or invalid due to structural modification.
+		 * Returns the key associated with the specified token.  Before calling this method ensure that this token is not point to the isKeyNull
 		 *
 		 * @param token the token for which to retrieve the key.
 		 * @return the key associated with the token.
@@ -306,15 +308,16 @@ public interface DoubleUIntNullMap {
 		/**
 		 * Returns the value associated with the specified token.
 		 * <p>
-		 * If the entry represents a null value (in null-value context), returns 0.
-		 * The result is undefined if the token is -1 ({@link #INVALID_TOKEN}) or invalid due to structural modification.
+		 * <b>Precondition:</b> This method should only be called if {@link #hasValue(long)} returns {@code true} for the given token.
+		 * Calling it for a token associated with a {@code null} value results in undefined behavior.
+		 * <p>
 		 *
 		 * @param token the token for which to retrieve the value.
 		 * @return the value associated with the token, or 0 if the value is null in null-value context.
 		 */
 		public long value( long token ) {
 			return (0xFFFFFFFFL & (
-					index( token ) == _count ?
+					isKeyNull( token ) ?
 							nullKeyValue :
 							values.get( index( token ) ) ));
 		}
@@ -466,15 +469,9 @@ public interface DoubleUIntNullMap {
 		 * @param index the index of the entry.
 		 * @return the created token.
 		 */
-		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK; }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index; }
 		
-		/**
-		 * Extracts the index from a token.
-		 *
-		 * @param token the token.
-		 * @return the index extracted from the token.
-		 */
-		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token ) { return ( int ) ( ( int ) token ); }
 		
 		/**
 		 * Extracts the version from a token.
@@ -507,7 +504,7 @@ public interface DoubleUIntNullMap {
 		 */
 		public RW( int capacity ) {
 			values = new UIntNullList.RW( 0 );
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 )initialize( Array.prime( capacity ) );
 		}
 		
 		/**
@@ -534,7 +531,9 @@ public interface DoubleUIntNullMap {
 			nexts     = new int[ capacity ];
 			keys      = new double[ capacity ];
 			values    = new UIntNullList.RW( capacity );
-			_freeList = -1;
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return capacity;
 		}
 		
@@ -660,7 +659,7 @@ public interface DoubleUIntNullMap {
 			hasNullKey      = false;
 			nullKeyHasValue = false;
 			_version++;
-			return token( _count );
+			return token( NULL_KEY_INDEX );
 		}
 		
 		
@@ -766,6 +765,7 @@ public interface DoubleUIntNullMap {
 		 * The map will be empty after this call.
 		 */
 		public void clear() {
+			_version++;
 			hasNullKey = false;
 			if( _count == 0 ) return;
 			Arrays.fill( _buckets, 0 );
@@ -774,7 +774,6 @@ public interface DoubleUIntNullMap {
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;
-			_version++;
 		}
 		
 		/**

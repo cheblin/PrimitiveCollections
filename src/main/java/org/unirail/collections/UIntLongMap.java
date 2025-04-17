@@ -37,11 +37,11 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
-import java.util.Objects;
 
 /**
- * A specialized Map interface for storing integer key-value pairs with efficient operations.
- * Supports null keys and implements a hash table with separate chaining for collision resolution.
+ * A specialized map implementation for storing integer key-value pairs with efficient operations.
+ * Supports null keys and uses a hash table with separate chaining for collision resolution.
+ * Provides read-only operations in the abstract base class {@code R} and read-write operations in the subclass {@code RW}.
  */
 public interface UIntLongMap {
 	
@@ -53,34 +53,33 @@ public interface UIntLongMap {
 		protected boolean           hasNullKey;          // Indicates if the map contains a null key.
 		protected long       nullKeyValue;        // Value for the null key, stored separately.
 		protected int[]             _buckets;            // Hash table buckets array (1-based indices to chain heads).
-		protected int[]             nexts;          // Packed entries: hashCode (upper 32 bits) | next index (lower 32 bits).
-		protected int[]     keys = Array.EqualHashOf.ints     .O; // Keys array.
+		protected int[]             nexts;               // Packed entries: next index in collision chain.
+		protected int[]     keys; // Keys array.
 		protected long[]     values;              // Values array.
 		protected int               _count;              // Total number of entries in arrays (including free slots).
 		protected int               _freeList;           // Index of the first entry in the free list (-1 if empty).
 		protected int               _freeCount;          // Number of free entries in the free list.
 		protected int               _version;            // Version counter for concurrent modification detection.
 		
-		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'next' field.
-		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL; // Mask for index in token.
+		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
-		
-		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
+		protected static final int  NULL_KEY_INDEX  = 0x7FFF_FFFF; // Index representing the null key.
+		protected static final long INVALID_TOKEN   = -1L; // Invalid token constant.
 		
 		
 		/**
-		 * Checks if the map is empty.
+		 * Checks if the map contains no key-value mappings.
 		 *
-		 * @return True if the map contains no key-value mappings.
+		 * @return {@code true} if the map is empty, {@code false} otherwise.
 		 */
 		public boolean isEmpty() {
 			return size() == 0;
 		}
 		
 		/**
-		 * Returns the number of key-value mappings in the map.
+		 * Returns the number of key-value mappings in the map, including the null key if present.
 		 *
-		 * @return The total number of mappings, including null key if present.
+		 * @return The total number of mappings.
 		 */
 		public int size() {
 			return _count - _freeCount +
@@ -89,6 +88,11 @@ public interface UIntLongMap {
 					       0 );
 		}
 		
+		/**
+		 * Alias for {@link #size()}.
+		 *
+		 * @return The total number of mappings.
+		 */
 		public int count() { return size(); }
 		
 		/**
@@ -103,10 +107,10 @@ public interface UIntLongMap {
 		}
 		
 		/**
-		 * Checks if the map contains a mapping for the specified key.
+		 * Checks if the map contains a mapping for the specified boxed Integer key.
 		 *
-		 * @param key The key to check (boxed Integer).
-		 * @return True if the key exists in the map.
+		 * @param key The key to check (may be {@code null}).
+		 * @return {@code true} if the key exists in the map, {@code false} otherwise.
 		 */
 		public boolean contains(  Long      key ) {
 			return key == null ?
@@ -115,10 +119,10 @@ public interface UIntLongMap {
 		}
 		
 		/**
-		 * Checks if the map contains a mapping for the specified primitive key.
+		 * Checks if the map contains a mapping for the specified primitive int key.
 		 *
-		 * @param key The primitive int key.
-		 * @return True if the key exists in the map.
+		 * @param key The primitive int key to check.
+		 * @return {@code true} if the key exists in the map, {@code false} otherwise.
 		 */
 		public boolean contains( long key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
@@ -126,7 +130,7 @@ public interface UIntLongMap {
 		 * Checks if the map contains the specified value.
 		 *
 		 * @param value The value to search for.
-		 * @return True if the value exists in the map.
+		 * @return {@code true} if the value exists in the map, {@code false} otherwise.
 		 */
 		public boolean containsValue( long value ) {
 			if( hasNullKey && nullKeyValue == value ) return true;
@@ -138,24 +142,25 @@ public interface UIntLongMap {
 		}
 		
 		/**
-		 * Returns a token for the specified key (boxed Integer).
+		 * Returns a token for the specified boxed Integer key.
 		 *
-		 * @param key The key to find (can be null).
-		 * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
+		 * @param key The key to find (may be {@code null}).
+		 * @return A token representing the key's location if found, or {@code INVALID_TOKEN} if not found.
 		 */
 		public long tokenOf(  Long      key ) {
 			return key == null ?
 					( hasNullKey ?
-							token( _count ) :
+							token( NULL_KEY_INDEX ) :
 							INVALID_TOKEN ) :
 					tokenOf( key.longValue     () );
 		}
 		
 		/**
-		 * Returns a token for the specified primitive key.
+		 * Returns a token for the specified primitive int key.
 		 *
-		 * @param key The primitive int key.
-		 * @return A token representing the key's location if found, or -1 (INVALID_TOKEN) if not found.
+		 * @param key The primitive int key to find.
+		 * @return A token representing the key's location if found, or {@code INVALID_TOKEN} if not found.
+		 * @throws ConcurrentModificationException if the map is structurally modified during lookup.
 		 */
 		public long tokenOf( long key ) {
 			if( _buckets == null ) return INVALID_TOKEN;
@@ -171,34 +176,42 @@ public interface UIntLongMap {
 		}
 		
 		/**
-		 * Returns the initial token for iteration.
+		 * Returns the initial token for iterating over the map's entries.
 		 *
-		 * @return The first valid token to begin iteration, or -1 (INVALID_TOKEN) if the map is empty.
+		 * @return The first valid token to begin iteration, or {@code INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
 			
-			if( 0 < _count )
+			if( 0 < _count - _freeCount )
 				for( int i = 0; ; i++ )
 					if( -2 < nexts[ i ] ) return token( i );
 			
 			return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
 		/**
-		 * Returns the next token in iteration.
+		 * Returns the next token in the iteration sequence.
 		 *
 		 * @param token The current token.
-		 * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
+		 * @return The next valid token, or {@code INVALID_TOKEN} if no more entries exist or the token is invalid.
+		 * @throws ConcurrentModificationException if the map is structurally modified during iteration.
+		 * @throws IllegalArgumentException        if the token is {@code INVALID_TOKEN}.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			
-			for( int i = index( token ) + 1; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return token( i );
+			int i = index( token );
+			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
+			
+			if( 0 < _count - _freeCount )
+				for( i++; i < _count; i++ )
+					if( -2 < nexts[ i ] ) return token( i );
+			
 			return hasNullKey && index( token ) < _count ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -226,46 +239,59 @@ public interface UIntLongMap {
 			return -1;
 		}
 		
-		
+		/**
+		 * Checks if the map contains a null key.
+		 *
+		 * @return {@code true} if the null key is present, {@code false} otherwise.
+		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		/**
-		 * Returns the value associated with the null key. Behavior undefined if null key doesn't exist.
+		 * Returns the value associated with the null key.
+		 *
+		 * @return The value for the null key; behavior is undefined if no null key exists (check {@link #hasNullKey()} first).
 		 */
 		public long nullKeyValue() { return  nullKeyValue; }
 		
-		public boolean hasKey( long token ) { return index( token ) < _count || hasNullKey; }
+		/**
+		 * Checks if the specified token corresponds to the null key.
+		 *
+		 * @param token The token to check.
+		 * @return {@code true} if the token represents the null key, {@code false} otherwise.
+		 */
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Retrieves the key associated with a token.
+		 * Retrieves the key associated with the specified token.
 		 *
 		 * @param token The token representing the key-value pair.
-		 * @return The integer key associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
+		 * @return The key associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
+		 * @throws IllegalStateException if the token points to the null key (use {@link #isKeyNull(long)} to check).
 		 */
 		public long key( long token ) { return  ( keys[ index( token ) ] ); }
 		
 		/**
-		 * Retrieves the value associated with a token.
+		 * Retrieves the value associated with the specified token.
 		 *
 		 * @param token The token representing the key-value pair.
-		 * @return The integer value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
+		 * @return The value associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
 		 */
 		public long value( long token ) {
-			return ( index( token ) == _count ?
+			return ( isKeyNull( token ) ?
 					nullKeyValue :
 					values[ index( token ) ] );
 		}
 		
 		/**
-		 * Computes an order-independent hash code.
+		 * Computes an order-independent hash code for the map.
 		 *
-		 * @return The hash code of the map.
+		 * @return The hash code based on all key-value pairs.
 		 */
 		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
 			
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				int h = Array.mix( seed, Array.hash( key( token ) ) );
 				h = Array.mix( h, Array.hash( value( token ) ) );
 				h = Array.finalizeHash( h, 2 );
@@ -292,15 +318,16 @@ public interface UIntLongMap {
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R ) obj ); }
 		
 		/**
-		 * Compares this map with another R instance for equality.
+		 * Compares this map with another {@code R} instance for equality.
 		 *
-		 * @param other The other map to compare.
-		 * @return True if the maps are equal.
+		 * @param other The other map to compare with.
+		 * @return {@code true} if the maps contain the same key-value pairs, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
 			if( other == this ) return true;
-			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && Objects.equals( nullKeyValue, other.nullKeyValue ) ) || size() != other.size() )
+			if( other == null ||
+			    hasNullKey != other.hasNullKey || ( hasNullKey && nullKeyValue != other.nullKeyValue ) ||
+			    size() != other.size() )
 				return false;
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
@@ -311,6 +338,11 @@ public interface UIntLongMap {
 			return true;
 		}
 		
+		/**
+		 * Creates a shallow copy of this map.
+		 * <p>
+		 * enem @return A cloned instance of the map, or {@code null} if cloning fails.
+		 */
 		@Override
 		public R clone() {
 			try {
@@ -328,10 +360,19 @@ public interface UIntLongMap {
 			return null;
 		}
 		
+		/**
+		 * Returns a JSON string representation of the map.
+		 *
+		 * @return The map as a JSON string.
+		 */
 		@Override
 		public String toString() { return toJSON(); }
 		
-		
+		/**
+		 * Writes the map’s contents to a {@code JsonWriter}.
+		 *
+		 * @param json The {@code JsonWriter} to write to.
+		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 );
@@ -348,39 +389,39 @@ public interface UIntLongMap {
 		// Helper methods
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
-		protected long token( int index )   { return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK; }
+		protected long token( int index )   { return ( long ) _version << VERSION_SHIFT | index; }
 		
-		protected int index( long token )   { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token )   { return ( int ) ( ( int ) token ); }
 		
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 	}
 	
 	/**
-	 * Read-write implementation of the map, extending read-only functionality.
+	 * Read-write implementation of the map, extending the read-only functionality of {@code R}.
 	 */
 	class RW extends R {
 		
 		/**
-		 * Constructs an empty map with default capacity.
+		 * Constructs an empty map with default capacity (0, initialized on first put).
 		 */
 		public RW() {
 			this( 0 );
 		}
 		
 		/**
-		 * Constructs an empty map with specified initial capacity.
+		 * Constructs an empty map with the specified initial capacity.
 		 *
-		 * @param capacity The initial capacity.
+		 * @param capacity The initial capacity (will be adjusted to a prime number if greater than 0).
 		 */
 		public RW( int capacity ) {
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 )initialize( Array.prime( capacity ) );
 		}
 		
 		/**
-		 * Initializes the internal arrays with a specified capacity.
+		 * Initializes the internal arrays with the specified capacity, adjusted to a prime number.
 		 *
-		 * @param capacity The desired capacity.
-		 * @return The initialized capacity (prime number).
+		 * @param capacity The desired initial capacity.
+		 * @return The actual initialized capacity.
 		 */
 		private int initialize( int capacity ) {
 			_version++;
@@ -389,15 +430,17 @@ public interface UIntLongMap {
 			keys      = new int[ capacity ];
 			values    = new long[ capacity ];
 			_freeList = -1;
+			_count    = 0;
+			_freeCount =0;
 			return capacity;
 		}
 		
 		/**
-		 * Associates a value with a key (boxed Integer).
+		 * Associates a value with the specified boxed Integer key, handling null keys.
 		 *
-		 * @param key   The key (can be null).
-		 * @param value The value.
-		 * @return True if the map was modified structurally.
+		 * @param key   The key to associate (may be {@code null}).
+		 * @param value The value to store as an integer.
+		 * @return {@code true} if the map was structurally modified (new entry added), {@code false} if an existing key’s value was updated.
 		 */
 		public boolean put(  Long      key, long value ) {
 			return key == null ?
@@ -407,11 +450,12 @@ public interface UIntLongMap {
 		
 		
 		/**
-		 * Associates a value with a primitive key.
+		 * Associates a value with the specified primitive int key.
 		 *
-		 * @param key   The primitive int key.
-		 * @param value The value.
-		 * @return True if the map was modified structurally.
+		 * @param key   The primitive int key to associate.
+		 * @param value The value to store as an integer.
+		 * @return {@code true} if the map was structurally modified (new entry added), {@code false} if an existing key’s value was updated.
+		 * @throws ConcurrentModificationException if the map is structurally modified during insertion.
 		 */
 		public boolean put( long key, long value ) {
 			if( _buckets == null ) initialize( 7 );
@@ -456,10 +500,10 @@ public interface UIntLongMap {
 		}
 		
 		/**
-		 * Inserts a value for the null key.
+		 * Associates a value with the null key.
 		 *
-		 * @param value The value.
-		 * @return True if the null key was newly inserted.
+		 * @param value The value to store as an integer for the null key.
+		 * @return {@code true} if the null key was newly inserted, {@code false} if its value was updated.
 		 */
 		public boolean put( long value ) {
 			boolean b = !hasNullKey;
@@ -471,10 +515,10 @@ public interface UIntLongMap {
 		}
 		
 		/**
-		 * Removes a key-value pair (boxed Integer key).
+		 * Removes the mapping for the specified boxed Integer key.
 		 *
-		 * @param key The key to remove.
-		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
+		 * @param key The key to remove (may be {@code null}).
+		 * @return The token of the removed entry if found and removed, or {@code INVALID_TOKEN} if not found.
 		 */
 		public long remove(  Long      key ) {
 			return key == null ?
@@ -483,23 +527,24 @@ public interface UIntLongMap {
 		}
 		
 		/**
-		 * Removes the null key mapping.
+		 * Removes the mapping for the null key.
 		 *
-		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not present.
+		 * @return The token of the removed null key entry if it existed, or {@code INVALID_TOKEN} if not present.
 		 */
 		private long removeNullKey() {
 			
 			if( !hasNullKey ) return INVALID_TOKEN;
 			hasNullKey = false;
 			_version++;
-			return token( _count );
+			return token( NULL_KEY_INDEX );
 		}
 		
 		/**
-		 * Removes a key-value pair (primitive key).
+		 * Removes the mapping for the specified primitive int key.
 		 *
-		 * @param key The primitive key to remove.
-		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
+		 * @param key The primitive int key to remove.
+		 * @return The token of the removed entry if found and removed, or {@code INVALID_TOKEN} if not found.
+		 * @throws ConcurrentModificationException if the map is structurally modified during removal.
 		 */
 		public long remove( long key ) {
 			if( _buckets == null || _count == 0 ) return INVALID_TOKEN;
@@ -529,9 +574,10 @@ public interface UIntLongMap {
 		}
 		
 		/**
-		 * Clears all mappings from the map.
+		 * Removes all mappings from the map.
 		 */
 		public void clear() {
+			_version++;
 			hasNullKey = false;
 			if( _count == 0 ) return;
 			Arrays.fill( _buckets, 0 );
@@ -539,35 +585,34 @@ public interface UIntLongMap {
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;
-			_version++;
 		}
 		
 		/**
-		 * Ensures the map’s capacity is at least the specified value.
+		 * Ensures the map’s capacity is at least the specified value, resizing if necessary.
 		 *
-		 * @param capacity The minimum capacity.
-		 * @return The new capacity.
+		 * @param capacity The minimum capacity required.
+		 * @return The new capacity of the internal arrays.
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity <= length() ) return length();
 			_version++;
-			if( _buckets == null ) return initialize( capacity );
+			if( _buckets == null ) return initialize( Array.prime( capacity ) );
 			int newSize = Array.prime( capacity );
 			resize( newSize );
 			return newSize;
 		}
 		
 		/**
-		 * Trims the capacity to the current number of entries.
+		 * Trims the map’s capacity to match the current number of entries.
 		 */
 		public void trim() {
 			trim( size() );
 		}
 		
 		/**
-		 * Trims the capacity to the specified value, at least the current count.
+		 * Trims the map’s capacity to the specified value, ensuring it is at least the current number of entries.
 		 *
-		 * @param capacity The desired capacity.
+		 * @param capacity The desired capacity (will be adjusted to a prime number).
 		 */
 		public void trim( int capacity ) {
 			int currentCapacity = length();
@@ -578,15 +623,15 @@ public interface UIntLongMap {
 			int[] old_keys   = keys;
 			long[] old_values = values;
 			int           old_count  = _count;
-			_version++;
 			initialize( newSize );
-			copy( old_next, old_keys, old_values, old_count );
+			for( int i = 0; i < old_count; i++ )
+				if( -2 < old_next[ i ] ) put(  old_keys[ i ], old_values[ i ] );
 		}
 		
 		/**
-		 * Resizes the map to a new prime capacity.
+		 * Resizes the map to a new capacity, adjusted to a prime number.
 		 *
-		 * @param newSize The new size (prime number).
+		 * @param newSize The desired new capacity; capped at a maximum based on key type constraints.
 		 */
 		private void resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Long     .BYTES * 8 );
@@ -609,30 +654,12 @@ public interface UIntLongMap {
 			values = new_values;
 		}
 		
+		
 		/**
-		 * Copies entries during trimming.
+		 * Creates a shallow copy of this map.
 		 *
-		 * @param old_next   Old hash_nexts array.
-		 * @param old_keys   Old keys array.
-		 * @param old_values Old values array.
-		 * @param old_count  Old count.
+		 * @return A cloned instance of the map.
 		 */
-		private void copy( int[] old_next, int[] old_keys, long[] old_values, int old_count ) {
-			int new_count = 0;
-			for( int i = 0; i < old_count; i++ ) {
-				if( old_next[ i ] < -1 ) continue;
-				keys[ new_count ]   = old_keys[ i ];
-				values[ new_count ] = old_values[ i ];
-				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] = ( new_count + 1 );
-				new_count++;
-			}
-			_count     = new_count;
-			_freeCount = 0;
-		}
-		
-		
 		@Override
 		public RW clone() {
 			return ( RW ) super.clone();

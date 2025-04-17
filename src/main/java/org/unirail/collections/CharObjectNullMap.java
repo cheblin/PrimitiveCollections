@@ -41,15 +41,11 @@ import java.util.Objects;
 
 
 /**
- * A specialized map for mapping char/short keys (65,536 distinct values) to object values of type V,
- * explicitly supporting null values via ObjectNullList.
+ * A specialized map for mapping 2 bytes primitive keys (65,536 distinct values) to a nullable object values.
  * Implements a HYBRID strategy:
  * 1. Starts as a hash map with separate chaining, optimized for sparse data.
- * Uses short[] for next pointers, limiting this phase's capacity.
- * 2. Automatically transitions to a direct-mapped flat array when the hash map
- * reaches its capacity limit (~32,749 entries) and needs to grow further.
- * This approach balances memory efficiency for sparse maps with guaranteed O(1)
- * performance and full key range support for dense maps.
+ * 2. Automatically transitions to a direct-mapped flat array when the hash map is full and reaches its capacity 0x7FFF entries (exclude nullKey entity) and needs to grow further.
+ * This approach balances memory efficiency for sparse maps with guaranteed O(1) performance and full key range support for dense maps.
  */
 public interface CharObjectNullMap {
 	
@@ -66,7 +62,7 @@ public interface CharObjectNullMap {
 		protected V                      nullKeyValue;        // Value for the null key, stored separately.
 		protected char[]                 _buckets;            // Hash table buckets array (1-based indices to chain heads).
 		protected short[]                nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
-		protected char[]         keys = Array.EqualHashOf.chars     .O; // Keys array.
+		protected char[]         keys ; // Keys array.
 		protected ObjectNullList.RW< V > values;              // Values list, allowing nulls.
 		protected int                    _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
 		protected int                    _freeList;           // Index of the first entry in the free list (-1 if empty).
@@ -79,7 +75,7 @@ public interface CharObjectNullMap {
 		protected final Array.EqualHashOf< V > equal_hash_V;
 		
 		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
-		protected static final long INDEX_MASK      = 0xFFFF_FFFFL; // Mask for index in token.
+		
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
 		// Special index used in tokens to represent the null key. Outside valid array index ranges.
 		protected static final int  NULL_KEY_INDEX  = 0x1_FFFF; // 65537
@@ -269,7 +265,8 @@ public interface CharObjectNullMap {
 		 * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+						if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			
 			int index = index( token );
 			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN;
@@ -325,10 +322,8 @@ public interface CharObjectNullMap {
 					null;
 		}
 		
-		/**
-		 * Checks if the token corresponds to a non-null key.
-		 */
-		public boolean hasKey( long token ) { return index( token ) != NULL_KEY_INDEX; }
+		
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		
 		/**
@@ -347,8 +342,7 @@ public interface CharObjectNullMap {
 		
 		
 		/**
-		 * Retrieves the key associated with a token.
-		 * Returns 0 if the token represents the null key.
+		 * Retrieves the key associated with a token.  Before calling this method ensure that this token is not point to the isKeyNull
 		 *
 		 * @param token The token representing a key-value pair.
 		 * @return The char key associated with the token, or 0 for the null key token.
@@ -442,7 +436,7 @@ public interface CharObjectNullMap {
 			int a = 0, b = 0, c = 1;
 			// Iterate using safe tokens to handle potential modifications during iteration by other threads (though ideally avoid)
 			for( int token = unsafe_token( -1 ); token != INVALID_TOKEN; token = unsafe_token( token ) ) {
-				if( index( token ) == NULL_KEY_INDEX ) continue; // Skip null key, handled below
+				if( isKeyNull( token ) ) continue; // Skip null key, handled below
 				
 				int keyHash = Array.hash( key( token ) ); // Use safe key() method
 				V   val     = value( token );              // Use safe value() method
@@ -488,7 +482,7 @@ public interface CharObjectNullMap {
 		public boolean equals( R< V > other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && Objects.equals( nullKeyValue, other.nullKeyValue ) ) || size() != other.size() )
+			    ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) || size() != other.size() )
 				return false;
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
@@ -554,12 +548,12 @@ public interface CharObjectNullMap {
 		/**
 		 * Creates a token combining version and index.
 		 */
-		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index & INDEX_MASK ); }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index  ); }
 		
 		/**
 		 * Extracts index from a token.
 		 */
-		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token ) { return ( int ) ( token  ); }
 		
 		/**
 		 * Extracts version from a token.
@@ -651,7 +645,7 @@ public interface CharObjectNullMap {
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int capacity ) {
 			super( equal_hash_V );
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 )initialize( Array.prime( capacity ) );
 		}
 		
 		
@@ -676,10 +670,10 @@ public interface CharObjectNullMap {
 			_buckets  = new char[ capacity ];
 			nexts     = new short[ capacity ];
 			keys      = new char[ capacity ];
-			_freeList = -1;
-			_count    = 0;
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			values    = new ObjectNullList.RW<>( equal_hash_V, capacity );// Use strategy for V[] creation
-			_freeList = -1;
 			return length();
 		}
 		
@@ -907,11 +901,12 @@ public interface CharObjectNullMap {
 		 * Clears all mappings from the map. Resets to initial state (hash or flat depending on initial setup).
 		 */
 		public void clear() {
+			_version++;
+			
 			hasNullKey = false;
 			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
-				else flat_bits = null;
+				Array.fill( flat_bits, 0 );
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
@@ -921,7 +916,6 @@ public interface CharObjectNullMap {
 			}
 			values.clear(); // Clear values list
 			_count = 0;
-			_version++;
 		}
 		
 		/**

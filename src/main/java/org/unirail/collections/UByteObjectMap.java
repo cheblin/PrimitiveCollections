@@ -314,7 +314,7 @@ public interface UByteObjectMap {
 		 * or {@code -1} if the value is not found in the map.
 		 */
 		public long tokenOfValue( V value ) {
-			if( hasNullKey && equal_hash_V.equals( nullKeyValue, value ) ) return token_nullKey();
+			if( hasNullKey && equal_hash_V.equals( nullKeyValue, value ) ) return token( KEY_MASK );
 			
 			for( int t = -1; ( t = unsafe_token( t ) ) != -1; ) if( equal_hash_V.equals( values[ t >>> KEY_LEN ], value ) ) return t;
 			return -1;

@@ -40,24 +40,31 @@ import java.util.Objects;
 
 /**
  * {@code IntObjectNullMap} is a generic interface for a map that stores key-value pairs
- * where keys are primitive integers and values are objects.
+ * where keys are primitive integers and values are objects, with support for a single null key.
  * <p>
- * This map implementation is designed for efficiency, providing fast key lookups and value retrievals.
- * It also supports the concept of a null key, allowing a single null key entry in the map.
+ * This map implementation is optimized for performance, offering fast key lookups and value retrievals.
+ * It uses a hash table for efficient storage and supports operations like insertion, retrieval, update,
+ * and deletion of key-value pairs. The map also provides mechanisms for handling collisions and
+ * concurrent modification detection.
  * <p>
- * Implementations should provide methods for inserting, retrieving, updating, and deleting key-value pairs,
- * as well as querying the map's state (e.g., size, emptiness, key/value existence).
- * <p>
+ * Key features include:
+ * <ul>
+ *     <li>Support for a null key with an associated value.</li>
+ *     <li>Fast iteration using tokens for safe traversal.</li>
+ *     <li>Unsafe iteration for non-null keys for improved performance when modifications are guaranteed not to occur.</li>
+ *     <li>Dynamic resizing and trimming to optimize memory usage.</li>
+ * </ul>
+ * Implementations should provide methods for querying the map's state (e.g., size, emptiness, key/value existence)
+ * and modifying its contents.
  */
 public interface FloatObjectNullMap {
 	
 	/**
 	 * {@code R} is an abstract, read-only base class that provides the core implementation
-	 * for {@code IntObjectNullMap}. It manages the internal state and provides read-only operations.
+	 * for {@code IntObjectNullMap}. It manages the internal hash table and provides read-only operations.
 	 * <p>
-	 * This class uses a hash table for efficient key lookups. It also includes mechanisms for
-	 * handling collisions, managing free entries, and versioning for concurrent modification detection.
-	 * <p>
+	 * This class uses a hash table with linked-list collision resolution for efficient key lookups.
+	 * It supports a null key entry, versioning for concurrent modification detection, and token-based iteration.
 	 * Subclasses, like {@link RW}, extend this class to provide read-write capabilities.
 	 *
 	 * @param <V> The type of values stored in the map.
@@ -72,7 +79,7 @@ public interface FloatObjectNullMap {
 		 */
 		protected       V                      nullKeyValue;
 		/**
-		 * Array of buckets for the hash table. Each bucket is an index to the first entry in a chain.
+		 * Array of buckets for the hash table, where each bucket is an index to the first entry in a chain.
 		 */
 		protected       int[]                  _buckets;
 		/**
@@ -82,13 +89,13 @@ public interface FloatObjectNullMap {
 		/**
 		 * Array of integer keys.
 		 */
-		protected       float[]          keys = Array.EqualHashOf.floats     .O;
+		protected       float[]          keys;
 		/**
-		 * List to store values, allowing null values and efficient removal.
+		 * List to store values, supporting null values and efficient removal.
 		 */
 		protected       ObjectNullList.RW< V > values;
 		/**
-		 * The total number of entries currently in the map (including free/removed entries).
+		 * Total number of entries currently in the map (including free/removed entries).
 		 */
 		protected       int                    _count;
 		/**
@@ -96,7 +103,7 @@ public interface FloatObjectNullMap {
 		 */
 		protected       int                    _freeList;
 		/**
-		 * The number of free (removed) entries available for reuse.
+		 * Number of free (removed) entries available for reuse.
 		 */
 		protected       int                    _freeCount;
 		/**
@@ -111,19 +118,18 @@ public interface FloatObjectNullMap {
 		/**
 		 * Constant to mark the start of the free list in the {@code nexts} array.
 		 */
-		protected static final int  StartOfFreeList = -3;
-		/**
-		 * Mask to extract the index from a token.
-		 */
-		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL;
+		protected static final int StartOfFreeList = -3;
+		
+		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF;
+		
 		/**
 		 * Bit shift for the version part of a token.
 		 */
-		protected static final int  VERSION_SHIFT   = 32;
+		protected static final int  VERSION_SHIFT = 32;
 		/**
 		 * Represents an invalid token, indicating that a key is not found or a token is invalid. Value is -1.
 		 */
-		protected static final long INVALID_TOKEN   = -1L;
+		protected static final long INVALID_TOKEN = -1L;
 		
 		/**
 		 * Constructs a read-only map with the specified value equality and hash strategy.
@@ -144,7 +150,7 @@ public interface FloatObjectNullMap {
 		/**
 		 * Returns the number of key-value mappings in this map.
 		 *
-		 * @return the number of key-value mappings in this map.
+		 * @return The number of key-value mappings in this map.
 		 */
 		public int size() {
 			return _count - _freeCount + (
@@ -165,7 +171,7 @@ public interface FloatObjectNullMap {
 		 * Returns the total capacity of the internal arrays (buckets, nexts, keys, values).
 		 * This is not the same as the size of the map, but rather the allocated storage capacity.
 		 *
-		 * @return the length of the internal arrays, or 0 if not initialized.
+		 * @return The length of the internal arrays, or 0 if not initialized.
 		 */
 		public int length() {
 			return nexts == null ?
@@ -176,17 +182,16 @@ public interface FloatObjectNullMap {
 		/**
 		 * Checks if this map contains a mapping for the specified primitive integer key.
 		 *
-		 * @param key The key whose presence in this map is to be tested.
-		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
+		 * @param key The key to test for presence.
+		 * @return {@code true} if the map contains the key, {@code false} otherwise.
 		 */
 		public boolean containsKey( float key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if this map contains a mapping for the specified boxed Integer key.
-		 * Handles null keys as well.
+		 * Checks if this map contains a mapping for the specified boxed Integer key, including null.
 		 *
-		 * @param key The key whose presence in this map is to be tested.
-		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
+		 * @param key The key to test for presence.
+		 * @return {@code true} if the map contains the key, {@code false} otherwise.
 		 */
 		public boolean containsKey(  Float     key ) {
 			return key == null ?
@@ -197,7 +202,7 @@ public interface FloatObjectNullMap {
 		/**
 		 * Checks if this map contains a mapping for the null key.
 		 *
-		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
+		 * @return {@code true} if the map contains a null key, {@code false} otherwise.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
@@ -220,7 +225,7 @@ public interface FloatObjectNullMap {
 		}
 		
 		/**
-		 * Returns a token associated with the specified boxed Integer key, if present.
+		 * Returns a token associated with the specified boxed  key, if present.
 		 * A token is a long value that uniquely identifies an entry in the map and includes a version.
 		 * Returns {@link #INVALID_TOKEN} (-1) if the key is not found or if the map has been modified since the token was issued.
 		 * Handles null keys.
@@ -231,18 +236,17 @@ public interface FloatObjectNullMap {
 		public long tokenOf(  Float     key ) {
 			return key == null ?
 					hasNullKey ?
-							token( _count ) :
+							token( NULL_KEY_INDEX ) :
 							INVALID_TOKEN :
 					tokenOf( key.floatValue     () );
 		}
 		
 		/**
-		 * Returns a token associated with the specified primitive integer key, if present.
-		 * A token is a long value that uniquely identifies an entry in the map and includes a version.
-		 * Returns {@link #INVALID_TOKEN} (-1) if the key is not found or if the map has been modified since the token was issued.
+		 * Returns a token for the specified boxed Integer key, if present.
+		 * Tokens uniquely identify entries and include a version for modification detection.
 		 *
-		 * @param key The key for which to retrieve the token.
-		 * @return The token associated with the key, or {@link #INVALID_TOKEN} (-1) if the key is not found.
+		 * @param key The key to retrieve the token for.
+		 * @return The token, or {@link #INVALID_TOKEN} if the key is not found.
 		 */
 		public long tokenOf( float key ) {
 			if( _buckets == null ) return INVALID_TOKEN; // Map is not initialized, no buckets exist
@@ -262,56 +266,49 @@ public interface FloatObjectNullMap {
 		}
 		
 		/**
-		 * Returns a token for the first entry in the map.
-		 * This can be used to iterate through the map using {@link #token(long)}.
-		 * Returns {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * Returns a token for the first entry in the map, used for iteration.
 		 *
-		 * @return A token for the first entry, or {@link #INVALID_TOKEN} (-1) if the map is empty.
+		 * @return A token for the first entry, or {@link #INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i ); // Find the first valid entry
 			return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					// If no regular entry, check for null key
 					INVALID_TOKEN;      // Map is empty
 		}
 		
 		/**
-		 * Returns a token for the next entry in the map after the entry represented by the given token.
-		 * This is used for iteration.
-		 * Returns {@link #INVALID_TOKEN} (-1) if there are no more entries after the current one or if the token is invalid due to map modification.
+		 * Returns the next token for iteration after the given token.
 		 *
-		 * @param token The token of the current entry.
-		 * @return A token for the next entry, or {@link #INVALID_TOKEN} (-1) if no more entries exist or the token is invalid.
+		 * @param token The current token.
+		 * @return The next token, or {@link #INVALID_TOKEN} if no more entries exist or the token is invalid.
+		 * @throws ConcurrentModificationException if the map has been modified since the token was issued.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
-			for( int i = index( token ) + 1; i < _count; i++ )
-				if( nexts[ i ] >= -1 ) return token( i ); // Find the next valid entry after the current index
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			int i = index( token );
+			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
+			
+			if( 0 < _count - _freeCount )
+				for( i++; i < _count; i++ )
+					if( nexts[ i ] >= -1 ) return token( i ); // Find the next valid entry after the current index
+			
 			return hasNullKey && index( token ) < _count ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					// If no more regular entries, check for null key (if current token is not for null key)
 					INVALID_TOKEN;      // No more entries
 		}
 		
 		/**
-		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
-		 * skipping concurrency and modification checks.
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over non-null keys only,
+		 * skipping concurrency checks. Use with caution, as modifications during iteration may cause
+		 * undefined behavior.
 		 *
-		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
-		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
-		 * use  {@link #nullKeyValue()} to handle it separately.
-		 *
-		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
-		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
-		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
-		 *
-		 * @param token The previous token, or {@code -1} to begin iteration.
-		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
-		 * @see #token(long) For safe iteration including the null key.
-		 * @see #hasNullKey() To check for a null key.
-		 * @see #nullKeyValue() To get the null key’s value.
+		 * @param token The previous token, or -1 to start iteration.
+		 * @return The next token (index) for a non-null key, or -1 if no more entries exist.
 		 */
 		public int unsafe_token( final int token ) {
 			for( int i = token + 1; i < _count; i++ )
@@ -320,59 +317,56 @@ public interface FloatObjectNullMap {
 		}
 		
 		/**
-		 * Checks if the entry associated with the given token represents the null key entry.
+		 * Checks if the entry associated with the given token represents the null key.
 		 *
 		 * @param token The token to check.
 		 * @return {@code true} if the token corresponds to the null key, {@code false} otherwise.
 		 */
-		boolean isKeyNull( long token ) { return index( token ) == _count; }
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
 		 * Returns the primitive integer key associated with the given token.
+		 * Ensure {@link #isKeyNull(long)} is false before calling.
 		 *
-		 * @param token The token for which to retrieve the key.
-		 * @return The integer key associated with the token, or 0 if the token corresponds to the null key.
+		 * @param token The token for the key.
+		 * @return The integer key.
+		 * @throws IllegalArgumentException if the token corresponds to the null key.
 		 */
 		public float key( long token ) {
-			return   hasNullKey && index( token ) == _count ?
-					0 :
-					keys[ index( token ) ]; // Return the actual key from the keys array
+			return    keys[ index( token ) ]; // Return the actual key from the keys array
 		}
 		
 		/**
-		 * Returns whether the entry associated with the given token has a non-null value.
-		 * In a null-value context, this indicates if a value is explicitly set (not default null).
+		 * Checks if the entry associated with the given token has a non-null value.
 		 *
 		 * @param token The token to check.
-		 * @return {@code true} if the entry has a non-null value, {@code false} if it has a null value.
+		 * @return {@code true} if the value is non-null, {@code false} otherwise.
 		 */
 		public boolean hasValue( long token ) {
-			return index( token ) == _count ?
-					nullKeyValue != null :
-					// For null key entry, check if nullKeyValue is not null
+			return isKeyNull( token ) ?
+					hasNullKey :
 					values.hasValue( index( token ) ); // For regular entries, use ObjectNullList's hasValue
 		}
 		
 		/**
 		 * Returns the value associated with the given token.
+		 * Ensure {@link #hasValue(long)} is true before calling.
 		 *
-		 * @param token The token for which to retrieve the value.
-		 * @return The value associated with the token.
+		 * @param token The token for the value.
+		 * @return The associated value.
 		 */
 		public V value( long token ) {
-			return hasNullKey && index( token ) == _count ?
+			return isKeyNull( token ) ?
 					nullKeyValue :
 					// Return nullKeyValue if it's the null key entry
 					values.get( index( token ) ); // Return the value from the values list
 		}
 		
 		/**
-		 * Returns the value to which the specified boxed Integer key is mapped,
-		 * or {@code null} if this map contains no mapping for the key.
-		 * Handles null keys.
+		 * Returns the value associated with the specified boxed Integer key, or {@code null} if not found.
 		 *
-		 * @param key The key whose associated value is to be returned.
-		 * @return The value to which the specified key is mapped, or {@code null} if this map contains no mapping for the key.
+		 * @param key The key to look up.
+		 * @return The associated value, or {@code null} if the key is not found.
 		 */
 		@SuppressWarnings( "unchecked" )
 		public V get(  Float     key ) {
@@ -384,12 +378,11 @@ public interface FloatObjectNullMap {
 		}
 		
 		/**
-		 * Returns the value to which the specified primitive integer key is mapped,
-		 * or {@code defaultValue} if this map contains no mapping for the key.
+		 * Returns the value associated with the specified primitive integer key, or the default value if not found.
 		 *
-		 * @param key          The key whose associated value is to be returned.
-		 * @param defaultValue The default value to return if the map contains no mapping for the key.
-		 * @return The value to which the specified key is mapped, or {@code defaultValue} if there is no mapping.
+		 * @param key          The key to look up.
+		 * @param defaultValue The value to return if the key is not found.
+		 * @return The associated value, or {@code defaultValue} if the key is not found.
 		 */
 		public V getOrDefault( float key, V defaultValue ) {
 			long token = tokenOf( key );
@@ -400,13 +393,11 @@ public interface FloatObjectNullMap {
 		}
 		
 		/**
-		 * Returns the value to which the specified boxed Integer key is mapped,
-		 * or {@code defaultValue} if this map contains no mapping for the key.
-		 * Handles null keys.
+		 * Returns the value associated with the specified boxed Integer key, or the default value if not found.
 		 *
-		 * @param key          The key whose associated value is to be returned.
-		 * @param defaultValue The default value to return if this map contains no mapping for the key.
-		 * @return The value to which the specified key is mapped, or {@code defaultValue} if there is no mapping.
+		 * @param key          The key to look up.
+		 * @param defaultValue The value to return if the key is not found.
+		 * @return The associated value, or {@code defaultValue} if the key is not found.
 		 */
 		public V getOrDefault(  Float     key, V defaultValue ) {
 			long token = tokenOf( key );
@@ -425,7 +416,7 @@ public interface FloatObjectNullMap {
 		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				int h = Array.mix( seed, Array.hash( key( token ) ) ); // Mix seed with key hash
 				h = Array.mix( h, Array.hash( value( token ) == null ?
 						                              seed :
@@ -456,12 +447,10 @@ public interface FloatObjectNullMap {
 		private static final int seed = R.class.hashCode();
 		
 		/**
-		 * Compares this map to the specified object for equality.
-		 * Returns {@code true} if the given object is also a {@code R} instance and represents the same map.
-		 * Equality is determined by comparing key-value mappings and handling of null keys.
+		 * Compares this map to another object for equality.
 		 *
-		 * @param obj The object to compare with this map.
-		 * @return {@code true} if the objects are equal, {@code false} otherwise.
+		 * @param obj The object to compare with.
+		 * @return {@code true} if the objects represent the same map, {@code false} otherwise.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
@@ -489,10 +478,9 @@ public interface FloatObjectNullMap {
 		}
 		
 		/**
-		 * Creates and returns a deep copy of this read-only map.
-		 * The clone will contain the same mappings as the original map.
+		 * Creates a deep copy of this map.
 		 *
-		 * @return A clone of this map.
+		 * @return A cloned map with the same mappings.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
@@ -515,7 +503,7 @@ public interface FloatObjectNullMap {
 		/**
 		 * Returns a string representation of this map in JSON format.
 		 *
-		 * @return A JSON string representing this map.
+		 * @return A JSON string representing the map.
 		 */
 		@Override
 		public String toString() { return toJSON(); }
@@ -528,11 +516,10 @@ public interface FloatObjectNullMap {
 		@Override
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 ); // Pre-allocate buffer for JSON string
-			long token = token(); // Get the first token for iteration
 			
 			json.enterObject(); // Start JSON object
 			if( hasNullKey ) json.name().value( nullKeyValue );
-			for( ; index( token ) < _count; token = token( token ) )
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 			     json.name( String.valueOf( key( token ) ) ).value( value( token ) ); // Write key-value pairs as JSON properties
 			json.exitObject(); // End JSON object
 		}
@@ -551,7 +538,7 @@ public interface FloatObjectNullMap {
 		 * @param index The index of the entry in the internal arrays.
 		 * @return A long token representing the entry.
 		 */
-		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK; }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index; }
 		
 		/**
 		 * Extracts the index from a token.
@@ -559,7 +546,7 @@ public interface FloatObjectNullMap {
 		 * @param token The token.
 		 * @return The index of the entry.
 		 */
-		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token ) { return ( int ) token; }
 		
 		/**
 		 * Extracts the version from a token.
@@ -571,8 +558,9 @@ public interface FloatObjectNullMap {
 	}
 	
 	/**
-	 * {@code RW} is a read-write implementation of {@code IntObjectNullMap}, extending the read-only base class {@link R}.
-	 * It provides methods to modify the map, such as adding, updating, and removing key-value pairs.
+	 * {@code RW} is a read-write implementation of {@code IntObjectNullMap}, extending {@link R}.
+	 * It provides methods to modify the map, including adding, updating, and removing key-value pairs,
+	 * as well as resizing and trimming the internal storage.
 	 *
 	 * @param <V> The type of values stored in the map.
 	 */
@@ -588,35 +576,36 @@ public interface FloatObjectNullMap {
 		/**
 		 * Constructs an empty read-write map with a specified initial capacity.
 		 *
-		 * @param clazzV   The class of the value type {@code V}, used for array creation in {@link ObjectNullList.RW}.
+		 * @param clazzV   The class of the value type {@code V}.
 		 * @param capacity The initial capacity of the map.
 		 */
 		public RW( Class< V > clazzV, int capacity ) { this( Array.get( clazzV ), capacity ); }
 		
 		/**
-		 * Constructs an empty read-write map with a default initial capacity, using a provided value equality and hash strategy.
+		 * Constructs an empty read-write map with a default initial capacity and custom value equality strategy.
 		 *
 		 * @param equal_hash_V The strategy for comparing and hashing values.
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V ) { this( equal_hash_V, 0 ); }
 		
 		/**
-		 * Constructs an empty read-write map with a specified initial capacity, using a provided value equality and hash strategy.
+		 * Constructs an empty read-write map with a specified initial capacity and custom value equality strategy.
 		 *
 		 * @param equal_hash_V The strategy for comparing and hashing values.
 		 * @param capacity     The initial capacity of the map.
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int capacity ) {
 			super( equal_hash_V );
-			if( capacity > 0 ) initialize( capacity ); // Initialize internal arrays if capacity is specified
+			if(capacity<0) throw new IllegalArgumentException("capacity < 0");
+			if( capacity > 0 )initialize( Array.prime( capacity ) ); // Initialize internal arrays if capacity is specified
 		}
 		
 		
 		/**
-		 * Removes all of the mappings from this map.
-		 * The map will be empty after this call.
+		 * Removes all mappings from this map, resetting it to an empty state.
 		 */
 		public void clear() {
+			_version++; // Increment version for concurrency control
 			hasNullKey   = false; // Reset null key flag
 			nullKeyValue = null;  // Reset null key value
 			if( _count == 0 ) return; // Map is already empty
@@ -626,16 +615,13 @@ public interface FloatObjectNullMap {
 			_count     = 0; // Reset entry count
 			_freeList  = -1; // Reset free list
 			_freeCount = 0; // Reset free entry count
-			_version++; // Increment version for concurrency control
 		}
 		
 		/**
-		 * Removes the mapping for a boxed Integer key from this map if it is present.
-		 * Returns the value to which this map previously associated the key, or {@code null} if the map contains no mapping for the key.
-		 * Handles null keys.
+		 * Removes the mapping for the specified boxed Integer key, if present.
 		 *
-		 * @param key The key whose mapping is to be removed from the map.
-		 * @return The previous value associated with the key, or {@code null} if there was no mapping.
+		 * @param key The key to remove.
+		 * @return The previous value associated with the key, or {@code null} if none existed.
 		 */
 		public V remove(  Float     key ) {
 			if( key == null ) {
@@ -651,15 +637,14 @@ public interface FloatObjectNullMap {
 		
 		
 		/**
-		 * Removes the mapping for a primitive integer key from this map if it is present.
-		 * Returns the value to which this map previously associated the key, or {@code null} if the map contains no mapping for the key.
+		 * Removes the mapping for the specified primitive integer key, if present.
 		 *
-		 * @param key The key whose mapping is to be removed from the map.
-		 * @return The previous value associated with the key, or {@code null} if there was no mapping.
+		 * @param key The key to remove.
+		 * @return The previous value associated with the key, or {@code null} if none existed.
 		 */
 		public V remove( float key ) {
 			// Handle edge cases: if map is uninitialized or empty, nothing to remove
-			if( _buckets == null || _count == 0 )				return null; // Return invalid token indicating no removal
+			if( _buckets == null || _count == 0 ) return null; // Return invalid token indicating no removal
 			
 			// Compute hash and bucket index for the key to locate its chain
 			int hash           = Array.hash( key );                // Hash the key using Array.hash
@@ -682,42 +667,41 @@ public interface FloatObjectNullMap {
 					
 					else
 						// Otherwise, link the previous entry to the next, bypassing 'i'
-						nexts[ last ] = ( int ) next;
+						nexts[ last ] =  next;
 					
 					// Step 2: Optimize removal if value is non-null and not the last non-null
-					final int     lastNonNullValue = values.nulls.last1(); // Index of last non-null value
+					final int lastNonNullValue = values.nulls.last1(); // Index of last non-null value
 					if( values.hasValue( i ) )
 						if( i != lastNonNullValue ) {
-						// Optimization applies: swap with last non-null entry
-						// Step 2a: Copy key, next, and value from lastNonNullValue to i
-						float   keyToMove          = keys[ lastNonNullValue ];
-						int           BucketOf_KeyToMove = bucketIndex( Array.hash( keyToMove ) );
-						int           _next              = nexts[ lastNonNullValue ];
-						
-						keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
-						nexts[ i ] = _next;         // Copy the next to the entry being removed
-						values.set1( i, values.get( lastNonNullValue ) ); // Copy the value to the entry being removed
-						
-						// Step 2b: Update the chain containing keyToMove to point to 'i'
-						int prev = -1;                     // Previous index in keyToMove’s chain
-						collisionCount = 0;// Reset collision counter
-						
-						// Start at chain head
-						for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
-							if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-						
-						if( -1 < prev ) nexts[ prev ] = i; // Update next pointer of the previous entry
-						else _buckets[ BucketOf_KeyToMove ] = i + 1;// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
-						
-						
-						values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
-						i = lastNonNullValue; // Continue freeing operations at swapped position
-					}
-					else values.set1( i, null );                       // Clear value (may shift if not last)
+							// Optimization applies: swap with last non-null entry
+							// Step 2a: Copy key, next, and value from lastNonNullValue to i
+							float   keyToMove          = keys[ lastNonNullValue ];
+							int           BucketOf_KeyToMove = bucketIndex( Array.hash( keyToMove ) );
+							int           _next              = nexts[ lastNonNullValue ];
+							
+							keys[ i ]  = keyToMove;                         // Copy the key to the entry being removed
+							nexts[ i ] = _next;         // Copy the next to the entry being removed
+							values.set1( i, values.get( lastNonNullValue ) ); // Copy the value to the entry being removed
+							
+							// Step 2b: Update the chain containing keyToMove to point to 'i'
+							int prev = -1;                     // Previous index in keyToMove’s chain
+							collisionCount = 0;// Reset collision counter
+							
+							// Start at chain head
+							for( int current = _buckets[ BucketOf_KeyToMove ] - 1; current != lastNonNullValue; prev = current, current = nexts[ current ] )
+								if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+							
+							if( -1 < prev ) nexts[ prev ] = i; // Update next pointer of the previous entry
+							else _buckets[ BucketOf_KeyToMove ] = i + 1;// If 'lastNonNullValue' the head, update bucket to the position of keyToMove
+							
+							
+							values.set1( lastNonNullValue, null );        // Clear value (O(1) since it’s last non-null)
+							i = lastNonNullValue; // Continue freeing operations at swapped position
+						}
+						else values.set1( i, null );                       // Clear value (may shift if not last)
 					
-					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Mark 'i' as free and link to free list
+					nexts[ i ] = StartOfFreeList - _freeList; // Mark 'i' as free and link to free list
 					_freeList  = i; // Update free list head
-					_count --;
 					_freeCount++;       // Increment count of free entries
 					_version++;         // Increment version for concurrency control
 					return oldValue;    // Return the removed value
@@ -735,36 +719,33 @@ public interface FloatObjectNullMap {
 		
 		
 		/**
-		 * Ensures that the capacity of the map is at least equal to the specified capacity.
-		 * If the current capacity is less than the requested capacity, the internal arrays are resized to the next prime number greater than or equal to capacity.
+		 * Ensures the map's capacity is at least the specified value, resizing if necessary.
 		 *
 		 * @param capacity The desired minimum capacity.
-		 * @return The new capacity of the map after ensuring capacity.
-		 * @throws IllegalArgumentException if the capacity is negative.
+		 * @return The new capacity after resizing, if applicable.
+		 * @throws IllegalArgumentException if capacity is negative.
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
 			int currentCapacity = length(); // Get current capacity
 			if( capacity <= currentCapacity ) return currentCapacity; // No need to resize if current capacity is sufficient
 			_version++; // Increment version before resize
-			if( _buckets == null ) return initialize( capacity ); // Initialize if not yet initialized
+			if( _buckets == null ) return initialize( Array.prime( capacity ) ); // Initialize if not yet initialized
 			int newSize = Array.prime( capacity ); // Calculate new prime size
 			resize( newSize ); // Resize the internal arrays
 			return newSize; // Return the new capacity
 		}
 		
 		/**
-		 * Trims the capacity of this map to be the map's current size.
-		 * If the map's capacity is larger than the current size, it is reduced to conserve space.
+		 * Trims the map's capacity to its current size to conserve memory.
 		 */
 		public void trim() { trim( count() ); }
 		
 		/**
-		 * Trims the capacity of this map to be at least as large as the specified capacity.
-		 * If the map's capacity is larger than the specified capacity, it is reduced to conserve space, but not below the specified capacity or the current size, whichever is larger.
+		 * Trims the map's capacity to at least the specified capacity, or the current size if larger.
 		 *
-		 * @param capacity The desired capacity to trim to.
-		 * @throws IllegalArgumentException if the capacity is less than the current size of the map.
+		 * @param capacity The desired capacity.
+		 * @throws IllegalArgumentException if capacity is less than the current size.
 		 */
 		public void trim( int capacity ) {
 			if( capacity < count() ) throw new IllegalArgumentException( "capacity is less than Count." );
@@ -782,12 +763,11 @@ public interface FloatObjectNullMap {
 		}
 		
 		/**
-		 * Associates the specified value with the specified boxed Integer key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * Handles null keys.
+		 * Associates the specified value with the specified boxed Integer key, replacing any existing value.
 		 *
-		 * @param key   The key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
+		 * @param key   The key to associate.
+		 * @param value The value to set.
+		 * @return {@code true} if a new mapping was added, {@code false} if an existing mapping was updated.
 		 */
 		public boolean put(  Float     key, V value ) {
 			return key == null ?
@@ -798,25 +778,25 @@ public interface FloatObjectNullMap {
 		
 		
 		/**
-		 * Associates the specified value with the null key in this map.
-		 * If the map previously contained a mapping for the null key, the old value is replaced.
+		 * Associates the specified value with the null key, replacing any existing value.
 		 *
-		 * @param value The value to be associated with the null key.
+		 * @param value The value to set for the null key.
+		 * @return {@code true} if the null key was newly added, {@code false} if updated.
 		 */
 		public boolean put( V value ) {
 			boolean b = !hasNullKey;
 			hasNullKey   = true; // Set null key flag
 			nullKeyValue = value; // Set null key value
 			_version++; // Increment version
-			return true; // Insertion or update successful
+			return b; // Insertion or update successful
 		}
 		
 		/**
-		 * Associates the specified value with the specified primitive integer key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
+		 * Associates the specified value with the specified boxed Integer key, replacing any existing value.
 		 *
-		 * @param key   The key with which the specified value is to be associated.
-		 * @param value The value to be associated with the specified key.
+		 * @param key   The key to associate.
+		 * @param value The value to set.
+		 * @return {@code true} if a new mapping was added, {@code false} if an existing mapping was updated.
 		 */
 		public boolean put( float key, V value ) {
 			
@@ -896,11 +876,13 @@ public interface FloatObjectNullMap {
 		 */
 		private int initialize( int capacity ) {
 			_version++;
-			_buckets  = new int[ capacity ]; // Initialize buckets array
-			nexts     = new int[ capacity ]; // Initialize nexts array
-			keys      = new float[ capacity ]; // Initialize keys array
-			values    = new ObjectNullList.RW<>( equal_hash_V, capacity ); // Initialize values list
-			_freeList = -1; // Initialize free list to empty
+			_buckets   = new int[ capacity ]; // Initialize buckets array
+			nexts      = new int[ capacity ]; // Initialize nexts array
+			keys       = new float[ capacity ]; // Initialize keys array
+			values     = new ObjectNullList.RW<>( equal_hash_V, capacity ); // Initialize values list
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return capacity; // Return the initialized capacity
 		}
 		
@@ -928,6 +910,8 @@ public interface FloatObjectNullMap {
 			_freeCount = 0; // Reset free entry count
 		}
 		
+		@Override public RW< V > clone() { return ( RW< V > ) super.clone(); }
+		
 		/**
 		 * Static instance of {@link Array.EqualHashOf} for {@code RW} class, used for default equality checks.
 		 */
@@ -935,11 +919,10 @@ public interface FloatObjectNullMap {
 	}
 	
 	/**
-	 * Returns a default {@link Array.EqualHashOf} instance suitable for {@code RW} maps.
-	 * This can be used when creating a map where value equality and hashing need to be customized.
+	 * Returns a default {@link Array.EqualHashOf} instance for {@code RW} maps.
 	 *
 	 * @param <V> The value type of the map.
-	 * @return A default {@link Array.EqualHashOf} instance for {@code RW}.
+	 * @return A default equality and hash strategy for {@code RW}.
 	 */
 	@SuppressWarnings( "unchecked" )
 	static < V > Array.EqualHashOf< RW< V > > equal_hash() { return ( Array.EqualHashOf< RW< V > > ) RW.OBJECT; }

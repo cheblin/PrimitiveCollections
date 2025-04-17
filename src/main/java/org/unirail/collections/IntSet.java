@@ -38,78 +38,82 @@ import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 
 /**
- * {@code IntSet} is a specialized Set interface designed for efficient storage and manipulation of integer keys.
- * It provides optimized operations for adding, removing, checking for existence, and iterating over integer elements.
- * Implementations of this interface offer performance advantages over general-purpose Set implementations when dealing specifically with integers.
+ * {@code IntSet} is a specialized Set interface optimized for storing and manipulating integer keys.
+ * It provides efficient operations for adding, removing, checking existence, and iterating over integer elements.
+ * Implementations of this interface are designed to outperform general-purpose Set implementations when working with integers.
  */
 public interface IntSet {
 	
 	/**
-	 * {@code R} is a read-only abstract base class that implements the core functionalities and state management for {@code IntSet}.
-	 * It serves as a foundation for read-write implementations and provides methods for querying the set without modification.
-	 * This class is designed to be lightweight and efficient for read-heavy operations.
-	 * <p>
-	 * It implements {@link JsonWriter.Source} to support JSON serialization and {@link Cloneable} for creating copies of the set.
+	 * {@code R} is a read-only abstract base class that implements core functionality and state management for {@code IntSet}.
+	 * It serves as the foundation for read-write implementations, offering lightweight and efficient methods for querying the set.
+	 * This class supports JSON serialization via {@link JsonWriter.Source} and cloning via {@link Cloneable}.
 	 */
 	abstract class R implements JsonWriter.Source, Cloneable {
 		/**
-		 * Indicates whether the Set contains a null key. Null keys are handled separately.
+		 * Indicates whether the set contains a null key, which is handled separately from integer keys.
 		 */
 		protected boolean hasNullKey;
 		
+		/**
+		 * Returns whether the set contains a null key.
+		 *
+		 * @return {@code true} if the set contains a null key, {@code false} otherwise
+		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		
 		/**
-		 * Array of buckets for the hash table. Each bucket stores the index of the first entry in its chain.
+		 * Array of buckets for the hash table, where each bucket stores the index of the first entry in its chain.
 		 */
 		protected int[]         _buckets;
 		/**
-		 * Array storing the 'next' index for each entry in the hash table, used for collision resolution (chaining).
+		 * Array storing the 'next' index for each entry, used for collision resolution via chaining.
 		 */
 		protected int[]         nexts;
 		/**
-		 * Array storing the integer keys of the Set.
+		 * Array storing the integer keys of the set.
 		 */
-		protected int[] keys = Array.EqualHashOf.ints     .O;
+		protected int[] keys;
 		/**
-		 * The current number of elements in the Set, excluding elements in the free list.
+		 * The current number of elements in the set, excluding elements in the free list.
 		 */
 		protected int           _count;
 		/**
-		 * Index of the first element in the free list. -1 indicates an empty free list.
+		 * Index of the first element in the free list, or -1 if the free list is empty.
 		 */
 		protected int           _freeList;
 		/**
-		 * The number of elements currently in the free list (available for reuse).
+		 * Number of elements in the free list, available for reuse.
 		 */
 		protected int           _freeCount;
 		/**
-		 * Version number for detecting modifications during iteration, ensuring fail-fast behavior.
+		 * Version number for detecting modifications during iteration, enabling fail-fast behavior.
 		 */
 		protected int           _version;
 		
 		/**
-		 * Constant representing the start of the free list chain.
+		 * Constant marking the start of the free list chain.
 		 */
-		protected static final int  StartOfFreeList = -3;
+		protected static final int StartOfFreeList = -3;
+		
 		/**
-		 * Mask for extracting the index from a token.
+		 * Constant representing the index for a null key.
 		 */
-		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL;
+		protected static final int  NULL_KEY_INDEX = 0x7FFF_FFFF;
 		/**
 		 * Bit shift for extracting the version from a token.
 		 */
-		protected static final int  VERSION_SHIFT   = 32;
+		protected static final int  VERSION_SHIFT  = 32;
 		/**
 		 * Represents an invalid token, equal to -1.
 		 */
-		protected static final long INVALID_TOKEN   = -1L;
+		protected static final long INVALID_TOKEN  = -1L;
 		
 		/**
-		 * Returns the number of elements in this set (excluding any elements in the free list, but including a potential null key).
+		 * Returns the number of elements in the set, including the null key if present.
 		 *
-		 * @return the number of elements in this set
+		 * @return the number of elements in the set
 		 */
 		public int size() {
 			return _count - _freeCount + (
@@ -119,25 +123,25 @@ public interface IntSet {
 		}
 		
 		/**
-		 * Returns the number of elements in this set. This is an alias for {@link #size()}.
+		 * Alias for {@link #size()}.
 		 *
-		 * @return the number of elements in this set
+		 * @return the number of elements in the set
 		 */
 		public int count() { return size(); }
 		
 		/**
-		 * Returns {@code true} if this set contains no elements.
+		 * Checks if the set is empty.
 		 *
-		 * @return {@code true} if this set contains no elements
+		 * @return {@code true} if the set contains no elements, {@code false} otherwise
 		 */
 		public boolean isEmpty() { return size() == 0; }
 		
 		
 		/**
-		 * Checks if this set contains the specified key. Handles null keys.
+		 * Checks if the set contains the specified key, handling null keys.
 		 *
-		 * @param key the key to check for in this set
-		 * @return {@code true} if this set contains the specified key
+		 * @param key the key to check (may be null)
+		 * @return {@code true} if the key is in the set, {@code false} otherwise
 		 */
 		public boolean contains(  Integer   key ) {
 			return key == null ?
@@ -146,40 +150,39 @@ public interface IntSet {
 		}
 		
 		/**
-		 * Checks if this set contains the specified integer key.
+		 * Checks if the set contains the specified integer key.
 		 *
-		 * @param key the integer key to check for in this set
-		 * @return {@code true} if this set contains the specified integer key
+		 * @param key the integer key to check
+		 * @return {@code true} if the key is in the set, {@code false} otherwise
 		 */
 		public boolean contains( int key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Returns a token for the specified key if it exists in the set, otherwise returns {@link #INVALID_TOKEN}.
-		 * Tokens are used for efficient iteration and element access. Handles null keys.
+		 * Returns a token for the specified key if it exists, or {@link #INVALID_TOKEN} if not.
+		 * Tokens enable efficient iteration and element access. Handles null keys.
 		 *
-		 * @param key the key to get the token for (can be null)
-		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found
+		 * @param key the key to get the token for (may be null)
+		 * @return a valid token if the key exists, or {@link #INVALID_TOKEN} if not
 		 */
 		public long tokenOf(  Integer   key ) {
 			return key == null ?
-					( hasNullKey ?
-							token( _count ) :
-							INVALID_TOKEN ) :
+					hasNullKey ?
+							token( NULL_KEY_INDEX ) :
+							INVALID_TOKEN :
 					tokenOf( key. intValue     () );
 		}
 		
 		/**
-		 * Returns a token for the specified integer key if it exists in the set, otherwise returns {@link #INVALID_TOKEN}.
-		 * Tokens are used for efficient iteration and element access.
+		 * Returns a token for the specified integer key if it exists, or {@link #INVALID_TOKEN} if not.
 		 *
 		 * @param key the integer key to get the token for
-		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found
+		 * @return a valid token if the key exists, or {@link #INVALID_TOKEN} if not
 		 */
 		public long tokenOf( int key ) {
 			if( _buckets == null ) return INVALID_TOKEN; // Return invalid token if buckets are not initialized
 			
 			int hash = Array.hash( key );
-			int i    = ( _buckets[ bucketIndex( hash ) ] ) - 1; // Get the index of the first entry in the bucket
+			int i    = _buckets[ bucketIndex( hash ) ] - 1; // Get the index of the first entry in the bucket
 			
 			// Traverse the collision chain in the bucket
 			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < nexts.length; ) {
@@ -193,52 +196,51 @@ public interface IntSet {
 		}
 		
 		/**
-		 * Returns a token representing the first element in the set for iteration.
+		 * Returns a token for the first element in the set for iteration.
 		 *
-		 * @return a token for the first element, or -1 ({@link #INVALID_TOKEN}) if the set is empty
+		 * @return a token for the first element, or {@link #INVALID_TOKEN} if the set is empty
 		 */
 		public long token() {
 			for( int i = 0; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i ); // Find the first non-free element
 			return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					// Token for null key is at _count index (conceptually)
 					INVALID_TOKEN;
 		}
 		
 		/**
-		 * Returns a token representing the next element in the set after the element associated with the given token.
+		 * Returns a token for the next element after the given token.
 		 *
-		 * @param token the token of the current element
-		 * @return a token for the next element, or -1 ({@link #INVALID_TOKEN}) if no next element exists or if the token is invalid due to structural modification
+		 * @param token the current token
+		 * @return a token for the next element, or {@link #INVALID_TOKEN} if none exists or the token is invalid
+		 * @throws IllegalArgumentException        if the token is {@link #INVALID_TOKEN}
+		 * @throws ConcurrentModificationException if the set was modified since the token was issued
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
-			for( int i = index( token ) + 1; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return token( i ); // Find the next non-free element after the current index
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			int i = index( token );
+			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
+			
+			if( 0 < _count - _freeCount )
+				for( i++; i < _count; i++ )
+					if( -2 < nexts[ i ] ) return token( i ); // Find the next non-free element after the current index
+			
 			return hasNullKey && index( token ) < _count ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					// If null key exists and we haven't reached its conceptual index, return null key token
 					INVALID_TOKEN;
 		}
 		
 		/**
-		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
-		 * skipping concurrency and modification checks.
+		 * Returns the next token for fast, <strong>unsafe</strong> iteration over non-null keys, skipping concurrency checks.
+		 * Start with {@code unsafe_token(-1)} and pass the returned token back. Iteration ends when {@code -1} is returned.
+		 * The null key is excluded; use {@link #hasNullKey()} and {@link #key(long)} to handle it.
+		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster but risks undefined behavior if the set is modified during iteration.
 		 *
-		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
-		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
-		 * use {@link #key(long)} to handle it separately.
-		 *
-		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
-		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
-		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
-		 *
-		 * @param token The previous token, or {@code -1} to begin iteration.
-		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
-		 * @see #token(long) For safe iteration including the null key.
-		 * @see #hasNullKey() To check for a null key.
-		 * @see #key(long) To get the key associated with a token.
+		 * @param token the previous token, or -1 to start iteration
+		 * @return the next token for a non-null key, or -1 if no more keys exist
 		 */
 		public int unsafe_token( int token ) {
 			for( int i = token + 1; i < _count; i++ )
@@ -247,61 +249,55 @@ public interface IntSet {
 		}
 		
 		/**
-		 * Checks if the element associated with the given token represents a null key.
+		 * Checks if the given token represents a null key.
 		 *
 		 * @param token the token to check
 		 * @return {@code true} if the token represents a null key, {@code false} otherwise
 		 */
-		boolean isKeyNull( long token ) { return index( token ) == _count; }
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Returns the integer key associated with the given token.
-		 * The result is undefined if the token is -1 ({@link #INVALID_TOKEN}) or invalid due to structural modification.
+		 * Returns the integer key for the given token.
+		 * Ensure {@link #isKeyNull(long)} is false before calling.
 		 *
-		 * @param token the token of the element
-		 * @return the integer key associated with the token, or 0 if the token represents a null key
+		 * @param token the token
+		 * @return the integer key, or 0 if the token represents a null key
 		 */
-		public int key( long token ) {
-			return  ( hasNullKey && index( token ) == _count ?
-					0 :
-					keys[ index( token ) ] );
-		}
+		public int key( long token ) { return   keys[ index( token ) ]; }
 		
 		/**
-		 * Computes the hash code for this set.
-		 * The hash code is calculated based on the keys in the set and the set's size.
-		 * It iterates through the set using tokens and accumulates hash values using a mixing function.
+		 * Computes the hash code for the set based on its keys and size.
 		 *
-		 * @return the hash code value for this set
+		 * @return the hash code
 		 */
 		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
-				final int h = Array.hash( key( token ) ); // Hash each key
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
+				final int h = Array.hash( key( token ) );
 				a += h;
 				b ^= h;
 				c *= h | 1;
 			}
 			if( hasNullKey ) {
-				final int h = Array.hash( seed ); // Hash the seed for the null key presence
+				final int h = Array.hash( seed );
 				a += h;
 				b ^= h;
 				c *= h | 1;
 			}
-			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() ); // Finalize the hash with size and seed
+			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
 		
 		/**
-		 * Seed value used in hashCode calculation. Initialized with the hashCode of the class.
+		 * Seed value used in hash code calculation.
 		 */
 		private static final int seed = R.class.hashCode();
 		
 		/**
-		 * Compares this set to the specified object for equality.
+		 * Checks if this set equals another object.
 		 *
 		 * @param obj the object to compare with
-		 * @return {@code true} if the specified object is an {@code R} instance with the same keys
+		 * @return {@code true} if the object is an {@code R} instance with the same keys
 		 */
 		@Override
 		public boolean equals( Object obj ) {
@@ -309,7 +305,7 @@ public interface IntSet {
 		}
 		
 		/**
-		 * Compares this set to another {@code R} instance for equality.
+		 * Checks if this set equals another {@code R} instance.
 		 *
 		 * @param other the {@code R} instance to compare with
 		 * @return {@code true} if the sets contain the same keys
@@ -317,62 +313,63 @@ public interface IntSet {
 		public boolean equals( R other ) {
 			if( other == this ) return true; // Same instance check
 			if( other == null || other.size() != size() || other.hasNullKey != hasNullKey ) return false; // Size and null key presence check
-			for( long token = token(); index( token ) < _count; token = token( token ) )
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				if( !other.contains( key( token ) ) ) return false; // Check if each key in this set is present in the other set
 			return true; // All keys match
 		}
 		
 		/**
-		 * Creates and returns a shallow copy of this {@code R} instance.
+		 * Creates a shallow copy of this set.
 		 *
-		 * @return a clone of this {@code R} instance
+		 * @return a cloned {@code R} instance
 		 */
 		@Override
 		public R clone() {
 			try {
-				R dst = ( R ) super.clone(); // Perform shallow clone
+				R dst = ( R ) super.clone();
 				if( _buckets != null ) {
-					dst._buckets = _buckets.clone(); // Clone buckets array
-					dst.nexts    = nexts.clone();    // Clone nexts array
-					dst.keys     = keys.clone();     // Clone keys array
+					dst._buckets = _buckets.clone();
+					dst.nexts    = nexts.clone();
+					dst.keys     = keys.clone();
 				}
 				return dst;
 			} catch( CloneNotSupportedException e ) {
-				e.printStackTrace(); // Handle clone exception
+				e.printStackTrace();
 				return null;
 			}
 		}
 		
 		/**
-		 * Returns a JSON string representation of this set.
+		 * Returns a JSON string representation of the set.
 		 *
-		 * @return a JSON string representation of this set
+		 * @return the JSON string
 		 */
 		@Override
 		public String toString() { return toJSON(); }
 		
 		/**
-		 * Writes the set's content to a {@link JsonWriter} as a JSON array.
+		 * Writes the set as a JSON array to a {@link JsonWriter}.
 		 *
-		 * @param json the JsonWriter to write to
+		 * @param json the {@link JsonWriter} to write to
 		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
 			int size = size();
-			json.enterArray(); // Start JSON array
-			if( hasNullKey ) json.value(); // Write null value if null key is present
+			json.enterArray();
+			if( hasNullKey ) json.value();
 			if( size > 0 ) {
-				json.preallocate( size * 10 ); // Pre-allocate buffer for efficiency
-				for( long t = token(); t != INVALID_TOKEN; t = token( t ) ) json.value( key( t ) ); // Write each key as a JSON value
+				json.preallocate( size * 10 );
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
+				     json.value( key( token ) );
 			}
-			json.exitArray(); // End JSON array
+			json.exitArray();
 		}
 		
 		
 		/**
-		 * Calculates the bucket index for a given hash value.
+		 * Calculates the bucket index for a given hash.
 		 *
-		 * @param hash the hash value of the key
+		 * @param hash the hash value
 		 * @return the bucket index
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
@@ -380,28 +377,28 @@ public interface IntSet {
 		/**
 		 * Creates a token from an index and the current version.
 		 *
-		 * @param index the index of the element
+		 * @param index the element index
 		 * @return the generated token
 		 */
 		protected long token( int index ) {
-			return ( ( long ) _version << VERSION_SHIFT ) | ( index & INDEX_MASK );
+			return ( long ) _version << VERSION_SHIFT | index;
 		}
 		
 		/**
 		 * Extracts the index from a token.
 		 *
 		 * @param token the token
-		 * @return the index extracted from the token
+		 * @return the index
 		 */
 		protected int index( long token ) {
-			return ( int ) ( token & INDEX_MASK );
+			return ( int ) token;
 		}
 		
 		/**
 		 * Extracts the version from a token.
 		 *
 		 * @param token the token
-		 * @return the version extracted from the token
+		 * @return the version
 		 */
 		protected int version( long token ) {
 			return ( int ) ( token >>> VERSION_SHIFT );
@@ -409,29 +406,29 @@ public interface IntSet {
 	}
 	
 	/**
-	 * {@code RW} is a read-write implementation of {@code IntSet}, extending the read-only base class {@link R}.
-	 * It provides methods for modifying the set, such as adding and removing elements, as well as clearing and trimming the set's capacity.
-	 * This class is suitable for scenarios where both read and write operations are frequently performed on the set.
+	 * {@code RW} is a read-write implementation of {@code IntSet}, extending {@link R}.
+	 * It supports modifying the set through operations like adding, removing, clearing, and trimming capacity.
+	 * Suitable for scenarios requiring frequent read and write operations.
 	 */
 	class RW extends R {
 		
 		/**
-		 * Constructs an empty {@code RW} set with a default initial capacity.
+		 * Constructs an empty set with default initial capacity.
 		 */
 		public RW() { this( 0 ); }
 		
 		/**
-		 * Constructs an empty {@code RW} set with the specified initial capacity.
+		 * Constructs an empty set with the specified initial capacity.
 		 *
-		 * @param capacity the initial capacity of the set
+		 * @param capacity the initial capacity
 		 */
-		public RW( int capacity ) { if( capacity > 0 ) initialize( capacity ); }
+		public RW( int capacity ) { if( capacity > 0 ) initialize( Array.prime( capacity ) ); }
 		
 		/**
-		 * Adds the specified key to this set if it is not already present. Handles null keys.
+		 * Adds a key to the set if not already present, handling null keys.
 		 *
-		 * @param key the key to add to this set
-		 * @return {@code true} if this set did not already contain the specified key
+		 * @param key the key to add (may be null)
+		 * @return {@code true} if the key was added, {@code false} if already present
 		 */
 		public boolean add(  Integer   key ) {
 			return key == null ?
@@ -440,170 +437,162 @@ public interface IntSet {
 		}
 		
 		/**
-		 * Adds the specified integer key to this set if it is not already present.
+		 * Adds an integer key to the set if not already present.
 		 *
-		 * @param key the integer key to add to this set
-		 * @return {@code true} if this set did not already contain the specified integer key
+		 * @param key the integer key to add
+		 * @return {@code true} if the key was added, {@code false} if already present
 		 */
 		public boolean add( int key ) {
-			if( _buckets == null ) initialize( 7 ); // Initialize buckets if not already initialized
+			if( _buckets == null ) initialize( 7 );
 			int[] _nexts         = nexts;
 			int   hash           = Array.hash( key );
 			int   collisionCount = 0;
 			int   bucketIndex    = bucketIndex( hash );
-			int   bucket         = _buckets[ bucketIndex ] - 1; // Get starting index of the bucket
-			
-			// Check for key existence in the collision chain
+			int   bucket         = _buckets[ bucketIndex ] - 1;
 			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key ) return false; // Key already exists
-				next = _nexts[ next ]; // Move to the next element in collision chain
+				if( keys[ next ] == key ) return false;
+				next = _nexts[ next ];
 				if( _nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." ); // Fail-fast for concurrent modification
+					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
 			
 			int index;
 			if( 0 < _freeCount ) {
-				// Reuse a free slot if available
 				index     = _freeList;
-				_freeList = StartOfFreeList - _nexts[ _freeList ]; // Update free list pointer
+				_freeList = StartOfFreeList - _nexts[ _freeList ];
 				_freeCount--;
 			}
 			else {
-				// Allocate a new slot
 				if( _count == _nexts.length ) {
-					resize( Array.prime( _count * 2 ) ); // Resize if full, using next prime capacity
-					bucket = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1; // Re-calculate bucket index after resize
+					resize( Array.prime( _count * 2 ) );
+					bucket = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
 				}
-				index = _count++; // Increment count and get new index
+				index = _count++;
 			}
-			
-			nexts[ index ]          = ( int ) bucket; // Set 'next' pointer for the new element
-			keys[ index ]           = ( int ) key; // Store the key
-			_buckets[ bucketIndex ] = index + 1; // Update bucket to point to the new element
-			_version++; // Increment version to invalidate tokens
-			
-			return true; // Key added successfully
+			nexts[ index ]          = bucket;
+			keys[ index ]           = ( int ) key;
+			_buckets[ bucketIndex ] = index + 1;
+			_version++;
+			return true;
 		}
 		
 		/**
-		 * Adds a null key to the set if it is not already present.
+		 * Adds a null key to the set if not already present.
 		 *
-		 * @return {@code true} if the null key was added, {@code false} if already present
+		 * @return {@code true} if added, {@code false} if already present
 		 */
 		private boolean addNullKey() {
-			if( hasNullKey ) return false; // Null key already exists
-			hasNullKey = true; // Set null key flag
-			_version++; // Increment version to invalidate tokens
-			return true; // Null key added
+			if( hasNullKey ) return false;
+			hasNullKey = true;
+			_version++;
+			return true;
 		}
 		
 		
 		/**
-		 * Removes the specified key from this set if it is present. Handles null keys.
+		 * Removes a key from the set if present, handling null keys.
 		 *
-		 * @param key the key to remove from this set
-		 * @return {@code true} if this set contained the key
+		 * @param key the key to remove (may be null)
+		 * @return {@code true} if the key was removed, {@code false} if not present
 		 */
 		public boolean remove(  Integer   key ) {
 			return key == null ?
 					removeNullKey() :
-					// Handle null key removal
-					remove( key. intValue     () ); // Remove integer key
+					remove( key. intValue     () );
 		}
 		
 		/**
-		 * Removes the specified integer key from this set if it is present.
+		 * Removes an integer key from the set if present.
 		 *
-		 * @param key the integer key to remove from this set
-		 * @return {@code true} if this set contained the integer key
+		 * @param key the integer key to remove
+		 * @return {@code true} if the key was removed, {@code false} if not present
 		 */
 		public boolean remove( int key ) {
 			if( _buckets == null || _count == 0 ) return false; // Set is empty or not initialized
 			
 			int collisionCount = 0;
-			int last           = -1; // Index of the previous element in the collision chain
+			int last           = -1;
 			int hash           = Array.hash( key );
 			int bucketIndex    = bucketIndex( hash );
-			int i              = _buckets[ bucketIndex ] - 1; // Start index of the bucket
-			
-			// Traverse the collision chain
+			int i              = _buckets[ bucketIndex ] - 1;
 			while( -1 < i ) {
 				int next = nexts[ i ];
 				if( keys[ i ] == key ) {
-					// Key found, remove it
-					if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 ); // If it's the first in the bucket, update bucket to point to the next
-					else nexts[ last ] = next; // Otherwise, update the 'next' pointer of the previous element
-					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList ); // Add the removed element to the free list
-					_freeList  = i; // Update free list head
-					_freeCount++; // Increment free count
-					_version++; // Increment version to invalidate tokens
-					return true; // Key removed
+					if( last < 0 ) _buckets[ bucketIndex ] = next + 1;
+					else nexts[ last ] = next;
+					nexts[ i ] = StartOfFreeList - _freeList;
+					_freeList  = i;
+					_freeCount++;
+					_version++;
+					return true;
 				}
-				last = i; // Update 'last' to the current element
-				i    = next; // Move to the next element in the chain
+				last = i;
+				i    = next;
 				if( nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." ); // Fail-fast for concurrent modification
+					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return false; // Key not found
+			return false;
 		}
 		
 		/**
-		 * Removes the null key from this set if it is present.
+		 * Removes the null key from the set if present.
 		 *
-		 * @return {@code true} if the null key was removed, {@code false} if not present
+		 * @return {@code true} if removed, {@code false} if not present
 		 */
 		private boolean removeNullKey() {
-			if( !hasNullKey ) return false; // Null key not present
-			hasNullKey = false; // Clear null key flag
-			_version++; // Increment version to invalidate tokens
-			return true; // Null key removed
+			if( !hasNullKey ) return false;
+			hasNullKey = false;
+			_version++;
+			return true;
 		}
 		
 		
 		/**
-		 * Removes all elements from this set.
+		 * Removes all elements from the set.
 		 */
 		public void clear() {
-			if( _count < 1 && !hasNullKey ) return; // Set is already empty
-			Arrays.fill( _buckets, 0 ); // Clear buckets
-			Arrays.fill( nexts, 0, _count, ( int ) 0 ); // Clear 'next' pointers for used slots
-			_count     = 0; // Reset element count
-			_freeList  = -1; // Reset free list
-			_freeCount = 0; // Reset free count
-			hasNullKey = false; // Clear null key flag
-			_version++; // Increment version to invalidate tokens
+			_version++;
+			hasNullKey = false;
+			if( _count == 0 ) return;
+			Arrays.fill( _buckets, 0 );
+			Arrays.fill( nexts, 0, _count, 0 );
+			_count     = 0;
+			_freeList  = -1;
+			_freeCount = 0;
 		}
 		
 		
 		/**
-		 * Returns an array containing all of the keys in this set.
+		 * Returns an array of all keys in the set.
 		 *
-		 * @param dst the array into which the elements of this set are to be stored, if it is big enough; otherwise, a new array is allocated
-		 * @return an array containing all the keys in this set
+		 * @param dst the destination array, or a new array if too small
+		 * @return an array containing all keys
 		 */
-		public int[] toArray( int[] dst ) {
+		public int[] toArray( int[] dst, int null_substitute ) {
+			int s = size();
+			if( dst.length < s ) dst = new int[ s ];
+			
 			int index = 0;
-			for( long token = token(); token != INVALID_TOKEN; token = token( token ) )
+			if( hasNullKey ) dst[ index++ ] = null_substitute; // Convention: represent null key as char 0
+			
+			for( int token = -1; ( token = unsafe_token( token ) ) != INVALID_TOKEN; )
 			     dst[ index++ ] = ( int ) key( token ); // Copy keys to the array using token iteration
 			return dst;
 		}
 		
 		
 		/**
-		 * Reduces the capacity of this set to be the set's current size.
-		 * This method can be used to minimize the storage of a set instance.
+		 * Trims the set's capacity to its current size.
 		 */
 		public void trim() { trim( count() ); }
 		
 		/**
-		 * Reduces the capacity of this set to be at least as large as the set's current size or the given capacity.
-		 * If the given capacity is less than the current size, an {@link IllegalArgumentException} is thrown.
+		 * Trims the set's capacity to at least the specified capacity or the current size.
 		 *
-		 * @param capacity the desired new capacity
-		 * @throws IllegalArgumentException if the capacity is less than the current size of the set.
+		 * @param capacity the desired capacity
+		 * @throws IllegalArgumentException if capacity is less than the current size
 		 */
 		public void trim( int capacity ) {
-			if( capacity < count() ) throw new IllegalArgumentException( "capacity is less than Count." ); // Capacity must be at least the current size
 			int currentCapacity = nexts != null ?
 					nexts.length :
 					0;
@@ -615,28 +604,32 @@ public interface IntSet {
 			int           old_count = _count;
 			_version++; // Increment version as structure changes
 			initialize( new_size ); // Initialize with the new trimmed capacity
-			copy( old_next, old_keys, old_count ); // Copy existing data to the new arrays
+			for( int i = 0; i < old_count; i++ )
+				if( -2 < old_next[ i ] ) add(  old_keys[ i ]  );
+			
 		}
 		
 		/**
-		 * Initializes the internal data structures of the set with the specified capacity.
+		 * Initializes the set's data structures with the specified capacity.
 		 *
-		 * @param capacity the initial capacity for the set
-		 * @return the prime capacity used
+		 * @param capacity the initial capacity
+		 * @return the actual capacity used
 		 */
 		private int initialize( int capacity ) {
 			_version++;
-			_buckets  = new int[ capacity ]; // Initialize buckets array
-			nexts     = new int[ capacity ]; // Initialize 'next' pointers array
-			keys      = new int[ capacity ]; // Initialize keys array
-			_freeList = -1; // Initialize free list as empty
-			return capacity; // Return the actual capacity used
+			_buckets   = new int[ capacity ]; // Initialize buckets array
+			nexts      = new int[ capacity ]; // Initialize 'next' pointers array
+			keys       = new int[ capacity ]; // Initialize keys array
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
+			return capacity;
 		}
 		
 		/**
-		 * Resizes the internal arrays to a new capacity.
+		 * Resizes the set's internal arrays to a new capacity.
 		 *
-		 * @param newSize the new capacity for the set
+		 * @param newSize the new capacity
 		 */
 		private void resize( int newSize ) {
 			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Integer  .BYTES * 8 ); // Limit max size based on Integer size
@@ -650,34 +643,13 @@ public interface IntSet {
 				if( -2 < new_next[ i ] ) { // Only re-hash non-free elements
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) ); // Re-calculate bucket index for each key
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Update 'next' pointer to the old bucket head
-					_buckets[ bucketIndex ] = ( i + 1 ); // Set new bucket head to the current element's index
+					_buckets[ bucketIndex ] = i + 1; // Set new bucket head to the current element's index
 				}
 			
 			nexts = new_next; // Replace old 'next' array with the new one
 			keys  = new_keys; // Replace old 'keys' array with the new one
 		}
 		
-		/**
-		 * Copies elements from old arrays to the newly initialized arrays during resizing or trimming.
-		 * Re-hashes and re-buckets the elements into the new hash table.
-		 *
-		 * @param old_next  the old 'next' pointers array
-		 * @param old_keys  the old keys array
-		 * @param old_count the number of elements in the old arrays
-		 */
-		private void copy( int[] old_next, int[] old_keys, int old_count ) {
-			int new_count = 0;
-			for( int i = 0; i < old_count; i++ ) {
-				if( old_next[ i ] < -1 ) continue; // Skip free slots
-				keys[ new_count ] = old_keys[ i ]; // Copy the key
-				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) ); // Re-calculate bucket index in the new capacity
-				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 ); // Update 'next' pointer to the old bucket head (in new buckets)
-				_buckets[ bucketIndex ] = ( new_count + 1 ); // Set new bucket head to the current element's index
-				new_count++; // Increment new count
-			}
-			_count     = new_count; // Update count to the number of copied elements
-			_freeCount = 0; // Reset free count as we are starting fresh in new arrays
-		}
-		
+		@Override public RW clone() { return ( RW ) super.clone(); }
 	}
 }

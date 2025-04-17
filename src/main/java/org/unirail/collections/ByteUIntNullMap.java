@@ -191,7 +191,7 @@ public interface ByteUIntNullMap {
 		 */
 		public long tokenOfValue(  Long      value ) {
 			if( value == null ) {
-				if( hasNullKey && !nullKeyHasValue ) return token_nullKey();
+				if( hasNullKey && !nullKeyHasValue ) return token( KEY_MASK );
 				for( int t = -1; ( t = unsafe_token( t ) ) != -1; ) if( !nulls.get_( ( byte ) ( t & KEY_MASK ) ) ) return t;
 				return -1;
 			}
@@ -208,7 +208,7 @@ public interface ByteUIntNullMap {
 		 * The token can represent the null key or a byte key.
 		 */
 		public long tokenOfValue( long value ) {
-			if( hasNullKey && nullKeyHasValue && nullKeyValue == value ) return token_nullKey();
+			if( hasNullKey && nullKeyHasValue && nullKeyValue == value ) return token( KEY_MASK );
 			for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
 				if( nulls.get_( ( byte ) ( t & KEY_MASK ) ) && values[ t >>> KEY_LEN ] == value ) return t;
 			return -1;

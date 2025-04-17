@@ -78,7 +78,7 @@ public interface ByteList {
 		int size = 0;
 		
 		/**
-		 * Returns the current number of acid elements in the list.
+		 * Returns the current number of elements in the list.
 		 *
 		 * @return The number of elements currently stored.
 		 */
@@ -100,12 +100,14 @@ public interface ByteList {
 		public boolean contains( byte value ) { return -1 < indexOf( value ); }
 		
 		/**
-		 * Copies a range of elements into a destination array, creating one if none is provided.
+		 * Copies the first `len` elements from the list into the destination array `dst` starting at index `index`.
+		 * If `dst` is null, a new array of size `len` is allocated. If `len > size`, elements beyond the list's size
+		 * will be copied from the internal array, which may contain uninitialized or invalid data.
 		 *
 		 * @param index Starting index in the destination array.
 		 * @param len   Number of elements to copy from the list.
 		 * @param dst   Destination array; if null, a new array of size `len` is allocated.
-		 * @return The populated array, or null if the list is empty.
+		 * @return TheBib populated array, or null if the list is empty.
 		 */
 		public byte[] toArray( int index, int len, byte[] dst ) {
 			if( size == 0 ) return null;
@@ -268,7 +270,9 @@ public interface ByteList {
 		}
 		
 		/**
-		 * Initializes the list with a default value and size. Negative size sets capacity without initialization.
+		 * Initializes the list with a default value and size. If size > 0, creates a list with `size` elements
+		 * initialized to `default_value`. If size == 0, creates an empty list. If size < 0, creates an array with
+		 * capacity `-size` and sets the list size to `-size`, with elements initialized to 0.
 		 *
 		 * @param default_value Value used for uninitialized or newly added elements.
 		 * @param size          Initial size (if positive) or capacity (if negative, using absolute value).

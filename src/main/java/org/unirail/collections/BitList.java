@@ -385,7 +385,11 @@ public interface BitList {
 			if( size() == 0 || size() <= bit ) return -1;
 			
 			if( bit < 0 ) bit = 0;
-			if( last1() < bit ) return bit;
+			if( last1() <= bit )
+				return
+						bit < size - 1 ?
+								bit :
+								-1;
 			
 			if( bit < trailingOnesCount ) return trailingOnesCount == size ?
 					-1 :
@@ -458,19 +462,16 @@ public interface BitList {
 			
 			// Handle invalid or out-of-bounds cases
 			if( bit < 0 ) return -1; // Nothing before 0
-			if( size() <= bit ) bit = size() - 1; // Adjust to last valid bit
+			if( last1() < bit ) return bit; // If beyond used values, all trailing bits are '0', check up to used
 			
 			// If within trailing ones (all '1's), no '0' exists before
 			if( bit < trailingOnesCount ) return -1; // All bits up to trailingOnesCount-1 are '1'
 			
 			// Adjust position relative to end of trailing ones
-			int bitOffset = bit - trailingOnesCount;
-			int index     = bitOffset >> LEN; // Index in values array
+			int bitInValues = bit - trailingOnesCount;
+			int index       = bitInValues >> LEN; // Index in values array
 			
-			// If beyond used values, all trailing bits are '0', check up to used
-			if( last1() < bit ) return bit; // Bits beyond used are '0'
-			
-			long value = ~values[ index ] & mask( ( bitOffset & MASK ) + 1 ); // Invert to find '0's up to pos
+			long value = ~values[ index ] & mask( ( bitInValues & MASK ) + 1 ); // Invert to find '0's up to pos
 			
 			if( value != 0 ) return trailingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 			
@@ -771,6 +772,108 @@ public interface BitList {
 			return 0;
 		}
 		
+		public long get_( int bit ) {
+			// Case 1: The entire 64-bit word falls within the trailing ones region.
+			if( bit + BITS <= trailingOnesCount )
+				return -1L; // All ones
+			
+			// Case 2: The entire 64-bit word falls after the explicitly stored bits (in the
+			// implicit trailing zeros region).
+			// The conceptual start of implicit zeros is trailingOnesCount + (used << LEN).
+			if( trailingOnesCount + last1() < bit )
+				return 0L; // All zeros
+			
+			// --- Cases involving overlap or falling within the 'values' array ---
+			long ret          = 0L;
+			int  bits_fetched = 0;
+			
+			// Part 1: Fetch bits overlapping with trailing ones (if any)
+			if( bit < trailingOnesCount ) {
+				int ones_count = Math.min( BITS, trailingOnesCount - bit ); // Num ones in this word
+				if( 0 < ones_count ) { // Avoid mask with 0 or negative count
+					ret          = mask( ones_count ); // Lower bits are 1s
+					bits_fetched = ones_count;
+				}
+				if( bits_fetched == BITS )
+					return ret; // Fetched a full word of 1s
+			}
+			
+			// Part 2: Fetch bits from the 'values' array
+			// Calculate the starting bit position *relative* to the 'values' array.
+			// This is the bit corresponding to absolute index `bit + bits_fetched`.
+			long val_rel_bit_start = bit + bits_fetched - trailingOnesCount;
+			// Adjust if calculation resulted in a negative index (shouldn't happen if logic
+			// is correct, but safety)
+			if( val_rel_bit_start < 0 )
+				val_rel_bit_start = 0;
+			
+			int val_idx = ( int ) ( val_rel_bit_start >> LEN ); // Index in values array
+			int val_off = ( int ) ( val_rel_bit_start & MASK ); // Offset within values[val_idx]
+			
+			// Fetch remaining bits needed (BITS - bits_fetched)
+			int bits_needed = BITS - bits_fetched;
+			if( val_idx < used ) {
+				// Get bits from the first relevant word in values
+				long chunk1 = values[ val_idx ] >>> val_off;
+				
+				// If the needed bits span across two words in values
+				// Combine with bits from the next word
+				if( val_off != 0 && val_idx + 1 < used )
+					chunk1 |= values[ val_idx + 1 ] << BITS - val_off;
+				
+				// Mask chunk1 to take only the bits actually needed for the result word
+				// Avoid masking if we need all 64 bits from chunk1
+				if( bits_needed < BITS )
+					chunk1 &= mask( bits_needed );
+				
+				// Combine with the bits already fetched (from trailingOnesCount)
+				ret |= chunk1 << bits_fetched;
+			}
+			// If bits_needed > 0 but val_idx >= used, the remaining bits are implicit
+			// zeros,
+			// so no further action is needed as 'word' already has zeros there.
+			
+			return ret;
+		}
+		
+		/**
+		 * Find the index of the first bit where two BitLists differ
+		 *
+		 * @param other First BitList.
+		 * @return The index of the first differing bit, or min(other.size, r2.size) if
+		 * they are identical up to the shorter length.
+		 */
+		public int findFirstDifference( R other ) {
+			int checkLimit = Math.min( other.size(), size() );
+			int toc1       = other.trailingOnesCount;
+			int toc2       = trailingOnesCount;
+			int commonTOC  = Math.min( toc1, toc2 );
+			
+			// 1. Check if they differ within the shorter trailingOnesCount range
+			if( toc1 != toc2 )
+				return commonTOC; // First difference is where one runs out of 1s
+			// If commonTOC > 0 and toc1 == toc2, they are identical up to commonTOC
+			
+			// 2. Check word by word after the common TOC
+			int bit = commonTOC;
+			while( bit < checkLimit ) {
+				long word1 = other.get_( bit );
+				long word2 = get_( bit );
+				if( word1 != word2 ) {
+					int diffOffset = Long.numberOfTrailingZeros( word1 ^ word2 );
+					int diffBit    = bit + diffOffset;
+					return Math.min( diffBit, checkLimit ); // Return the difference capped by size
+				}
+				// Avoid overflow on adding BITS
+				if( bit > checkLimit - BITS )
+					bit = checkLimit; // Processed the last partial word
+				else
+					bit += BITS;
+			}
+			
+			return checkLimit; // No difference found up to checkLimit
+		}
+		
 	}
 	
 	/**
@@ -803,7 +906,6 @@ public interface BitList {
 		 * @param default_value The boolean value to initialize all bits to
 		 *                      ({@code true} for '1', {@code false} for '0').
 		 * @param size          The initial number of bits in the list. Must be non-negative.
-		 * @throws IllegalArgumentException if size is negative.
 		 */
 		public RW( boolean default_value, int size ) {
 			if( 0 < size )
@@ -811,6 +913,963 @@ public interface BitList {
 					trailingOnesCount = this.size = size; // All bits are 1, stored efficiently as trailing ones
 				else
 					this.size = size;
+		}
+		
+		/**
+		 * Performs a bitwise AND operation between this {@code BitList} and another
+		 * read-only {@code BitList}.
+		 * The result is stored in this {@code BitList}, modifying it in place.
+		 *
+		 * @param and The other {@code BitList} to perform AND with.
+		 * @return This {@code RW} instance after the AND operation.
+		 */
+		public RW and( R and ) {
+			// --- 1. Handle Trivial Cases ---
+			// If either BitList is null or effectively empty (size 0), the result of the
+			// AND is empty.
+			// Clear this BitList and return.
+			if( and == null || and.size() == 0 || this.size == 0 ) {
+				clear(); // Result of AND with empty set is empty set.
+				return this;
+			}
+			// Optimization: If 'this' BitList is entirely contained within the trailing
+			// ones region of 'and',
+			// then 'this AND and' is simply 'this'. No modification is needed.
+			// Example: this = [1,1], and = [1,1,1,0]. this.size (2) <= and.toc (3). Result
+			// is [1,1].
+			if( size <= and.trailingOnesCount )
+				return this;
+			
+			// Optimization: If the 'and' BitList has no explicitly stored bits (`and.used()
+			// == 0`),
+			// it means 'and' consists solely of implicit trailing ones up to
+			// `and.trailingOnesCount`,
+			// followed by implicit zeros up to `and.size()`.
+			// In this case, for the AND operation:
+			// - Bits in `this` from index 0 up to `and.trailingOnesCount - 1` are ANDed
+			// with '1's, so they remain unchanged.
+			// - Bits in `this` from index `and.trailingOnesCount` onwards are ANDed with
+			// '0's (implicit zeros of 'and'), so they must become '0'.
+			// The `set0(from, to)` method clears bits in the specified range.
+			if( and.used() == 0 ) {
+				set0( and.trailingOnesCount, size() );// Truncate 'this' to the resulting minimum size.
+				return this;
+			}
+			
+			// --- 2. Calculate Result Dimensions ---
+			// The result's trailing ones can only exist where *both* operands had trailing
+			// ones.
+			final int min_toc = Math.min( this.trailingOnesCount, and.trailingOnesCount );
+			// The result's size is limited by the shorter of the two operands.
+			final int min_size = Math.min( this.size, and.size() );
+			
+			// --- 3. Optimization: Result is entirely trailing ones ---
+			// If the effective size of the result is completely covered by the new trailing
+			// ones count,
+			// then no explicit bits need to be stored in the 'values' array.
+			if( min_size <= min_toc ) {
+				// Clear any existing data in the values array.
+				if( 0 < used() )
+					Arrays.fill( this.values, 0, this.used(), 0L ); // Use used() for safety
+				// Update the state of 'this' to reflect the result.
+				this.trailingOnesCount = min_size; // TOC is the full size
+				this.size              = min_size;
+				this.used              = 0; // No explicit bits are used.
+				return this;
+			}
+			// --- 4. Adjust Size and Prepare for Main Logic ---
+			// If the final size (min_size) is smaller than the current size of 'this',
+			// truncate 'this' to min_size. This effectively sets bits beyond min_size to 0.
+			if( min_size < size() )
+				size( min_size );
+			
+			// --- 5. Handle Discrepancies in TrailingOnesCount ---
+			// This section attempts to align the 'values' array of 'this' conceptually
+			// to start right after the final min_toc, before performing the word-wise AND.
+			
+			int bit = min_toc; // 'bit' tracks the absolute bit index being processed, starts after common TOC.
+			int i   = 0; // 'i' tracks the index within the 'this.values' array (destination).
+			
+			// Case 5a: 'this' originally had more trailing ones than the final 'min_toc'.
+			// The bits in 'this' between `and.trailingOnesCount` (which equals `min_toc`
+			// here)
+			// and the original `this.trailingOnesCount` were '1's.
+			// In the 'and' list, bits in this range are effectively '0' (either explicitly
+			// or implicitly).
+			// So, `1 AND 0` results in '0'. These bits in 'this' must become '0'.
+			if( and.trailingOnesCount < trailingOnesCount ) { // Equivalent to: min_toc < this.trailingOnesCount
+				// This sets the bit at 'and.trailingOnesCount' (which is the first bit *after*
+				// min_toc) to '0'.
+				// Crucially, the set0(bit) method, when called with a bit less than the current
+				// trailingOnesCount, restructures the BitList. It reduces
+				// `this.trailingOnesCount`
+				// to `and.trailingOnesCount` and shifts the content of the `values` array,
+				// potentially allocating a new array.
+				// This is a potentially very expensive operation involving array
+				// copying/shifting.
+				set0( and.trailingOnesCount ); // This modifies this.trailingOnesCount, this.values, this.used.
+				// After this call, this.trailingOnesCount should now equal min_toc.
+				// The loop variables 'i' and 'bit' remain 0 and min_toc, respectively, which is
+				// correct
+				// for starting the subsequent loop right after the new (reduced) TOC.
+			}
+			// Case 5b: if 'and' had more trailing ones than 'this' (i.e., min_toc <
+			// and.trailingOnesCount).
+			// The bits at start of 'this.values' on length `and.trailingOnesCount` -
+			// `this.trailingOnesCount` are not changed.
+			
+			else if( trailingOnesCount < and.trailingOnesCount && ( trailingOnesCount & MASK ) != 0 ) { // Alignment needed
+				// if 'this'
+				// starts
+				// mid-word and
+				// 'and' has
+				// more TOC.
+				
+				if( used() == 0 )
+					// If no explicit bits in 'this', and 'this' ends before 'and's TOC, the AND
+					// operation keeps 'this' as is up to its size. Size already adjusted.
+					return this;
+				
+				// Calculate the difference in trailing ones counts. This is the number of bits
+				// at the beginning of `this.values` that correspond to implicit '1's in `and`.
+				
+				int dif = and.trailingOnesCount - trailingOnesCount; // Number of bits where 'this' is 0 and 'and' is 1.
+				
+				// Calculate the index and position within this.values corresponding to the end
+				// of this range.
+				int index = dif >> LEN; // Word index in this.values
+				int pos   = dif & MASK; // Bit position within that word
+				
+				// <111111--- and.trailingOnesCount ----111><and.values[0]>< and.values[1]>...
+				// | ^ |
+				// pos & |
+				// | v |
+				// dif | |
+				// <- trailingOnesCount -><values[0]>....<values[index]>...>
+				// not changed part | | |
+				// align till here | end of values[index]
+				
+				// Mask for lower bits up to 'pos' (exclusive of pos, i.e., bits 0 to pos-1).
+				long mask = mask( pos ); // Mask to keep bits that are ANDed with implicit 1s.
+				long v    = values[ index ]; // Get the value from 'this.values' at the boundary index.
+				
+				// Perform the partial AND operation on this boundary word `values[index]`.
+				// `v & mask`: Preserves the lower `pos` bits of `v`. These bits are ANDed with
+				// '1's from `and`, so they remain unchanged.
+				// `v & (and.values[0] << pos)`: Handles the upper `64-pos` bits of `v`.
+				// - `and.values[0] << pos`: Takes the first word of `and`'s explicit bits and
+				// shifts it left by `pos`.
+				// This aligns the beginning of `and.values[0]` with the `pos`-th bit of `v`.
+				// - `v & (...)`: Performs the AND operation between the original upper bits of
+				// `v` and the aligned lower bits of `and.values[0]`.
+				// The result combines the preserved lower bits and the ANDed upper bits.
+				
+				values[ index ] = v & mask | v & and.values[ 0 ] << pos;
+				
+				// Update the loop counters to start the main word-wise loop from the *next*
+				// word.
+				i = index + 1; // Start `this.values` index from the next word.
+				// Recalculate the absolute starting bit for the next iteration. It corresponds
+				// to the start of `this.values[i]`.
+				// The absolute position is the end of the common TOC (`trailingOnesCount` =
+				// `min_toc`) plus the offset based on the word index `i`.
+				bit = trailingOnesCount + ( i << LEN ); // `trailingOnesCount` here is `min_toc`.
+			}
+			
+			// --- 6. Perform Word-Level AND for Remaining Bits ---
+			
+			for( ; bit < min_size && i < used(); i++, bit += BITS ) // Loop until the absolute bit index reaches the
+				// final size.
+				
+				// Perform the AND operation for the current 64-bit chunk.
+				// `and.get_(bit)`: Fetches 64 bits from the `and` list starting at absolute
+				// index `bit`.
+				// This correctly handles `and`'s internal structure (TOC + values + implicit
+				// zeros).
+				// `values[i] &= ...`: ANDs the fetched chunk from `and` with the corresponding
+				// word in `this.values`
+				// and stores the result back into `this.values[i]`.
+				 values[ i ] &= and.get_( bit );
+			
+			// --- 7. Final State Update ---
+			// After the loop, `this.values` holds the result of the AND operation for the
+			// explicit bits.
+			// The `trailingOnesCount` and `size` fields were already set correctly earlier.
+			// The `used` count might now be inaccurate if the AND operation zeroed out
+			// higher-order words
+			// that were previously in use. Mark `used` as dirty to force recalculation on
+			// the next `used()` call.
+			this.used |= IO; // Mark used count as potentially invalid (needs recalculation).
+			
+			return this; // Return this instance for method chaining.
+		}
+		
+		public RW or( R or ) {
+			// --- 1. Handle Trivial Cases ---
+			if( or == null || or.size() == 0 || or.isAllZeros() )
+				return this;
+			
+			if( isAllZeros() ) { /* copy 'or' state */
+				size              = or.size;
+				trailingOnesCount = or.trailingOnesCount;
+				if( 0 < or.used() )
+					if( values == null || values.length < or.used )
+						values = or.values.clone();
+					else
+						System.arraycopy( or.values, 0, values, 0, or.used() );
+				
+				this.used = or.used;
+				return this;
+			}
+			
+			final int max_size = Math.max( this.size, or.size() );// The size of the result is the maximum of the sizes of
+			// the two operands.
+			// Calculate a *candidate* for the resulting trailingOnesCount (TOC).
+			// The result MUST have at least as many trailing ones as the maximum of the
+			// input TOCs.
+			// This is because if either operand has a '1' at a position < max(toc1, toc2),
+			// the result will have a '1'.
+			int max_toc = Math.max( trailingOnesCount, or.trailingOnesCount );
+			
+			// If neither list uses its 'values' array (i.e., they consist entirely of
+			// implicit ones),
+			// the OR result is also entirely implicit ones, up to the maximum TOC.
+			if( used() == 0 && or.used() == 0 ) {
+				trailingOnesCount = max_toc;// The resulting TOC is simply the larger of the two original TOCs.
+				size              = max_size;// The resulting size is the larger of the two original sizes.
+				return this;
+			}
+			int last1 = last1();
+a:
+			for( int i = next0( max_toc ), ii = or.next0( max_toc ); ; ) {
+				while( i < ii ) {
+					if( i == -1 ) {
+						max_toc = last1 + 1;
+						break a;
+					}
+					
+					i = next0( i + 1 );
+				}
+				while( ii < i ) {
+					if( ii == -1 ) {
+						max_toc = or.last1() + 1;
+						break a;
+					}
+					ii = or.next0( ii + 1 );
+				}
+				
+				if( i == ii ) {
+					max_toc = i == -1 ?
+							Math.max( last1, or.last1() ) + 1 :
+							i;
+					;
+					break;
+				}
+			}
+			
+			// --- 3. Handle All-Ones Case ---
+			// If the first common zero is at or after the result size, the result is all
+			// ones.
+			if( max_size <= max_toc ) {
+				if( 0 < this.used() )
+					Arrays.fill( this.values, 0, this.used(), 0L );
+				this.trailingOnesCount = max_size; // All ones up to size
+				this.size              = max_size;
+				this.used              = 0;
+				return this;
+			}
+			
+			int bit = trailingOnesCount;// tracks the absolute bit index corresponding to the start of the current word
+			// in `this.values`. Initialize with original TOC.
+			
+			if( trailingOnesCount < max_toc ) // max_toc can only be bigger !
+			{
+				// If the true `max_toc` is greater than the original `trailingOnesCount` of
+				// `this`,
+				// it means the result has more leading implicit '1's than 'this' originally
+				// did.
+				// The existing explicit bits in `this.values` must be shifted right
+				// conceptually
+				// to make space for these newly gained implicit '1's.
+				
+				int max = last1 + 1 - trailingOnesCount;
+				shiftRight( values, values, 0, max, max_toc - trailingOnesCount, true );
+				bit = trailingOnesCount = max_toc;
+				used |= IO;
+			}
+			
+			for( int i = 0; bit < max_size && i < used(); i++, bit += BITS )
+			     values[ i ] |= or.get_( bit );
+			
+			this.size = max_size;
+			
+			return this;
+		}
+		
+		/**
+		 * Performs a bitwise XOR operation between this {@code BitList} and another
+		 * read-only {@code BitList} (`xor`).
+		 * The result is stored in this {@code BitList}, modifying it in place.
+		 * The size of the resulting BitList will be the maximum of the sizes of the two
+		 * operands.
+		 * The trailing ones count and the explicit bit values are updated based on the
+		 * XOR operation.
+		 * <p>
+		 * Formula: this = this XOR xor
+		 * <p>
+		 * Truth Table for XOR:
+		 * A | B | A XOR B
+		 * --|---|--------
+		 * 0 | 0 | 0
+		 * 0 | 1 | 1
+		 * 1 | 0 | 1
+		 * 1 | 1 | 0
+		 *
+		 * @param xor The other {@code R} (read-only) BitList to perform the XOR
+		 *            operation with.
+		 * @return This {@code RW} (read-write) instance after the XOR operation,
+		 * allowing for method chaining.
+		 */
+		public RW xor( R xor ) {
+			// --- 1. Handle Trivial Cases ---
+			
+			// Case 1.1: XOR with null or empty BitList.
+			// XORing with nothing or an empty set results in no change to 'this',
+			// except potentially needing to match the size if 'xor' was non-null but size
+			// 0.
+			// However, the size adjustment happens later. If xor is null or size 0, just
+			// return.
+			if( xor == null || xor.size() == 0 )
+				return this;
+			
+			if( this.isAllZeros() ) {
+				
+				// Case 1.2: 'this' BitList is currently all zeros.
+				// The result of `0 XOR xor` is simply `xor`.
+				// Therefore, copy the state (size, trailingOnesCount, values, used) from `xor`
+				// into `this`.
+				
+				// If this is empty, the result is a copy of xor.
+				this.size              = xor.size;
+				this.trailingOnesCount = xor.trailingOnesCount;
+				// Deep copy needed as 'values' might be shared or modified later in 'xor'.
+				if( 0 < xor.used() )
+					if( values.length < xor.used() )
+						values = xor.values.clone();
+					else
+						System.arraycopy( xor.values, 0, values, 0, xor.used() );
+				used = xor.used(); // Use used() to get potentially recalculated value
+				return this;
+			}
+			
+			// Case 1.3: The 'xor' BitList is all zeros.
+			// The result of `this XOR 0` is `this`.
+			// No change to bits is needed. Only the size might need adjustment if
+			// `xor.size` was larger.
+			if( xor.isAllZeros() ) {
+				// XOR with all zeros changes nothing except possibly size.
+				if( this.size < xor.size )
+					this.size = xor.size;
+				return this;
+			}
+			
+			// --- 2. Calculate Result Dimensions & Check for All-Zeros Result ---
+			final int max_size = Math.max( this.size, xor.size() );// The final size of the BitList after XOR is the
+			// maximum of the two operand sizes.
+			
+			int first_1 = findFirstDifference( xor );
+			
+			// If the first difference occurs at or after the maximum size required for the
+			// result,
+			// it means 'this' and 'xor' are identical up to `max_size`.
+			// Since `A XOR A = 0`, the result of the XOR operation up to `max_size` is all
+			// zeros.
+			if( max_size <= first_1 ) {
+				clear(); // Reset 'this' to an empty state (size=0, toc=0, used=0, values=O).
+				// Set the size of the all-zero result correctly.
+				this.size = max_size;
+				return this; // Result is all zeros.
+			}
+			
+			int min_size = Math.min( size(), xor.size() );
+			
+			// --- Calculate the new TrailingOnesCount (new_toc) for the result ---
+			// The result of `A XOR B` is '1' if `A != B`.
+			// The resulting `trailingOnesCount` (new_toc) will be the length of the initial
+			// segment
+			// where `this[k] != xor[k]` holds true for all `k` from 0 up to `new_toc - 1`.
+			// In other words, `new_toc` is the index of the *first* bit position where
+			// `this[k] == xor[k]`.
+			int new_toc = 0;
+			
+			// Loop while the current index `new_toc` is within the common range of both
+			// lists (`min_size`).
+			while( new_toc < min_size ) {
+				int next_0_in_this = next0( new_toc ); // Find the next '0' in 'this' at or after the current `new_toc`.
+				int next_1_in_xor  = xor.next1( new_toc );// Find the next '1' in 'xor' at or after the current `new_toc`.
+				// Check if the next '0' in 'this' coincides with the next '1' in 'xor'.
+				// If they match and are valid indices (`!= -1`), it means at this index `k`,
+				// we have `this=0` and `xor=1`, so the XOR result is '1'.
+				if( next_1_in_xor != next_0_in_this || next_1_in_xor == -1 )
+					break; // The pattern 0 XOR 1 = 1 is broken. new_toc holds the correct length.
+				
+				// If we reach here, `this[k]=0` and `xor[k]=1` (where k = next_0_in_this).
+				// The result bit is '1'. Update `new_toc` to `k + 1` to continue searching
+				// for the *next* occurrence of this pattern starting from the bit *after* k.
+				new_toc = next_1_in_xor + 1;// Update new_toc to search from the *next* bit position.
+			}
+			
+			int last1 = last1();
+			
+			// Edge case: If all original '1's fall within the new TOC, the explicit part is
+			// empty.
+			if( last1 < new_toc ) {
+				if( 0 < used() )
+					Arrays.fill( this.values, 0, used(), 0 );// Clear the values array as it should contain only zeros.
+				this.trailingOnesCount = new_toc;
+				this.size              = max_size;
+				this.used              = 0;
+				return this;
+			}
+			
+			int max_last1 = Math.max( last1, xor.last1() );// Highest '1' in either operand.
+			
+			// Calculate the number of longs needed for the result's explicit bits (`values`
+			// array).
+			// The explicit bits start conceptually *after* `new_toc`.
+			// The highest bit index relative to the start of `values` would be `max_last1 -
+			// new_toc`.
+			// We need `len4bits` based on the *count* of bits, which is `(max_last1 -
+			// new_toc) + 1`.
+			// Handle the case where `new_toc` might be greater than `max_last1`.
+			int new_values_len = len4bits( new_toc <= max_last1 ?
+					                               max_last1 - new_toc + 1 :
+					                               0 );
+			
+			// Initialize loop variables for iterating through words.
+			int i = 0; // Start writing to index 0 of the result's `values` array.
+			
+			/*
+			 * <p> remember !
+			 * . MSB LSB
+			 * . | |
+			 * bits in the list [0, 0, 0, 1, 1, 1, 1] Leading 3 zeros and trailing 4 ones
+			 * index in the list 6 5 4 3 2 1 0
+			 * shift left <<
+			 * shift right >>>
+			 *
+			 */
+			
+			// --- Handle structural changes due to TOC differences ---
+			
+			// Case 4.1: The new TOC (`new_toc`) is shorter than `this`'s original TOC.
+			// This implies that bits in `this` from `new_toc` up to `this.trailingOnesCount
+			// - 1` were originally '1'.
+			// For the result's TOC to end at `new_toc`, the `xor` operand must *also* have
+			// had '1's in this same range.
+			// Therefore, in this range, the operation is `1 XOR 1 = 0`.
+			// Additionally, the explicit bits originally stored in `this.values` need to be
+			// conceptually shifted left
+			// relative to the new, shorter TOC.
+			
+			if( new_toc < trailingOnesCount ) {
+				// Implication: Result has fewer initial implicit '1's than 'this' had.
+				// Bits in 'this' from `new_toc` to `original_this_toc - 1` were originally '1'.
+				// For the result's TOC to stop at `new_toc`, `xor` must also have had '1's in
+				// this range (1 XOR 1 = 0).
+				// Action:
+				// 1. Shift the explicit bits originally in `this.values` conceptually *left*
+				// relative to the new, shorter TOC.
+				// 2. Fill the vacated space (corresponding to `new_toc` to `original_this_toc -
+				// 1`) with the XOR result (which is `1 XOR xor = ~xor`).
+				
+				// Calculate the shift_bits distance required for the existing `values` data.
+				int shift_bits = trailingOnesCount - new_toc;// Calculate the amount by which `this.values` needs to be
+				// shifted left.
+				
+				// Call shiftLeft helper. Source is `this.values`, destination `dst` is either
+				// `this.values` (if resized) or a new array.
+				// The range `from_bit` to `to_bit` covers the original explicit bits (`0` to
+				// `original_this_last1 - original_this_toc + 1`).
+				// The `shift_bits` parameter moves these bits left relative to the start of the
+				// array.
+				// `clear=false`: The vacated bits on the right (low indices) are *not* cleared
+				// by `shiftLeft` itself,
+				// because they will be explicitly filled by the subsequent loop using
+				// `~xor.get_()`.
+				
+				values = shiftLeft( values, 0, last1 - trailingOnesCount + 1 + shift_bits, shift_bits, false );// IMPORTANT: will be filled with flipped bits
+				
+				
+				int index = shift_bits >>> LEN;
+				
+				// Fill the space created by the shift_bits (from relative index 0 up to `shift_bits`)
+				// with the XOR result for the absolute range `new_toc` to `original_this_toc -
+				// 1`.
+				// In this range, `this` was '1' and `xor` was also '1', so `this XOR xor` is
+				// `0`.
+				// The loop iterates using `i` over the destination `values` indices (0 to
+				// shift_bits/64)
+				// and `bit` over absolute bit indices (`new_toc` to `original_toc - 1`).
+				for( int bit = new_toc; i < index; i++, bit += BITS )
+					// Fetch 64 bits from `xor` starting at `bit`. We expect these to be all '1's.
+					// Invert them (`~`) to get all '0's. Store these '0's in `values[i]`.
+					// This correctly sets the result bits in this segment to 0.
+					// Note: If xor.get_() wasn't all 1s, new_toc would have been different.
+					 values[ i ] = ~xor.get_( bit );
+				
+				// Handle the boundary word at `index` (if `shift_bits` wasn't a multiple of 64).
+				int pos = shift_bits & MASK; // Position within the boundary word.
+				if( pos != 0 ) { //process on edge bits
+					long mask_lower = mask( pos ); // Mask for lower `pos` bits (range [new_toc, original_toc)).
+					long val        = values[ i ]; // Value already shifted into upper bits of index i.
+					long xor_val    = xor.get_( new_toc + ( i << LEN ) ); // Corresponding word from xor.
+					
+					// Calculate result for the boundary word:
+					// Lower `pos` bits: Calculate `1 XOR xor_val` which equals `NOT xor_val`.
+					// Upper `64-pos` bits: XOR the shifted original bits with corresponding xor bits.
+					values[ i ] =
+							~xor_val & mask_lower |   // Lower bits result = NOT xor_val (since original this was 1)
+							( val >>> pos ^ xor_val >>> pos ) << pos; // Upper bits result = val XOR xor_val
+					i++; // Move to the next word index for the main loop.
+				}
+			}
+			else if( trailingOnesCount < new_toc ) {// Case 4.2: The new TOC (`new_toc`) is longer than `this`'s
+				
+				// Calculate the shift_bits distance (number of bits to shift_bits right conceptually).
+				int shift_bits = new_toc - trailingOnesCount;
+				// Shift original explicit bits right by shift_dist.
+				// The source range covers the original explicit bits.
+				// Destination starts at relative index 0.
+				// `clear=true` ensures vacated higher-index bits (left side) are zeroed.
+				shiftRight( values, values, 0, last1 - trailingOnesCount + 1, shift_bits, true );
+			}
+			else if( values.length < new_values_len ) // Case 4.3: `trailingOnesCount == new_toc`. No structural shift  needed.
+				values = Arrays.copyOf( values, new_values_len );// Only resize the `values` array if needed.
+			
+			int bit = new_toc; // Start processing from the absolute bit index where the new_toc ends.
+			
+			trailingOnesCount = new_toc;// Update the trailingOnesCount of 'this'.
+			
+			// --- 5. Perform Word-Level XOR for Remaining Bits ---
+			// Iterate through the longs required for the result's explicit part (`new_values_len`).
+			// `i` tracks the index in `this.values` (starting potentially non-zero if Case 4.1 occurred).
+			// `bit` tracks the corresponding absolute bit index.
+			for( int max = len4bits( max_size ); i < max; i++, bit += BITS )
+			     this.values[ i ] ^= xor.get_( bit );
+			
+			
+			this.size = max_size; // Set final size
+			this.used |= IO;// need totally recount
+			
+			return this;
+		}
+		
+		/**
+		 * Performs a bitwise AND NOT operation:
+		 * {@code thisBitList AND NOT otherBitList}.
+		 * Clears bits in this {@code BitList} where the corresponding bit in the
+		 * {@code not} {@code BitList} is set.
+		 *
+		 * @param not The {@code BitList} to perform NOT and AND with.
+		 * @return This {@code RW} instance after the AND NOT operation.
+		 */
+		public RW andNot( R not ) {
+			// --- 1. Handle Trivial Cases ---
+			if( not == null || not.isAllZeros() || this.size == 0 )
+				return this; // ANDNOT with empty/all-zero set changes nothing in 'this'.
+			// If 'this' is empty, result is empty.
+			if( this.isAllZeros() )
+				return this;
+			
+			// --- 2. Calculate Result Dimensions ---
+			// Resulting trailing ones exist where 'this' has '1' and 'not' has '0'.
+			// This means they survive up to the point where 'not' has its first '1'.
+			int first_1_in_not = not.next1( 0 );
+			if( first_1_in_not == -1 )
+				first_1_in_not = not.size(); // Treat all-zeros 'not' as having '1' beyond its size
+			final int res_toc = Math.min( this.trailingOnesCount, first_1_in_not );
+			// The logical size is determined by 'this'. Bits in 'this' beyond 'not.size()'
+			// are ANDed with ~0 (i.e., 1), so they survive.
+			final int res_size = this.size; // Keep original size
+			
+			// --- 3. Optimization: Result is entirely trailing ones ---
+			// This happens if res_toc covers the whole res_size.
+			if( res_size <= res_toc ) {
+				if( this.used() > 0 ) Arrays.fill( this.values, 0, this.used(), 0L );
+				this.trailingOnesCount = res_size;
+				this.size              = res_size;
+				this.used              = 0;
+				
+				return this;
+			}
+			
+			// --- 4. Calculate Dimensions for the Result's 'values' Part ---
+			final int bits_in_result_values = res_size - res_toc;
+			if( bits_in_result_values <= 0 ) { // Safety check
+				if( this.used() > 0 )
+					Arrays.fill( this.values, 0, this.used(), 0L );
+				this.trailingOnesCount = res_toc; // Use res_toc, not res_size here
+				this.size              = res_size;
+				this.used              = 0;
+				
+				return this;
+			}
+			final int result_values_len = len4bits( bits_in_result_values );
+			
+			// --- 5. Determine Destination Array: Reuse 'this.values' or Allocate New ---
+			final long[]  result_values;
+			final boolean in_place;
+			int           original_used_cached = -1; // Cache original used count if in_place
+			
+			// In-place is possible if res_toc matches this.toc AND capacity is sufficient.
+			if( this.trailingOnesCount == res_toc && this.values.length >= result_values_len ) {
+				original_used_cached = this.used(); // Cache before potential modification
+				result_values        = this.values;
+				in_place             = true;
+			}
+			else {
+				result_values = new long[ result_values_len ];
+				in_place      = false;
+			}
+			
+			// --- 6. Perform Word-Level AND NOT Operation using get_() ---
+			for( int i = 0; i < result_values_len; i++ ) {
+				int  current_abs_bit_start = res_toc + ( i << LEN );
+				long this_word             = this.get_( current_abs_bit_start );
+				// Optimization: if this_word is 0, the result is 0, skip fetching not_word
+				if( this_word == 0L ) {
+					result_values[ i ] = 0L;
+					continue;
+				}
+				long not_word = not.get_( current_abs_bit_start );
+				
+				result_values[ i ] = this_word & ~not_word;
+			}
+			
+			// --- 7. Clean Up If Modified In-Place ---
+			// If the result uses fewer longs than originally, clear the trailing ones.
+			if( in_place )
+				if( result_values_len < original_used_cached )
+					Arrays.fill( this.values, result_values_len, original_used_cached, 0L );
+			
+			// --- 8. Update the State of 'this' BitList ---
+			this.trailingOnesCount = res_toc;
+			this.size              = res_size;
+			this.values            = result_values;
+			this.used              = result_values_len | IO; // Mark used dirty
+			
+			return this;
+		}
+		
+		/**
+		 * Checks if this {@code BitList} intersects with another {@code BitList} (i.e.,
+		 * if there is at least one bit position where both are '1').
+		 *
+		 * @param other The other {@code BitList} to check for intersection.
+		 * @return {@code true} if there is an intersection, {@code false} otherwise.
+		 */
+		public boolean intersects( R other ) {
+			// Trivial cases: cannot intersect with null or if either list is empty
+			if( other == null || this.size == 0 || other.size == 0 )
+				return false;
+			
+			// Determine the maximum bit index to check (up to the end of the shorter list)
+			int checkLimit = Math.min( this.size, other.size() );
+			
+			// --- Fast structural checks first ---
+			
+			// 1. Check overlap in the shared trailing ones region: [0, min(this.toc,
+			// other.toc))
+			// If both lists have trailing ones, they intersect immediately in this common
+			// range.
+			int commonTOC = Math.min( this.trailingOnesCount, other.trailingOnesCount );
+			if( commonTOC > 0 )
+				return true; // Intersection guaranteed in the range [0, commonTOC)
+			// At this point, we know that at least one of the lists has trailingOnesCount =
+			// 0,
+			// otherwise, commonTOC would be > 0 and we would have returned true.
+			
+			// 2. Check overlap between this.trailingOnes and other.values
+			// This checks the absolute bit range [commonTOC, min(checkLimit, this.toc))
+			// If this list has trailing ones extending beyond the common range...
+			// Start checking from end of common TOC (or 0 if none)
+			int range1End = Math.min( checkLimit, this.trailingOnesCount ); // End at limit or end of this's TOC
+			if( commonTOC < range1End ) {
+				// ...we need to see if 'other' has any '1's stored in its 'values' array
+				// within this absolute bit range.
+				// We can efficiently check this by finding the next '1' in 'other' starting
+				// from range1Start.
+				int next1InOther = other.next1( commonTOC );
+				// If a '1' exists in 'other' within this range where 'this' has implicit
+				// '1's...
+				if( next1InOther != -1 && next1InOther < range1End )
+					return true; // ...then they intersect.
+			}
+			
+			// 3. Check overlap between other.trailingOnes and this.values (Symmetric to
+			// check 2)
+			// This checks the absolute bit range [commonTOC, min(checkLimit, other.toc))
+			// If the other list has trailing ones extending beyond the common range...
+			int range2End = Math.min( checkLimit, other.trailingOnesCount );
+			if( commonTOC < range2End ) {
+				// ...we need to see if 'this' has any '1's stored in its 'values' array
+				// within this absolute bit range.
+				int next1InThis = this.next1( commonTOC );
+				// If a '1' exists in 'this' within this range where 'other' has implicit
+				// '1's...
+				if( next1InThis != -1 && next1InThis < range2End )
+					return true; // ...then they intersect.
+			}
+			
+			// --- Check the region where both *might* have explicit bits in 'values' ---
+			// This region starts where the *longer* trailingOnesCount ends (or from bit 0
+			// if both TOC=0).
+			int valuesCheckStart = Math.max( this.trailingOnesCount, other.trailingOnesCount );
+			
+			// We only need to check from valuesCheckStart up to checkLimit.
+			// Use word-level checks for efficiency.
+			
+			// Calculate the starting bit offset relative to the beginning of each 'values'
+			// array.
+			// Ensure the offset is non-negative.
+			int thisRelBitStart  = Math.max( 0, valuesCheckStart - this.trailingOnesCount );
+			int otherRelBitStart = Math.max( 0, valuesCheckStart - other.trailingOnesCount );
+			
+			// Calculate the starting word index for each 'values' array.
+			int thisWordStartIndex  = thisRelBitStart >> LEN;
+			int otherWordStartIndex = otherRelBitStart >> LEN;
+			
+			// Calculate the ending bit index (inclusive) to check relative to each 'values'
+			// array start.
+			int endBitInclusive = checkLimit - 1;
+			int thisRelBitEnd   = endBitInclusive - this.trailingOnesCount;
+			int otherRelBitEnd  = endBitInclusive - other.trailingOnesCount;
+			
+			// Determine the highest word index we need to potentially check in each
+			// 'values' array.
+			// This depends on the relative end bit and the actual used words.
+			int thisUsed  = this.used(); // Cache used() result
+			int otherUsed = other.used();
+			int thisWordEndIndex = thisRelBitEnd < 0 ?
+					-1 :
+					Math.min( thisUsed - 1, thisRelBitEnd >> LEN );
+			int otherWordEndIndex = otherRelBitEnd < 0 ?
+					-1 :
+					Math.min( otherUsed - 1, otherRelBitEnd >> LEN );
+			
+			// The loop needs to cover all word indices relevant to *both* lists within the
+			// check range.
+			int loopStartIndex = Math.max( thisWordStartIndex, otherWordStartIndex );
+			int loopEndIndex   = Math.max( thisWordEndIndex, otherWordEndIndex ); // Iterate up to the highest relevant
+			// index
+			
+			// Iterate through the relevant words where both lists might have explicit bits.
+			for( int wordIndex = loopStartIndex; wordIndex <= loopEndIndex; wordIndex++ ) {
+				
+				// Get the word value from 'this', default to 0 if outside its relevant range or
+				// used words.
+				long thisWord = wordIndex >= thisWordStartIndex && wordIndex <= thisWordEndIndex
+						?
+						this.values[ wordIndex ]
+						:
+						0L;
+				
+				// Get the word value from 'other', default to 0 if outside its relevant range
+				// or used words.
+				long otherWord = wordIndex >= otherWordStartIndex && wordIndex <= otherWordEndIndex
+						?
+						other.values[ wordIndex ]
+						:
+						0L;
+				
+				// If both words are 0, they can't intersect in this word.
+				if( thisWord == 0L && otherWord == 0L )
+					continue;
+				
+				// Create masks to isolate the bits *within this word* that fall into the
+				// absolute check range [valuesCheckStart, checkLimit).
+				
+				long commonMask = -1L; // Start with all bits relevant
+				
+				// Mask off bits *below* valuesCheckStart if this word overlaps the start
+				// boundary.
+				int wordAbsStartBit = this.trailingOnesCount + ( wordIndex << LEN ); // Approx absolute start
+				// Determine which word starts first (relative to absolute bits)
+				// other.values starts earlier
+				if( wordAbsStartBit < valuesCheckStart )
+					if( this.trailingOnesCount <= other.trailingOnesCount ) { // this.values starts earlier or same
+						if( wordIndex == thisWordStartIndex )
+							commonMask &= -1L << ( thisRelBitStart & MASK );
+					}
+					else if( wordIndex == otherWordStartIndex )
+						commonMask &= -1L << ( otherRelBitStart & MASK );
+				
+				// Mask off bits *at or above* checkLimit if this word overlaps the end
+				// boundary.
+				int wordAbsEndBit = wordAbsStartBit + BITS; // Approx absolute end (exclusive)
+				// Determine which word ends later (relative to absolute bits)
+				// other.values ends later
+				if( wordAbsEndBit > checkLimit )
+					if( this.trailingOnesCount >= other.trailingOnesCount ) { // this.values ends later or same
+						if( wordIndex == thisWordEndIndex )
+							commonMask &= mask( ( thisRelBitEnd & MASK ) + 1 );
+					}
+					else if( wordIndex == otherWordEndIndex )
+						commonMask &= mask( ( otherRelBitEnd & MASK ) + 1 );
+				
+				// Check for intersection within the masked portion of the words.
+				if( ( thisWord & otherWord & commonMask ) != 0 )
+					return true; // Intersection found in the 'values' arrays.
+			}
+			
+			// No intersection found after all checks
+			return false;
+		}
+		
+		/**
+		 * Flips the bit at the specified position. If the bit is '0', it becomes '1',
+		 * and vice versa.
+		 *
+		 * @param bit The bit position to flip (0-indexed).
+		 * @return This {@code RW} instance after flipping the bit.
+		 */
+		public RW flip( int bit ) {
+			if( bit < 0 || size <= bit ) return this;
+			return get( bit ) ?
+					set0( bit ) :
+					set1( bit );
+		}
+		
+		
+		/**
+		 * Flips a range of bits from {@code from_bit} (inclusive) to {@code to_bit}
+		 * (exclusive).
+		 * For each bit in the range, if it's '0', it becomes '1', and if it's '1', it
+		 * becomes '0'.
+		 * This implementation performs the flip in-place, efficiently handling
+		 * interactions with {@code trailingOnesCount} and the explicit bits stored
+		 * in the {@code values} array without creating temporary BitList objects.
+		 *
+		 * @param from_bit The starting bit position of the range to flip (inclusive,
+		 *                 0-indexed).
+		 * @param to_bit   The ending bit position of the range to flip (exclusive,
+		 *                 0-indexed).
+		 * @return This {@code RW} instance after flipping the bits in the specified
+		 * range.
+		 */
+		public RW flip( int from_bit, int to_bit ) {
+			
+			// 1. Validate and normalize inputs
+			if( from_bit < 0 ) from_bit = 0;
+			if( to_bit <= from_bit ) return this; // Empty or invalid range, no change needed
+			
+			int last1 = last1();
+			
+			if( from_bit == trailingOnesCount ) {
+				if( used() == 0 ) {
+					trailingOnesCount = to_bit;
+					size              = Math.max( size, to_bit );
+					return this;
+				}
+				int shift_bits = 0;
+				for( int i = 0; ; i++ ) {
+					long v = values[ i ];
+					if( v == 0 ) {
+						values[ i ] = -1;
+						shift_bits += 64;
+					}
+					else {
+						shift_bits += Long.numberOfTrailingZeros( v );
+						
+						int len = len4bits( Math.max( last1 - trailingOnesCount - shift_bits, to_bit - -trailingOnesCount - shift_bits ) );
+						
+						values = shiftRight( values,
+						                     values.length < len ?
+								                     new long[ len ] :
+								                     values, 0, last1 - trailingOnesCount + 1, shift_bits, true );
+						
+						trailingOnesCount += shift_bits;
+						from_bit = trailingOnesCount;
+						
+						if( trailingOnesCount == to_bit ) return this;
+						break;
+					}
+				}
+			}
+			
+			
+			if( from_bit < trailingOnesCount ) {
+				
+				int shift_bits = trailingOnesCount - from_bit;
+				int zeros      = Math.min( trailingOnesCount, to_bit ) - from_bit;// len of flipped to 0's  trailing Ones
+				
+				if( 0 < used() ) {
+					int len = len4bits( Math.max( last1 - trailingOnesCount + shift_bits, to_bit - trailingOnesCount ) );
+					
+					values = shiftLeft( values, 0, last1 - trailingOnesCount + 1 + shift_bits, shift_bits, false );
+					used   = len;
+					
+					fill( 0, values, 0, zeros );
+				}
+				else if( values.length < ( used = len4bits( Math.max( shift_bits, to_bit - trailingOnesCount ) ) ) )
+					values = new long[ used * 3 / 2 ];
+				
+				
+				if( to_bit <= trailingOnesCount ) {
+					fill( 1, values, zeros, zeros + trailingOnesCount - to_bit );
+					trailingOnesCount = from_bit;
+					used |= IO;
+					return this;
+				}
+				
+				trailingOnesCount = from_bit;
+			}
+			else if( last1 < to_bit ) {
+				int u = Math.max( used(), len4bits( to_bit - trailingOnesCount ) );
+				
+				
+				if( values.length < u )
+					values = used == 0 ?
+							new long[ u ] :
+							Arrays.copyOf( values, u );
+				
+				
+				used = u;
+				
+				if( last1 < from_bit ) {
+					fill( 1, values, from_bit - trailingOnesCount, to_bit - trailingOnesCount );
+					size = Math.max( size, to_bit );
+					return this;
+				}
+				
+				fill( 1, values, last1 + 1 - trailingOnesCount, to_bit + 1 - trailingOnesCount );
+				to_bit = last1;
+			}
+			
+			size = Math.max( size, to_bit );
+			
+			int pos   = ( from_bit - trailingOnesCount ) & MASK;
+			int index = ( from_bit - trailingOnesCount ) >>> LEN;
+			if( 0 < pos ) {
+				long mask = mask( pos );
+				long v    = values[ index ];
+				values[ index ] = ( v & mask ) | ( ~v & ~mask );
+				index++;
+			}
+			
+			int index2 = ( to_bit - trailingOnesCount ) >>> LEN;
+			while( index < index2 ) values[ index ] = ~values[ index++ ];
+			
+			int pos2 = ( to_bit - trailingOnesCount ) >>> LEN;
+			if( 0 < pos2 ) {
+				long mask = mask( pos2 );
+				long v    = values[ index2 ];
+				values[ index2 ] = ~( v & mask ) | ( v & ~mask );
+			}
+			
+			
+			return this; // Return instance for method chaining
 		}
 		
 		
@@ -826,8 +1885,6 @@ public interface BitList {
 		 *               state of the bit at {@code index + i} ({@code true} for '1',
 		 *               {@code false} for '0').
 		 * @return This {@code RW} instance for method chaining.
-		 * @throws IllegalArgumentException if index is negative.
-		 * @throws NullPointerException     if values is null.
 		 */
 		public RW set( int index, boolean... values ) {
 			if( index < 0 ) return this;
@@ -849,7 +1906,6 @@ public interface BitList {
 		 * @param value The boolean value to set the bit to ({@code true} for '1',
 		 *              {@code false} for '0').
 		 * @return This {@code RW} instance for method chaining.
-		 * @throws IllegalArgumentException if bit is negative.
 		 */
 		public RW set( int bit, boolean value ) {
 			if( bit < 0 )
@@ -870,7 +1926,6 @@ public interface BitList {
 		 * @param value The integer value. If {@code value != 0}, sets the bit to '1',
 		 *              otherwise sets it to '0'.
 		 * @return This {@code RW} instance for method chaining.
-		 * @throws IllegalArgumentException if bit is negative.
 		 */
 		public RW set( int bit, int value ) { return set( bit, value != 0 ); }
 		
@@ -990,7 +2045,6 @@ public interface BitList {
 		 * @param from_bit The starting global bit index (inclusive, 0-indexed). Must be non-negative.
 		 * @param to_bit   The ending global bit index (exclusive, 0-indexed). Must not be less than {@code from_bit}.
 		 * @return This {@code RW} instance for method chaining.
-		 * @throws IllegalArgumentException if {@code from_bit} is negative or {@code to_bit < from_bit}.
 		 */
 		public RW set1( int from_bit, int to_bit ) {
 			
@@ -1040,7 +2094,6 @@ public interface BitList {
 		 *
 		 * @param bit The global bit index (0-indexed) to set to '0'. Must be non-negative.
 		 * @return This {@code RW} instance for method chaining.
-		 * @throws IllegalArgumentException if bit is negative.
 		 */
 		public RW set0( int bit ) {
 			// Step 1: Validate input
@@ -1069,7 +2122,7 @@ public interface BitList {
 				
 				used = len4bits( shift + bitsInValues );
 				
-				if( 0 < bitsInValues ) values = shiftLeft( values, 1, bitsInValues, shift, trailingOnesCount == 1 );
+				if( 0 < bitsInValues ) values = shiftLeft( values, 0, bitsInValues, shift, trailingOnesCount == 1 );
 				else if( values.length < used ) values = new long[ used ];
 				
 				
@@ -1153,35 +2206,6 @@ public interface BitList {
 			return this;
 		}
 		
-		/**
-		 * Appends a single bit with the specified boolean value to the end of this
-		 * {@code BitList}. Equivalent to {@code set(size(), value)}.
-		 * Increases the size of the list by one.
-		 *
-		 * @param value The boolean value of the bit to append ({@code true} for '1',
-		 *              {@code false} for '0').
-		 * @return This {@code RW} instance for method chaining.
-		 */
-		public RW add( boolean value ) { return set( size, value ); }
-		
-		
-		/**
-		 * Sets or adds a bit at a specific index with a boolean value.
-		 * If {@code bit} is within the current size, it sets the bit.
-		 * If {@code bit} is beyond the current size, it expands the list (padding
-		 * with '0's if necessary) and then sets the bit at that index.
-		 * Effectively combines {@code set(bit, value)} with ensuring size.
-		 *
-		 * @param bit   The index (0-indexed) where the bit should be placed or set. Must be non-negative.
-		 * @param value The boolean value to set ({@code true} for '1', {@code false} for '0').
-		 * @return This {@code RW} instance for method chaining.
-		 * @throws IllegalArgumentException if bit is negative.
-		 */
-		public RW add( int bit, boolean value ) {
-			if( bit < 0 ) return this;
-			if( size <= bit ) size = bit + 1;
-			return set( bit, value );
-		}
 		
 		/**
 		 * Removes the bit at the specified index, shifting all subsequent bits one
@@ -1191,7 +2215,6 @@ public interface BitList {
 		 * @param bit The global bit index (0-indexed) to remove. Must be non-negative
 		 *            and less than the current size.
 		 * @return This {@code RW} instance for method chaining.
-		 * @throws IndexOutOfBoundsException if bit is negative or {@code bit >= size}.
 		 */
 		public RW remove( int bit ) {
 			// Validate input: return unchanged if bit is negative or beyond current size
@@ -1246,6 +2269,19 @@ public interface BitList {
 			return this;
 		}
 		
+		public RW add( boolean value ) {
+			return value ?
+					add1( size - 1 ) :
+					add0( size - 1 );
+		}
+		
+		
+		public RW add( int bit, boolean value ) {
+			return value ?
+					add1( bit ) :
+					add0( bit );
+		}
+		
 		/**
 		 * Inserts a '0' bit at the specified index, shifting all existing bits at
 		 * and after that index one position to the right (towards higher indices).
@@ -1255,9 +2291,8 @@ public interface BitList {
 		 * @param bit The global bit index (0-indexed) at which to insert the '0'.
 		 *            Must be non-negative. If {@code bit >= size}, acts like appending a '0'.
 		 * @return This {@code RW} instance for method chaining.
-		 * @throws IllegalArgumentException if bit is negative.
 		 */
-		public RW insert0( int bit ) {
+		public RW add0( int bit ) {
 			if( bit < 0 ) return this;
 			
 			if( bit < size ) size++;
@@ -1297,9 +2332,8 @@ public interface BitList {
 		 * @param bit The global bit index (0-indexed) at which to insert the '1'.
 		 *            Must be non-negative. If {@code bit >= size}, acts like appending a '1'.
 		 * @return This {@code RW} instance for method chaining.
-		 * @throws IllegalArgumentException if bit is negative.
 		 */
-		public RW insert1( int bit ) {
+		public RW add1( int bit ) {
 			// Case 0: Handle invalid input.
 			if( bit < 0 ) return this; // No insertion for negative indices.
 			

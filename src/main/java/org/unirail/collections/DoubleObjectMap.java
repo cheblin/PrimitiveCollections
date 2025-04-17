@@ -81,7 +81,7 @@ public interface DoubleObjectMap {
 		/**
 		 * Array of integer keys stored in the map.
 		 */
-		protected       double[]          keys = Array.EqualHashOf.doubles     .O;
+		protected       double[]          keys;
 		/**
 		 * Array of values associated with the keys in the {@link #keys} array.
 		 */
@@ -114,19 +114,18 @@ public interface DoubleObjectMap {
 		/**
 		 * Special value indicating the start of the free list chain in the {@link #nexts} array.
 		 */
-		protected static final int  StartOfFreeList = -3;
-		/**
-		 * Mask to extract the index part from a token.
-		 */
-		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL;
+		protected static final int StartOfFreeList = -3;
+		
+		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF;
+		
 		/**
 		 * Number of bits to shift for extracting the version part from a token.
 		 */
-		protected static final int  VERSION_SHIFT   = 32;
+		protected static final int  VERSION_SHIFT = 32;
 		/**
 		 * Represents an invalid token value (-1).
 		 */
-		protected static final long INVALID_TOKEN   = -1L;
+		protected static final long INVALID_TOKEN = -1L;
 		
 		/**
 		 * Constructs a new read-only {@code IntObjectMap.R} with the specified value equality and hash strategy.
@@ -232,7 +231,7 @@ public interface DoubleObjectMap {
 		public long tokenOf(  Double    key ) {
 			return key == null ?
 					hasNullKey ?
-							token( _count ) :
+							token( NULL_KEY_INDEX ) :
 							INVALID_TOKEN :
 					tokenOf( key. doubleValue     () );
 		}
@@ -272,7 +271,7 @@ public interface DoubleObjectMap {
 			for( int i = 0; i < _count; i++ )
 				if( -2 < nexts[ i ] ) return token( i );
 			return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -285,11 +284,17 @@ public interface DoubleObjectMap {
 		 * @return A token for the next key-value pair, or {@code INVALID_TOKEN} (-1) if there is no next pair or the token is invalid.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
-			for( int i = index( token ) + 1; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return token( i );
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			int i = index( token );
+			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
+			
+			if( 0 < _count - _freeCount )
+				for( i++; i < _count; i++ )
+					if( -2 < nexts[ i ] ) return token( i );
+			
 			return hasNullKey && index( token ) < _count ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -323,19 +328,15 @@ public interface DoubleObjectMap {
 		 * @param token The token to check.
 		 * @return {@code true} if the key for the token is null, {@code false} otherwise.
 		 */
-		boolean isKeyNull( long token ) { return index( token ) == _count; }
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Returns the integer key associated with the given token.
+		 * Returns the key associated with the given token.  Before calling this method ensure that this token is not point to the isKeyNull
 		 *
 		 * @param token The token to get the key for.
 		 * @return The integer key associated with the token, or 0 if the token represents the null key or is invalid.
 		 */
-		public double key( long token ) {
-			return  ( hasNullKey && index( token ) == _count ?
-					0 :
-					keys[ index( token ) ] );
-		}
+		public double key( long token ) { return  ( keys[ index( token ) ] ); }
 		
 		/**
 		 * Returns the value associated with the given token.
@@ -344,7 +345,7 @@ public interface DoubleObjectMap {
 		 * @return The value associated with the token, or {@code null} if the token is invalid.
 		 */
 		public V value( long token ) {
-			return hasNullKey && index( token ) == _count ?
+			return hasNullKey && isKeyNull( token ) ?
 					nullKeyValue :
 					values[ index( token ) ];
 		}
@@ -403,7 +404,7 @@ public interface DoubleObjectMap {
 		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				int h = Array.mix( seed, Array.hash( key( token ) ) );
 				h = Array.mix( h, Array.hash( value( token ) == null ?
 						                              seed :
@@ -457,7 +458,8 @@ public interface DoubleObjectMap {
 			    ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) ||
 			    size() != other.size() ) return false;
 			
-			for( long token = token(), t; index( token ) < _count; token = token( token ) )
+			long t;
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				if( ( t = other.tokenOf( key( token ) ) ) == INVALID_TOKEN ||
 				    !Objects.equals( value( token ), other.value( t ) ) ) return false;
 			return true;
@@ -503,12 +505,11 @@ public interface DoubleObjectMap {
 		@Override
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 );
-			long token = token();
 			
 			json.enterObject();
 			
 			if( hasNullKey ) json.name().value( nullKeyValue );
-			for( ; index( token ) < _count; token = token( token ) )
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 			     json.name( String.valueOf( key( token ) ) ).value( value( token ) );
 			
 			
@@ -529,7 +530,7 @@ public interface DoubleObjectMap {
 		 * @param index The index of the entry in the internal arrays.
 		 * @return The generated token.
 		 */
-		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index & INDEX_MASK ); }
+		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | index; }
 		
 		/**
 		 * Extracts the index part from a token.
@@ -537,7 +538,7 @@ public interface DoubleObjectMap {
 		 * @param token The token to extract the index from.
 		 * @return The index part of the token.
 		 */
-		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token ) { return ( int ) token; }
 		
 		/**
 		 * Extracts the version part from a token.
@@ -591,7 +592,7 @@ public interface DoubleObjectMap {
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int capacity ) {
 			super( equal_hash_V );
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 )initialize( Array.prime( capacity ) );
 		}
 		
 		
@@ -599,16 +600,16 @@ public interface DoubleObjectMap {
 		 * Removes all key-value pairs from this map, making it empty.
 		 */
 		public void clear() {
+			_version++;
 			hasNullKey   = false;
 			nullKeyValue = null;
 			if( _count == 0 ) return;
 			Arrays.fill( _buckets, 0 );
 			Arrays.fill( nexts, 0, _count, ( int ) 0 );
 			Arrays.fill( values, 0, _count, null );
-			_count       = 0;
-			_freeList    = -1;
-			_freeCount   = 0;
-			_version++;
+			_count     = 0;
+			_freeList  = -1;
+			_freeCount = 0;
 		}
 		
 		/**
@@ -683,7 +684,7 @@ public interface DoubleObjectMap {
 			int currentCapacity = length();
 			if( capacity <= currentCapacity ) return currentCapacity;
 			_version++;
-			if( _buckets == null ) return initialize( capacity );
+			if( _buckets == null ) return initialize( Array.prime( capacity ) );
 			int newSize = Array.prime( capacity );
 			resize( newSize );
 			return newSize;
@@ -837,11 +838,13 @@ public interface DoubleObjectMap {
 		 */
 		private int initialize( int capacity ) {
 			_version++;
-			_buckets  = new int[ capacity ];
-			nexts     = new int[ capacity ];
-			keys      = new double[ capacity ];
-			values    = equal_hash_V.copyOf( null, capacity );
-			_freeList = -1;
+			_buckets   = new int[ capacity ];
+			nexts      = new int[ capacity ];
+			keys       = new double[ capacity ];
+			values     = equal_hash_V.copyOf( null, capacity );
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return capacity;
 		}
 		
@@ -869,6 +872,7 @@ public interface DoubleObjectMap {
 			_freeCount = 0;
 		}
 		
+		@Override public RW< V > clone() { return ( RW< V > ) super.clone(); }
 		
 		/**
 		 * Static instance used for obtaining the {@link Array.EqualHashOf} implementation for {@code RW<V>}.

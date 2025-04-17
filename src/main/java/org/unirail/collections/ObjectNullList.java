@@ -699,7 +699,8 @@ public interface ObjectNullList< V > {
 				else set1( index, value ); // Extend list if index is beyond current size
 			else if( index < size() ) {
 				// Insert into bitlist: true for non-null, false for null
-				nulls.add( index, value != null );
+				
+				nulls.set( index, value != null );
 				if( value != null ) {
 					int i   = nulls.rank( index ) - 1; // Position in values array
 					int max = Math.max( i + 1, size_card + 1 ); // Ensure capacity

@@ -123,16 +123,12 @@ public class RingBuffer< T > {
 	@SuppressWarnings( "unchecked" )
 	public T get_multithreaded( T return_this_value_if_no_items ) {
 		long _get;
-		T    value;
 		
-		do {
-			_get = get;
-			if( _get == put ) return return_this_value_if_no_items;
-			value = buffer[ ( int ) _get & mask ];
-		}
+		do
+			if( ( _get = get ) == put ) return return_this_value_if_no_items;
 		while( !( ( AtomicLongFieldUpdater< RingBuffer< T > > ) GET_UPDATER ).compareAndSet( this, _get, _get + 1 ) );
 		
-		return value;
+		return buffer[ ( int ) _get & mask ];
 	}
 	
 	/**
@@ -159,7 +155,7 @@ public class RingBuffer< T > {
 		
 		do {
 			_put = put;
-			if( size() + 1 == buffer.length ) return false;
+			if( size() == buffer.length ) return false;
 		}
 		while( !( ( AtomicLongFieldUpdater< RingBuffer< T > > ) PUT_UPDATER ).compareAndSet( this, _put, _put + 1 ) );
 		
@@ -174,7 +170,7 @@ public class RingBuffer< T > {
 	 * @return true if element was added, false if buffer is full
 	 */
 	public boolean put( T value ) {
-		if( size() + 1 == buffer.length ) return false;
+		if( size() == buffer.length ) return false;
 		buffer[ ( int ) ( put++ ) & mask ] = value;
 		return true;
 	}

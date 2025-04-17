@@ -8,34 +8,11 @@ import java.util.ConcurrentModificationException;
 
 
 /**
- * Defines a specialized map for mapping primitive keys (0-65535) to primitive values.
- * It supports a conceptual null key and distinguishes between storing a zero value and conceptually storing `null` (no value).
- *
- * <p>This map employs a HYBRID strategy for storage:
- * <ol>
- *   <li><b>Hash Map Phase:</b> Initially, it operates as a hash map using open addressing with separate chaining (via indices).
- *       This phase is optimized for sparse data where the number of entries is significantly less than the total possible key range (65536).
- *       It uses `short[]` for chain pointers, implicitly limiting the capacity of this phase to 32,767 entries.</li>
- *   <li><b>Flat Array Phase:</b> When the map needs to grow beyond the hash map's capacity limit and a resize is triggered
- *       that would exceed `RW.flatStrategyThreshold` ({@value RW#flatStrategyThreshold}), it automatically transitions
- *       to a direct-mapped flat array strategy. In this mode, a bitset tracks key presence, and values are stored in a
- *       companion `IntNullList` indexed directly by the `char` key. This guarantees O(1) access time for all operations
- *       and supports the full key range, making it efficient for dense maps.</li>
- * </ol>
- * This hybrid approach aims to provide memory efficiency for sparse maps while ensuring optimal performance and full range support for dense maps.
- *
- * <p><b>Null Key and Null Values:</b>
- * <ul>
- *     <li>A conceptual "null key" can be used. Its presence and value are stored separately from the main structure.</li>
- *     <li>The map distinguishes between a key mapping to the integer value `0` and a key mapping to a conceptual `null` value (or having no value mapping).
- *         The associated `IntNullList` manages this distinction. Methods like `hasValue(token)` can check for the presence of a non-null value.</li>
- * </ul>
- *
- * <p><b>Tokens:</b> Iteration and direct access are facilitated through `long` tokens. A token encodes both the map's version and the entry's index (or a special value for the null key).
- * This allows for fail-fast iteration (detecting concurrent modifications) and efficient key/value retrieval using `key(token)` and `value(token)`.
- * An unsafe, faster iteration method (`unsafe_token`) is provided for scenarios where concurrent modification is guaranteed not to occur.
- *
- * <p><b>Note:</b> The implementation relies on internal classes `R` (read-only) and `RW` (read-write).
+ * A specialized map for mapping 2 bytes primitive keys (65,536 distinct values) to a nullable primitive values.
+ * Implements a HYBRID strategy:
+ * 1. Starts as a hash map with separate chaining, optimized for sparse data.
+ * 2. Automatically transitions to a direct-mapped flat array when the hash map is full and reaches its capacity 0x7FFF entries (exclude nullKey entity) and needs to grow further.
+ * This approach balances memory efficiency for sparse maps with guaranteed O(1) performance and full key range support for dense maps.
  */
 public interface CharUIntNullMap {
 	
@@ -80,7 +57,7 @@ public interface CharUIntNullMap {
 		/**
 		 * Stores the char keys (hash map mode only). Indexed parallel to `nexts` and `values`.
 		 */
-		protected char[]         keys      = Array.EqualHashOf.chars     .O; // Initialized to empty array.
+		protected char[]         keys; // Initialized to empty array.
 		/**
 		 * Stores the int values, managing nullability. Indexed parallel to `keys` and `nexts` in hash map mode, or directly by key in flat mode.
 		 */
@@ -108,21 +85,21 @@ public interface CharUIntNullMap {
 		/**
 		 * Internal constant used in `nexts` to mark entries as part of the free list. See {@link #nexts}.
 		 */
-		protected static final int  StartOfFreeList = -3;
+		protected static final int StartOfFreeList = -3;
 		/**
 		 * Mask to extract the index part from a token.
 		 */
-		protected static final long INDEX_MASK      = 0xFFFF_FFFFL;
+		
 		/**
 		 * Number of bits to shift the version part within a token.
 		 */
-		protected static final int  VERSION_SHIFT   = 32;
+		protected static final int VERSION_SHIFT  = 32;
 		/**
 		 * Special index value used in tokens to represent the conceptual null key.
 		 * It's intentionally outside the valid range of array indices (0 to 65535).
 		 * Value: {@value #NULL_KEY_INDEX}.
 		 */
-		protected static final int  NULL_KEY_INDEX  = 0x1_FFFF; // 65536 + 1
+		protected static final int NULL_KEY_INDEX = 0x1_FFFF; // 65536 + 1
 		
 		/**
 		 * Represents an invalid or expired token. Value: {@value #INVALID_TOKEN}.
@@ -237,9 +214,17 @@ public interface CharUIntNullMap {
 		 * @return {@code true} if the value is found, {@code false} otherwise.
 		 */
 		public boolean containsValue(  Long      value ) {
-			return value == null ?
-					hasNullKey && !nullKeyHasValue || values.nextNullIndex( 0 ) != -1 :
-					hasNullKey && nullKeyHasValue && nullKeyValue == value || values.indexOf( value ) != -1;
+			int i;
+			if( value == null )
+				if( hasNullKey && !nullKeyHasValue ) return true;
+				else if( isFlatStrategy ) {
+					for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
+						if( !hasValue( t ) )
+							return true;
+					return false;
+				}
+				else return ( i = values.nextNullIndex( 0 ) ) != -1 && i < _count - _freeCount;
+			return hasNullKey && nullKeyHasValue && nullKeyValue == value || values.indexOf( value ) != -1;
 		}
 		
 		/**
@@ -328,7 +313,8 @@ public interface CharUIntNullMap {
 		 */
 		public long token( final long token ) {
 			// Validate token: must not be invalid and version must match current map version
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			
 			int index = index( token );
 			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN;
@@ -395,17 +381,11 @@ public interface CharUIntNullMap {
 		 */
 		public long nullKeyValue() { return (0xFFFFFFFFL &  nullKeyValue); }
 		
-		/**
-		 * Checks if the given token corresponds to a non-null key entry.
-		 *
-		 * @param token The token to check.
-		 * @return {@code true} if the token is valid and does not represent the null key, {@code false} otherwise (including if the token represents the null key).
-		 */
-		public boolean hasKey( long token ) { return index( token ) != NULL_KEY_INDEX; }
+		
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Retrieves the primitive key associated with the given token.
-		 * This method assumes the token represents a non-null key.
+		 * Retrieves the primitive key associated with the given token.  Before calling this method ensure that this token is not point to the isKeyNull
 		 *
 		 * @param token The token representing a non-null key-value pair (obtained from {@link #tokenOf}, {@link #token()}, or {@link #token(long)}).
 		 * @return The primitive key associated with the token.
@@ -427,7 +407,7 @@ public interface CharUIntNullMap {
 		 * @return {@code true} if the token is valid and the corresponding entry maps to a non-null value, {@code false} otherwise (including if the value is conceptually null or the token is invalid/expired).
 		 */
 		public boolean hasValue( long token ) {
-			return index( token ) == NULL_KEY_INDEX ?
+			return isKeyNull( token ) ?
 					nullKeyHasValue :
 					values.hasValue( index( token ) );
 		}
@@ -435,9 +415,8 @@ public interface CharUIntNullMap {
 		/**
 		 * Returns the primitive value associated with the specified token.
 		 * <p>
-		 * Handles both regular tokens and the special null key token.
-		 * If the entry represents a conceptual null value, this method returns 0. Use {@link #hasValue(long)}
-		 * to distinguish between a stored 0 and a conceptual null value.
+		 * <b>Precondition:</b> This method should only be called if {@link #hasValue(long)} returns {@code true} for the given token.
+		 * Calling it for a token associated with a {@code null} value results in undefined behavior (likely returning 0 or a stale value depending on the strategy).
 		 * <p>
 		 * The result is undefined if the token is {@link #INVALID_TOKEN} or has expired due to structural modification.
 		 *
@@ -446,7 +425,7 @@ public interface CharUIntNullMap {
 		 */
 		public long value( long token ) {
 			return (0xFFFFFFFFL & (
-					index( token ) == NULL_KEY_INDEX ?
+					isKeyNull( token ) ?
 							nullKeyValue :
 							values.get( index( token ) ) ));
 		}
@@ -617,7 +596,7 @@ public interface CharUIntNullMap {
 		 * @param index The entry index (or {@link #NULL_KEY_INDEX} for the null key).
 		 * @return The combined token.
 		 */
-		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK; }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index; }
 		
 		/**
 		 * Extracts the index part from a `long` token.
@@ -625,7 +604,7 @@ public interface CharUIntNullMap {
 		 * @param token The token.
 		 * @return The index encoded in the token.
 		 */
-		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token ) { return ( int ) ( token ); }
 		
 		/**
 		 * Extracts the version part from a `long` token.
@@ -719,7 +698,7 @@ public interface CharUIntNullMap {
 		 */
 		public RW( int capacity ) {
 			values = new UIntNullList.RW( 0 );
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 )initialize( Array.prime( capacity ) );
 		}
 		
 		/**
@@ -740,11 +719,12 @@ public interface CharUIntNullMap {
 				_count         = 0; // Flat mode _count tracks actual entries
 				return FLAT_ARRAY_SIZE;
 			}
-			_buckets  = new char[ capacity ];
-			nexts     = new short[ capacity ];
-			keys      = new char[ capacity ];
-			_freeList = -1;
-			_count    = 0;
+			_buckets   = new char[ capacity ];
+			nexts      = new short[ capacity ];
+			keys       = new char[ capacity ];
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return length();
 		}
 		
@@ -896,6 +876,7 @@ public interface CharUIntNullMap {
 		 */
 		public boolean put( long value ) {
 			_version++;
+			nullKeyHasValue = true;
 			
 			if( hasNullKey ) {
 				nullKeyValue = ( int ) value;
@@ -1082,11 +1063,14 @@ public interface CharUIntNullMap {
 		 * Resets internal structures according to the current strategy.
 		 */
 		public void clear() {
-			hasNullKey = false;
+			_version++;
+			
+			hasNullKey      = false;
+			nullKeyHasValue = false;
+			
 			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
-				else flat_bits = null;
+				Array.fill( flat_bits, 0 );
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
@@ -1095,7 +1079,6 @@ public interface CharUIntNullMap {
 			}
 			values.clear();
 			_count = 0;
-			_version++;
 		}
 		
 		/**
@@ -1149,9 +1132,14 @@ public interface CharUIntNullMap {
 			char[]         old_keys   = keys;
 			UIntNullList.RW old_values = values;
 			int                    old_count  = _count;
-			_version++;
 			initialize( newSize );
-			copy( old_next, old_keys, old_values, old_count );
+			
+			for( int i = 0; i < old_count; i++ )
+				if( -2 < old_next[ i ] )
+					if( old_values.hasValue( i ) )
+						put( (char) old_keys[ i ],(0xFFFFFFFFL &   old_values.get( i ) ) );
+					else
+						put( (char) old_keys[ i ], null );
 		}
 		
 		/**
@@ -1231,34 +1219,6 @@ public interface CharUIntNullMap {
 			nexts = new_next;
 			keys  = new_keys;
 			return length();
-		}
-		
-		/**
-		 * Copies entries from old hash map arrays to the current (newly initialized)
-		 * hash map arrays during a trim operation where the map stays in hash mode.
-		 * This is essentially a rehash operation into a potentially smaller table.
-		 *
-		 * @param old_next   The `nexts` array from the old map state.
-		 * @param old_keys   The `keys` array from the old map state.
-		 * @param old_values The `values` list from the old map state.
-		 * @param old_count  The `_count` value from the old map state (number of used slots including free).
-		 */
-		private void copy( short[] old_next, char[] old_keys, UIntNullList.RW old_values, int old_count ) {
-			
-			int ii = 0;
-			for( int i = 0; i < old_count; i++ ) {
-				if( old_next[ i ] < -1 ) continue;
-				keys[ ii ] = old_keys[ i ];
-				if( old_values.hasValue( i ) ) values.set1( ii, old_values.get( i ) );
-				else values.set1( ii, null );
-				
-				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ ii ]             = ( short ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] = ( char ) ( ii + 1 );
-				ii++;
-			}
-			_count     = ii;
-			_freeCount = 0;
 		}
 		
 		

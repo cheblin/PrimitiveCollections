@@ -37,58 +37,56 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 /**
- * {@code IntRingBuffer} implements a fixed-size, thread-safe ring buffer (circular buffer) for integer values.
- * It is optimized for efficient buffering and is suitable for producer-consumer scenarios and other applications
- * requiring bounded, circular data storage.
+ * A thread-safe, fixed-size ring buffer (circular buffer) for storing integer values.
+ * Optimized for efficient producer-consumer scenarios and bounded circular data storage.
+ * The buffer uses atomic operations for thread-safe access and a bitwise mask for efficient index wrapping.
  */
 public class UByteRingBuffer {
 	/**
-	 * The underlying integer array that stores the ring buffer data.
+	 * The internal array storing the ring buffer's integer values.
 	 */
 	private final byte[] buffer;
 	
 	/**
-	 * Mask for efficient index wrapping using bitwise AND operations.
-	 * Calculated as {@code (1 << capacityPowerOfTwo) - 1}.
+	 * Bitmask for efficient index wrapping, computed as (1 << capacityPowerOfTwo) - 1.
 	 */
 	private final int mask;
 	
 	/**
-	 * Lock used for thread-safe operations in multi-threaded methods.
-	 * 0 indicates unlocked, 1 indicates locked.
+	 * Lock for thread-safe operations in multi-threaded methods (0 = unlocked, 1 = locked).
 	 */
-	private volatile     int                                               lock        = 0;
-	/**
-	 * Constructs the lock update mechanism for thread-safe updates to the {@link #lock} field.
-	 */
-	static final         AtomicIntegerFieldUpdater< UByteRingBuffer > lock_update = AtomicIntegerFieldUpdater.newUpdater( UByteRingBuffer .class, "lock" );
-	/**
-	 * Pointer to the head of the buffer for get operations.
-	 * Represents the index of the next element to be read.
-	 */
-	private volatile     long                                              get         = Long.MIN_VALUE;
-	/**
-	 * Atomic updater for the get pointer to ensure thread-safe operations
-	 */
-	private static final AtomicLongFieldUpdater< UByteRingBuffer >    GET_UPDATER = AtomicLongFieldUpdater.newUpdater( UByteRingBuffer.class, "get" );
-	/**
-	 * Pointer to the tail of the buffer for put operations.
-	 * Represents the index of the next available slot to write to.
-	 */
-	private volatile     long                                              put         = Long.MIN_VALUE;
+	private volatile int lock = 0;
 	
 	/**
-	 * Atomic updater for the put pointer to ensure thread-safe operations
+	 * Atomic updater for thread-safe modifications to the lock field.
+	 */
+	static final AtomicIntegerFieldUpdater< UByteRingBuffer > lock_update = AtomicIntegerFieldUpdater.newUpdater( UByteRingBuffer.class, "lock" );
+	
+	/**
+	 * Head pointer indicating the next element to read (used for get operations).
+	 */
+	private volatile long get = Long.MIN_VALUE;
+	
+	/**
+	 * Atomic updater for thread-safe modifications to the get pointer.
+	 */
+	private static final AtomicLongFieldUpdater< UByteRingBuffer > GET_UPDATER = AtomicLongFieldUpdater.newUpdater( UByteRingBuffer.class, "get" );
+	
+	/**
+	 * Tail pointer indicating the next available slot to write (used for put operations).
+	 */
+	private volatile long put = Long.MIN_VALUE;
+	
+	/**
+	 * Atomic updater for thread-safe modifications to the put pointer.
 	 */
 	private static final AtomicLongFieldUpdater< UByteRingBuffer > PUT_UPDATER = AtomicLongFieldUpdater.newUpdater( UByteRingBuffer.class, "put" );
 	
 	/**
-	 * Constructs a new {@code IntRingBuffer} with a capacity of 2<sup>{@code capacityPowerOfTwo}</sup>.
-	 * The buffer size is fixed at creation.
+	 * Creates a new ring buffer with a capacity of 2^capacityPowerOfTwo.
 	 *
-	 * @param capacityPowerOfTwo The power of two that determines the buffer's capacity (e.g., 4 for a capacity of 16).
-	 *                           Must be a non-negative integer.
-	 * @throws IllegalArgumentException if {@code capacityPowerOfTwo} is negative.
+	 * @param capacityPowerOfTwo The power of two defining the buffer's capacity (e.g., 4 for 16 elements).
+	 * @throws IllegalArgumentException If capacityPowerOfTwo is negative.
 	 */
 	public UByteRingBuffer( int capacityPowerOfTwo ) {
 		if( capacityPowerOfTwo < 0 ) throw new IllegalArgumentException( "capacityPowerOfTwo must be non-negative" );
@@ -96,9 +94,9 @@ public class UByteRingBuffer {
 	}
 	
 	/**
-	 * Returns the fixed capacity (maximum number of elements) of this ring buffer.
+	 * Returns the fixed capacity of the ring buffer.
 	 *
-	 * @return The capacity of the ring buffer.
+	 * @return The maximum number of elements the buffer can hold.
 	 */
 	public int length() {
 		return buffer.length;
@@ -107,62 +105,52 @@ public class UByteRingBuffer {
 	/**
 	 * Returns the current number of elements in the ring buffer.
 	 *
-	 * @return The number of elements currently stored in the buffer.
+	 * @return The number of elements currently stored.
 	 */
 	public int size() {
 		return ( int ) ( put - get );
 	}
 	
 	/**
-	 * Retrieves and removes the next integer from the ring buffer in a thread-safe manner.
-	 * This method is safe for concurrent access from multiple threads.
+	 * Thread-safely retrieves and removes the next integer from the buffer.
 	 *
-	 * @param defaultValueIfEmpty The value to return if the buffer is empty.
-	 * @return The integer value retrieved from the buffer, or {@code defaultValueIfEmpty} if the buffer is empty.
+	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
+	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
 	public long get_multithreaded( long defaultValueIfEmpty ) {
 		long _get;
-		long value;
 		
-		do {
-			_get = get;
-			if( _get == put ) return defaultValueIfEmpty;
-			value = buffer[ ( int ) _get & mask ] & ( ~0L );
-		}
+		do
+			if( ( _get = get ) == put ) return defaultValueIfEmpty;
 		while( !GET_UPDATER.compareAndSet( this, _get, _get + 1 ) );
 		
-		return value;
+		return buffer[ ( int ) _get & mask ] & ( ~0L );
 	}
 	
 	/**
-	 * Retrieves and removes the next integer from the ring buffer.
-	 * <p>
-	 * <b>Note:</b> This method is <b>NOT</b> thread-safe and should only be used in single-threaded contexts
-	 * or when external synchronization is managed. For thread-safe retrieval, use {@link #get_multithreaded(long)}.
+	 * Retrieves and removes the next integer from the buffer (non-thread-safe).
+	 * Use only in single-threaded contexts or with external synchronization.
 	 *
-	 * @param defaultValueIfEmpty The value to return if the buffer is empty.
-	 * @return The integer value retrieved from the buffer, or {@code defaultValueIfEmpty} if the buffer is empty.
+	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
+	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
 	public long get( long defaultValueIfEmpty ) {
-		// If get pointer equals put pointer, buffer is empty, return the specified default value.
 		if( get == put ) return defaultValueIfEmpty;
-		// Retrieve value, increment get pointer, and wrap index using bitmask.
 		return buffer[ ( int ) ( get++ ) & mask ] & ( ~0L );
 	}
 	
 	/**
-	 * Adds an integer value to the ring buffer in a thread-safe manner.
-	 * This method is safe for concurrent access from multiple threads.
+	 * Thread-safely adds an integer to the buffer.
 	 *
-	 * @param value The integer value to add to the buffer.
-	 * @return {@code true} if the value was successfully added to the buffer, {@code false} if the buffer is full.
+	 * @param value The integer to add.
+	 * @return True if the value was added, false if the buffer is full.
 	 */
 	public boolean put_multithreaded( char value ) {
 		long _put;
 		
 		do {
 			_put = put;
-			if( size() + 1 == buffer.length ) return false;
+			if( size() == buffer.length ) return false;
 		}
 		while( !PUT_UPDATER.compareAndSet( this, _put, _put + 1 ) );
 		
@@ -171,32 +159,27 @@ public class UByteRingBuffer {
 	}
 	
 	/**
-	 * Adds an integer value to the ring buffer.
-	 * <p>
-	 * <b>Note:</b> This method is <b>NOT</b> thread-safe and should only be used in single-threaded contexts
-	 * or when external synchronization is managed. For thread-safe insertion, use {@link #put_multithreaded}.
+	 * Adds an integer to the buffer (non-thread-safe).
+	 * Use only in single-threaded contexts or with external synchronization.
 	 *
-	 * @param value The integer value to add to the buffer.
-	 * @return {@code true} if the value was successfully added to the buffer, {@code false} if the buffer is full.
+	 * @param value The integer to add.
+	 * @return True if the value was added, false if the buffer is full.
 	 */
 	public boolean put( char value ) {
-		if( size() + 1 == buffer.length ) return false; // Check if buffer is full.
-		
-		// Put value into buffer, increment put pointer, and wrap index using bitmask.
+		if( size() == buffer.length ) return false;
 		buffer[ ( int ) ( put++ ) & mask ] = ( byte ) value;
-		return true; // Value successfully put into the buffer.
+		return true;
 	}
 	
-	
 	/**
-	 * Clears the ring buffer, resetting it to an empty state.
-	 * This operation is not thread-safe and should be used with caution in concurrent environments.
+	 * Resets the buffer to an empty state (non-thread-safe).
+	 * Use with caution in concurrent environments.
 	 *
-	 * @return This {@code IntRingBuffer} instance, allowing for method chaining.
+	 * @return This instance for method chaining.
 	 */
 	public UByteRingBuffer clear() {
-		get = Long.MIN_VALUE; // Reset get pointer to initial value.
-		put = Long.MIN_VALUE; // Reset put pointer to initial value.
-		return this; // For method chaining.
+		get = Long.MIN_VALUE;
+		put = Long.MIN_VALUE;
+		return this;
 	}
 }

@@ -69,14 +69,13 @@ public interface CharSet {
 		protected boolean        hasNullKey;          // Indicates if the map contains a null key
 		protected char[]         _buckets;            // Hash table buckets array (1-based indices to chain heads).
 		protected short[]        nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
-		protected char[] keys = Array.EqualHashOf.chars     .O; // Keys array.
+		protected char[] keys; // Keys array.
 		protected int            _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
 		protected int            _freeList;           // Index of the first entry in the free list (-1 if empty).
 		protected int            _freeCount;          // Number of free entries in the free list.
 		protected int            _version;            // Version counter for concurrent modification detection.
 		
 		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
-		protected static final long INDEX_MASK      = 0xFFFF_FFFFL; // Mask for index in token.
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
 		// Special index used in tokens to represent the null key. Outside valid array index ranges.
 		protected static final int  NULL_KEY_INDEX  = 0x1_FFFF; // 65537
@@ -242,7 +241,8 @@ public interface CharSet {
 		 * @return a token for the next element, or -1 ({@link #INVALID_TOKEN}) if no next element exists or if the token is invalid due to structural modification
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			
 			int index = index( token );
 			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN;
@@ -273,25 +273,21 @@ public interface CharSet {
 		 * @see #hasNullKey() To check for a null key.
 		 * @see #key(long) To get the key associated with a token (use carefully with null key token).
 		 */
-		public int unsafe_token( int token ) {
+		public int unsafe_token( final int token ) {
 			if( isFlatStrategy )
-				return next1( token + 1 ); // Find next set bit starting from token + 1
+				return next1( index( token ) + 1 );
 			else
 				for( int i = token + 1; i < _count; i++ )
-					if( -2 < nexts[ i ] ) return i; // Find next non-free slot in hash mode
+					if( -2 < nexts[ i ] ) return i;
 			
 			return -1; // No more entries
 		}
 		
-		/**
-		 * Checks if the token corresponds to a non-null key.
-		 */
-		public boolean hasKey( long token ) { return index( token ) != NULL_KEY_INDEX; }
+	
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Returns the char key associated with the given token.
-		 * Returns `(char) 0` if the token represents the conceptual null key.
-		 * The result is undefined if the token is -1 ({@link #INVALID_TOKEN}) or invalid due to structural modification.
+		 * Returns the char key associated with the given token.  Before calling this method ensure that this token is not point to the isKeyNull
 		 *
 		 * @param token the token of the element
 		 * @return the char key associated with the token, or `(char) 0` if the token represents a null key
@@ -302,7 +298,6 @@ public interface CharSet {
 							index( token ) :
 							keys[ index( token ) ] );
 		}
-		
 		
 		/**
 		 * Computes the hash code for this set.
@@ -441,7 +436,7 @@ public interface CharSet {
 		 * @param index the index of the element or special marker
 		 * @return the generated token
 		 */
-		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index & INDEX_MASK ); }
+		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index  ); }
 		
 		/**
 		 * Extracts the index from a token.
@@ -449,7 +444,7 @@ public interface CharSet {
 		 * @param token the token
 		 * @return the index extracted from the token
 		 */
-		protected int index( long token ) { return ( int ) ( token & INDEX_MASK ); }
+		protected int index( long token ) { return ( int ) ( token  ); }
 		
 		/**
 		 * Extracts the version from a token.
@@ -520,7 +515,7 @@ public interface CharSet {
 		 *
 		 * @param capacity the initial capacity hint
 		 */
-		public RW( int capacity ) { if( capacity > 0 ) initialize( capacity ); }
+		public RW( int capacity ) { if( capacity > 0 )initialize( Array.prime( capacity ) ); }
 		
 		
 		/**
@@ -541,8 +536,9 @@ public interface CharSet {
 			_buckets  = new char[ capacity ];
 			nexts     = new short[ capacity ];
 			keys      = new char[ capacity ];
-			_freeList = -1;
-			_count    = 0;
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return length();
 		}
 		
@@ -584,7 +580,7 @@ public interface CharSet {
 			int     bucket      = _buckets[ bucketIndex ] - 1; // Get 0-based index
 			
 			// Check for key existence in the collision chain
-			for( int next = bucket, collisionCount = 0; ( next & 0xFFFF_FFFF ) < _nexts.length; ) {
+			for( int next = bucket, collisionCount = 0; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
 				if( keys[ next ] == key ) return false; // Key already exists
 				next = _nexts[ next ];
 				if( _nexts.length <= collisionCount++ )
@@ -630,7 +626,7 @@ public interface CharSet {
 		 *
 		 * @return {@code true} if the null key was added, {@code false} if already present
 		 */
-		private boolean addNullKey() {
+		public boolean addNullKey() {
 			if( hasNullKey ) return false; // Null key already exists
 			hasNullKey = true; // Set null key flag
 			_version++; // Increment version
@@ -700,7 +696,7 @@ public interface CharSet {
 		 *
 		 * @return {@code true} if the null key was removed, {@code false} if not present
 		 */
-		private boolean removeNullKey() {
+		public boolean removeNullKey() {
 			if( !hasNullKey ) return false; // Null key not present
 			hasNullKey = false; // Clear null key flag
 			_version++; // Increment version
@@ -713,11 +709,12 @@ public interface CharSet {
 		 * Resets the mode if necessary (stays in flat mode if it was already there, hash mode resets arrays).
 		 */
 		public void clear() {
+			_version++;
+			
 			hasNullKey = false;
 			if( _count == 0 ) return;
 			if( isFlatStrategy )
-				if( isFlatStrategy = flatStrategyThreshold < 1 ) Array.fill( flat_bits, 0 );
-				else flat_bits = null;
+				 Array.fill( flat_bits, 0 );
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
@@ -725,7 +722,6 @@ public interface CharSet {
 				_freeCount = 0;
 			}
 			_count = 0;
-			_version++;
 		}
 		
 		
@@ -738,12 +734,12 @@ public interface CharSet {
 		 * @throws ArrayStoreException  if the runtime type of the specified array is not a supertype of the runtime type of every element in this set (should not happen with primitive char).
 		 * @throws NullPointerException if the specified array is null.
 		 */
-		public char[] toArray( char[] dst ) {
+		public char[] toArray( char[] dst , char null_substitute) {
 			int s = size();
 			if( dst.length < s ) dst = new char[ s ];
 			
 			int index = 0;
-			if( hasNullKey ) dst[ index++ ] = 0; // Convention: represent null key as char 0
+			if( hasNullKey ) dst[ index++ ] = null_substitute;
 			
 			// Use unsafe iteration for performance
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {

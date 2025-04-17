@@ -81,9 +81,10 @@ public interface ObjectFloatMap {
 		protected static final int  StartOfFreeList = -3;
 		protected static final long HASH_CODE_MASK  = 0xFFFFFFFF00000000L;
 		protected static final long NEXT_MASK       = 0x00000000FFFFFFFFL;
-		protected static final long INDEX_MASK      = 0x0000_0000_7FFF_FFFFL;
+		protected static final int  NULL_KEY_INDEX  = 0x7FFF_FFFF;
 		protected static final int  VERSION_SHIFT   = 32;
 		protected static final long INVALID_TOKEN   = -1L;
+		
 		
 		public boolean isEmpty() { return size() == 0; }
 		
@@ -129,13 +130,13 @@ public interface ObjectFloatMap {
 		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 			if( _buckets == null ) return INVALID_TOKEN;
 			int hash = equal_hash_K.hashCode( key );
 			int next = _buckets[ bucketIndex( hash ) ] - 1;
 			
-			for( int collisionCount = 0; ( next & 0xFFFF_FFFFL ) < hash_nexts.length; ) {
+			for( int collisionCount = 0; ( next & 0x7FFF_FFFF ) < hash_nexts.length; ) {
 				final long hash_next = hash_nexts[ next ];
 				if( hash( hash_next ) == hash && equal_hash_K.equals( keys[ next ], key ) )
 					return token( next );
@@ -155,7 +156,7 @@ public interface ObjectFloatMap {
 			for( int i = 0; i < _count; i++ )
 				if( -2 < next( hash_nexts[ i ] ) ) return token( i );
 			return hasNullKey ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -167,11 +168,17 @@ public interface ObjectFloatMap {
 		 * @return The next token for iteration, or INVALID_TOKEN (-1) if no next entry exists or the token is invalid.
 		 */
 		public long token( final long token ) {
-			if( token == INVALID_TOKEN || version( token ) != _version ) return INVALID_TOKEN;
-			for( int i = index( token ) + 1; i < _count; i++ )
-				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			int i = index( token );
+			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
+			
+			if( 0 < _count - _freeCount )
+				for( i++; i < _count; i++ )
+					if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
+			
 			return hasNullKey && index( token ) < _count ?
-					token( _count ) :
+					token( NULL_KEY_INDEX ) :
 					INVALID_TOKEN;
 		}
 		
@@ -199,6 +206,8 @@ public interface ObjectFloatMap {
 			return -1;
 		}
 		
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
+		
 		/**
 		 * Returns the key associated with the given token.
 		 *
@@ -206,7 +215,7 @@ public interface ObjectFloatMap {
 		 * @return The key, or null if the token corresponds to the null key entry.
 		 */
 		public K key( long token ) {
-			return hasNullKey && index( token ) == _count ?
+			return isKeyNull( token ) ?
 					null :
 					keys[ index( token ) ];
 		}
@@ -218,15 +227,15 @@ public interface ObjectFloatMap {
 		 * @return The value associated with the token.
 		 */
 		public float value( long token ) {
-			return ( index( token ) == _count ?
+			return (index( token ) == _count ?
 					nullKeyValue :
-					values[ index( token ) ] );
+					values[ index( token ) ]);
 		}
 		
 		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-			for( long token = token(); index( token ) < _count; token = token( token ) ) {
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				int h = Array.mix( seed, Array.hash( key( token ) ) );
 				h = Array.mix( h, Array.hash( value( token ) ) );
 				h = Array.finalizeHash( h, 2 );
@@ -256,10 +265,11 @@ public interface ObjectFloatMap {
 		public boolean equals( R< K > other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) ||
+			    hasNullKey && nullKeyValue != other.nullKeyValue ||
 			    size() != other.size() ) return false;
 			
-			for( long token = token(), t; index( token ) < _count; token = token( token ) )
+			long t;
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				if( ( t = other.tokenOf( key( token ) ) ) == INVALID_TOKEN ||
 				    value( token ) != other.value( t ) ) return false;
 			return true;
@@ -295,13 +305,12 @@ public interface ObjectFloatMap {
 		@Override
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 );
-			long token = token();
 			
 			
 			if( equal_hash_K == Array.string ) {
 				json.enterObject();
 				if( hasNullKey ) json.name().value( nullKeyValue );
-				for( ; index( token ) < _count; token = token( token ) )
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.name( key( token ) == null ?
 						                null :
 						                key( token ).toString() )
@@ -318,7 +327,7 @@ public interface ObjectFloatMap {
 							.name( "Value" ).value( nullKeyValue )
 							.exitObject();
 				
-				for( ; index( token ) < _count; token = token( token ) )
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.enterObject()
 				         .name( "Key" ).value( key( token ) )
 				         .name( "Value" ).value( value( token ) )
@@ -337,12 +346,10 @@ public interface ObjectFloatMap {
 			return ( int ) ( hash_next & NEXT_MASK );
 		}
 		
-		protected long token( int index ) {
-			return ( long ) _version << VERSION_SHIFT | index & INDEX_MASK;
-		}
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index; }
 		
 		protected int index( long token ) {
-			return ( int ) ( token & INDEX_MASK );
+			return ( int ) token;
 		}
 		
 		protected int version( long token ) {
@@ -367,11 +374,13 @@ public interface ObjectFloatMap {
 		
 		public RW( Array.EqualHashOf< K > equal_hash_K, int capacity ) {
 			this.equal_hash_K = equal_hash_K;
-			if( capacity > 0 ) initialize( capacity );
+			if( capacity > 0 )initialize( Array.prime( capacity ) );
 		}
 		
 		
 		public void clear() {
+			_version++;
+			hasNullKey =false;
 			if( _count == 0 ) return;
 			Arrays.fill( _buckets, 0 );
 			Arrays.fill( hash_nexts, 0, _count, 0L );
@@ -380,8 +389,6 @@ public interface ObjectFloatMap {
 			_count     = 0;
 			_freeList  = -1;
 			_freeCount = 0;
-			hasNullKey = false;
-			_version++;
 		}
 		
 		public long remove( K key ) {
@@ -389,7 +396,7 @@ public interface ObjectFloatMap {
 				if( !hasNullKey ) return INVALID_TOKEN;
 				hasNullKey = false;
 				_version++;
-				return token( _count );
+				return token( NULL_KEY_INDEX );
 			}
 			
 			if( _buckets == null || _count == 0 ) return INVALID_TOKEN;
@@ -426,7 +433,7 @@ public interface ObjectFloatMap {
 			int currentCapacity = length();
 			if( capacity <= currentCapacity ) return currentCapacity;
 			_version++;
-			if( _buckets == null ) return initialize( capacity );
+			if( _buckets == null ) return initialize( Array.prime( capacity ) );
 			int newSize = Array.prime( capacity );
 			resize( newSize, false );
 			return newSize;
@@ -543,6 +550,8 @@ public interface ObjectFloatMap {
 			keys       = equal_hash_K.copyOf( null, capacity );
 			values     = new float[ capacity ];
 			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return capacity;
 		}
 		

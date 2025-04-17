@@ -163,7 +163,7 @@ public interface UByteObjectNullMap {
 		 * The token can represent the null key (check with {@link #isKeyNull(long)}) or a byte key.
 		 */
 		public long tokenOfValue( V value ) {
-			if( hasNullKey && equal_hash_V.equals( value, nullKeyValue ) ) return token_nullKey();
+			if( hasNullKey && equal_hash_V.equals( value, nullKeyValue ) ) return super.tokenOf( KEY_MASK );
 			
 			if( values.length == 256 ) {
 				for( int t = -1; ( t = unsafe_token( t ) ) != -1; )

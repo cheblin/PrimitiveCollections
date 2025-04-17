@@ -213,7 +213,7 @@ public interface ByteByteMap {
 		 * @return The token of the key associated with the value, or -1 if not found.
 		 */
 		public long tokenOfValue( byte value ) {
-			if( hasNullKey && nullKeyValue == value ) return token_nullKey();
+			if( hasNullKey && nullKeyValue == value ) return token( KEY_MASK );
 			
 			for( int t = -1; ( t = unsafe_token( t ) ) != -1; ) if( values[ t >>> KEY_LEN ] == value ) return t;
 			return -1;

@@ -38,85 +38,79 @@ import org.unirail.JsonWriter;
 import java.util.Arrays;
 
 /**
- * {@code IntNullList} defines a contract for a list that stores nullable primitive values.
+ * {@code IntNullList} defines a contract for a list that stores primitive integer values,
+ * allowing elements to represent a {@code null} state.
  * <p>
- * Implementations of this interface manage lists of primitives that can contain null values.
- * It provides efficient methods for adding, removing, and accessing elements, while also
- * effectively tracking nullity for each element.
+ * Implementations manage lists of primitive integers where each position can either hold an
+ * integer value or be considered {@code null}. This interface ensures efficient methods
+ * for adding, removing, and accessing elements while tracking the nullity status of each
+ * element. Implementations use optimized storage strategies to balance memory usage and
+ * access performance.
  */
 public interface UByteNullList {
 	
 	/**
-	 * {@code R} is an abstract base class providing a read-only implementation of the {@link IntNullList} interface.
-	 * <p>
-	 * It uses a {@link BitList.RW} to efficiently track null values and an array to store
-	 * the actual values. {@code R} supports two distinct storage strategies to optimize
-	 * performance based on the density of null values within the list:
-	 * <p>
-	 * <b>1. Compressed (Rank-Based) Strategy:</b>
-	 * - This strategy is space-efficient when the list contains many null values.
-	 * - Only non-null values are stored contiguously in the {@code values} array.
-	 * - The {@link BitList.RW} {@code nulls} tracks the positions of non-null values.
-	 * - To access a value at a given index, the rank of the index in the {@code nulls} bitlist
-	 * is used to find the corresponding value in the {@code values} array.
-	 * <p>
-	 * <b>2. Flat (One-to-One) Strategy:</b>
-	 * - This strategy is optimized for performance when the list contains few null values
-	 * and frequent accesses are needed.
-	 * - All elements, including placeholders for null values, are stored in the {@code values} array in a one-to-one mapping with the logical indices of the list.
-	 * - {@code nulls} bitlist still tracks nullity, but indexing is direct and faster.
-	 * <p>
-	 * The choice between these strategies is dynamically managed based on a {@code flatStrategyThreshold},
-	 * aiming to provide the best balance between space and time efficiency.
-	 */
+     * {@code R} is an abstract base class providing a read-only view of an {@link IntNullList}.
+     * <p>
+     * It uses a {@link BitList.RW} to track nullity (where {@code true} indicates a non-null
+     * value and {@code false} indicates a null value) and a primitive integer array to store
+     * values. Two storage strategies optimize performance based on null density:
+     * <ul>
+     *     <li><b>Compressed (Rank-Based) Strategy:</b> Space-efficient for sparse lists with many nulls.
+     *         Stores only non-null values contiguously in the {@code values} array. Access uses
+     *         rank calculations via {@code nulls.rank(i)}.</li>
+     *     <li><b>Flat (One-to-One) Strategy:</b> Optimized for dense lists with few nulls. The
+     *         {@code values} array mirrors the logical list, with direct indexing after nullity checks.</li>
+     * </ul>
+     * The writable subclass {@link RW} dynamically switches strategies based on a threshold.
+     */
 	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		/**
-		 * {@code nulls} is a {@link BitList.RW} that tracks null values within the list.
-		 * {@code true} at a given index indicates a non-null value at that position in the logical list.
-		 * {@code false} indicates a null value.
+         * Tracks nullity of elements. A bit set to {@code true} at index {@code i} indicates a
+         * non-null value; {@code false} indicates null.
 		 */
 		protected BitList.RW nulls;
 		
 		/**
-		 * {@code values} is the array used to store the values of the list.
-		 * <p>
-		 * - In <b>Compressed Strategy</b>, it stores only the non-null values compactly.
-		 * - In <b>Flat Strategy</b>, it stores all values.
+         * Stores primitive integer values.
+         * <ul>
+         *     <li>In <b>Compressed Strategy</b>, contains only non-null values; size equals {@code cardinality}.</li>
+         *     <li>In <b>Flat Strategy</b>, mirrors logical list; size matches {@code nulls.size()}.</li>
+         * </ul>
 		 */
 		protected byte[] values;
 		
 		/**
-		 * {@code default_value} is the default value used when the list needs to be extended
-		 * or when uninitialized elements are accessed. This value is inherited from {@code IntList.R}.
+         * Default integer value used in some operations (e.g., initialization). Distinct from
+         * logical nullity, which is tracked by {@code nulls}.
 		 */
 		public final char default_value;
 		
 		/**
-		 * {@code cardinality} stores the number of non-null elements in the list when using the
-		 * <b>Compressed Strategy</b>. In <b>Flat Strategy</b>, this field is unused and typically set to 0.
+         * Number of non-null elements. Used for indexing in <b>Compressed Strategy</b> and consistency
+         * in <b>Flat Strategy</b>.
 		 */
 		protected int cardinality = 0;
 		
 		/**
-		 * {@code flatStrategyThreshold} is the threshold that determines when to switch from
-		 * <b>Compressed Strategy</b> to <b>Flat Strategy</b>. The switch is typically based on the
-		 * density of null values. The default value is 1024.
+         * Threshold for switching between storage strategies in {@link RW}. Compared against
+         * {@code cardinality} or internal metrics to balance space and speed. Default is 1024.
+		 *
+		 * @see RW#flatStrategyThreshold(int)
 		 */
 		protected int flatStrategyThreshold = 1024;
 		
 		
 		/**
-		 * {@code isFlatStrategy} is a boolean flag indicating the current storage strategy being used.
-		 * {@code true} indicates <b>Flat Strategy</b> is active.
-		 * {@code false} indicates <b>Compressed Strategy</b> is active.
+         * Indicates current storage strategy: {@code true} for <b>Flat</b>, {@code false} for <b>Compressed</b>.
 		 */
 		protected boolean isFlatStrategy = false;
 		
 		/**
-		 * Constructs a new {@code R} instance.
+         * Constructs a read-only base list with a default value.
 		 *
-		 * @param default_value The default value to be used for elements in this list.
+         * @param default_value Default integer value for the list.
 		 */
 		protected R( char default_value ) {
 			this.default_value = default_value;
@@ -124,70 +118,83 @@ public interface UByteNullList {
 		}
 		
 		
+		/**
+         * Returns the physical capacity of the {@code values} array, not the logical size.
+         * <ul>
+         *     <li>In <b>Flat Strategy</b>, typically matches logical size.</li>
+         *     <li>In <b>Compressed Strategy</b>, reflects capacity for non-null elements.</li>
+         * </ul>
+		 *
+         * @return Length of the {@code values} array.
+         * @see #size()
+		 */
 		public int length() { return values.length; }
 		
 		
-		public int size()   { return nulls.size(); }
+		/**
+         * Returns the logical size of the list, including both null and non-null elements.
+		 *
+         * @return Total number of logical elements.
+		 */
+		public int size() { return nulls.size(); }
 		
 		/**
-		 * Checks if the list is empty (contains no elements).
+         * Checks if the list is logically empty.
 		 *
-		 * @return {@code true} if the list is empty, {@code false} otherwise.
+         * @return {@code true} if size is 0, {@code false} otherwise.
 		 */
 		public boolean isEmpty() { return size() < 1; }
 		
 		/**
-		 * Checks if there is a non-null value at the specified index.
+         * Checks if the element at the specified index is non-null.
 		 *
-		 * @param index The index to check.
-		 * @return {@code true} if the value at the given {@code index} is non-null, {@code false} if it is null.
+         * @param index Logical index to check.
+         * @return {@code true} if non-null, {@code false} if null or out of bounds.
 		 */
 		public boolean hasValue( int index ) {
 			return nulls.get( index );
 		}
 		
 		/**
-		 * Finds the index of the next non-null value starting from the given {@code index} (inclusive).
+         * Finds the next non-null value's index at or after the given index.
 		 *
-		 * @param index The starting index for the search.
-		 * @return The index of the next non-null value, or -1 if no non-null value is found from {@code index} onwards.
+         * @param index Starting index (inclusive).
+         * @return Index of next non-null value, or -1 if none found.
 		 */
-		public @Positive_OK int nextValueIndex( int index ) {
-			return nulls.next1( index );
-		}
+		public @Positive_OK int nextValueIndex( int index ) { return nulls.next1( index ); }
 		
 		/**
-		 * Finds the index of the previous non-null value before the given {@code index} (exclusive).
+         * Finds the previous non-null value's index at or before the given index.
 		 *
-		 * @param index The starting index for the backward search.
-		 * @return The index of the previous non-null value, or -1 if no non-null value is found before {@code index}.
+         * @param index Starting index (inclusive).
+         * @return Index of previous non-null value, or -1 if none found.
 		 */
-		public @Positive_OK int prevValueIndex( int index ) {
-			return nulls.prev1( index );
-		}
+		public @Positive_OK int prevValueIndex( int index ) { return nulls.prev1( Math.min( index, size() - 1 ) ); }
 		
 		/**
-		 * Finds the index of the next null value starting from the given {@code index} (inclusive).
+         * Finds the next null value's index at or after the given index.
 		 *
-		 * @param index The starting index for the search.
-		 * @return The index of the next null value, or -1 if no null value is found from {@code index} onwards.
+         * @param index Starting index (inclusive).
+         * @return Index of next null value, or -1 if none found.
 		 */
 		public @Positive_OK int nextNullIndex( int index ) { return nulls.next0( index ); }
 		
 		/**
-		 * Finds the index of the previous null value before the given {@code index} (exclusive).
+         * Finds the previous null value's index at or before the given index.
 		 *
-		 * @param index The starting index for the backward search.
-		 * @return The index of the previous null value, or -1 if no null value is found before {@code index}.
+         * @param index Starting index (inclusive).
+         * @return Index of previous null value, or -1 if none found.
 		 */
-		public @Positive_OK int prevNullIndex( int index ) { return nulls.prev0( index ); }
+		public @Positive_OK int prevNullIndex( int index ) { return nulls.prev0( Math.min( index, size() - 1 ) ); }
 		
 		/**
-		 * Retrieves the value at the specified {@code index}.
-		 * Callers should use {@link #hasValue} to check for nullity before calling {@code get}
+         * Retrieves the integer value at the specified index. Caller must verify non-nullity
+         * with {@link #hasValue(int)} first, or behavior is undefined (e.g., may throw exception
+         * or return garbage).
 		 *
-		 * @param index The index of the element to retrieve.
-		 * @return The value at the specified {@code index}, or 0 if the value is logically null.
+         * @param index Logical index of a non-null value.
+         * @return Integer value at the index.
+         * @throws IndexOutOfBoundsException If index is invalid or null.
 		 */
 		public char get( @Positive_ONLY int index ) {
 			return (char)( 0xFF & ( isFlatStrategy ?
@@ -196,10 +203,11 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Returns the index of the first occurrence of the specified non-null primitive {@code value} in the list.
+         * Returns the first index of a non-null integer value. Does not search for nulls; use
+         * {@link #nextNullIndex(int)} for nulls.
 		 *
-		 * @param value The non-null value to search for.
-		 * @return The index of the first occurrence of the {@code value}, or -1 if the value is not found in the list or if {@code value} is null.
+         * @param value Non-null integer to find.
+         * @return First index of the value, or -1 if not found.
 		 */
 		public int indexOf( char value ) {
 			if( isFlatStrategy ) {
@@ -216,20 +224,22 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Checks if the list contains the specified non-null primitive {@code value}.
+         * Checks if the list contains a non-null integer value. For null checks, use
+         * {@link #contains(Integer)}.
 		 *
-		 * @param value The non-null value to check for.
-		 * @return {@code true} if the list contains the {@code value}, {@code false} otherwise.
+         * @param value Non-null integer to check.
+         * @return {@code true} if found, {@code false} otherwise.
 		 */
 		public boolean contains( char value ) { return indexOf( value ) != -1; }
 		
 		/**
-		 * Checks if the list contains the specified {@code value} (which can be null).
+         * Checks if the list contains a boxed value, which may be {@code null}.
 		 *
-		 * @param value The  value (can be null) to check for.
-		 * @return {@code true} if the list contains the {@code value}, {@code false} otherwise.
+         * @param value Boxed integer (or {@code null}) to check.
+         * @return {@code true} if value (or a null) is present, {@code false} otherwise.
 		 */
 		public boolean contains(  Character value ) {
+			int i;
 			return value == null ?
 					nextNullIndex( 0 ) != -1 :
 					// Check for null value.
@@ -237,10 +247,10 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Returns the index of the last occurrence of the specified non-null primitive {@code value} in the list.
+         * Returns the last index of a non-null integer value. Does not search for nulls.
 		 *
-		 * @param value The non-null value to search for.
-		 * @return The index of the last occurrence of the {@code value}, or -1 if the value is not found.
+         * @param value Non-null integer to find.
+         * @return Last index of the value, or -1 if not found.
 		 */
 		public int lastIndexOf( char value ) {
 			if( isFlatStrategy ) {
@@ -258,12 +268,10 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Compares this list to another object for equality.
-		 * Equality is determined by the logical contents of the lists (including null values) and not by the
-		 * internal storage strategy.
+         * Compares this list to another object for equality based on logical content.
 		 *
-		 * @param obj The object to compare with.
-		 * @return {@code true} if the given object is an instance of {@code R} and has the same logical content as this list, {@code false} otherwise.
+         * @param obj Object to compare.
+         * @return {@code true} if equal, {@code false} otherwise.
 		 */
 		@Override
 		public boolean equals( Object obj ) {
@@ -271,50 +279,43 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Computes the hash code for this list.
-		 * The hash code is based on the logical content of the list (including null values) and is consistent
-		 * regardless of the current storage strategy (flat or compressed).
+         * Computes a hash code based on logical content, independent of storage strategy.
 		 *
-		 * @return The hash code value for this list.
+         * @return Hash code of the list.
 		 */
 		@Override
 		public int hashCode() {
-			int hash = Array.hash( nulls ); // Start with hash of the nullity bitlist.
+			int hash = 133;
 			
-			if( isFlatStrategy )
-				for( int i = nulls.next1( 0 ); i != -1; i = nulls.next1( i + 1 ) )
-				     hash = Array.mix( hash, Array.hash( values[ i ] ) ); // Mix in the hash of each non-null value.
-			else
-				hash = Array.hash( hash, values, 0, cardinality );
-			
+			for( int i = 0, size = size(); i < size; i++ )
+			     hash = Array.mix( hash, Array.hash( hasValue( i ) ?
+					                                         get( i ) :
+					                                         17 ) );
 			return Array.finalizeHash( hash, size() ); // Finalize the hash with the length of the list.
 		}
 		
 		/**
-		 * Performs a detailed equality check with another {@code R} instance.
-		 * This method efficiently compares the logical contents of two {@code R} lists, handling both
-		 * flat and compressed strategies and ensuring that null values are also compared correctly.
+         * Checks logical equality with another {@code R} instance.
 		 *
-		 * @param other The other {@code R} instance to compare with.
-		 * @return {@code true} if the two lists are logically equal, {@code false} otherwise.
+         * @param other List to compare.
+         * @return {@code true} if logically equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
 			int size;
 			if( other == this ) return true;
-			if( other == null || ( size = size() ) != other.size() || !nulls.equals( other.nulls ) || cardinality != other.cardinality ) return false; // Quick checks for inequality.
+			if( other == null || ( size = size() ) != other.size() ) return false; // Quick checks for inequality.
 			
 			boolean b;
 			for( int i = 0; i < size; i++ )
-				if( ( b = hasValue( i ) ) != other.hasValue( i ) || b && get( 1 ) != other.get( i ) ) return false;
+				if( ( b = hasValue( i ) ) != other.hasValue( i ) || b && get( i ) != other.get( i ) ) return false;
 			
 			return true; // Lists are equal if all checks pass.
 		}
 		
 		/**
-		 * Creates and returns a deep copy of this {@code R} instance.
-		 * The clone will have the same logical content and internal strategy as the original.
+         * Creates a deep copy of this list, preserving content and strategy.
 		 *
-		 * @return A new {@code R} instance that is a clone of this list.
+         * @return Cloned {@code R} instance.
 		 */
 		@Override
 		public R clone() {
@@ -332,19 +333,17 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Returns a JSON string representation of this list.
-		 * Delegates to {@link #toJSON()}.
+         * Returns a JSON string of the list, with nulls as {@code null}.
 		 *
-		 * @return A JSON formatted string representing the list's content.
+         * @return JSON representation, e.g., {@code [1, null, 3]}.
 		 */
 		@Override
 		public String toString() { return toJSON(); }
 		
 		/**
-		 * Writes the content of this list in JSON format to the provided {@link JsonWriter}.
-		 * Null values are represented as JSON null, and non-null values are represented as JSON numbers.
+         * Writes the list to a JSON writer, representing nulls as {@code null}.
 		 *
-		 * @param json The {@link JsonWriter} to write the JSON output to.
+         * @param json Writer to output JSON.
 		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
@@ -360,59 +359,63 @@ public interface UByteNullList {
 					}
 					else for( ; i < ii; i++ ) json.value(); // Write nulls up to the next non-null value.
 			}
-			json.exitArray(); // End JSON array.
+			json.exitArray();
 		}
 		
 		/**
-		 * Copies a range of elements into a destination array, preserving nulls.
+         * Copies a range of elements to a boxed array, preserving nulls.
 		 *
-		 * @param index Starting logical index.
-		 * @param len   Number of elements to copy.
-		 * @param dst   Destination array; resized if null or too small.
-		 * @return Array with copied elements, or {@code null} if empty.
+         * @param index Starting index.
+         * @param len Number of elements to copy.
+         * @param dst Destination array (or new if null/too small).
+         * @return Populated array with nulls as {@code null}.
 		 */
 		public  Character[] toArray( int index, int len,  Character[] dst ) {
-			if( size() == 0 ) return null;
+			if( size() == 0 ) return dst;
 			if( dst == null || dst.length < len ) dst = new  Character[ len ];
 			
-			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
-			          dst[ i ] = hasValue( srcIndex ) ?
-					          (char)( 0xFF & 
-					          ( values[ nulls.rank( srcIndex ) - 1 ] )) :
-					          null;
+			for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
+			     dst[ i ] =
+			     hasValue( srcIndex ) ?
+					     get( srcIndex ) :
+					     null;
 			return dst;
 		}
 		
 		/**
-		 * Copies a range of elements into a destination array, preserving nulls.
+         * Copies a range of elements to a primitive array, substituting nulls.
 		 *
-		 * @param index Starting logical index.
-		 * @param len   Number of elements to copy.
-		 * @param dst   Destination array; resized if null or too small.
-		 * @return Array with copied elements, or {@code null} if empty.
+         * @param index Starting index.
+         * @param len Number of elements to copy.
+         * @param dst Destination array (or new if null/too small).
+         * @param null_substitute Value for null elements.
+         * @return Populated array with nulls substituted.
 		 */
 		public char[] toArray( int index, int len, char[] dst, char null_substitute ) {
-			if( size() == 0 ) return null;
+			if( size() == 0 ) return dst;
+			
 			if( dst == null || dst.length < len ) dst = new char[ len ];
 			
-			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
-			          dst[ i ] = (char)( 0xFF &  ( hasValue( srcIndex ) ?
-					          values[ nulls.rank( srcIndex ) - 1 ] :
-					          null_substitute ));
+			for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
+			     dst[ i ] =
+			     hasValue( srcIndex ) ?
+					     get( srcIndex ) :
+					     null_substitute;
 			return dst;
 		}
 		
 		
 		/**
-		 * Checks if this list contains all non-null elements from another {@link ObjectList.R}.
+         * Checks if this list contains all elements from another list, including nulls.
+         * For nulls, requires at least one null if the source has any.
 		 *
-		 * @param src Source list to check against.
-		 * @return {@code true} if all non-null elements are present, {@code false} otherwise.
+         * @param src Source list to check.
+         * @return {@code true} if all elements are present, {@code false} otherwise.
 		 */
 		public boolean containsAll( R src ) {
 			for( int i = 0, s = src.size(); i < s; i++ )
 				if( src.hasValue( i ) ) { if( indexOf( src.get( i ) ) == -1 ) return false; }
-				else if( nextNullIndex( 0 ) == -1 ) return false;
+				else if( nextNullIndex( -1 ) == -1 ) return false;
 			
 			return true;
 		}
@@ -421,18 +424,17 @@ public interface UByteNullList {
 	}
 	
 	/**
-	 * {@code RW} is a read-write implementation of the {@link IntNullList} interface, extending {@link R}.
+     * {@code RW} extends {@link R} to provide read-write functionality for an {@link IntNullList}.
 	 * <p>
-	 * It provides methods to modify the list, such as adding, removing, and setting elements, while
-	 * automatically managing null values and switching between the flat and compressed storage strategies
-	 * based on the configured {@code flatStrategyThreshold}.
+     * It supports adding, removing, and setting elements (including nulls), and manages storage
+     * strategies dynamically based on {@code flatStrategyThreshold} and operational needs.
 	 */
 	class RW extends R {
 		
 		/**
-		 * Constructs a new {@code RW} list with the specified initial capacity and a default value of 0.
+         * Constructs an empty list with specified capacity and default value 0.
 		 *
-		 * @param length The initial capacity of the list.
+         * @param length Initial capacity.
 		 */
 		public RW( int length ) {
 			super( ( char ) 0 ); // Call super constructor with default value 0.
@@ -444,10 +446,15 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Constructs a new {@code RW} list with a specified default boxed  value and initial size.
+         * Constructs a list of given size with a boxed default value.
+         * <ul>
+         *     <li>If {@code default_value} is {@code null}, all elements are null.</li>
+         *     <li>If non-null, all elements are set to that value and marked non-null.</li>
+         * </ul>
+         * May start in flat strategy if size exceeds threshold.
 		 *
-		 * @param default_value The default value for the list. Can be null.
-		 * @param size          The initial size of the list.
+         * @param default_value Boxed default value (or {@code null}).
+         * @param size Initial logical size (negative sets capacity, size 0).
 		 */
 		public RW(  Character default_value, int size ) {
 			super( default_value == null ?
@@ -460,112 +467,92 @@ public interface UByteNullList {
 			values = size == 0 ?
 					Array.EqualHashOf.bytes     .O :
 					// Use empty array if size is 0.
-					new byte[ cardinality = size < 0 ?
+					new byte[ size < 0 ?
 							-size :
 							// If size is negative, use its absolute value for initial capacity but set cardinality to 0.
 							size ]; // Otherwise, use size for both capacity and cardinality.
 			
 			if( 0 < size && default_value != null && default_value != 0 ) {
-				isFlatStrategy = flatStrategyThreshold < size * 64;
+				isFlatStrategy = flatStrategyThreshold <= cardinality;
 				Arrays.fill( values, 0, size, ( byte ) ( default_value + 0 ) ); // Fill array with default value if size > 0 and default_value is not null or 0.
 			}
 			
 		}
 		
 		/**
-		 * Constructs a new {@code RW} list with a specified primitive default value and initial size.
+         * Constructs a list of given size with a primitive default value.
+         * All elements are set to {@code default_value} and marked non-null.
+         * May start in flat strategy if size exceeds threshold.
 		 *
-		 * @param default_value The default primitive value for the list.
-		 * @param size          The initial size of the list.
+         * @param default_value Primitive default value.
+         * #param size Initial logical size (negative sets capacity, size 0).
 		 */
 		public RW( char default_value, int size ) {
 			super( default_value ); // Call super constructor with the given default value.
-			nulls       = new BitList.RW( false, size ); // Initialize nulls bitlist, initially all nulls.
+			nulls       = new BitList.RW( true, size ); // Initialize nulls bitlist, initially all nulls.
 			cardinality = nulls.cardinality();
 			
 			values = size == 0 ?
 					Array.EqualHashOf.bytes     .O :
 					// Use empty array if size is 0.
-					new byte[ this.cardinality = size < 0 ?
+					new byte[ size < 0 ?
 							-size :
 							// If size is negative, use its absolute value for initial capacity but set cardinality to 0.
 							size ]; // Otherwise, use size for both capacity and cardinality.
 			
 			if( 0 < size && default_value != 0 ) {
-				isFlatStrategy = flatStrategyThreshold < size * 64;
+				isFlatStrategy = flatStrategyThreshold <= cardinality;
 				Arrays.fill( values, 0, size, ( byte ) ( default_value + 0 ) ); // Fill array with default value if size > 0 and default_value is not null or 0.
 			}
 		}
 		
 		/**
-		 * Sets the threshold for switching to the flat storage strategy.
-		 * <p>
-		 * The class employs two storage strategies: compressed and flat.
-		 * The compressed strategy is more space-efficient, especially when the list contains many null values.
-		 * However, accessing elements in the compressed strategy involves calculating the rank of indices in the {@link BitList.RW} ({@code nulls}),
-		 * which can become less performant as the size of the {@code BitList.RW} grows.
-		 * The flat strategy, on the other hand, prioritizes access speed by storing values in a one-to-one mapping,
-		 * but it consumes more memory as it allocates space for all logical elements, including placeholders for nulls.
-		 * <p>
-		 * This method, {@code flatStrategyThreshold}, allows you to adjust the point at which the list automatically switches
-		 * from the space-efficient compressed strategy to the performance-optimized flat strategy.
-		 * The switch is triggered based on the usage of the {@link BitList.RW} instance (`nulls`) that tracks null values.
-		 * <p>
-		 * Specifically, the threshold is compared against a value derived from the {@code nulls} bitlist's internal state,
-		 * which is approximately the number of bits currently used in the {@code nulls} bitlist's storage array (`nulls.used * 64`).
-		 * When this usage value is greater than or equal to the {@code flatStrategyThreshold}, and a resize of the value array is needed
-		 * (e.g., when adding a new non-null element in compressed strategy requires array expansion), the list will switch to the flat strategy.
-		 * <p>
-		 * Increasing {@code interleavedBits} (i.e., setting a higher {@code flatStrategyThreshold}) delays the switch to the flat strategy,
-		 * making the list stay in the compressed strategy for longer, even as the {@code nulls} bitlist grows. This is beneficial when
-		 * space efficiency is paramount and the performance cost of rank calculations in the compressed strategy is still acceptable.
-		 * <p>
-		 * Conversely, decreasing {@code interleavedBits} (i.e., setting a lower {@code flatStrategyThreshold}) makes the list switch to the flat
-		 * strategy sooner. This prioritizes access performance, as the flat strategy avoids rank calculations, at the expense of potentially
-		 * using more memory. Setting {@code interleavedBits} to 0 would effectively force an immediate switch to the flat strategy as soon as
-		 * the condition is met, likely on the first resize after initialization if the initial size and threshold allow.
-		 * <p>
-		 * The default value of {@code flatStrategyThreshold} is 1024. You can adjust this value based on your application's specific needs,
-		 * balancing between memory usage and access performance. Consider profiling your application with different threshold values
-		 * to find the optimal setting.
+         * Sets the threshold for strategy switching and may trigger an immediate switch.
+		 * <ul>
+         *     <li>If {@code threshold} ≤ {@code cardinality} and currently compressed, switches to flat.</li>
+         *     <li>If {@code threshold} > {@code cardinality} and currently flat, switches to compressed.</li>
+		 * </ul>
+         * Operations like {@code add} or {@code set} may also trigger switches based on resizing needs.
 		 *
-		 * @param interleavedBits The new threshold value for switching to the flat strategy.
-		 *                        This value represents a point related to the usage of the {@code nulls} bitlist.
-		 *                        A higher value delays the switch to flat strategy, favoring space efficiency.
-		 *                        A lower value promotes an earlier switch to flat strategy, favoring access performance.
+         * @param threshold New threshold value (higher favors compressed, lower favors flat).
+		 * @see #switchToFlatStrategy()
+		 * @see #switchToCompressedStrategy()
 		 */
-		public void flatStrategyThreshold( int interleavedBits ) {
-			flatStrategyThreshold = interleavedBits;
+		public void flatStrategyThreshold( int threshold ) {
+			
+			if( ( flatStrategyThreshold = threshold ) <= nulls.cardinality() ) { if( !isFlatStrategy ) switchToFlatStrategy(); }
+			else if( isFlatStrategy ) switchToCompressedStrategy();
 		}
 		
+		
 		/**
-		 * Creates and returns a deep copy of this {@code RW} instance.
+         * Creates a deep copy of this list.
 		 *
-		 * @return A new {@code RW} instance that is a clone of this list.
+         * @return Cloned {@code RW} instance.
 		 */
 		@Override
-		public RW clone() {
-			return ( RW ) super.clone(); // Simply cast the superclass clone result to RW.
-		}
+		public RW clone() { return ( RW ) super.clone(); }
 		
 		/**
 		 * Removes the last element from the list.
 		 *
-		 * @return This {@code RW} instance (for method chaining).
+         * @return This instance for chaining.
 		 */
-		public RW remove() {
-			return remove( size() - 1 ); // Remove element at the last valid index.
-		}
+		public RW remove() { return remove( size() - 1 ); }
 		
 		/**
-		 * Removes the element at the specified {@code index}.
+         * Removes the element at the specified index, shifting subsequent elements left.
+         * No effect if index is out of bounds.
 		 *
-		 * @param index The index of the element to remove.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index Logical index to remove.
+         * @return This instance for chaining.
 		 */
 		public RW remove( int index ) {
-			if( size() < 1 || size() <= index ) return this; // No-op if list is empty or index is out of bounds.
-			if( isFlatStrategy ) nulls.remove( index ); // Remove the nullity bit at the index.
+			if( index < 0 || size() <= index ) return this;
+			if( isFlatStrategy ) {
+				nulls.remove( index ); // Remove the nullity bit at the index.
+				Array.resize( values, values, index, nulls.size + 1, -1 );
+			}
 			else { // Compressed strategy.
 				if( nulls.get( index ) ) cardinality = Array.resize( values, values, nulls.rank( index ) - 1, cardinality, -1 ); // Shrink compressed array by removing the value.
 				nulls.remove( index ); // Remove the nullity bit at the index.
@@ -574,35 +561,33 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Sets a boxed  value at the last index of the list.
-		 * This is equivalent to modifying the last element if the list is not empty.
+         * Sets the last element (or first if empty) to a boxed value.
 		 *
-		 * @param value The  value to set (can be null).
-		 * @return This {@code RW} instance (for method chaining).
+         * @param value Boxed value (may be {@code null}).
+         * @return This instance for chaining.
 		 */
 		public RW set1(  Character value ) {
-			set( this, size() - 1, value ); // Delegate to static set method for Integer.
+			set( this, Math.max( 0, size() - 1 ), value ); // Delegate to static set method for Integer.
 			return this;
 		}
 		
 		/**
-		 * Sets a primitive value at the last index of the list.
-		 * This is equivalent to modifying the last element if the list is not empty.
+         * Sets the last element (or first if empty) to a primitive value, marking it non-null.
 		 *
-		 * @param value The primitive value to set.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param value Primitive value.
+         * @return This instance for chaining.
 		 */
 		public RW set1( char value ) {
-			set( this, size() - 1, value ); // Delegate to static set method for primitive int.
+			set( this, Math.max( 0, size() - 1 ), value ); // Delegate to static set method for primitive int.
 			return this;
 		}
 		
 		/**
-		 * Sets a boxed  value (can be null) at a specific {@code index} in the list.
+         * Sets an element at the specified index to a boxed value. Extends list with nulls if needed.
 		 *
-		 * @param index The index where the value should be set.
-		 * @param value The boxed  value to set (can be null).
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index Logical index.
+         * @param value Boxed value (may be {@code null}).
+         * @return This instance for chaining.
 		 */
 		public RW set1( int index,  Character value ) {
 			set( this, index, value ); // Delegate to static set method for Integer at index.
@@ -610,11 +595,12 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Sets a primitive value at a specific {@code index} in the list.
+         * Sets an element at the specified index to a primitive value, marking it non-null.
+         * Extends list with nulls if needed.
 		 *
-		 * @param index The index where the value should be set.
-		 * @param value The primitive value to set.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index Logical index.
+         * @param value Primitive value.
+         * @return This instance for chaining.
 		 */
 		public RW set1( int index, char value ) {
 			set( this, index, value ); // Delegate to static set method for primitive int at index.
@@ -622,11 +608,11 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Sets multiple boxed  values starting from the specified {@code index}.
+         * Sets multiple elements from an index using boxed values. Extends list if needed.
 		 *
-		 * @param index  The starting index for setting values.
-		 * @param values An array of boxed  values (can be null) to set.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index Starting index.
+         * @param values Boxed values (may include {@code null}).
+         * @return This instance for chaining.
 		 */
 		public RW set( int index,  Character... values ) {
 			for( int i = 0; i < values.length; i++ ) set( this, index + i, values[ i ] ); // Iterate backwards and set each value.
@@ -634,131 +620,143 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Sets multiple primitive values starting from the specified {@code index}.
+         * Sets multiple elements from an index using primitive values, marking them non-null.
+         * Extends list if needed.
 		 *
-		 * @param index  The starting index for setting values.
-		 * @param values An array of primitive values to set.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index Starting index.
+         * @param values Primitive values.
+         * @return This instance for chaining.
 		 */
 		public RW set( int index, char... values ) {
 			return set( index, values, 0, values.length ); // Delegate to array range set method.
 		}
 		
 		/**
-		 * Sets a range of values from a source array of primitives into this list, starting at a specific index.
+         * Sets a range of elements from a primitive array, marking them non-null.
+         * Extends list if needed.
 		 *
-		 * @param index     The starting index in this list where the values should be set.
-		 * @param values    The source array containing the primitive values to set.
-		 * @param src_index The starting index in the source array to copy from.
-		 * @param len       The number of elements to copy from the source array.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index Starting index.
+         * @param src Source array.
+         * @param src_index Source starting index.
+         * @param len Number of elements to set.
+         * @return This instance for chaining.
 		 */
-		public RW set( int index, char[] values, int src_index, int len ) {
-			for( int i = 0; i < values.length; i++ ) set( this, index + i, ( char ) values[ src_index + i ] ); // Iterate backwards and set each value from source array.
+		public RW set( int index, char[] src, int src_index, int len ) {
+			for( int i = 0; i < src.length; i++ ) set( this, index + i, ( char ) src[ src_index + i ] ); // Iterate backwards and set each value from source array.
 			return this;
 		}
 		
 		/**
-		 * Sets a range of values from a source array of boxed s (can be null) into this list, starting at a specific index.
+         * Sets a range of elements from a boxed array. Extends list if needed.
 		 *
-		 * @param index     The starting index in this list where the values should be set.
-		 * @param values    The source array containing the boxed  values (can be null) to set.
-		 * @param src_index The starting index in the source array to copy from.
-		 * @param len       The number of elements to copy from the source array.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index Starting index.
+         * @param src Source array (may include {@code null}).
+         * @param src_index Source starting index.
+         * @param len Number of elements to set.
+         * @return This instance for chaining.
 		 */
-		public RW set( int index,  Character[] values, int src_index, int len ) {
-			for( int i = 0; i < values.length; i++ ) set( this, index + i, values[ src_index + i ] ); // Iterate backwards and set each value from source array.
+		public RW set( int index,  Character[] src, int src_index, int len ) {
+			for( int i = 0; i < src.length; i++ ) set( this, index + i, src[ src_index + i ] ); // Iterate backwards and set each value from source array.
 			return this;
 		}
 		
 		/**
-		 * Adds a boxed  value (can be null) to the end of the list.
+         * Adds a boxed value to the end of the list. May trigger strategy switch.
 		 *
-		 * @param value The boxed  value to add (can be null).
-		 * @return This {@code RW} instance (for method chaining).
+         * @param value Boxed value (may be {@code null}).
+         * @return This instance for chaining.
 		 */
 		public RW add1(  Character value ) {
-			if( value == null ) {
-				nulls.add( false ); // Add null entry to bitlist.
-				if( isFlatStrategy && values.length <= nulls.size() - 1 )
-					values = Arrays.copyOf( values, nulls.size() + nulls.size() / 2 ); // Ensure flat array capacity.
-			}
-			else add1( value.charValue     () ); // Delegate to primitive add for non-null value.
-			
+			set( this, size(), value );
 			return this;
 		}
 		
 		/**
-		 * Adds a primitive value to the end of the list.
+         * Adds a primitive value to the end of the list, marking it non-null.
+         * May trigger strategy switch.
 		 *
-		 * @param value The primitive value to add.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param value Primitive value.
+         * @return This instance for chaining.
 		 */
 		public RW add1( char value ) {
-			
-			int i;
-			if( isFlatStrategy ) {
-				if( values.length <= ( i = nulls.size() ) ) values = Arrays.copyOf( values, i + i / 2 + 1 ); // Ensure flat array capacity.
-			}
-			else  // Compressed strategy.
-				if( values.length <= ( i = cardinality + 1 ) && flatStrategyThreshold <= nulls.used * 64 ) {
-					nulls.add( true ); // Mark as non-null.
-					
-					switchToFlatStrategy(); // Switch before modification if threshold is met and resize is needed.
-					
-					
-					values[ nulls.size() - 1 ] = ( byte ) value; // Add value to flat array.
-					return this;
-				}
-				else i = ( cardinality = Array.resize( values, values.length <= i ?
-						( values = new byte[ i * 3 / 2 ] ) :
-						values, cardinality, cardinality, 1 ) ) - 1;
-			
-			values[ i ] = ( byte ) value; // Add value to flat array.
-			nulls.add( true ); // Mark as non-null.
-			
+			set( this, size(), value );
 			return this;
 		}
 		
 		/**
-		 * Adds a boxed  value (can be null) at a specific {@code index} in the list.
+         * Adds multiple primitive values to the end of the list, marking them non-null.
+         * May trigger strategy switch.
 		 *
-		 * @param index The index at which the value should be inserted.
-		 * @param value The boxed  value to add (can be null).
-		 * @return This {@code RW} instance (for method chaining).
+         * @param items Primitive values.
+         * @return This instance for chaining.
+		 */
+		public RW add( char... items ) { // VEXT -> int
+			if( items == null || items.length == 0 ) return this;
+			// Optimize: Could potentially pre-calculate final size/cardinality,
+			// resize/switch strategy once, then copy data.
+			// Current impl uses set() which calls single-element set repeatedly.
+			return set( size(), items, 0, items.length ); // Set the new items starting from the current end
+		}
+		
+		/**
+         * Adds multiple boxed values to the end of the list. May trigger strategy switch.
+		 *
+         * @param items Boxed values (may include {@code null}).
+         * @return This instance for chaining.
+		 */
+		public RW add(  Character[] items ) { return set( size(), items ); }
+		
+		
+		/**
+         * Inserts a boxed value at an index, shifting elements right. Extends list if needed.
+         * May trigger strategy switch.
+		 *
+         * @param index Logical index.
+         * @param value Boxed value (may be {@code null}).
+         * @return This instance for chaining.
 		 */
 		public RW add1( int index,  Character value ) {
 			if( value == null ) {
-				nulls.add( index, false ); // Insert null bit at index.
+				int s = size();
+				nulls.add( index, false );
 				
-				if( isFlatStrategy && values.length <= nulls.size() - 1 ) values = Arrays.copyOf( values, nulls.size() + nulls.size() / 2 ); // Ensure flat array capacity.
+				if( isFlatStrategy )
+					Array.resize( values,
+					              values.length <= nulls.size() - 1 ?
+							              values = new byte[ ( nulls.size() - 1 ) * 2 / 3 ] :
+							              values, index, s, 1 );
 			}
 			else add1( index, value.charValue     () ); // Delegate to primitive add at index for non-null value.
 			return this;
 		}
 		
 		/**
-		 * Adds a primitive value at a specific {@code index} in the list.
+         * Inserts a primitive value at an index, marking it non-null and shifting elements right.
+         * Extends list if needed. May trigger strategy switch.
 		 *
-		 * @param index The index at which the value should be inserted.
-		 * @param value The primitive value to add.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index Logical index.
+         * @param value Primitive value.
+         * @return This instance for chaining.
 		 */
 		public RW add1( int index, char value ) {
-			// Inserting within bounds.
-			if( index < size() )
+			
+			if( index < size() )// Inserting within bounds.
 				if( isFlatStrategy ) {
-					nulls.add( index, true ); // Insert non-null bit at index.
-					Array.resize( values, values.length <= nulls.size() - 1 ?
-							values = new byte[ nulls.size() + nulls.size() / 2 ] :
-							values, index, size(), 1 );
+					// Insert non-null bit at index.
+					
+					nulls.add( index, true );
+					Array.resize( values,
+					              values.length <= nulls.size() - 1 ?
+							              values = new byte[ nulls.size() + nulls.size() / 2 ] :
+							              values, index, size(), 1 );
 					
 					values[ index ] = ( byte ) value; // Insert value in flat array.
 				}
 				else { // Compressed strategy.
 					
-					nulls.add( index, true ); // Insert non-null bit at index.
+					// Insert non-null bit at index.
+					
+					nulls.add( index, true );
 					cardinality++;
 					int rank = nulls.rank( index ) - 1; // Calculate rank for insertion.
 					
@@ -778,57 +776,38 @@ public interface UByteNullList {
 			return this;
 		}
 		
-		/**
-		 * Adds multiple primitive values to the end of the list.
-		 *
-		 * @param items An array of primitive values to add.
-		 * @return This {@code RW} instance (for method chaining).
-		 */
-		public RW add( char... items ) {
-			return set( size(), items ); // Set the new items starting from the original size.
-		}
 		
 		/**
-		 * Adds multiple boxed  values (can be null) to the end of the list.
+         * Adds all elements from another list to the end of this list.
 		 *
-		 * @param items An array of boxed  values (can be null) to add.
-		 * @return This {@code RW} instance (for method chaining).
-		 */
-		public RW add(  Character... items ) { return set( size(), items ); }
-		
-		/**
-		 * Adds all elements from another {@link R} list to the end of this list.
-		 *
-		 * @param src The source {@link R} list to add elements from.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param src Source list.
+         * @return This instance for chaining.
 		 */
 		public RW addAll( R src ) {
 			for( int i = 0, s = src.size(); i < s; i++ )
+				// Add null if source has null at this position.
 				if( src.hasValue( i ) ) add1( src.get( i ) ); // Add non-null value from source.
-				else nulls.add( false ); // Add null if source has null at this position.
+				else nulls.set( nulls.size, false );
 			return this;
 		}
 		
 		/**
-		 * Clears all elements from this list, making it empty.
+         * Clears all elements, resetting the list to empty.
 		 *
-		 * @return This {@code RW} instance (for method chaining).
+         * @return This instance for chaining.
 		 */
 		public RW clear() {
 			cardinality = 0; // Reset cardinality.
 			nulls.clear(); // Clear the nulls bitlist.
-			values         = Array.EqualHashOf.bytes     .O; // Reset value array to empty.
-			isFlatStrategy = false; // Revert to compressed strategy for empty list.
 			return this;
 		}
 		
 		/**
-		 * Sets the total capacity (length) of the list.
-		 * If the new length is less than the current length, the list is truncated.
-		 * If the new length is greater, the list is extended with default values (nulls).
+         * Sets the physical capacity of the list. Truncates if smaller than current length.
+         * May trigger strategy switch.
 		 *
-		 * @param length The new length (capacity) of the list.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param length New capacity (non-negative).
+         * @return This instance for chaining.
 		 */
 		public RW length( int length ) {
 			if( length < 1 ) {
@@ -836,28 +815,26 @@ public interface UByteNullList {
 				return this;
 			}
 			
-			int oldLength = nulls.size();
-			
 			nulls.length( length ); // Set new length for nulls bitlist.
 			
 			if( isFlatStrategy ) {
 				if( values.length != length )
-					values = Arrays.copyOf( values, length ); // Resize flat array if needed.
+					if( nulls.cardinality() < flatStrategyThreshold ) switchToCompressedStrategy();
+					else values = Arrays.copyOf( values, length ); // Resize flat array if needed.
 			}
-			else if( length < cardinality ) cardinality = length; // In compressed strategy, truncate cardinality if length is reduced.
+			else if( length < cardinality )
+				if( flatStrategyThreshold < ( cardinality = nulls.cardinality() ) ) switchToFlatStrategy();
+				else values = Arrays.copyOf( values, cardinality ); // Resize flat array if needed.
 			
-			if( !isFlatStrategy && oldLength < length && nulls.used * 64 >= flatStrategyThreshold ) switchToFlatStrategy(); // Check strategy switch on extension.
-			else if( isFlatStrategy && length < oldLength && nulls.used * 64 < flatStrategyThreshold ) switchToCompressedStrategy(); // Check strategy switch on reduction.
 			return this;
 		}
 		
 		/**
-		 * Sets the number of non-null elements (size) of the list.
-		 * If the new size is less than the current size, the list is truncated, potentially removing non-null values.
-		 * If the new size is greater, the list is extended with null values.
+         * Sets the logical size of the list. If increased, extends with nulls, setting the last
+         * element to {@code default_value} if non-null. If decreased, truncates.
 		 *
-		 * @param size The new size (number of non-null elements) of the list.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param size New size (non-negative).
+         * @return This instance for chaining.
 		 */
 		public RW size( int size ) {
 			if( size < 1 ) clear(); // If size is less than 1, clear the list.
@@ -870,27 +847,21 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Adjusts the internal array lengths to match the current size, freeing any excess allocated memory.
-		 * This is useful to optimize memory usage after a series of removals or size reductions.
+         * Minimizes memory usage by setting capacity to current size. May switch to compressed
+         * strategy if density is low.
 		 *
-		 * @return This {@code RW} instance (for method chaining).
+         * @return This instance for chaining.
 		 */
 		public RW fit() {
 			length( size() );
-			
-			if( !isFlatStrategy ) return this;
-			int i = nulls.cardinality();
-			if( flatStrategyThreshold < i ) return this;
-			
-			switchToCompressedStrategy();
-			values = Arrays.copyOf( values, i );
 			return this;
 		}
 		
 		/**
-		 * Trims the list to remove any trailing null values, effectively resizing it to end at the last non-null element.
+         * Trims trailing nulls by adjusting size to the last non-null element + 1.
+         * May switch to compressed strategy if density is low.
 		 *
-		 * @return This {@code RW} instance (for method chaining).
+         * @return This instance for chaining.
 		 */
 		public RW trim() {
 			int last = nulls.last1() + 1; // Find index of last non-null element + 1.
@@ -900,16 +871,14 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Swaps the elements at two specified indices in the list.
-		 * This operation correctly handles both null and non-null values and works efficiently
-		 * regardless of whether the list is in flat or compressed strategy.
+         * Swaps elements (and nullity) at two indices. Efficient for both strategies.
 		 *
-		 * @param index1 The index of the first element to swap.
-		 * @param index2 The index of the second element to swap.
-		 * @return This {@code RW} instance (for method chaining).
+         * @param index1 First index.
+         * @param index2 Second index.
+         * @return This instance for chaining.
 		 */
 		public RW swap( int index1, int index2 ) {
-			if( index1 == index2 ) return this; // No need to swap if indices are the same.
+			if( index1 == index2 || index1 < 0 || index2 < 0 || size() <= index1 || size() <= index2 ) return this; // No need to swap if indices are the same.
 			
 			boolean e1 = nulls.get( index1 ); // Get nullity status of element at index1.
 			boolean e2 = nulls.get( index2 ); // Get nullity status of element at index2.
@@ -944,7 +913,11 @@ public interface UByteNullList {
 					values[ i2 ] = tmp; // Swap values in compressed array using ranks.
 				}
 				else {
-					// One is null, one is non-null in compressed strategy.
+					nulls.set( index1, e2 );// Swap nullity: index1 gets index2's state
+					nulls.set( index2, e1 );// Swap nullity: index2 gets index1's state
+					
+					if( Math.abs( index1 - index2 ) < 2 ) return this;
+					
 					int exist = e1 ?
 							i1 :
 							i2;
@@ -952,8 +925,6 @@ public interface UByteNullList {
 							i2 + 1 :
 							i1 + 1;
 					
-					nulls.set( index1, e2 );// Swap nullity: index1 gets index2's state
-					nulls.set( index2, e1 );// Swap nullity: index2 gets index1's state
 					
 					byte v = values[ exist ]; // Get the value to be moved.
 					
@@ -971,8 +942,8 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Switches the storage strategy to <b>Flat (One-to-One) Strategy</b>.
-		 * before call this method, nulls must be in the final, updated state.
+         * Switches to flat strategy, reallocating {@code values} for direct indexing.
+         * Assumes {@code nulls} and {@code cardinality} are up-to-date.
 		 */
 		protected void switchToFlatStrategy() {
 			if( size() == 0 )//the collection is empty
@@ -982,7 +953,7 @@ public interface UByteNullList {
 				return;
 			}
 			
-			byte[] flat = new byte[ nulls.last1() + 1 ]; // Allocate flat array with some extra capacity for growth.
+			byte[] flat = new byte[ nulls.last1() * 3 / 2 ]; // Allocate flat array with some extra capacity for growth.
 			for( int i = nulls.next1( 0 ), ii = 0; ii < cardinality; i = nulls.next1( i + 1 ) )
 			     flat[ i ] = values[ ii++ ];
 			
@@ -992,36 +963,25 @@ public interface UByteNullList {
 		
 		
 		/**
-		 * Switches the storage strategy to <b>Compressed (Rank-Based) Strategy</b>.
-		 * <p>
-		 * If the list is already in compressed strategy, this method does nothing. Otherwise, it converts
-		 * the internal data representation from flat to compressed. This involves creating a new array
-		 * that is just large enough to hold the non-null values and copying only the non-null values
-		 * from the flat array into this new compressed array.
+         * Switches to compressed strategy, packing non-null values into {@code values}.
 		 */
 		protected void switchToCompressedStrategy() {
 			
 			cardinality = nulls.cardinality(); // Count of non-null elements.
-			for( int i = nulls.next1( 0 ), ii = 0; i != -1; i = nulls.next1( i + 1 ) )
-				if( i != ii ) values[ ii++ ] = values[ i ];// Pack non-null values sequentially in the same array.
+			for( int i = nulls.next1( -1 ), ii = 0; i != -1; i = nulls.next1( i + 1 ), ii++ )
+				if( i != ii ) values[ ii ] = values[ i ];// Pack non-null values sequentially in the same array.
 			
 			isFlatStrategy = false;
 		}
 		
 		/**
-		 * Sets a value at a specific index in the list. This helper method is used by {@link RW}.
-		 * It handles both null and non-null {@code value} inputs.
-		 * <p>
-		 * If {@code value} is null:
-		 * - Sets the corresponding bit in {@code nulls} to {@code false} (marking it as null).
-		 * - If the index was previously non-null, it removes the associated value
-		 * <p>
+         * Sets a boxed value at an index, handling nulls and extensions.
 		 *
-		 * @param dst   The target {@code R} instance to modify.
-		 * @param index The index at which to set the value.
-		 * @param value The  value to set (can be null).
+         * @param dst Target list.
+         * @param index Logical index.
+         * @param value Boxed value (may be {@code null}).
 		 */
-		protected static void set( R dst, int index,  Character value ) {
+		protected static void set( RW dst, int index,  Character value ) {
 			if( value == null ) {
 				if( dst.nulls.last1() < index ) dst.nulls.set0( index ); // If index is beyond current length, extend and set as null.
 				else if( dst.nulls.get( index ) ) { // If index was previously non-null, convert to null.
@@ -1034,46 +994,39 @@ public interface UByteNullList {
 		}
 		
 		/**
-		 * Sets a non-null value at a specific index in the list. This helper method is used by {@link RW}.
-		 * <p>
-		 * - If the index already contains a non-null value, it updates the value at that index.
-		 * - If the index is currently null, it marks it as non-null in {@code nulls} and adds the
-		 * given {@code value} to the {@code values} array at the appropriate position (either directly
-		 * in flat strategy or at the correct rank in compressed strategy).
+         * Sets a primitive value at an index, marking it non-null. May trigger strategy switch.
 		 *
-		 * @param dst   The destination {@code R} instance to modify.
-		 * @param index The index at which to set the value.
-		 * @param value The non-null value to set.
+         * @param dst Target list.
+         * @param index Logical index.
+         * @param value Primitive value.
 		 */
 		protected static void set( RW dst, int index, char value ) {
 			
 			if( dst.isFlatStrategy ) {
-				if( dst.values.length <= index )
-					dst.values = Arrays.copyOf( dst.values, Math.max( index + 1, dst.values.length + dst.values.length / 2 ) ); // Ensure array capacity.
+				if( dst.values.length <= index ) dst.values = Arrays.copyOf( dst.values, Math.max( index + 1, dst.values.length * 3 / 2 ) ); // Ensure array capacity.
 				dst.values[ index ] = ( byte ) value; // Set value in flat array.
 				dst.nulls.set1( index ); // Mark as non-null.
 			}
-			else // Index already non-null in compressed strategy.
-				if( dst.nulls.get( index ) ) dst.values[ dst.nulls.rank( index ) - 1 ] = ( byte ) value; // Update existing value.
-				else { // Index was null, need to insert value in compressed strategy.
-					int rank = dst.nulls.rank( index ); // Calculate index for insertion.
-					int max  = Math.max( rank, dst.cardinality );
-					
-					if( dst.values.length <= max && dst.flatStrategyThreshold < dst.nulls.used * 64 ) {
-						dst.switchToFlatStrategy();
-						dst.nulls.set1( index ); // Mark as non-null.
-						dst.values[ index ] = ( byte ) value; // Set value in flat array.
-					}
-					else {
-						dst.cardinality    = Array.resize( dst.values,
-						                                   dst.values.length <= max ?
-								                                   ( dst.values = new byte[ 2 + max * 3 / 2 ] ) :
-								                                   dst.values,
-						                                   rank, dst.cardinality, 1 ); // Insert a slot for the new value.
-						dst.values[ rank ] = ( byte ) value; // Set the new value in compressed array.
-						dst.nulls.set1( index ); // Mark as non-null.
-					}
+			else if( dst.nulls.get( index ) ) dst.values[ dst.nulls.rank( index ) - 1 ] = ( byte ) value; // Update existing value.
+			else {
+				int rank = dst.nulls.rank( index );
+				int max  = Math.max( rank, dst.cardinality );
+				
+				if( dst.values.length <= max && dst.flatStrategyThreshold <= dst.cardinality ) {
+					dst.switchToFlatStrategy();
+					dst.nulls.set1( index ); // Mark as non-null.
+					dst.values[ index ] = ( byte ) value; // Set value in flat array.
 				}
+				else {
+					dst.cardinality    = Array.resize( dst.values,
+					                                   dst.values.length <= max ?
+							                                   ( dst.values = new byte[ 2 + max * 3 / 2 ] ) :
+							                                   dst.values,
+					                                   rank, dst.cardinality, 1 ); // Insert a slot for the new value.
+					dst.values[ rank ] = ( byte ) value; // Set the new value in compressed array.
+					dst.nulls.set1( index ); // Mark as non-null.
+				}
+			}
 		}
 	}
 }
