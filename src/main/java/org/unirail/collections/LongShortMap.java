@@ -37,6 +37,9 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.stream.Stream;
 
 /**
  * A specialized map implementation for storing integer key-value pairs with efficient operations.
@@ -445,7 +448,7 @@ public interface LongShortMap {
 		public boolean put(  Long      key, short value ) {
 			return key == null ?
 					this.put( value ) :
-					put( key, value );
+					put( (long)(key + 0), value );
 		}
 		
 		
@@ -520,7 +523,7 @@ public interface LongShortMap {
 		 * @param key The key to remove (may be {@code null}).
 		 * @return The token of the removed entry if found and removed, or {@code INVALID_TOKEN} if not found.
 		 */
-		public long remove(  Long      key ) {
+		public boolean remove(  Long      key ) {
 			return key == null ?
 					removeNullKey() :
 					remove( key.longValue     () );
@@ -531,12 +534,11 @@ public interface LongShortMap {
 		 *
 		 * @return The token of the removed null key entry if it existed, or {@code INVALID_TOKEN} if not present.
 		 */
-		private long removeNullKey() {
-			
-			if( !hasNullKey ) return INVALID_TOKEN;
+		private boolean removeNullKey() {
+			if( !hasNullKey ) return false;
 			hasNullKey = false;
 			_version++;
-			return token( NULL_KEY_INDEX );
+			return true;
 		}
 		
 		/**
@@ -546,8 +548,8 @@ public interface LongShortMap {
 		 * @return The token of the removed entry if found and removed, or {@code INVALID_TOKEN} if not found.
 		 * @throws ConcurrentModificationException if the map is structurally modified during removal.
 		 */
-		public long remove( long key ) {
-			if( _buckets == null || _count == 0 ) return INVALID_TOKEN;
+		public boolean remove( long key ) {
+			if( _buckets == null || _count == 0 ) return false;
 			
 			int collisionCount = 0;
 			int last           = -1;
@@ -564,13 +566,13 @@ public interface LongShortMap {
 					_freeList  = i;
 					_freeCount++;
 					_version++;
-					return token( i );
+					return true;
 				}
 				last = i;
 				i    = next;
 				if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
+			return false;
 		}
 		
 		/**

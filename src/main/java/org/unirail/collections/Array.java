@@ -2624,7 +2624,7 @@ public interface Array {
 		for( int prime : Array.primes )
 			if( capacity <= prime ) return prime;
 		
-		return -1;
+		return capacity;
 	}
 	
 	// Table of prime numbers to use as hash table sizes.

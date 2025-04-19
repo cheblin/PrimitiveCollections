@@ -666,18 +666,18 @@ public interface ObjectBitsMap {
 		 * Removes the mapping for the specified key, if present.
 		 *
 		 * @param key The key to remove.
-		 * @return A token for the removed entry, or {@link #INVALID_TOKEN} if not found. Valid until the next modification.
+		 * @return true if remove entry or false no mapping was found for the key.
 		 * @throws ConcurrentModificationException If concurrent modifications are detected.
 		 */
-		public long remove( K key ) {
+		public boolean remove( K key ) {
 			if( key == null ) { // Handle null key removal
-				if( !hasNullKey ) return INVALID_TOKEN; // Null key not present
+				if( !hasNullKey ) return false; // Null key not present
 				hasNullKey = false;                     // Remove null key flag
 				_version++;                             // Increment version
-				return token( NULL_KEY_INDEX );                    // Return token for null key (using _count as index, which is conceptually after the last valid index)
+				return true;                    // Return token for null key (using _count as index, which is conceptually after the last valid index)
 			}
 			
-			if( _buckets == null || _count == 0 ) return INVALID_TOKEN; // Map is empty
+			if( _buckets == null || _count == 0 ) return false; // Map is empty
 			
 			int collisionCount = 0;
 			int last           = -1; // Index of the last entry in the collision chain (for updating 'next' pointer)
@@ -697,14 +697,14 @@ public interface ObjectBitsMap {
 					_freeList = i;                                     // Update free list head
 					_freeCount++;                                     // Increment free entry count
 					_version++;                                         // Increment version
-					return token( i );                                    // Return token of the removed entry
+					return true;                                    // Return token of the removed entry
 				}
 				last = i;                                            // Update 'last' index for chaining
 				i    = next( hash_next );                                   // Move to the next entry in the collision chain
 				if( hash_nexts.length < collisionCount++ )             // Detect potential infinite loop due to concurrent modification
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN; // Key not found
+			return false; // Key not found
 		}
 		
 		/**
@@ -898,8 +898,9 @@ public interface ObjectBitsMap {
 				keys[ new_count ] = old_keys[ i ];             // Copy key
 				values.set1( new_count, old_values.get( i ) ); // Copy value from BitsList
 				
-				int bucketIndex = bucketIndex( hash( hn ) ); // Calculate new bucket index
-				hash_nexts[ new_count ] = hn & 0xFFFF_FFFF_0000_0000L | _buckets[ bucketIndex ] - 1; // Chain to previous bucket head
+				int h           = hash( hn );
+				int bucketIndex = bucketIndex( h );
+				hash_nexts[ new_count ] = hash_next( h, _buckets[ bucketIndex ] - 1 );
 				
 				_buckets[ bucketIndex ] = new_count + 1;                  // Set new bucket head
 				new_count++;                                            // Increment new entry count

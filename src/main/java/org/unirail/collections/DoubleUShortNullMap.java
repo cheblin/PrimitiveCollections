@@ -652,14 +652,14 @@ public interface DoubleUShortNullMap {
 		/**
 		 * Removes the mapping for the null key from this map if present.
 		 *
-		 * @return the token of the removed entry, or -1 ({@link #INVALID_TOKEN}) if no mapping was found for the null key.
+		 * @return true if remove entry or false no mapping was found for the null key.
 		 */
-		public long removeNullKey() {
-			if( !hasNullKey ) return INVALID_TOKEN;
+		public boolean removeNullKey() {
+			if( !hasNullKey ) return false;
 			hasNullKey      = false;
 			nullKeyHasValue = false;
 			_version++;
-			return token( NULL_KEY_INDEX );
+			return true;
 		}
 		
 		
@@ -670,12 +670,12 @@ public interface DoubleUShortNullMap {
 		 * this method optimizes removal by swapping the entry with the last non-null entry to avoid shifting in the values list.
 		 *
 		 * @param key key whose mapping is to be removed from the map.
-		 * @return the token of the removed entry, or -1 ({@link #INVALID_TOKEN}) if no mapping was found for the key.
+		 * @return true if remove entry or false no mapping was found for the key.
 		 */
-		public long remove( double key ) {
+		public boolean remove( double key ) {
 			// Handle edge cases: if map is uninitialized or empty, nothing to remove
 			if( _buckets == null || _count == 0 )
-				return INVALID_TOKEN; // Return invalid token indicating no removal
+				return false; // Return invalid token indicating no removal
 			
 			// Compute hash and bucket index for the key to locate its chain
 			int hash           = Array.hash( key );                // Hash the key using Array.hash
@@ -745,7 +745,7 @@ public interface DoubleUShortNullMap {
 					_freeList = i;
 					_freeCount++;       // Increment count of free entries
 					_version++;         // Increment version for concurrency control
-					return token( i );    // Return token for removed/overwritten entry
+					return true;    // Return token for removed/overwritten entry
 				}
 				
 				// Move to next entry in chain
@@ -755,7 +755,7 @@ public interface DoubleUShortNullMap {
 				
 			}
 			
-			return INVALID_TOKEN; // Key not found
+			return false; // Key not found
 		}
 		
 		

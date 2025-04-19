@@ -348,7 +348,7 @@ public interface ObjectObjectNullMap {
 		 * @return {@code true} if the entry has a value, {@code false} otherwise
 		 */
 		public boolean hasValue( long token ) {
-			return index( token ) == _count ?
+			return index( token ) == NULL_KEY_INDEX ?
 					nullKeyValue != null :
 					values.hasValue( index( token ) );
 		}
@@ -360,7 +360,7 @@ public interface ObjectObjectNullMap {
 		 * @return the value associated with the token
 		 */
 		public V value( long token ) {
-			return hasNullKey && index( token ) == _count ?
+			return hasNullKey && index( token ) == NULL_KEY_INDEX ?
 					nullKeyValue :
 					values.get( index( token ) );
 		}
@@ -1536,8 +1536,9 @@ public interface ObjectObjectNullMap {
 				if( next( hn ) < -1 ) continue;
 				keys[ new_count ] = old_keys[ i ];
 				values.set1( new_count, old_values.get( i ) ); // Adjusted to use set1 and get
-				int bucketIndex = bucketIndex( hash( hn ) );
-				hash_nexts[ new_count ] = hn & 0xFFFF_FFFF_0000_0000L | _buckets[ bucketIndex ] - 1;
+				int h           = hash( hn );
+				int bucketIndex = bucketIndex( h );
+				hash_nexts[ new_count ] = hash_next( h, _buckets[ bucketIndex ] - 1 );
 				_buckets[ bucketIndex ] = new_count + 1;
 				new_count++;
 			}

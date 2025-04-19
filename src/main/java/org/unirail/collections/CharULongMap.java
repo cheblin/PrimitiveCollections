@@ -597,7 +597,7 @@ public interface CharULongMap {
 		 * @param key The key to remove.
 		 * @return The token of the removed entry if found and removed, or -1 (INVALID_TOKEN) if not found.
 		 */
-		public long remove(  Character key ) {
+		public boolean remove(  Character key ) {
 			return key == null ?
 					removeNullKey() :
 					remove( ( char ) ( key + 0 ) );
@@ -606,14 +606,14 @@ public interface CharULongMap {
 		/**
 		 * Removes the conceptual null key mapping.
 		 *
-		 * @return The token representing the null key if it was present and removed, or INVALID_TOKEN otherwise.
+		 * @return true if remove entry or false no mapping was found for the null  key.
 		 */
-		private long removeNullKey() {
-			if( !hasNullKey ) return INVALID_TOKEN;
+		public boolean removeNullKey() {
+			if( !hasNullKey ) return false;
 			hasNullKey = false;
 			_version++;
 			// Return a token representing the null key conceptually
-			return token( NULL_KEY_INDEX );
+			return true;
 		}
 		
 		/**
@@ -622,19 +622,19 @@ public interface CharULongMap {
 		 * @param key The primitive char key to remove.
 		 * @return The token of the removed entry if found and removed, or INVALID_TOKEN if not found.
 		 */
-		public long remove( char key ) {
-			if( _count == 0 ) return INVALID_TOKEN;
+		public boolean remove( char key ) {
+			if( _count == 0 ) return false;
 			
 			if( isFlatStrategy ) {
 				if( exists( ( char ) key ) ) {
 					exists0( ( char ) key );
 					_count--;
 					_version++;
-					return token( ( char ) key );
+					return true;
 				}
-				return INVALID_TOKEN;
+				return false;
 			}
-			if( _buckets == null ) return INVALID_TOKEN;
+			if( _buckets == null ) return false;
 			
 			int collisionCount = 0;
 			int last           = -1;
@@ -651,13 +651,13 @@ public interface CharULongMap {
 					_freeList  = i;
 					_freeCount++;
 					_version++;
-					return token( i );
+					return true;
 				}
 				last = i;
 				i    = next;
 				if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
+			return false;
 		}
 		
 		/**

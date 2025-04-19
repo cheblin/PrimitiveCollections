@@ -570,7 +570,7 @@ public interface FloatBitsMap {
 		 * @param key The key to remove (boxed {@link Integer}, may be {@code null}).
 		 * @return The token of the removed entry, or {@link #INVALID_TOKEN} (-1) if the key was not found.
 		 */
-		public long remove(  Float     key ) {
+		public boolean remove(  Float     key ) {
 			return key == null ?
 					removeNullKey() :
 					remove( key.floatValue     () );
@@ -581,11 +581,11 @@ public interface FloatBitsMap {
 		 *
 		 * @return The token of the removed entry, or {@link #INVALID_TOKEN} (-1) if the null key was not present.
 		 */
-		private long removeNullKey() {
-			if( !hasNullKey ) return INVALID_TOKEN;
+		public boolean removeNullKey() {
+			if( !hasNullKey ) return false;
 			hasNullKey = false;
 			_version++;
-			return token( NULL_KEY_INDEX );
+			return true;
 		}
 		
 		/**
@@ -595,8 +595,8 @@ public interface FloatBitsMap {
 		 * @return The token of the removed entry, or {@link #INVALID_TOKEN} (-1) if the key was not found.
 		 * @throws ConcurrentModificationException if excessive collisions are detected.
 		 */
-		public long remove( float key ) {
-			if( _buckets == null || _count == 0 ) return INVALID_TOKEN;
+		public boolean remove( float key ) {
+			if( _buckets == null || _count == 0 ) return false;
 			
 			int collisionCount = 0;
 			int last           = -1;
@@ -614,14 +614,14 @@ public interface FloatBitsMap {
 					_freeList = i;
 					_freeCount++;
 					_version++;
-					return token( i );
+					return true;
 				}
 				last = i;
 				i    = next;
 				if( nexts.length < collisionCount++ )
 					throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
+			return false;
 		}
 		
 		/**

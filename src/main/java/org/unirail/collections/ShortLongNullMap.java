@@ -790,7 +790,8 @@ public interface ShortLongNullMap {
 		 */
 		private boolean put( short key, long value, boolean hasValue ) {
 			if( isFlatStrategy ) {
-				if( !exists( ( char ) key ) ) {
+				boolean b;
+				if( b=!exists( ( char ) key ) ) {
 					exists1( ( char ) key );
 					_count++;
 				}
@@ -798,7 +799,7 @@ public interface ShortLongNullMap {
 				if( hasValue ) values.set1( ( char ) key, value );
 				else values.set1( ( char ) key, null );
 				_version++;
-				return true;
+				return b;
 			}
 			
 			
@@ -934,7 +935,7 @@ public interface ShortLongNullMap {
 		 * @return The token of the removed entry if found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
 		 * Note: The returned token is based on the state *before* removal but with an incremented version, making it technically invalid for subsequent access, but useful for identifying *which* entry was removed.
 		 */
-		public long remove(  Short     key ) {
+		public boolean remove(  Short     key ) {
 			return key == null ?
 					removeNullKey() :
 					remove( ( short ) ( key + 0 ) );
@@ -946,36 +947,35 @@ public interface ShortLongNullMap {
 		 * @return A token representing the null key (using {@link #NULL_KEY_INDEX}) if it was present and removed,
 		 * or {@link #INVALID_TOKEN} if the null key was not present.
 		 */
-		private long removeNullKey() {
-			if( !hasNullKey ) return INVALID_TOKEN;
+		private boolean removeNullKey() {
+			if( !hasNullKey ) return false;
 			hasNullKey = false;
 			_version++;
 			// Return a token representing the null key conceptually
-			return token( NULL_KEY_INDEX );
+			return true;
 		}
 		
 		/**
 		 * Removes the mapping for the specified primitive key from this map, if present.
 		 *
 		 * @param key The primitive key whose mapping is to be removed.
-		 * @return The token of the removed entry if found and removed, or {@link #INVALID_TOKEN} (-1) if the key was not found.
-		 * The returned token reflects the state *before* removal but uses the *new* version number.
+		 * @return true if remove entry or false no mapping was found for the  key.
 		 */
-		public long remove( short key ) {
-			if( _count == 0 ) return INVALID_TOKEN;
+		public boolean remove( short key ) {
+			if( _count == 0 ) return false;
 			
 			if( isFlatStrategy ) {
 				if( exists( ( char ) key ) ) {
 					exists0( ( char ) key );
 					_count--;
 					_version++;
-					return token( ( char ) key );
+					return true;
 				}
-				return INVALID_TOKEN;
+				return false;
 			}
 			// Handle edge cases: if map is uninitialized or empty, nothing to remove
 			if( _buckets == null || _count == 0 )
-				return INVALID_TOKEN; // Return invalid token indicating no removal
+				return false; // Return invalid token indicating no removal
 			
 			// Compute hash and bucket index for the key to locate its chain
 			int hash           = Array.hash( key );                // Hash the key using Array.hash
@@ -1045,7 +1045,7 @@ public interface ShortLongNullMap {
 					_freeList = i;
 					_freeCount++;       // Increment count of free entries
 					_version++;         // Increment version for concurrency control
-					return token( i );    // Return token for removed/overwritten entry
+					return true;    // Return token for removed/overwritten entry
 				}
 				
 				// Move to next entry in chain
@@ -1055,7 +1055,7 @@ public interface ShortLongNullMap {
 				
 			}
 			
-			return INVALID_TOKEN; // Key not found
+			return false; // Key not found
 		}
 		
 		/**

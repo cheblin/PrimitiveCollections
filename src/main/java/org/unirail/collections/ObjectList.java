@@ -31,45 +31,43 @@
 //  SOFTWARE.
 package org.unirail.collections;
 
-
 import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 
 /**
- * {@code ObjectList} interface and implementations for a dynamically resizable list of objects.
- * Provides functionalities similar to {@link java.util.ArrayList} but with a focus on type safety and
- * potentially specialized for object types.
- *
- * <V> The type of elements in this list.
+ * Interface for a dynamically resizable list of objects, similar to {@link java.util.ArrayList}
+ * but with enhanced type safety and specialized handling for object types.
  */
 public interface ObjectList {
 	
 	/**
-	 * Abstract base class {@code R} providing common implementations for {@code ObjectList}.
-	 * Handles core list operations, data storage, cloning, equality, and JSON serialization.
+	 * Abstract base class providing core functionality for {@code ObjectList}.
+	 * Manages storage, core operations, cloning, equality checks, and JSON serialization.
 	 *
 	 * @param <V> The type of elements in the list.
 	 */
 	abstract class R< V > implements Cloneable, JsonWriter.Source {
 		
 		/**
-		 * Internal array to store list elements.
+		 * Internal array storing the list's elements.
 		 */
-		protected       V[]                    values;
+		protected V[] values;
+		
 		/**
 		 * Utility for comparing and hashing elements of type V.
 		 */
 		protected final Array.EqualHashOf< V > equal_hash_V;
-		/**
-		 * Flag indicating if the element type V is String, used for JSON serialization optimization.
-		 */
-		private final   boolean                V_is_string;
 		
 		/**
-		 * Constructor for {@code R} when the class of element type {@code V} is available.
+		 * Indicates if the element type V is String, optimizing JSON serialization.
+		 */
+		private final boolean V_is_string;
+		
+		/**
+		 * Constructs an instance with the specified element type class.
 		 *
-		 * @param clazzV The class object representing the element type {@code V}.
+		 * @param clazzV The class object representing the element type V.
 		 */
 		protected R( Class< V > clazzV ) {
 			equal_hash_V = Array.get( clazzV );
@@ -77,9 +75,9 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Constructor for {@code R} when an {@link Array.EqualHashOf} instance is already available.
+		 * Constructs an instance with a provided {@link Array.EqualHashOf} instance.
 		 *
-		 * @param equal_hash_V The {@link Array.EqualHashOf} instance for element type {@code V}.
+		 * @param equal_hash_V The {@link Array.EqualHashOf} for element type V.
 		 */
 		public R( Array.EqualHashOf< V > equal_hash_V ) {
 			this.equal_hash_V = equal_hash_V;
@@ -92,7 +90,7 @@ public interface ObjectList {
 		int size = 0;
 		
 		/**
-		 * Returns the number of elements in this list.
+		 * Returns the current number of elements in the list.
 		 *
 		 * @return The size of the list.
 		 */
@@ -101,11 +99,10 @@ public interface ObjectList {
 		/**
 		 * Copies a range of elements from this list into a destination array.
 		 *
-		 * @param index The starting index in this list to begin copying from.
+		 * @param index The starting index in this list.
 		 * @param len   The number of elements to copy.
-		 * @param dst   The destination array. If {@code null}, a new array of size {@code len} is created.
-		 * @return The destination array containing the copied elements, or {@code null} if the list is empty.
-		 * @throws ArrayIndexOutOfBoundsException if {@code index} or {@code len} are invalid.
+		 * @param dst   The destination array, or null to create a new array.
+		 * @return The destination array with copied elements, or null if the list is empty.
 		 */
 		public V[] toArray( int index, int len, V[] dst ) {
 			if( size == 0 ) return null;
@@ -115,41 +112,39 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Checks if this list contains all elements of the specified list.
+		 * Checks if this list contains all elements of another list.
 		 *
-		 * @param src The list to check for containment.
-		 * @return {@code true} if this list contains all elements of {@code src}, {@code false} otherwise.
+		 * @param src The list whose elements to check for.
+		 * @return true if all elements of src are in this list, false otherwise.
 		 */
 		public boolean containsAll( R< V > src ) {
-			
 			for( int i = 0, s = src.size(); i < s; i++ )
 				if( indexOf( src.get( i ) ) == -1 ) return false;
 			return true;
 		}
 		
 		/**
-		 * Checks if a value exists at the specified index (and is not null).
+		 * Checks if a non-null value exists at the specified index.
 		 *
 		 * @param index The index to check.
-		 * @return {@code true} if the index is within bounds and the value is not null, {@code false} otherwise.
+		 * @return true if the index is valid and the value is non-null, false otherwise.
 		 */
 		public boolean hasValue( int index ) {
 			return -1 < index && index < size && values[ index ] != null;
 		}
 		
 		/**
-		 * Returns the element at the specified index in this list.
+		 * Retrieves the element at the specified index.
 		 *
-		 * @param index The index of the element to return.
+		 * @param index The index of the element.
 		 * @return The element at the specified index.
-		 * @throws IndexOutOfBoundsException if the index is out of range ({@code index < 0 || index >= size()}).
 		 */
-		public V get( int index ) { return values[ index ]; }
-		
+		public V get( int index ) {
+			return values[ index ];
+		}
 		
 		/**
-		 * Returns the index of the first occurrence of the specified value in this list,
-		 * or -1 if this list does not contain the value.
+		 * Finds the index of the first occurrence of a value.
 		 *
 		 * @param value The value to search for.
 		 * @return The index of the first occurrence, or -1 if not found.
@@ -161,8 +156,7 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Returns the index of the last occurrence of the specified value in this list,
-		 * or -1 if this list does not contain the value.
+		 * Finds the index of the last occurrence of a value.
 		 *
 		 * @param value The value to search for.
 		 * @return The index of the last occurrence, or -1 if not found.
@@ -173,24 +167,43 @@ public interface ObjectList {
 			return -1;
 		}
 		
+		/**
+		 * Checks if this list equals another object.
+		 *
+		 * @param obj The object to compare with.
+		 * @return true if the object is a list with the same elements, false otherwise.
+		 */
 		@SuppressWarnings( "unchecked" )
-		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj ); }
+		public boolean equals( Object obj ) {
+			return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj );
+		}
 		
 		/**
-		 * Compares this list to another {@code R<V>} list for equality.
+		 * Checks if this list equals another {@code R<V>} list.
 		 *
 		 * @param other The list to compare with.
-		 * @return {@code true} if the lists are equal, {@code false} otherwise.
+		 * @return true if the lists have the same size and elements, false otherwise.
 		 */
-		public boolean equals( R< V > other ) { return other ==this || other != null && size == other.size && equal_hash_V.equals( values, other.values, size ); }
+		public boolean equals( R< V > other ) {
+			return other == this || other != null && size == other.size && equal_hash_V.equals( values, other.values, size );
+		}
 		
+		/**
+		 * Computes the hash code of this list.
+		 *
+		 * @return The hash code based on the list's elements and size.
+		 */
 		public int hashCode() {
 			return Array.finalizeHash( V_is_string ?
 					                           Array.hash( ( String[] ) values, size ) :
 					                           equal_hash_V.hashCode( values, size ), size() );
 		}
 		
-		
+		/**
+		 * Creates a deep copy of this list.
+		 *
+		 * @return A cloned instance of this list.
+		 */
 		@SuppressWarnings( "unchecked" )
 		public R< V > clone() {
 			try {
@@ -203,159 +216,155 @@ public interface ObjectList {
 			return null;
 		}
 		
-		
 		/**
 		 * Returns a JSON string representation of this list.
 		 *
-		 * @return JSON string of the list.
+		 * @return The JSON string.
 		 */
 		@Override
-		public String toString() { return toJSON(); }
+		public String toString() {
+			return toJSON();
+		}
 		
 		/**
-		 * Writes the JSON representation of this list to the provided {@link JsonWriter}.
+		 * Serializes this list to JSON using the provided {@link JsonWriter}.
 		 *
 		 * @param json The JsonWriter to write to.
 		 */
-		@Override public void toJSON( JsonWriter json ) {
+		@Override
+		public void toJSON( JsonWriter json ) {
 			json.enterArray();
-			
 			int size = size();
-			
 			if( 0 < size ) {
 				json.preallocate( size * 10 );
-				
 				if( V_is_string ) {
 					String[] strs = ( String[] ) values;
 					for( int i = 0; i < size; i++ ) json.value( strs[ i ] );
 				}
-				else {
-					for( int i = 0; i < size; i++ ) json.value( values[ i ] );
-				}
+				else for( int i = 0; i < size; i++ ) json.value( values[ i ] );
 			}
 			json.exitArray();
 		}
 	}
 	
 	/**
-	 * {@code RW} (Read-Write) is a concrete implementation of {@code ObjectList} that allows modifications.
+	 * Concrete implementation of {@code ObjectList} supporting read and write operations.
 	 *
 	 * @param <V> The type of elements in the list.
 	 */
 	class RW< V > extends R< V > {
+		
 		/**
-		 * Default value used when initializing or extending the list.
+		 * Default value used for initializing or padding the list.
 		 */
 		public final V default_value;
 		
 		/**
-		 * Constructs an empty {@code RW} list with a specified initial capacity.
+		 * Constructs an empty list with the specified initial capacity.
 		 *
 		 * @param clazz  The class of the element type V.
 		 * @param length The initial capacity of the list.
 		 */
 		@SuppressWarnings( "unchecked" )
-		public RW( Class< V > clazz, int length ) { this( Array.get( clazz ), length ); }
+		public RW( Class< V > clazz, int length ) {
+			this( Array.get( clazz ), length );
+		}
 		
 		/**
-		 * Constructs an empty {@code RW} list with a specified initial capacity and {@link Array.EqualHashOf}.
+		 * Constructs an empty list with the specified initial capacity and equality handler.
 		 *
-		 * @param equal_hash_V The EqualHashOf instance for element type V.
+		 * @param equal_hash_V The equality and hash code handler for type V.
 		 * @param length       The initial capacity of the list.
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int length ) {
 			super( equal_hash_V );
 			default_value = null;
-			
-			values = length == 0 ?
+			values        = length == 0 ?
 					equal_hash_V.OO :
 					equal_hash_V.copyOf( null, length );
 		}
 		
 		/**
-		 * Constructs a {@code RW} list with a specified default value and initial size.
+		 * Constructs a list with a default value and initial size.
 		 *
-		 * @param clazz         The Class object representing the type of elements.
-		 * @param default_value The default value to initialize elements with.
-		 * @param size          The initial size of the array.
+		 * @param clazz         The class of the element type V.
+		 * @param default_value The default value for initialization.
+		 * @param size          The initial size of the list.
 		 */
-		public RW( Class< V > clazz, V default_value, int size ) { this( Array.get( clazz ), default_value, size ); }
+		public RW( Class< V > clazz, V default_value, int size ) {
+			this( Array.get( clazz ), default_value, size );
+		}
 		
 		/**
-		 * Constructs a {@code RW} list with a specified default value, initial size, and {@link Array.EqualHashOf}.
+		 * Constructs a list with a default value, initial size, and equality handler.
 		 *
-		 * @param equal_hash_V  The EqualHashOf object for type V.
-		 * @param default_value The default value to initialize elements with.
-		 * @param size          The initial size of the array.
+		 * @param equal_hash_V  The equality and hash code handler for type V.
+		 * @param default_value The default value for initialization.
+		 * @param size          The initial size of the list.
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, V default_value, int size ) {
 			super( equal_hash_V );
 			this.default_value = default_value;
-			
-			values = size == 0 ?
+			values             = size == 0 ?
 					equal_hash_V.OO :
-					// If size is 0, use an empty array
 					equal_hash_V.copyOf( null, this.size = size < 0 ?
 							-size :
-							size );// Create a new array with the specified size
-			
-			if( default_value == null || size < 1 ) return;
-			for( int i = 0; i < size; i++ ) values[ i ] = default_value; // Corrected initialization loop
+							size );
+			if( default_value != null && size > 0 ) for( int i = 0; i < size; i++ ) values[ i ] = default_value;
 		}
 		
-		
 		/**
-		 * Adds an element to the end of the list.
+		 * Appends an element to the end of the list.
 		 *
-		 * @param value The element to add.
-		 * @return This {@code RW} instance for chaining.
+		 * @param value The element to append.
+		 * @return This list for method chaining.
 		 */
-		public RW< V > add1( V value ) { return add1( size, value ); }
+		public RW< V > add1( V value ) {
+			return add1( size, value );
+		}
 		
 		/**
-		 * Adds an element at a specific index, shifting subsequent elements to the right.
+		 * Inserts an element at the specified index, shifting elements as needed.
 		 *
-		 * @param index The index at which to insert the element.
-		 * @param value The element to add.
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if the index is out of range ({@code index < 0 || index > size()}).
+		 * @param index The index for insertion.
+		 * @param value The element to insert.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > add1( int index, V value ) {
 			int max = Math.max( index, size + 1 );
-			
-			size = Array.resize( values, values.length <= max ?
+			size            = Array.resize( values, values.length <= max ?
 					values = equal_hash_V.copyOf( null, max + max / 2 ) :
 					values, index, size, 1 );
-			
 			values[ index ] = value;
 			return this;
 		}
 		
 		/**
-		 * Adds multiple elements to the end of the list.
+		 * Appends multiple elements to the end of the list.
 		 *
-		 * @param items The elements to add.
-		 * @return This {@code RW} instance for chaining.
+		 * @param items The elements to append.
+		 * @return This list for method chaining.
 		 */
-		@SafeVarargs public final RW< V > add( V... items ) { return add( size(), items, 0, items.length ); }
+		@SafeVarargs
+		public final RW< V > add( V... items ) {
+			return add( size(), items, 0, items.length );
+		}
 		
 		/**
-		 * Adds a range of elements from a source array to the list, starting at a specific index.
+		 * Inserts a range of elements from an array at the specified index.
 		 *
-		 * @param index     The index at which to insert the elements.
+		 * @param index     The insertion index in this list.
 		 * @param src       The source array.
 		 * @param src_index The starting index in the source array.
-		 * @param len       The number of elements to add from the source array.
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} or source array range is invalid.
+		 * @param len       The number of elements to insert.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > add( int index, V[] src, int src_index, int len ) {
 			int max = Math.max( index, size ) + len;
-			
-			size = Array.resize( values, values.length < max ?
-					values = equal_hash_V.copyOf( null, max + max / 2 ) :
-					values, index, size, len );
-			
+			size = Array.resize( values,
+			                     values.length < max ?
+					                     values = equal_hash_V.copyOf( null, max * 3 / 2 ) :
+					                     values, index, size, len );
 			System.arraycopy( src, src_index, values, index, len );
 			return this;
 		}
@@ -363,17 +372,19 @@ public interface ObjectList {
 		/**
 		 * Removes the last element from the list.
 		 *
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if the list is empty.
+		 * @return This list for method chaining.
 		 */
-		public RW< V > remove() { return remove( size - 1 ); }
+		public RW< V > remove() {
+			return size == 0 ?
+					this :
+					remove( size - 1 );
+		}
 		
 		/**
-		 * Removes an element at a specific index, shifting subsequent elements to the left.
+		 * Removes the element at the specified index, shifting elements to fill the gap.
 		 *
 		 * @param index The index of the element to remove.
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if the index is out of range ({@code index < 0 || index >= size()}).
+		 * @return This list for method chaining.
 		 */
 		public RW< V > remove( int index ) {
 			size = Array.resize( values, values, index, size, -1 );
@@ -381,16 +392,14 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Removes the element at a specific index, but faster by replacing it with the last element.
-		 * Order of elements may not be preserved.
+		 * Removes the element at the specified index by replacing it with the last element.
+		 * This is faster but does not preserve element order.
 		 *
 		 * @param index The index of the element to remove.
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if the index is out of range ({@code index < 0 || index >= size()}).
+		 * @return This list for method chaining.
 		 */
 		public RW< V > remove_fast( int index ) {
 			if( size < 1 || size <= index ) return this;
-			if( size < 1 ) return this;
 			size--;
 			values[ index ] = values[ size ];
 			values[ size ]  = null;
@@ -398,51 +407,52 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Sets a value at the end of the list. If the list is not large enough, it will be expanded.
+		 * Sets the element at the end of the list, expanding if necessary.
 		 *
 		 * @param value The value to set.
-		 * @return This {@code RW} instance for chaining.
+		 * @return This list for method chaining.
 		 */
-		public RW< V > set1( V value ) { return set1( size, value ); }
+		public RW< V > set1( V value ) {
+			return set1( size, value );
+		}
 		
 		/**
-		 * Sets a value at a specific index. If the index is beyond the current size, the list is expanded.
+		 * Sets the element at the specified index, expanding the list if needed.
 		 *
-		 * @param index The index to set the value at.
+		 * @param index The index to set.
 		 * @param value The value to set.
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if the index is negative ({@code index < 0}).
+		 * @return This list for method chaining.
 		 */
 		public RW< V > set1( int index, V value ) {
+			if( index < 0 ) throw new IndexOutOfBoundsException();
 			if( size <= index ) {
 				if( values.length <= index ) values = equal_hash_V.copyOf( values, index + index / 2 );
-				size = index + 1; // Update size after resizing
+				size = index + 1;
 			}
 			values[ index ] = value;
 			return this;
 		}
 		
 		/**
-		 * Sets multiple values starting at a specific index.
+		 * Sets multiple elements starting at the specified index.
 		 *
-		 * @param index The starting index to set values.
-		 * @param src   The values to set.
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} is negative.
+		 * @param index The starting index.
+		 * @param src   The elements to set.
+		 * @return This list for method chaining.
 		 */
 		@SafeVarargs
-		public final RW< V > set( int index, V... src ) { return set( index, src, 0, src.length ); }
-		
+		public final RW< V > set( int index, V... src ) {
+			return set( index, src, 0, src.length );
+		}
 		
 		/**
-		 * Sets a range of values from a source array into this list, starting at a specified index.
+		 * Sets a range of elements from a source array starting at the specified index.
 		 *
 		 * @param index     The starting index in this list.
 		 * @param src       The source array.
 		 * @param src_index The starting index in the source array.
-		 * @param len       The number of elements to set from the source array.
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IndexOutOfBoundsException if {@code index} or source array range is invalid.
+		 * @param len       The number of elements to set.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > set( int index, V[] src, int src_index, int len ) {
 			for( int i = len; -1 < --i; )
@@ -450,12 +460,11 @@ public interface ObjectList {
 			return this;
 		}
 		
-		
 		/**
-		 * Removes all elements that are present in the specified list.
+		 * Removes all elements present in the specified list.
 		 *
 		 * @param src The list of elements to remove.
-		 * @return This {@code RW} instance for chaining.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > removeAll( R< V > src ) {
 			for( int i = 0, max = src.size(); i < max; i++ )
@@ -464,10 +473,10 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Removes all occurrences of a specific element from the list.
+		 * Removes all occurrences of the specified element.
 		 *
 		 * @param src The element to remove.
-		 * @return This {@code RW} instance for chaining.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > removeAll( V src ) {
 			for( int k; ( k = indexOf( src ) ) != -1; ) remove( k );
@@ -475,11 +484,11 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Removes all occurrences of a specific element from the list using the faster remove method.
-		 * Order of elements may not be preserved.
+		 * Removes all occurrences of the specified element using the faster removal method.
+		 * This does not preserve element order.
 		 *
 		 * @param src The element to remove.
-		 * @return This {@code RW} instance for chaining.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > removeAll_fast( V src ) {
 			for( int k; ( k = indexOf( src ) ) != -1; ) remove_fast( k );
@@ -487,10 +496,10 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Retains only the elements that are present in the specified list.
+		 * Retains only the elements present in the specified list, removing others.
 		 *
 		 * @param chk The list of elements to retain.
-		 * @return This {@code RW} instance for chaining.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > retainAll( R< V > chk ) {
 			for( int i = 0; i < size; i++ ) {
@@ -500,25 +509,32 @@ public interface ObjectList {
 			return this;
 		}
 		
-		public RW< V > clone() { return ( RW< V > ) super.clone(); }
+		/**
+		 * Creates a deep copy of this list.
+		 *
+		 * @return A cloned instance of this list.
+		 */
+		public RW< V > clone() {
+			return ( RW< V > ) super.clone();
+		}
 		
 		/**
-		 * Clears the list, removing all elements.
+		 * Removes all elements from the list, resetting it to empty.
 		 *
-		 * @return This {@code RW} instance for chaining.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > clear() {
 			if( size < 1 ) return this;
-			Arrays.fill( values, 0, size - 1, default_value );//release objects
+			Arrays.fill( values, 0, size, default_value );
 			size = 0;
 			return this;
 		}
 		
 		/**
-		 * Sets the internal array length, truncating or padding with default values if necessary.
+		 * Resizes the internal array to the specified length, truncating or padding with default values.
 		 *
 		 * @param length The new length of the internal array.
-		 * @return This {@code RW} instance for chaining.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > length( int length ) {
 			if( length < 1 ) {
@@ -528,23 +544,20 @@ public interface ObjectList {
 			}
 			int old_length = values.length;
 			values = equal_hash_V.copyOf( values, length );
-			
 			if( length < size ) size = length;
-			else if( default_value != null && old_length < length ) { // Fill new space with default value only if needed
-				Arrays.fill( values, old_length, length, default_value ); // Fill the newly allocated space
-				size = length; // Update size to reflect the new length
+			else if( default_value != null && old_length < length ) {
+				Arrays.fill( values, old_length, length, default_value );
+				size = length;
 			}
-			
 			return this;
 		}
 		
 		/**
-		 * Swaps the elements at two specified indices in the list.
+		 * Swaps the elements at two specified indices.
 		 *
-		 * @param index1 The index of the first element to swap (0-based).
-		 * @param index2 The index of the second element to swap (0-based).
-		 * @return The modified {@code RW} list instance to allow for method chaining.
-		 * @throws IndexOutOfBoundsException if either index is out of range ({@code index < 0 || index >= size()}).
+		 * @param index1 The index of the first element.
+		 * @param index2 The index of the second element.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > swap( int index1, int index2 ) {
 			final V tmp = values[ index1 ];
@@ -554,27 +567,22 @@ public interface ObjectList {
 		}
 		
 		/**
-		 * Sets the size of the list, adding default values if increasing size, or truncating if decreasing.
+		 * Sets the size of the list, expanding with default values or truncating as needed.
 		 *
 		 * @param size The new size of the list.
-		 * @return This {@code RW} instance for chaining.
-		 * @throws IllegalArgumentException if size is negative.
+		 * @return This list for method chaining.
 		 */
 		public RW< V > size( int size ) {
 			if( size < 1 ) {
 				clear();
 				return this;
 			}
-			
 			if( values.length < size ) {
 				values = equal_hash_V.copyOf( values, size );
-				if( default_value != null ) Arrays.fill( values, this.size, ( this.size = size ) - 1, default_value );
-				return this;
+				if( default_value != null ) Arrays.fill( values, this.size, size, default_value );
 			}
-			
-			if( this.size < size )
-				if( default_value != null ) Arrays.fill( values, this.size, size - 1, default_value );
-			
+			else if( this.size < size && default_value != null )
+				Arrays.fill( values, this.size, size, default_value );
 			this.size = size;
 			return this;
 		}
@@ -582,14 +590,14 @@ public interface ObjectList {
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 	}
 	
-	
 	/**
-	 * Returns a type-safe {@link Array.EqualHashOf} for {@code RW} instances.
+	 * Provides a type-safe {@link Array.EqualHashOf} for {@code RW} instances.
 	 *
 	 * @param <V> The element type of the list.
-	 * @return An {@link Array.EqualHashOf} instance for {@code RW<V>}.
+	 * @return An {@link Array.EqualHashOf} for {@code RW<V>}.
 	 */
 	@SuppressWarnings( "unchecked" )
-	static < V > Array.EqualHashOf< RW< V > > equal_hash() { return ( Array.EqualHashOf< RW< V > > ) RW.OBJECT; }
+	static < V > Array.EqualHashOf< RW< V > > equal_hash() {
+		return ( Array.EqualHashOf< RW< V > > ) RW.OBJECT;
+	}
 }
-	

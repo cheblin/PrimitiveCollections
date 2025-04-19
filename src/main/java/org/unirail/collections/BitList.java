@@ -36,52 +36,58 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 
-/**
- * Represents a dynamic list of bits, optimized for both space (memory footprint)
- * and time (performance) efficiency.
- * <p>
- * {@code BitList} acts like a highly efficient, growable bit vector or bitset,
- * suitable for managing large sequences of boolean flags or performing complex
- * bitwise operations. It employs internal optimizations, such as tracking
- * sequences of leading '1's implicitly, to minimize memory usage.
- * <p>
- * Implementations provide methods for querying individual bits, finding runs of
- * '0's or '1's, calculating cardinality (rank/population count), and potentially
- * modifying the bit sequence.
- */
+/// <summary>
+/// Represents a dynamic list of bits, optimized for both space (memory footprint)
+/// and time (performance) efficiency.
+/// <para>
+/// <see cref="BitList"/> acts like a highly efficient, growable bit vector or bitset,
+/// suitable for managing large sequences of boolean flags or performing complex
+/// bitwise operations. It employs internal optimizations, such as tracking
+/// sequences of leading '1's implicitly, to minimize memory usage.
+/// </para>
+/// <para>
+/// Implementations provide methods for querying individual bits, finding runs of
+/// '0's or '1's, calculating cardinality (rank/population count), and potentially
+/// modifying the bit sequence.
+/// </para>
+/// </summary>
+///
+
 public interface BitList {
-	/**
-	 * An abstract base class providing a read-only view and core implementation
-	 * details for a {@code BitList}.
-	 * <p>
-	 * <b>Bit Indexing and Representation:</b>
-	 * .                 MSB                LSB
-	 * .                 |                 |
-	 * bits in the list [0, 0, 0, 1, 1, 1, 1] Leading 3 zeros and trailing 4 ones
-	 * index in the list 6 5 4 3 2 1 0
-	 * shift left <<
-	 * shift right >>>
-	 * <p>
-	 * <b>Storage Optimization:</b>
-	 * This class utilizes several optimizations:
-	 * <ul>
-	 *     <li><b>Trailing Ones (`trailingOnesCount`):</b> A sequence of '1' bits at the
-	 *     beginning (indices 0 to {@code trailingOnesCount - 1}) are stored implicitly
-	 *     by just keeping count, not using space in the {@code values} array.</li>
-	 *     <li><b>Explicit Bits (`values`):</b> Bits *after* the implicit trailing ones
-	 *     are packed into a {@code long[]} array. The first conceptual bit stored in
-	 *     {@code values} always corresponds to the first '0' bit after the trailing ones.
-	 *     The last bit stored in {@code values} corresponds to the highest-indexed '1'
-	 *     bit ({@link #last1()}).</li>
-	 *     <li><b>Trailing Zeros:</b> '0' bits from index {@code last1() + 1} up to
-	 *     {@code size() - 1} are also implicit and not stored in {@code values}.</li>
-	 *     <li><b>Used Count (`used`):</b> Tracks how many {@code long} elements in the
-	 *     {@code values} array actually contain non-zero data, allowing the array to
-	 *     potentially be larger than strictly needed for current bits.</li>
-	 * </ul>
-	 * This structure provides the foundation for concrete readable and writable
-	 * {@code BitList} implementations.
-	 */
+	/// <summary>
+    /// An abstract base class providing a read-only view and core implementation
+    /// details for a <see cref="BitList"/>.
+    /// <para>
+    /// <b>Bit Indexing and Representation:</b>
+    /// .                 MSB                LSB
+    /// .                 |                 |
+    /// bits in the list [0, 0, 0, 1, 1, 1, 1] Leading 3 zeros and trailing 4 ones
+    /// index in the list 6 5 4 3 2 1 0
+    /// shift left  ≪
+    /// shift right  ≫
+    /// </para>
+    /// <para>
+    /// <b>Storage Optimization:</b>
+    /// This class utilizes several optimizations:
+    /// <list type="bullet">
+    ///     <item><b>Trailing Ones (<see cref="trailingOnesCount"/>):</b> A sequence of '1' bits at the
+    ///     beginning (indices 0 to <see cref="trailingOnesCount"/> - 1) are stored implicitly
+    ///     by just keeping count, not using space in the <see cref="values"/> array.</item>
+    ///     <item><b>Explicit Bits (<see cref="values"/>):</b> Bits *after* the implicit trailing ones
+    ///     are packed into a <see cref="ulong"/>[] array. The first conceptual bit stored in
+    ///     <see cref="values"/> always corresponds to the first '0' bit after the trailing ones.
+    ///     The last bit stored in <see cref="values"/> corresponds to the highest-indexed '1'
+    ///     bit (<see cref="Last1"/>).</item>
+    ///     <item><b>Trailing Zeros:</b> '0' bits from index <see cref="Last1"/> + 1 up to
+    ///     <see cref="Count"/> - 1 are also implicit and not stored in <see cref="values"/>.</item>
+    ///     <item><b>Used Count (<see cref="used"/>):</b> Tracks how many <see cref="ulong"/> elements in the
+    ///     <see cref="values"/> array actually contain non-zero data, allowing the array to
+    ///     potentially be larger than strictly needed for current bits.</item>
+    /// </list>
+    /// This structure provides the foundation for concrete readable and writable
+    /// <see cref="BitList"/> implementations.
+    /// </para>
+    /// </summary>
 	abstract class R implements Cloneable, JsonWriter.Source {
 		/**
 		 * The logical number of bits in this list. This defines the valid range of
@@ -382,12 +388,12 @@ public interface BitList {
 		 * no '0' bit exists in that range up to {@code size() - 1}.
 		 */
 		public int next0( int bit ) {
+			if( bit < 0 ) throw new IllegalArgumentException( "bit < 0" );
 			if( size() == 0 || size() <= bit ) return -1;
 			
-			if( bit < 0 ) bit = 0;
-			if( last1() <= bit )
+			if( last1() < bit )
 				return
-						bit < size - 1 ?
+						bit < size ?
 								bit :
 								-1;
 			
@@ -928,8 +934,10 @@ public interface BitList {
 			// If either BitList is null or effectively empty (size 0), the result of the
 			// AND is empty.
 			// Clear this BitList and return.
-			if( and == null || and.size() == 0 || this.size == 0 ) {
+			if( and == null || and.size() == 0  ) {
+				int s=size;
 				clear(); // Result of AND with empty set is empty set.
+				size =s;
 				return this;
 			}
 			// Optimization: If 'this' BitList is entirely contained within the trailing
@@ -1277,7 +1285,7 @@ a:
 			final int max_size = Math.max( this.size, xor.size() );// The final size of the BitList after XOR is the
 			// maximum of the two operand sizes.
 			
-			int first_1 = findFirstDifference( xor );
+			int first_1 = findFirstDifference( xor );// find first 1 in result
 			
 			// If the first difference occurs at or after the maximum size required for the
 			// result,
@@ -1294,30 +1302,24 @@ a:
 			int min_size = Math.min( size(), xor.size() );
 			
 			// --- Calculate the new TrailingOnesCount (new_toc) for the result ---
-			// The result of `A XOR B` is '1' if `A != B`.
-			// The resulting `trailingOnesCount` (new_toc) will be the length of the initial
-			// segment
-			// where `this[k] != xor[k]` holds true for all `k` from 0 up to `new_toc - 1`.
-			// In other words, `new_toc` is the index of the *first* bit position where
-			// `this[k] == xor[k]`.
+			
 			int new_toc = 0;
 			
-			// Loop while the current index `new_toc` is within the common range of both
-			// lists (`min_size`).
-			while( new_toc < min_size ) {
-				int next_0_in_this = next0( new_toc ); // Find the next '0' in 'this' at or after the current `new_toc`.
-				int next_1_in_xor  = xor.next1( new_toc );// Find the next '1' in 'xor' at or after the current `new_toc`.
-				// Check if the next '0' in 'this' coincides with the next '1' in 'xor'.
-				// If they match and are valid indices (`!= -1`), it means at this index `k`,
-				// we have `this=0` and `xor=1`, so the XOR result is '1'.
-				if( next_1_in_xor != next_0_in_this || next_1_in_xor == -1 )
-					break; // The pattern 0 XOR 1 = 1 is broken. new_toc holds the correct length.
-				
-				// If we reach here, `this[k]=0` and `xor[k]=1` (where k = next_0_in_this).
-				// The result bit is '1'. Update `new_toc` to `k + 1` to continue searching
-				// for the *next* occurrence of this pattern starting from the bit *after* k.
-				new_toc = next_1_in_xor + 1;// Update new_toc to search from the *next* bit position.
-			}
+			
+			if( first_1 == 0 )
+				for( long x = -1; x == -1; ) {
+					x = xor.get_( new_toc ) ^ get_( new_toc );
+					if( x == -1 ) new_toc += 64;
+					else
+						new_toc += Long.numberOfTrailingZeros( ~x );
+					
+					if( max_size <= new_toc ) {
+						trailingOnesCount = new_toc;
+						used              = 0;
+						size              = max_size;
+						return this;
+					}
+				}
 			
 			int last1 = last1();
 			
@@ -1397,8 +1399,12 @@ a:
 				// by `shiftLeft` itself,
 				// because they will be explicitly filled by the subsequent loop using
 				// `~xor.get_()`.
-				
-				values = shiftLeft( values, 0, last1 - trailingOnesCount + 1 + shift_bits, shift_bits, false );// IMPORTANT: will be filled with flipped bits
+				int sb = len4bits( shift_bits );
+				values = 0 < used() ?
+						shiftLeft( values, 0, last1 - trailingOnesCount + 1, shift_bits, false ) :
+						values.length < sb ?
+								new long[ sb ] :
+								values;
 				
 				
 				int index = shift_bits >>> LEN;
@@ -1429,10 +1435,17 @@ a:
 					// Lower `pos` bits: Calculate `1 XOR xor_val` which equals `NOT xor_val`.
 					// Upper `64-pos` bits: XOR the shifted original bits with corresponding xor bits.
 					values[ i ] =
-							~xor_val & mask_lower |   // Lower bits result = NOT xor_val (since original this was 1)
-							( val >>> pos ^ xor_val >>> pos ) << pos; // Upper bits result = val XOR xor_val
+							val & ~mask_lower | // preserve Upper bits
+							~xor_val & mask_lower;   // Lower bits result = NOT xor_val (since original this was 1)
 					i++; // Move to the next word index for the main loop.
 				}
+				trailingOnesCount = new_toc;
+				this.size         = max_size; // Set final size
+				
+				used += sb;
+				used |= IO;// need totally recount
+				
+				return this;
 			}
 			else if( trailingOnesCount < new_toc ) {// Case 4.2: The new TOC (`new_toc`) is longer than `this`'s
 				
@@ -1735,7 +1748,7 @@ a:
 		 * @return This {@code RW} instance after flipping the bit.
 		 */
 		public RW flip( int bit ) {
-			if( bit < 0 || size <= bit ) return this;
+			if( bit < 0 ) return this;
 			return get( bit ) ?
 					set0( bit ) :
 					set1( bit );
@@ -1772,30 +1785,34 @@ a:
 					size              = Math.max( size, to_bit );
 					return this;
 				}
+				
+				fill( 3, values, 0, Math.min( last1 + 1, to_bit ) - trailingOnesCount );//flip bits in the values
 				int shift_bits = 0;
-				for( int i = 0; ; i++ ) {
-					long v = values[ i ];
-					if( v == 0 ) {
-						values[ i ] = -1;
-						shift_bits += 64;
-					}
+				int i          = 0;
+				for( long v; i < used; )
+					if( ( v = values[ i ] ) == -1 ) shift_bits += 64;
 					else {
-						shift_bits += Long.numberOfTrailingZeros( v );
-						
-						int len = len4bits( Math.max( last1 - trailingOnesCount - shift_bits, to_bit - -trailingOnesCount - shift_bits ) );
-						
-						values = shiftRight( values,
-						                     values.length < len ?
-								                     new long[ len ] :
-								                     values, 0, last1 - trailingOnesCount + 1, shift_bits, true );
-						
-						trailingOnesCount += shift_bits;
-						from_bit = trailingOnesCount;
-						
-						if( trailingOnesCount == to_bit ) return this;
+						shift_bits += Long.numberOfTrailingZeros( ~v );
 						break;
 					}
+				
+				if( shift_bits == last1 + 1 - trailingOnesCount ) {
+					trailingOnesCount += shift_bits + ( ( size = Math.max( size, to_bit ) ) - ( last1 + 1 ) );
+					Arrays.fill( values, 0, used, 0 );
+					used = 0;
+					return this;
 				}
+				
+				int len = len4bits( ( last1 - trailingOnesCount ) - shift_bits + ( ( size = Math.max( size, to_bit ) ) - last1 ) );
+				
+				values = shiftRight( values,
+				                     values.length < len ?
+						                     new long[ len ] :
+						                     values, 0, last1 - trailingOnesCount + 1, shift_bits, true );
+				
+				trailingOnesCount += shift_bits;
+				used = len | IO;
+				return this;
 			}
 			
 			
@@ -1816,14 +1833,11 @@ a:
 					values = new long[ used * 3 / 2 ];
 				
 				
-				if( to_bit <= trailingOnesCount ) {
-					fill( 1, values, zeros, zeros + trailingOnesCount - to_bit );
-					trailingOnesCount = from_bit;
-					used |= IO;
-					return this;
-				}
-				
+				fill( 1, values, zeros, zeros + trailingOnesCount - from_bit );
 				trailingOnesCount = from_bit;
+				size              = Math.max( size, to_bit );
+				used |= IO;
+				return this;
 			}
 			else if( last1 < to_bit ) {
 				int u = Math.max( used(), len4bits( to_bit - trailingOnesCount ) );
@@ -1849,23 +1863,23 @@ a:
 			
 			size = Math.max( size, to_bit );
 			
-			int pos   = ( from_bit - trailingOnesCount ) & MASK;
-			int index = ( from_bit - trailingOnesCount ) >>> LEN;
+			int pos   = from_bit - trailingOnesCount & MASK;
+			int index = from_bit - trailingOnesCount >>> LEN;
 			if( 0 < pos ) {
 				long mask = mask( pos );
 				long v    = values[ index ];
-				values[ index ] = ( v & mask ) | ( ~v & ~mask );
+				values[ index ] = v & mask | ~v & ~mask;
 				index++;
 			}
 			
-			int index2 = ( to_bit - trailingOnesCount ) >>> LEN;
+			int index2 = to_bit - trailingOnesCount >>> LEN;
 			while( index < index2 ) values[ index ] = ~values[ index++ ];
 			
-			int pos2 = ( to_bit - trailingOnesCount ) >>> LEN;
+			int pos2 = to_bit - trailingOnesCount >>> LEN;
 			if( 0 < pos2 ) {
 				long mask = mask( pos2 );
 				long v    = values[ index2 ];
-				values[ index2 ] = ~( v & mask ) | ( v & ~mask );
+				values[ index2 ] = ~( v & mask ) | v & ~mask;
 			}
 			
 			
@@ -2271,8 +2285,8 @@ a:
 		
 		public RW add( boolean value ) {
 			return value ?
-					add1( size - 1 ) :
-					add0( size - 1 );
+					add1( size ) :
+					add0( size );
 		}
 		
 		
