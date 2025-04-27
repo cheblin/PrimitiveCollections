@@ -36,8 +36,6 @@ package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
-import java.util.Arrays;
-
 /**
  * A list interface for efficiently managing nullable objects of type {@code V}.
  * Unlike a standard {@link ObjectList}, which stores all elements including nulls in a single array,
@@ -101,14 +99,21 @@ public interface ObjectNullList< V > {
 		 */
 		protected int size_card = 0;
 		
-		/**
-		 * Tracks the number of non-null elements in the list, regardless of strategy.
-		 */
-		protected int cardinality = 0;
+		public int cardinality() {
+			if( !isFlatStrategy ) return size_card;                     // In compressed mode, size_card is the cardinality.
+			
+			
+			int count = 0;// Need to count in flat mode.
+			for( var i = 0; i < size_card; i++ )
+				if( values[ i ] != null )
+					count++;
+			
+			return count;
+		}
 		
 		/**
 		 * Threshold for switching from compressed to flat strategy, defaulting to 1024.
-		 * Compared against {@code nulls.used * 64} to decide when to switch, balancing memory and performance.
+		 * Compared against {@code nulls.cardinality} to decide when to switch, balancing memory and performance.
 		 */
 		protected int flatStrategyThreshold = 1024;
 		
@@ -140,16 +145,19 @@ public interface ObjectNullList< V > {
 		/**
 		 * Switches to the flat strategy, reallocating {@code values} to include all elements, including nulls.
 		 */
-		protected void switchToFlatStrategy() {
+		protected void switchToFlatStrategy() { switchToFlatStrategy( nulls.size ); }
+		
+		protected void switchToFlatStrategy( int capacity ) {
 			if( size() == 0 )//the collection is empty
 			{
 				if( values.length == 0 ) values = equal_hash_V.copyOf( null, 16 );
 				isFlatStrategy = true;
 				return;
 			}
+			
 			V[] compressed = values;
-			values = equal_hash_V.copyOf( null, Math.max( 16, nulls.last1() + 1 ) );
-			for( int i = nulls.next1( 0 ), ii = 0; ii < size_card; i = nulls.next1( i + 1 ) )
+			values = equal_hash_V.copyOf( null, Math.max( 16, capacity ) );
+			for( int i = -1, ii = 0; ( i = nulls.next1( i ) ) != -1; )
 			     values[ i ] = compressed[ ii++ ];
 			
 			size_card      = nulls.size();
@@ -189,9 +197,9 @@ public interface ObjectNullList< V > {
 			if( dst == null || dst.length < len ) dst = equal_hash_V.copyOf( null, len );
 			
 			if( isFlatStrategy ) System.arraycopy( values, index, dst, 0, Math.min( len, size_card - index ) );
-			else for( int i = 0, srcIndex = index; i < len && srcIndex < size(); i++, srcIndex++ )
-			          dst[ i ] = hasValue( srcIndex ) ?
-					          values[ nulls.rank( srcIndex ) - 1 ] :
+			else for( int i = 0, ii = nulls.rank( index ) - 1; i < len && index < size(); i++, index++ )
+			          dst[ i ] = hasValue( index ) ?
+					          values[ ii++ ] :
 					          null;
 			return dst;
 		}
@@ -251,57 +259,67 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Finds the next index with a non-null value, starting from the specified index (inclusive).
+		 * Finds the next logical index after the specified index that contains a non-null value.
 		 *
-		 * @param index The starting index for the search.
-		 * @return The next index with a non-null value, or -1 if none found.
+		 * @param index The starting logical index (exclusive) for the search. The search begins
+		 *              at `index + 1`. Pass -1 to start the search from the beginning.
+		 * @return The logical index of the next non-null element after `index`, or -1 if no more
+		 * non-null elements are found in the list.
 		 */
 		public int nextValueIndex( int index ) {
-			if( !isFlatStrategy ) { return nulls.next1( index ); }
+			if( !isFlatStrategy ) return nulls.next1( index );
 			
-			for( int i = index; i < size_card; i++ )
+			for( int i = index; ++i < size_card; i++ )
 				if( values[ i ] != null ) return i;
 			return -1;
 		}
 		
 		/**
-		 * Finds the previous index with a non-null value, before the specified index (exclusive).
+		 * Finds the previous logical index before the specified index that contains a non-null value.
 		 *
-		 * @param index The starting index for the backward search.
-		 * @return The previous index with a non-null value, or -1 if none found.
+		 * @param index The starting logical index (exclusive) for the backward search. The search begins
+		 *              at `index - 1`. Pass -1 or a value greater than or equal to the list's size
+		 *              to start the search from the end.
+		 * @return The logical index of the previous non-null element before `index`, or -1 if no more
+		 * non-null elements are found in the list.
 		 */
 		public int prevValueIndex( int index ) {
-			if( !isFlatStrategy ) { return nulls.prev1( index ); }
+			if( !isFlatStrategy ) return nulls.prev1( index );
 			
-			for( int i = index - 1; i >= 0; i-- )
+			for( int i = index; -1 < --i; )
 				if( values[ i ] != null ) return i;
 			return -1;
 		}
 		
 		/**
-		 * Finds the next index with a null value, starting from the specified index (inclusive).
+		 * Finds the next logical index after the specified index that contains a null value.
 		 *
-		 * @param index The starting index for the search.
-		 * @return The next index with a null value, or -1 if none found.
+		 * @param index The starting logical index (exclusive) for the search. The search begins
+		 *              at `index + 1`. Pass -1 to start the search from the beginning.
+		 * @return The logical index of the next null element after `index`, or -1 if no more
+		 * null elements are found in the list.
 		 */
 		public int nextNullIndex( int index ) {
 			if( !isFlatStrategy ) return nulls.next0( index );
 			
-			for( int i = index; i < size_card; i++ )
+			for( int i = index; ++i < size_card; i++ )
 				if( values[ i ] == null ) return i;
 			return -1;
 		}
 		
 		/**
-		 * Finds the previous index with a null value, before the specified index (exclusive).
+		 * Finds the previous logical index before the specified index that contains a null value.
 		 *
-		 * @param index The starting index for the backward search.
-		 * @return The previous index with a null value, or -1 if none found.
+		 * @param index The starting logical index (exclusive) for the backward search. The search begins
+		 *              at `index - 1`. Pass -1 or a value greater than or equal to the list's size
+		 *              to start the search from the last logical index (`size() - 1`).
+		 * @return The logical index of the previous null element before `index`, or -1 if no more
+		 * null elements are found in the list.
 		 */
 		public int prevNullIndex( int index ) {
-			if( !isFlatStrategy ) { return nulls.prev0( index ); }
+			if( !isFlatStrategy ) return nulls.prev0( index );
 			
-			for( int i = index - 1; i >= 0; i-- )
+			for( int i = index; -1 < --i ; )
 				if( values[ i ] == null ) return i;
 			return -1;
 		}
@@ -317,9 +335,9 @@ public interface ObjectNullList< V > {
 					null :
 					isFlatStrategy ?
 							values[ index ] :
-							( nulls.get( index ) ?
+							nulls.get( index ) ?
 									values[ nulls.rank( index ) - 1 ] :
-									null );
+									null;
 		}
 		
 		/**
@@ -329,18 +347,21 @@ public interface ObjectNullList< V > {
 		 * @return The index of the first occurrence, or -1 if not found.
 		 */
 		public int indexOf( V value ) {
-			if( value == null ) return nextNullIndex( 0 );
+			if( value == null ) return nextNullIndex( -1 );
 			
 			if( isFlatStrategy ) {
-				for( int i = 0; i < size_card; i++ )
-					if( equal_hash_V.equals( values[ i ], value ) ) return i;
+				for( int i = 0; i < size_card; i++ ) {
+					V v = values[ i ];
+					if( v != null && equal_hash_V.equals( v, value ) ) return i;
+				}
 				return -1;
 			}
 			
-			int i = Array.indexOf( values, value, 0, size_card );
-			return i < 0 ?
-					-1 :
-					nulls.bit( i + 1 );
+			
+			for( var i = 0; i < size_card; i++ )
+				if( equal_hash_V.equals( values[ i ], value ) ) return nulls.bit( i + 1 );
+			
+			return -1;
 		}
 		
 		/**
@@ -359,13 +380,15 @@ public interface ObjectNullList< V > {
 		 */
 		public int lastIndexOf( V value ) {
 			if( isFlatStrategy ) {
-				for( int i = size_card - 1; 0 <= i; i-- )
+				for( int i = size_card; -1 < --i; )
 					if( equal_hash_V.equals( values[ i ], value ) ) return i;
 				return -1;
 			}
+			
 			if( value == null ) return prevNullIndex( size() );
-			for( int i = nulls.prev1( size() - 1 ), ii = nulls.cardinality() - 1; i != -1; i = nulls.prev1( i - 1 ) )
-				if( equal_hash_V.equals( values[ ii-- ], value ) ) return i;
+			
+			for( var i = size_card; -1 < --i; )
+				if( equal_hash_V.equals( values[ i ], value ) ) return nulls.bit( i + 1 );
 			return -1;
 		}
 		
@@ -379,12 +402,13 @@ public interface ObjectNullList< V > {
 			
 			var hash = 17;
 			if( isFlatStrategy )
-				for( var i = nulls.next1( 0 ); i != -1; i = nulls.next1( i + 1 ) )
-				     hash = Array.hash( hash, values[ i ] );
+				for( var i = 0; i < size_card; i++ )
+				     hash = Array.hash( hash, equal_hash_V.hashCode( values[ i ] ) );
 			else
-				for( V value : values )
-					hash = Array.hash( hash, value );
-			
+				for( int i = 0, s = nulls.size; i < s; i++ )
+				     hash = Array.hash( hash, equal_hash_V.hashCode( nulls.get( i ) ?
+						                                                     values[ i ] :
+						                                                     null ) );
 			return Array.finalizeHash( hash, size() );
 		}
 		
@@ -462,13 +486,15 @@ public interface ObjectNullList< V > {
 			int size = size();
 			if( size > 0 ) {
 				json.preallocate( size * 10 );
-				for( int i = 0, ii; i < size; )
-					if( ( ii = nextValueIndex( i ) ) == i ) json.value( get( i++ ) );
-					else if( ii == -1 || size <= ii ) {
-						while( i++ < size ) json.value();
+				for( int i = -1, ii = -1; i < size; ) {
+					
+					if( ( i = nextValueIndex( i ) ) == -1 ) { // No more non-null values or reached end of list.
+						while( ++ii < size ) json.value(); // Write remaining nulls as JSON null.
 						break;
 					}
-					else for( ; i < ii; i++ ) json.value();
+					while( ++ii < i ) json.value(); // Write nulls up to the next non-null value.
+					json.value( get( i ) );
+				}
 			}
 			json.exitArray();
 		}
@@ -498,10 +524,10 @@ public interface ObjectNullList< V > {
 			else if( dst.nulls.get( index ) ) dst.values[ dst.nulls.rank( index ) - 1 ] = value;
 			else {
 				int rank = dst.nulls.rank( index );
+				int max  = Math.max( rank, dst.size_card + 1 );
 				
-				if( dst.values.length <= rank && dst.flatStrategyThreshold < dst.nulls.used * 64 ) {
-					dst.switchToFlatStrategy();
-					dst.nulls.set1( index );  // Mark as non-null.
+				if( dst.values.length <= max && dst.flatStrategyThreshold < dst.size_card ) {
+					dst.switchToFlatStrategy( Math.max( index + 1, dst.nulls.size() * 3 / 2 ) );
 					dst.values[ index ] = value;
 				}
 				else {
@@ -543,44 +569,12 @@ public interface ObjectNullList< V > {
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int length ) {
 			super( equal_hash_V );
+			
+			
 			nulls  = new BitList.RW( length );
 			values = length > 0 ?
 					equal_hash_V.copyOf( null, Math.max( 16, length ) ) :
 					equal_hash_V.OO;
-		}
-		
-		/**
-		 * Constructs a list initialized with a default value and logical size.
-		 *
-		 * @param clazz         The class of type {@code V}.
-		 * @param default_value The default value to initialize elements (can be null).
-		 * @param size          The initial logical size; if negative, sets capacity only.
-		 */
-		public RW( Class< V > clazz, V default_value, int size ) {
-			this( Array.get( clazz ), default_value, size );
-		}
-		
-		/**
-		 * Constructs a list initialized with a default value, logical size, and equality utility.
-		 *
-		 * @param equal_hash_V  The utility for type-safe operations on type {@code V}.
-		 * @param default_value The default value to initialize elements (can be null).
-		 * @param size          The initial logical size; if negative, sets capacity only.
-		 */
-		public RW( Array.EqualHashOf< V > equal_hash_V, V default_value, int size ) {
-			super( equal_hash_V );
-			nulls     = new BitList.RW( default_value != null, size );
-			size_card = default_value == null ?
-					0 :
-					size;
-			values    = size == 0 ?
-					equal_hash_V.OO :
-					equal_hash_V.copyOf( null,
-					                     Math.max( 16, size < 0 ?
-							                     -size :
-							                     size ) );
-			if( 0 < size && default_value != null )
-				Arrays.fill( values, 0, size, default_value ); // Fill with default if specified.
 		}
 		
 		/**
@@ -597,8 +591,12 @@ public interface ObjectNullList< V > {
 		 */
 		public void flatStrategyThreshold( int threshold ) {
 			
-			if( ( flatStrategyThreshold = threshold ) <= nulls.cardinality() ) { if( !isFlatStrategy ) switchToFlatStrategy(); }
-			else if( isFlatStrategy ) switchToCompressedStrategy();
+			if( isFlatStrategy ) {
+				
+				
+				if( cardinality() < ( flatStrategyThreshold = threshold ) ) switchToCompressedStrategy();
+			}
+			else if( ( flatStrategyThreshold = threshold ) <= nulls.cardinality() ) switchToFlatStrategy();
 		}
 		
 		
@@ -669,7 +667,7 @@ public interface ObjectNullList< V > {
 		 */
 		@SafeVarargs
 		public final RW< V > set( int index, V... values ) {
-			for( int i = 0; i < values.length; i++ ) set( this, index + i, values[ i ] );
+			for( int i = values.length; -1 < --i; ) set( this, index + i, values[ i ] );
 			return this;
 		}
 		
@@ -683,7 +681,7 @@ public interface ObjectNullList< V > {
 		 * @return This instance for method chaining.
 		 */
 		public RW< V > set( int index, V[] values, int src_index, int len ) {
-			for( int i = 0; i < len; i++ ) set( this, index + i, values[ src_index + i ] );
+			for( int i = values.length; -1 < --i; ) set( this, index + i, values[ src_index + i ] );
 			return this;
 		}
 		
@@ -706,40 +704,41 @@ public interface ObjectNullList< V > {
 		 * @return This instance for method chaining.
 		 */
 		public RW< V > add1( int index, V value ) {
-			if( isFlatStrategy )
-				if( index < size_card ) {
-					// Insert within bounds: shift elements right, update total size
-					size_card       = Array.resize( values,
-					                                values.length <= size_card ?
-							                                equal_hash_V.copyOf( null, Math.max( 16, size_card * 3 / 2 ) ) :
-							                                values, index, size_card, 1 );
-					values[ index ] = value;
-				}
-				else set1( index, value ); // Extend list if index is beyond current size
-			else if( index < size() ) {
-				// Insert into bitlist: true for non-null, false for null
-				
-				nulls.set( index, value != null );
-				if( value == null ) return this;
-				int i   = nulls.rank( index ) - 1; // Position in values array
-				int max = Math.max( i + 1, size_card + 1 ); // Ensure capacity
-				if( values.length <= max && flatStrategyThreshold <= nulls.used * 64 ) {
-					// Switch to flat if threshold exceeded
-					switchToFlatStrategy();
-					values[ index ] = value;
-				}
-				else {
-					// Insert non-null value, update non-null count
-					size_card   = Array.resize( values,
-					                            values.length <= max ?
-							                            equal_hash_V.copyOf( null, Math.max( 16, max * 3 / 2 ) ) :
-							                            values, i, size_card, 1 );
-					values[ i ] = value;
-				}
-				
-				// No size_card adjustment for null: it tracks non-null count only
+			if( size() <= index ) {
+				set1( index, value ); // Extend list via set1 for out-of-bounds
+				return this;
 			}
-			else set1( index, value ); // Extend list via set1 for out-of-bounds
+			
+			if( isFlatStrategy ) {
+				size_card       = Array.resize( values,
+				                                values.length <= size_card ?
+						                                equal_hash_V.copyOf( null, Math.max( 16, size_card * 3 / 2 ) ) :
+						                                values, index, size_card, 1 );
+				values[ index ] = value;
+				return this;
+			}
+			
+			if( value == null ) {
+				nulls.add( index, false );
+				return this;
+			}
+			
+			var i   = nulls.rank( index ) - 1;
+			var max = Math.max( i + 2, size_card + 1 ); // Ensure capacity
+			if( values.length <= max && flatStrategyThreshold <= size_card ) {
+				switchToFlatStrategy( max );
+				nulls.set1( index );
+				size_card++;
+				values[ index ] = value;
+			}
+			else {
+				size_card = Array.resize( values, values.length <= max ?
+						equal_hash_V.copyOf( null, Math.max( 16, max * 3 / 2 ) ) :
+						values, i, size_card, 1 );
+				nulls.add( index, true );
+				values[ i ] = value;
+			}
+			
 			return this;
 		}
 		
@@ -774,12 +773,11 @@ public interface ObjectNullList< V > {
 		 * @return This instance for method chaining.
 		 */
 		public RW< V > clear() {
-			if(size()< 1) return this;
+			if( size() < 1 ) return this;
 			Array.fill( values, 0, size_card, null );
 			
 			size_card = 0;
-			if( nulls == null ) nulls = new BitList.RW( 0 );
-			else nulls.clear();
+			if( !isFlatStrategy ) nulls.clear();
 			return this;
 		}
 		
@@ -790,7 +788,14 @@ public interface ObjectNullList< V > {
 		 * @return This instance for method chaining.
 		 */
 		public RW< V > length( int length ) {
-			if( length < 1 ) return clear();
+			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
+			
+			if( length == 0 ) {
+				size_card = 0;
+				values    = equal_hash_V.copyOf( null, 0 );
+				if( !isFlatStrategy ) nulls.length( 0 );
+				return this;
+			}
 			
 			if( isFlatStrategy ) {
 				if( values.length != length ) values = equal_hash_V.copyOf( values, length );
@@ -798,7 +803,7 @@ public interface ObjectNullList< V > {
 			}
 			else {
 				nulls.length( length );
-				if( length < size_card ) size_card = nulls.cardinality();
+				size_card = nulls.cardinality();
 			}
 			return this;
 		}
@@ -816,7 +821,7 @@ public interface ObjectNullList< V > {
 				nulls.size( size );
 				if( !isFlatStrategy ) size_card = nulls.cardinality();
 			}
-			if( !isFlatStrategy && flatStrategyThreshold <= nulls.used * 64 ) switchToFlatStrategy();
+			if( !isFlatStrategy && flatStrategyThreshold <= size_card ) switchToFlatStrategy();
 			
 			return this;
 		}
@@ -848,42 +853,16 @@ public interface ObjectNullList< V > {
 		 * @return This instance for method chaining.
 		 */
 		public RW< V > swap( int index1, int index2 ) {
-			if( index1 == index2 || index1 < 0 || index2 < 0 || index1 >= size() || index2 >= size() ) return this;
-			if( isFlatStrategy ) {
-				V tmp = values[ index1 ];
-				values[ index1 ] = values[ index2 ];
-				values[ index2 ] = tmp;
-				return this;
-			}
-			boolean e1 = nulls.get( index1 );
-			boolean e2 = nulls.get( index2 );
-			if( !e1 && !e2 ) return this;
-			int i1 = nulls.rank( index1 ) - 1;
-			int i2 = nulls.rank( index2 ) - 1;
-			if( e1 && e2 ) {
-				V tmp = values[ i1 ];
-				values[ i1 ] = values[ i2 ];
-				values[ i2 ] = tmp;
-				return this;
-			}
-			nulls.set( index1, e2 );
-			nulls.set( index2, e1 );
-			if( Math.abs( index1 - index2 ) < 2 ) return this;
+			if( index1 < 0 || index1 >= size() ) throw new IndexOutOfBoundsException( "Index1 must be non-negative and less than the list's size: " + index1 );
+			if( index2 < 0 || index2 >= size() ) throw new IndexOutOfBoundsException( "Index2 must be non-negative and less than the list's size: " + index2 );
+			if( index1 == index2 ) return this;
+			V value1 = get( index1 );
+			V value2 = get( index2 );
+			if( value1 == value2 ) return this;
 			
-			int exist = e1 ?
-					i1 :
-					i2;
-			int empty = e1 ?
-					i2 + 1 :
-					i1 + 1;
+			set( index1, value2 );
+			set( index2, value1 );
 			
-			
-			V v = values[ exist ];
-			size_card       = Array.resize( values, values, exist, size_card, -1 );
-			size_card       = Array.resize( values, values, exist < empty ?
-					empty - 1 :
-					empty, size_card - 1, 1 );
-			values[ empty ] = v;
 			return this;
 		}
 		

@@ -77,7 +77,9 @@ public interface BitsList {
 		protected int bits_per_item() { return 32 - Integer.numberOfLeadingZeros( ( int ) mask ); }
 		
 		/**
-		 * The default value for new items, masked to fit within {@code bits_per_item}.
+		 * Sentinel value representing uninitialized elements in the list.
+		 * Since primitive ints cannot be null, this value is used to fill new slots when the list expands.
+		 * Choose a value that does not conflict with valid data in your use case.
 		 */
 		public final int default_value;
 		
@@ -294,7 +296,7 @@ public interface BitsList {
 		 */
 		protected static void set( R dst, int from, byte... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
-			for( int i = src.length - 1; i >= 0; i-- ) set1( dst, from + i, src[ i ] );
+			for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[ i ] );
 		}
 		
 		/**
@@ -306,7 +308,7 @@ public interface BitsList {
 		 */
 		protected static void set( R dst, int from, char... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
-			for( int i = src.length - 1; i >= 0; i-- ) set1( dst, from + i, src[ i ] );
+			for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[ i ] );
 		}
 		
 		/**
@@ -318,7 +320,7 @@ public interface BitsList {
 		 */
 		protected static void set( R dst, int from, short... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
-			for( int i = src.length - 1; i >= 0; i-- ) set1( dst, from + i, src[ i ] );
+			for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[ i ] );
 		}
 		
 		/**
@@ -330,7 +332,7 @@ public interface BitsList {
 		 */
 		protected static void set( R dst, int from, int... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
-			for( int i = src.length - 1; i >= 0; i-- ) set1( dst, from + i, src[ i ] );
+			for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[ i ] );
 		}
 		
 		/**
@@ -342,7 +344,7 @@ public interface BitsList {
 		 */
 		protected static void set( R dst, int from, long... src ) {
 			if( from < 0 ) throw new IndexOutOfBoundsException( "Index: " + from );
-			for( int i = src.length - 1; i >= 0; i-- ) set1( dst, from + i, src[ i ] );
+			for( int i = src.length; -1 < --i; ) set1( dst, from + i, src[ i ] );
 		}
 		
 		/**
@@ -833,13 +835,21 @@ public interface BitsList {
 		 */
 		public boolean retainAll( R chk ) {
 			if( chk == null ) return false;
-			int initial_size = size;
-			for( int i = 0; i < size; ) {
-				int v = get( i );
-				if( !chk.contains( v ) ) removeAt( this, i );
-				else i++;
+			boolean ret = false;
+			for( int i = size; -1 < --i; ) {
+				long v = get( i );
+				if( chk.contains( v ) ) continue;
+				removeAll( v );
+				ret = true;
+				if( size < i ) i = size;
 			}
-			return initial_size != size;
+			return ret;
+		}
+		
+		public int removeAll( long src ) {
+			int fix = size;
+			for( int k; -1 < ( k = indexOf( src ) ); ) removeAt( k );
+			return fix - size;
 		}
 		
 		/**
@@ -855,15 +865,17 @@ public interface BitsList {
 		 * Sets the capacity of the list and returns this instance for chaining.
 		 * If {@code items < 1}, clears the list; otherwise, adjusts capacity to at least {@code items}.
 		 *
-		 * @param items The desired capacity in items.
+		 * @param length The desired capacity in items.
 		 * @return This {@code RW} instance.
 		 */
-		public RW length( int items ) {
-			if( items < 1 ) {
+		public RW length( int length ) {
+			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
+			
+			if( length ==0 ) {
 				values = Array.EqualHashOf._longs.O;
 				size   = 0;
 			}
-			else length_( items );
+			else length_( length );
 			return this;
 		}
 		

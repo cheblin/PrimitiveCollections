@@ -96,6 +96,8 @@ public interface ObjectList {
 		 */
 		public int size() { return size; }
 		
+		public boolean isEmpty() { return size() == 0; }
+		
 		/**
 		 * Copies a range of elements from this list into a destination array.
 		 *
@@ -105,7 +107,9 @@ public interface ObjectList {
 		 * @return The destination array with copied elements, or null if the list is empty.
 		 */
 		public V[] toArray( int index, int len, V[] dst ) {
-			if( size == 0 ) return null;
+			if( index < 0 ) throw new IndexOutOfBoundsException( "index cannot be negative" );
+			if( size <= index  ) throw new IndexOutOfBoundsException( "index range exceeds bounds" );
+			if (index + len > size)         throw new IllegalArgumentException("range exceeds size");
 			if( dst == null || dst.length < len ) return Arrays.copyOfRange( values, index, index + len );
 			System.arraycopy( values, index, dst, 0, len );
 			return dst;
@@ -254,10 +258,6 @@ public interface ObjectList {
 	 */
 	class RW< V > extends R< V > {
 		
-		/**
-		 * Default value used for initializing or padding the list.
-		 */
-		public final V default_value;
 		
 		/**
 		 * Constructs an empty list with the specified initial capacity.
@@ -278,40 +278,11 @@ public interface ObjectList {
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int length ) {
 			super( equal_hash_V );
-			default_value = null;
-			values        = length == 0 ?
+			values = length == 0 ?
 					equal_hash_V.OO :
 					equal_hash_V.copyOf( null, length );
 		}
 		
-		/**
-		 * Constructs a list with a default value and initial size.
-		 *
-		 * @param clazz         The class of the element type V.
-		 * @param default_value The default value for initialization.
-		 * @param size          The initial size of the list.
-		 */
-		public RW( Class< V > clazz, V default_value, int size ) {
-			this( Array.get( clazz ), default_value, size );
-		}
-		
-		/**
-		 * Constructs a list with a default value, initial size, and equality handler.
-		 *
-		 * @param equal_hash_V  The equality and hash code handler for type V.
-		 * @param default_value The default value for initialization.
-		 * @param size          The initial size of the list.
-		 */
-		public RW( Array.EqualHashOf< V > equal_hash_V, V default_value, int size ) {
-			super( equal_hash_V );
-			this.default_value = default_value;
-			values             = size == 0 ?
-					equal_hash_V.OO :
-					equal_hash_V.copyOf( null, this.size = size < 0 ?
-							-size :
-							size );
-			if( default_value != null && size > 0 ) for( int i = 0; i < size; i++ ) values[ i ] = default_value;
-		}
 		
 		/**
 		 * Appends an element to the end of the list.
@@ -360,6 +331,12 @@ public interface ObjectList {
 		 * @return This list for method chaining.
 		 */
 		public RW< V > add( int index, V[] src, int src_index, int len ) {
+			if( index < 0 ) throw new IllegalArgumentException( "Index cannot be negative" );
+			if( src_index < 0 ) throw new IllegalArgumentException( "Source index cannot be negative" );
+			if( len < 0 ) throw new IllegalArgumentException( "Length cannot be negative" );
+			if( src == null ) throw new NullPointerException( "Source array cannot be null" );
+			if( src.length < src_index + len ) throw new IllegalArgumentException( "Source range exceeds array bounds" );
+			
 			int max = Math.max( index, size ) + len;
 			size = Array.resize( values,
 			                     values.length < max ?
@@ -387,7 +364,10 @@ public interface ObjectList {
 		 * @return This list for method chaining.
 		 */
 		public RW< V > remove( int index ) {
-			size = Array.resize( values, values, index, size, -1 );
+			if( size <= index ) throw new IndexOutOfBoundsException( " index cannot be negative" );
+			
+			size           = Array.resize( values, values, index, size, -1 );
+			values[ size ] = null;
 			return this;
 		}
 		
@@ -399,6 +379,8 @@ public interface ObjectList {
 		 * @return This list for method chaining.
 		 */
 		public RW< V > remove_fast( int index ) {
+			if( index < 0 ) throw new IllegalArgumentException( " index cannot be negative" );
+			
 			if( size < 1 || size <= index ) return this;
 			size--;
 			values[ index ] = values[ size ];
@@ -426,7 +408,7 @@ public interface ObjectList {
 		public RW< V > set1( int index, V value ) {
 			if( index < 0 ) throw new IndexOutOfBoundsException();
 			if( size <= index ) {
-				if( values.length <= index ) values = equal_hash_V.copyOf( values, index + index / 2 );
+				if( values.length <= index ) values = equal_hash_V.copyOf( values, 2 + index * 3 / 2 );
 				size = index + 1;
 			}
 			values[ index ] = value;
@@ -501,12 +483,17 @@ public interface ObjectList {
 		 * @param chk The list of elements to retain.
 		 * @return This list for method chaining.
 		 */
-		public RW< V > retainAll( R< V > chk ) {
-			for( int i = 0; i < size; i++ ) {
-				final V val = values[ i ];
-				if( chk.indexOf( val ) == -1 ) removeAll( val );
+		public boolean retainAll( R< V > chk ) {
+			if( chk == null ) return false;
+			boolean ret = false;
+			for( int i = size; -1 < --i; ) {
+				V v = get( i );
+				if( chk.indexOf( v ) != -1 ) continue;
+				removeAll( v );
+				ret = true;
+				if( size < i ) i = size;
 			}
-			return this;
+			return ret;
 		}
 		
 		/**
@@ -525,7 +512,7 @@ public interface ObjectList {
 		 */
 		public RW< V > clear() {
 			if( size < 1 ) return this;
-			Arrays.fill( values, 0, size, default_value );
+			Arrays.fill( values, 0, size, null );
 			size = 0;
 			return this;
 		}
@@ -537,6 +524,8 @@ public interface ObjectList {
 		 * @return This list for method chaining.
 		 */
 		public RW< V > length( int length ) {
+			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
+			
 			if( length < 1 ) {
 				values = equal_hash_V.OO;
 				size   = 0;
@@ -545,10 +534,7 @@ public interface ObjectList {
 			int old_length = values.length;
 			values = equal_hash_V.copyOf( values, length );
 			if( length < size ) size = length;
-			else if( default_value != null && old_length < length ) {
-				Arrays.fill( values, old_length, length, default_value );
-				size = length;
-			}
+			
 			return this;
 		}
 		
@@ -560,6 +546,9 @@ public interface ObjectList {
 		 * @return This list for method chaining.
 		 */
 		public RW< V > swap( int index1, int index2 ) {
+				if( index1 < 0 || index1 >= size() ) throw new IndexOutOfBoundsException( "Index1 must be non-negative and less than the list's size: " + index1 );
+			if( index2 < 0 || index2 >= size() ) throw new IndexOutOfBoundsException( "Index2 must be non-negative and less than the list's size: " + index2 );
+		
 			final V tmp = values[ index1 ];
 			values[ index1 ] = values[ index2 ];
 			values[ index2 ] = tmp;
@@ -573,16 +562,16 @@ public interface ObjectList {
 		 * @return This list for method chaining.
 		 */
 		public RW< V > size( int size ) {
-			if( size < 1 ) {
+			if( size < 0 ) throw new IllegalArgumentException( "size cannot be negative" );
+			
+			if( size == 0 ) {
 				clear();
 				return this;
 			}
-			if( values.length < size ) {
-				values = equal_hash_V.copyOf( values, size );
-				if( default_value != null ) Arrays.fill( values, this.size, size, default_value );
-			}
-			else if( this.size < size && default_value != null )
-				Arrays.fill( values, this.size, size, default_value );
+			
+			if( values.length < size ) values = equal_hash_V.copyOf( values, size );
+			else if( size < this.size ) Arrays.fill( values, size, this.size, null );
+			
 			this.size = size;
 			return this;
 		}

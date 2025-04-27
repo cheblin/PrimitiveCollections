@@ -475,9 +475,9 @@ public interface BitsNullList {
 		 * @return This {@code RW} instance for chaining.
 		 */
 		public RW removeAll( Integer value ) {
-			remove(this, value == null ?
-					        null_val :
-					        value & 0xFF );
+			remove( this, value == null ?
+					null_val :
+					value & 0xFF );
 			return this;
 		}
 		
@@ -765,15 +765,17 @@ public interface BitsNullList {
 		 * <p>
 		 * If {@code items} is less than 1, the list is cleared and capacity is set to zero.
 		 *
-		 * @param items The desired capacity in items (if less than 1, clears the list).
+		 * @param length The desired capacity in items (if less than 1, clears the list).
 		 * @return This {@code RW} instance for chaining.
 		 */
-		public RW length( int items ) {
-			if( items < 1 ) {
+		public RW length( int length ) {
+			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
+			
+			if( length == 0 ) {
 				values = Array.EqualHashOf._longs.O; // Clear the array if items is less than 1
 				size   = 0;
 			}
-			else length_( items );                    // Adjust length if items is positive
+			else length_( length );                    // Adjust length if items is positive
 			return this;
 		}
 		

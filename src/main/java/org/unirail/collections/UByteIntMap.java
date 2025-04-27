@@ -365,7 +365,7 @@ public interface UByteIntMap {
 			}
 			
 			if( values.length == 256 ) values[ key & 0xFF ] = ( int ) value;
-			else if( cardinality == 127 ) {//switch to flat mode
+			else if( cardinality == 128 ) {//switch to flat mode
 				int[] values_ = new int[ 256 ];
 				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )
 				     values_[ token & KEY_MASK ] = values[ ii++ ];

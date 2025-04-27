@@ -365,7 +365,7 @@ public interface ByteShortMap {
 			}
 			
 			if( values.length == 256 ) values[ key & 0xFF ] = ( short ) value;
-			else if( cardinality == 127 ) {//switch to flat mode
+			else if( cardinality == 128 ) {//switch to flat mode
 				short[] values_ = new short[ 256 ];
 				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )
 				     values_[ token & KEY_MASK ] = values[ ii++ ];

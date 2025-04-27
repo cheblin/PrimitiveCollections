@@ -1429,6 +1429,9 @@ public interface Array {
 	 * in the destination array up to which elements are properly copied.
 	 */
 	static int resize( Object src, Object dst, int index, int size, final int resize ) {
+		if( index < 0 ) throw new IndexOutOfBoundsException( " index cannot be negative" );
+		if( size < 0 ) throw new IllegalArgumentException( " size cannot be negative" );
+		
 		if( resize < 0 ) {
 			
 			if( src != dst && 0 < index )

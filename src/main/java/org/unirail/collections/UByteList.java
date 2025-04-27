@@ -44,10 +44,9 @@ public interface UByteList {
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
 		/**
-		 * Sentinel value representing uninitialized or invalid elements in the list.
-		 * Since primitive ints cannot be null, this value (e.g., -1, 0, Integer.MAX_VALUE)
-		 * is used to fill new slots when the list expands. Choose a value that does not
-		 * conflict with valid data in your use case.
+		 * Sentinel value representing uninitialized elements in the list.
+		 * Since primitive ints cannot be null, this value is used to fill new slots when the list expands.
+		 * Choose a value that does not conflict with valid data in your use case.
 		 */
 		public final char default_value;
 		
@@ -198,7 +197,7 @@ public interface UByteList {
 		 * @param other The R instance to compare with.
 		 * @return true if both lists have identical elements in the same order, false otherwise.
 		 */
-		public boolean equals( R other ) { return other== this || other != null && other.size == size && Array.equals( values, other.values, 0, size ); }
+		public boolean equals( R other ) { return other == this || other != null && other.size == size && Array.equals( values, other.values, 0, size ); }
 		
 		/**
 		 * Generates a hash code based on the list's elements and their order.
@@ -429,6 +428,9 @@ public interface UByteList {
 		 * @return This instance for method chaining.
 		 */
 		public RW swap( int index1, int index2 ) {
+				if( index1 < 0 || index1 >= size() ) throw new IndexOutOfBoundsException( "Index1 must be non-negative and less than the list's size: " + index1 );
+			if( index2 < 0 || index2 >= size() ) throw new IndexOutOfBoundsException( "Index2 must be non-negative and less than the list's size: " + index2 );
+		
 			final byte tmp = values[ index1 ];
 			values[ index1 ] = values[ index2 ];
 			values[ index2 ] = tmp;
@@ -491,11 +493,16 @@ public interface UByteList {
 		 * @return true if the list was modified, false otherwise.
 		 */
 		public boolean retainAll( R chk ) {
-			final int fix = size;
-			for( int index = 0; index < size; index++ )
-				if( !chk.contains( get( index ) ) )
-					remove( index );
-			return fix != size;
+			if( chk == null ) return false;
+			boolean ret = false;
+			for( int i = size; -1 < --i; ) {
+				char v = get( i );
+				if( chk.contains( v ) ) continue;
+				removeAll( v );
+				ret = true;
+				if( size < i ) i = size;
+			}
+			return ret;
 		}
 		
 		/**
@@ -522,6 +529,7 @@ public interface UByteList {
 		 * @return This instance for method chaining.
 		 */
 		public RW length( int length ) {
+			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
 			if( values.length != length )
 				if( length < 1 ) {
 					values = Array.EqualHashOf.bytes     .O;

@@ -422,7 +422,7 @@ public interface UByteObjectNullMap {
 			try {
 				R< V > dst = ( R< V > ) super.clone(); // Clone the ByteSet.R part
 				dst.values = values.clone(); // Shallow copy of values array
-				dst.nulls  = ( Array.FF ) nulls.clone(); // Shallow copy of nulls array
+				if(dst.nulls!=null)dst.nulls  = ( Array.FF ) nulls.clone(); // Shallow copy of nulls array
 				return dst;
 			} catch( CloneNotSupportedException e ) { }
 			return null; // Cloning failed
@@ -557,13 +557,14 @@ public interface UByteObjectNullMap {
 				}
 			}
 			else if( values.length == 256 ) values[ key & 0xFF ] = value;
-			else if( nulls.cardinality == 127 && !nulls.get_( ( byte ) key ) ) {//switch to flat mode
+			else if( nulls.cardinality == 128 && !nulls.get_( ( byte ) key ) ) {//switch to flat mode
 				V[] values_ = equal_hash_V.copyOf( null, 256 );
 				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )
 					if( hasValue( token ) )
 						values_[ token & KEY_MASK ] = values[ ii++ ];
 				
 				nulls                              = null; // Discard nulls bitset (no longer used for indexing)
+				
 				( values = values_ )[ key & 0xFF ] = value;
 			}
 			else {
@@ -571,9 +572,9 @@ public interface UByteObjectNullMap {
 				int r = nulls.rank( ( byte ) key ); // Get the rank for the key
 				if( nulls.set1( ( byte ) key ) )
 					Array.resize( values,
-					              nulls.cardinality < values.length ?
-							              values :
-							              ( values = equal_hash_V.copyOf( null, values.length * 2 ) ), r, nulls.cardinality - 1, 1 );
+					              values.length < nulls.cardinality ?
+							              ( values = equal_hash_V.copyOf( null, values.length * 2 ) ) :
+							              values, r, nulls.cardinality - 1, 1 );
 				else r--;
 				
 				values[ r ] = value;

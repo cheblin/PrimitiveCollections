@@ -333,15 +333,17 @@ public interface BoolNullList {
 		 * Sets the internal array length to accommodate the specified number of items.
 		 * If {@code items} is less than 1, the internal array is cleared.
 		 *
-		 * @param items The desired number of items the internal array should accommodate.
+		 * @param length The desired number of items the internal array should accommodate.
 		 * @return This RW instance for method chaining.
 		 */
-		public RW length( int items ) {
-			if( items < 1 ) {
+		public RW length( int length ) {
+			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
+			
+			if( length == 0 ) {
 				values = Array.EqualHashOf._longs.O; // Clear the array if items is less than 1
 				size   = 0;
 			}
-			else length_( items ); // Adjust length if items is positive
+			else length_( length ); // Adjust length if items is positive
 			return this;
 		}
 		

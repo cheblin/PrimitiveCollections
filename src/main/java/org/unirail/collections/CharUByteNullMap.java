@@ -223,7 +223,7 @@ public interface CharUByteNullMap {
 							return true;
 					return false;
 				}
-				else return ( i = values.nextNullIndex( 0 ) ) != -1 && i < _count - _freeCount;
+				else return ( i = values.nextNullIndex( -1 ) ) != -1 && i < _count - _freeCount;
 			return hasNullKey && nullKeyHasValue && nullKeyValue == value || values.indexOf( value ) != -1;
 		}
 		

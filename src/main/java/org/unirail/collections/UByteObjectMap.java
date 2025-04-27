@@ -513,7 +513,7 @@ public interface UByteObjectMap {
 			}
 			
 			if( values.length == 256 ) values[ key & 0xFF ] = value;
-			else if( cardinality == 127 ) {//switch to flat mode
+			else if( cardinality == 128 ) {//switch to flat mode
 				
 				V[] values_ = equal_hash_V.copyOf( null, 256 );
 				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )

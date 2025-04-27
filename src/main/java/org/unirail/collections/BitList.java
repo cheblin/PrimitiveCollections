@@ -51,43 +51,42 @@ import java.util.Arrays;
 /// modifying the bit sequence.
 /// </para>
 /// </summary>
-///
 
 public interface BitList {
 	/// <summary>
-    /// An abstract base class providing a read-only view and core implementation
-    /// details for a <see cref="BitList"/>.
-    /// <para>
-    /// <b>Bit Indexing and Representation:</b>
-    /// .                 MSB                LSB
-    /// .                 |                 |
-    /// bits in the list [0, 0, 0, 1, 1, 1, 1] Leading 3 zeros and trailing 4 ones
-    /// index in the list 6 5 4 3 2 1 0
-    /// shift left  ≪
-    /// shift right  ≫
-    /// </para>
-    /// <para>
-    /// <b>Storage Optimization:</b>
-    /// This class utilizes several optimizations:
-    /// <list type="bullet">
-    ///     <item><b>Trailing Ones (<see cref="trailingOnesCount"/>):</b> A sequence of '1' bits at the
-    ///     beginning (indices 0 to <see cref="trailingOnesCount"/> - 1) are stored implicitly
-    ///     by just keeping count, not using space in the <see cref="values"/> array.</item>
-    ///     <item><b>Explicit Bits (<see cref="values"/>):</b> Bits *after* the implicit trailing ones
-    ///     are packed into a <see cref="ulong"/>[] array. The first conceptual bit stored in
-    ///     <see cref="values"/> always corresponds to the first '0' bit after the trailing ones.
-    ///     The last bit stored in <see cref="values"/> corresponds to the highest-indexed '1'
-    ///     bit (<see cref="Last1"/>).</item>
-    ///     <item><b>Trailing Zeros:</b> '0' bits from index <see cref="Last1"/> + 1 up to
-    ///     <see cref="Count"/> - 1 are also implicit and not stored in <see cref="values"/>.</item>
-    ///     <item><b>Used Count (<see cref="used"/>):</b> Tracks how many <see cref="ulong"/> elements in the
-    ///     <see cref="values"/> array actually contain non-zero data, allowing the array to
-    ///     potentially be larger than strictly needed for current bits.</item>
-    /// </list>
-    /// This structure provides the foundation for concrete readable and writable
-    /// <see cref="BitList"/> implementations.
-    /// </para>
-    /// </summary>
+	/// An abstract base class providing a read-only view and core implementation
+	/// details for a <see cref="BitList"/>.
+	/// <para>
+	/// <b>Bit Indexing and Representation:</b>
+	/// .                 MSB                LSB
+	/// .                 |                 |
+	/// bits in the list [0, 0, 0, 1, 1, 1, 1] Leading 3 zeros and trailing 4 ones
+	/// index in the list 6 5 4 3 2 1 0
+	/// shift left  ≪
+	/// shift right  ≫
+	/// </para>
+	/// <para>
+	/// <b>Storage Optimization:</b>
+	/// This class utilizes several optimizations:
+	/// <list type="bullet">
+	///     <item><b>Trailing Ones (<see cref="trailingOnesCount"/>):</b> A sequence of '1' bits at the
+	///     beginning (indices 0 to <see cref="trailingOnesCount"/> - 1) are stored implicitly
+	///     by just keeping count, not using space in the <see cref="values"/> array.</item>
+	///     <item><b>Explicit Bits (<see cref="values"/>):</b> Bits *after* the implicit trailing ones
+	///     are packed into a <see cref="ulong"/>[] array. The first conceptual bit stored in
+	///     <see cref="values"/> always corresponds to the first '0' bit after the trailing ones.
+	///     The last bit stored in <see cref="values"/> corresponds to the highest-indexed '1'
+	///     bit (<see cref="Last1"/>).</item>
+	///     <item><b>Trailing Zeros:</b> '0' bits from index <see cref="Last1"/> + 1 up to
+	///     <see cref="Count"/> - 1 are also implicit and not stored in <see cref="values"/>.</item>
+	///     <item><b>Used Count (<see cref="used"/>):</b> Tracks how many <see cref="ulong"/> elements in the
+	///     <see cref="values"/> array actually contain non-zero data, allowing the array to
+	///     potentially be larger than strictly needed for current bits.</item>
+	/// </list>
+	/// This structure provides the foundation for concrete readable and writable
+	/// <see cref="BitList"/> implementations.
+	/// </para>
+	/// </summary>
 	abstract class R implements Cloneable, JsonWriter.Source {
 		/**
 		 * The logical number of bits in this list. This defines the valid range of
@@ -350,143 +349,134 @@ public interface BitList {
 		
 		
 		/**
-		 * Finds the index of the first '1' bit occurring at or after a specified index.
+		 * Finds the index of the next '1' bit in this {@link BitList} after the specified bit index.
+		 * <p>
+		 * This method searches for the first bit set to '1' starting from the position immediately
+		 * following the given {@code bit} index. If no '1' bit is found, or if the input is invalid,
+		 * it returns -1.
+		 * </p>
 		 *
-		 * @param bit The starting global bit index (inclusive) to search from.
-		 *            If negative, the search starts from index 0.
-		 * @return The index of the next '1' bit at or after {@code bit}, or -1 if
-		 * no '1' bit exists in that range up to {@code size() - 1}.
+		 * @param bit The starting bit index (exclusive) for the search. A value of -1 starts the search from index 0.
+		 * @return The index of the next '1' bit, or -1 if no '1' bit is found or if the list is empty or the input is less than -1.
 		 */
 		public int next1( int bit ) {
-			if( size() == 0 ) return -1;
-			if( bit < 0 ) bit = 0;
-			int last1 = last1();
-			if( last1 < bit ) return -1;
-			if( bit == last1 ) return last1;
-			
+			if( size == 0 || bit++ < -1 || size <= bit ) return -1;
 			if( bit < trailingOnesCount ) return bit;
+			
+			int last1 = last1();
+			if( bit == last1 ) return last1;
+			if( last1 < bit ) return -1;
+			
 			int bitOffset = bit - trailingOnesCount;
-			int index     = bitOffset >> LEN; // Index in values array
+			int index     = bitOffset >> LEN;
 			
-			long value = values[ index ] & -1L << ( bitOffset & MASK ); // Check for '1's from pos
-			
-			if( value != 0 ) return trailingOnesCount + ( index << LEN ) + Long.numberOfTrailingZeros( value );
-			
-			for( int i = index + 1; i < used(); i++ )
-				if( ( value = values[ i ] ) != 0 )
-					return trailingOnesCount + ( i << LEN ) + Long.numberOfTrailingZeros( value );
-			
-			return -1;
+			for( long value = values[ index ] & ~0L << ( bitOffset & MASK ); ; value = values[ ++index ] )
+				if( value != 0 )
+					return trailingOnesCount + ( index << LEN ) + Long.numberOfTrailingZeros( value );
 		}
 		
 		/**
-		 * Finds the index of the first '0' bit occurring at or after a specified index.
+		 * Finds the index of the next '0' bit in this {@link BitList} after the specified bit index.
+		 * <p>
+		 * This method searches for the first bit set to '0' starting from the position immediately
+		 * following the given {@code bit} index. If no '0' bit is found, or if the input is invalid,
+		 * it returns -1.
+		 * </p>
 		 *
-		 * @param bit The starting global bit index (inclusive) to search from.
-		 *            If negative, the search starts from index 0.
-		 * @return The index of the next '0' bit at or after {@code bit}, or -1 if
-		 * no '0' bit exists in that range up to {@code size() - 1}.
+		 * @param bit The starting bit index (exclusive) for the search. A value of -1 starts the search from index 0.
+		 * @return The index of the next '0' bit, or -1 if no '0' bit is found or if the list is empty.
 		 */
 		public int next0( int bit ) {
-			if( bit < 0 ) throw new IllegalArgumentException( "bit < 0" );
-			if( size() == 0 || size() <= bit ) return -1;
+			if( size == 0 ) return -1;
 			
-			if( last1() < bit )
-				return
-						bit < size ?
-								bit :
-								-1;
+			if( ++bit < trailingOnesCount )
+				return trailingOnesCount == size ?
+						-1 :
+						trailingOnesCount;
 			
-			if( bit < trailingOnesCount ) return trailingOnesCount == size ?
-					-1 :
-					trailingOnesCount;
+			if( size <= bit ) return -1;
+			
+			int last1 = last1();
+			
+			if( bit == last1 )
+				return last1 + 1 < size ?
+						bit + 1 :
+						-1;
+			
+			if( last1 < bit )
+				return last1 + 1 < size ?
+						bit :
+						-1;
+			
 			
 			// Adjust bit position relative to the end of trailing ones
 			int bitOffset = bit - trailingOnesCount;
 			int index     = bitOffset >> LEN; // Which long in values array
 			
-			long value = ~values[ index ] & -1L << ( bitOffset & MASK );
-			
-			// Search within the first long
-			if( value != 0 ) return trailingOnesCount + ( index << LEN ) + Long.numberOfTrailingZeros( value );
-			
-			// Search subsequent longs
-			for( int i = index + 1; i < used(); i++ )
-				if( ( value = ~values[ i ] ) != 0 ) return trailingOnesCount + ( i << LEN ) + Long.numberOfTrailingZeros( value );
-			
-			// No '0' found, return -1
-			return -1;
+			for( long value = ~values[ index ] & ~0L << ( bitOffset & MASK ); ; value = ~values[ ++index ] )
+				if( value != 0 )
+					return trailingOnesCount + ( index << LEN ) + Long.numberOfTrailingZeros( value );
 		}
 		
 		/**
-		 * Finds the index of the last '1' bit occurring at or before a specified index.
+		 * Finds the index of the previous '1' bit in this {@link BitList} before the specified bit index.
+		 * <p>
+		 * This method searches backward for the first bit set to '1' starting from the position
+		 * immediately preceding the given {@code bit} index. If no '1' bit is found, or if the input
+		 * is invalid, it returns -1.
+		 * </p>
 		 *
-		 * @param bit The ending global bit index (inclusive) to search backwards from.
-		 *            If negative, returns -1. If greater than or equal to {@code size()},
-		 *            the search starts from {@code size() - 1}.
-		 * @return The index of the previous '1' bit at or before {@code bit}, or -1 if
-		 * no '1' bit exists in that range down to index 0.
+		 * @param bit The starting bit index (exclusive) for the backward search. If -1 or greater than or equal to the list size, the search starts from the last index.
+		 * @return The index of the previous '1' bit, or -1 if no '1' bit is found or if the list is empty or the input is less than -1.
 		 */
 		public int prev1( int bit ) {
-			if( size() == 0 ) return -1;
+			if( size == 0 || bit < -1 ) return -1;
 			
-			if( bit < 0 ) return -1; // Nothing before 0
-			if( size() <= bit ) bit = size() - 1; // Adjust to last valid bit
+			bit = size <= bit || bit == -1 ?
+					size - 1 :
+					bit - 1;
 			
-			if( bit < trailingOnesCount ) return bit; // All bits up to trailingOnesCount-1 are '1'
+			if( bit < trailingOnesCount ) return bit;
+			int last1 = last1();
+			if( last1 < bit ) return last1;
 			
-			// Adjust position relative to end of trailing ones
 			int bitOffset = bit - trailingOnesCount;
-			int index     = bitOffset >> LEN; // Index in values array
+			int index     = bitOffset >> LEN;
 			
-			// If beyond used values, search up to last used bit
-			if( used() <= index ) return last1(); // Return last '1' in the list
-			
-			long value = values[ index ] & mask( ( bitOffset & MASK ) + 1 ); // Check for '1's up to pos
-			
-			if( value != 0 ) return trailingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
-			
-			for( int i = index - 1; -1 < i; i-- )
-				if( ( value = values[ i ] ) != 0 ) return trailingOnesCount + ( i << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
-			
-			if( trailingOnesCount > 0 ) return trailingOnesCount - 1; // Last '1' in trailing ones
-			
-			return -1;
+			for( var value = values[ index ] & mask( ( bitOffset & MASK ) + 1 ); ; value = values[ --index ] )
+				if( value == 0 ) { if( index == 0 ) return trailingOnesCount - 1; }
+				else
+					return trailingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 		}
 		
 		/**
-		 * Finds the index of the last '0' bit occurring at or before a specified index.
+		 * Finds the index of the previous '0' bit in this {@link BitList} before the specified bit index.
+		 * <p>
+		 * This method searches backward for the first bit set to '0' starting from the position
+		 * immediately preceding the given {@code bit} index. If no '0' bit is found, or if the input
+		 * is invalid, it returns -1.
+		 * </p>
 		 *
-		 * @param bit The ending global bit index (inclusive) to search backwards from.
-		 *            If negative, returns -1. If greater than or equal to {@code size()},
-		 *            the search starts from {@code size() - 1}.
-		 * @return The index of the previous '0' bit at or before {@code bit}, or -1 if
-		 * no '0' bit exists in that range down to index 0.
+		 * @param bit The starting bit index (exclusive) for the backward search. If -1 or greater than or equal to the list size, the search starts from the last index.
+		 * @return The index of the previous '0' bit, or -1 if no '0' bit is found or if the list is empty or the input is less than -1.
 		 */
 		public int prev0( int bit ) {
-			if( size() == 0 ) return -1;
+			if( size == 0 || bit < -1 ) return -1;
 			
-			// Handle invalid or out-of-bounds cases
-			if( bit < 0 ) return -1; // Nothing before 0
-			if( last1() < bit ) return bit; // If beyond used values, all trailing bits are '0', check up to used
+			bit = size <= bit || bit == -1 ?
+					size - 1 :
+					bit - 1;
 			
-			// If within trailing ones (all '1's), no '0' exists before
-			if( bit < trailingOnesCount ) return -1; // All bits up to trailingOnesCount-1 are '1'
+			if( bit < trailingOnesCount ) return -1;
 			
-			// Adjust position relative to end of trailing ones
+			if( last1() < bit ) return bit;
+			
 			int bitInValues = bit - trailingOnesCount;
 			int index       = bitInValues >> LEN; // Index in values array
 			
-			long value = ~values[ index ] & mask( ( bitInValues & MASK ) + 1 ); // Invert to find '0's up to pos
-			
-			if( value != 0 ) return trailingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
-			
-			// Search previous longs
-			for( int i = index - 1; -1 < i; i-- )
-				if( ( value = ~values[ i ] ) != 0 )
-					return trailingOnesCount + ( i << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
-			
-			return -1;
+			for( var value = ~values[ index ] & mask( ( bitInValues & MASK ) + 1 ); ; value = ~values[ --index ] )
+				if( value != 0 )
+					return trailingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 		}
 		
 		/**
@@ -744,10 +734,14 @@ public interface BitList {
 		 * is all zeros or empty. Returns 0 if the first bit (index 0) is '1'.
 		 */
 		public int numberOfTrailing0() {
-			int i = next1( 0 );
+			if( size == 0 ) return 0;
+			
+			int i = next0( -1 );
+			if( i == -1 || 0 < i ) return 0;
+			i = next1( -1 );
 			return i == -1 ?
-					0 :
-					i;
+					size :
+					i + 1;
 		}
 		
 		/**
@@ -772,7 +766,7 @@ public interface BitList {
 			if( 0 < size ) {
 				int last1 = last1();
 				return last1 + 1 == size ?
-						last1 - prev1( last1 - 1 ) :
+						last1 - prev0( last1 ) :
 						0;
 			}
 			return 0;
@@ -903,7 +897,10 @@ public interface BitList {
 		 *             a default initial capacity might be used or allocation
 		 *             deferred.
 		 */
-		public RW( int bits ) { if( 0 < bits ) values = new long[ len4bits( bits ) ]; }
+		public RW( int bits ) {
+			if( bits < 0 ) throw new IllegalArgumentException( "bits cannot be negative" );
+			if( 0 < bits ) values = new long[ len4bits( bits ) ];
+		}
 		
 		/**
 		 * Constructs a new {@code RW} BitList of a specified initial size, with all
@@ -934,10 +931,10 @@ public interface BitList {
 			// If either BitList is null or effectively empty (size 0), the result of the
 			// AND is empty.
 			// Clear this BitList and return.
-			if( and == null || and.size() == 0  ) {
-				int s=size;
+			if( and == null || and.size() == 0 ) {
+				int s = size;
 				clear(); // Result of AND with empty set is empty set.
-				size =s;
+				size = s;
 				return this;
 			}
 			// Optimization: If 'this' BitList is entirely contained within the trailing
@@ -1149,28 +1146,27 @@ public interface BitList {
 			}
 			int last1 = last1();
 a:
-			for( int i = next0( max_toc ), ii = or.next0( max_toc ); ; ) {
+			for( int i = next0( max_toc - 1 ), ii = or.next0( max_toc - 1 ); ; ) {
 				while( i < ii ) {
 					if( i == -1 ) {
 						max_toc = last1 + 1;
 						break a;
 					}
 					
-					i = next0( i + 1 );
+					i = next0( i );
 				}
 				while( ii < i ) {
 					if( ii == -1 ) {
 						max_toc = or.last1() + 1;
 						break a;
 					}
-					ii = or.next0( ii + 1 );
+					ii = or.next0( ii );
 				}
 				
 				if( i == ii ) {
 					max_toc = i == -1 ?
 							Math.max( last1, or.last1() ) + 1 :
 							i;
-					;
 					break;
 				}
 			}
@@ -1435,9 +1431,8 @@ a:
 					// Lower `pos` bits: Calculate `1 XOR xor_val` which equals `NOT xor_val`.
 					// Upper `64-pos` bits: XOR the shifted original bits with corresponding xor bits.
 					values[ i ] =
-							val & ~mask_lower | // preserve Upper bits
+							( val ^ xor_val ) & ~mask_lower | // preserve Upper bits
 							~xor_val & mask_lower;   // Lower bits result = NOT xor_val (since original this was 1)
-					i++; // Move to the next word index for the main loop.
 				}
 				trailingOnesCount = new_toc;
 				this.size         = max_size; // Set final size
@@ -1447,7 +1442,9 @@ a:
 				
 				return this;
 			}
-			else if( trailingOnesCount < new_toc ) {// Case 4.2: The new TOC (`new_toc`) is longer than `this`'s
+			
+			
+			if( trailingOnesCount < new_toc ) {// Case 4.2: The new TOC (`new_toc`) is longer than `this`'s
 				
 				// Calculate the shift_bits distance (number of bits to shift_bits right conceptually).
 				int shift_bits = new_toc - trailingOnesCount;
@@ -1492,13 +1489,12 @@ a:
 			if( not == null || not.isAllZeros() || this.size == 0 )
 				return this; // ANDNOT with empty/all-zero set changes nothing in 'this'.
 			// If 'this' is empty, result is empty.
-			if( this.isAllZeros() )
-				return this;
+			if( this.isAllZeros() ) return this;
 			
 			// --- 2. Calculate Result Dimensions ---
 			// Resulting trailing ones exist where 'this' has '1' and 'not' has '0'.
 			// This means they survive up to the point where 'not' has its first '1'.
-			int first_1_in_not = not.next1( 0 );
+			int first_1_in_not = not.next1( -1 );
 			if( first_1_in_not == -1 )
 				first_1_in_not = not.size(); // Treat all-zeros 'not' as having '1' beyond its size
 			final int res_toc = Math.min( this.trailingOnesCount, first_1_in_not );
@@ -1613,7 +1609,7 @@ a:
 				// within this absolute bit range.
 				// We can efficiently check this by finding the next '1' in 'other' starting
 				// from range1Start.
-				int next1InOther = other.next1( commonTOC );
+				int next1InOther = other.next1( commonTOC - 1 );
 				// If a '1' exists in 'other' within this range where 'this' has implicit
 				// '1's...
 				if( next1InOther != -1 && next1InOther < range1End )
@@ -1628,7 +1624,7 @@ a:
 			if( commonTOC < range2End ) {
 				// ...we need to see if 'this' has any '1's stored in its 'values' array
 				// within this absolute bit range.
-				int next1InThis = this.next1( commonTOC );
+				int next1InThis = this.next1( commonTOC - 1 );
 				// If a '1' exists in 'this' within this range where 'other' has implicit
 				// '1's...
 				if( next1InThis != -1 && next1InThis < range2End )
@@ -1842,13 +1838,10 @@ a:
 			else if( last1 < to_bit ) {
 				int u = Math.max( used(), len4bits( to_bit - trailingOnesCount ) );
 				
-				
 				if( values.length < u )
 					values = used == 0 ?
 							new long[ u ] :
 							Arrays.copyOf( values, u );
-				
-				
 				used = u;
 				
 				if( last1 < from_bit ) {
@@ -2000,8 +1993,7 @@ a:
 					return this;
 				}
 				
-				int next1 = next1( bit + 1 ); // Find the index of the next '1' starting from bit + 1.
-				
+				int next1       = next1( bit ); // Find the index of the next '1' starting from bit + 1.
 				int last1       = last1(); // Absolute index of the last '1' in the list.
 				int valuesLast1 = last1 - trailingOnesCount; // Index of the last '1' relative to the start of 'values'.
 				
@@ -2009,8 +2001,7 @@ a:
 				if( bit + 1 == next1 ) {
 					
 					// Find the end of this contiguous run of '1's by looking for the next '0'.
-					int next0After = next0( next1 ); // Find the first '0' at or after the start of the run.
-					
+					int next0After = next0( next1 - 1 ); // Find the first '0' at or after the start of the run.
 					int span_of_1_end =
 							next0After == -1 ?
 									last1 + 1 :
@@ -2069,7 +2060,7 @@ a:
 			int last1 = last1();
 			
 			if( from_bit <= trailingOnesCount ) {
-				int next_zero = next0( to_bit );
+				int next_zero = next0( to_bit - 1 );
 				to_bit = next_zero == -1 ?
 						size :
 						next_zero; // Corrected line: if no '0' found, extend to size
@@ -2260,7 +2251,7 @@ a:
 			// Case 4: Removing the first bit after trailingOnesCount (always '0' in values)
 			if( bit != trailingOnesCount ) shiftRight( values, values, bit - trailingOnesCount, last1InValues + 1, 1, true );
 			else {
-				int next0 = next0( bit + 1 ); // Find the next '0' after the bit to detect '1' spans
+				int next0 = next0( bit ); // Find the next '0' after the bit to detect '1' spans
 				
 				// Subcase 4a: Next bit is '0', no '1' span to merge
 				if( next0 == bit + 1 ) {
@@ -2274,7 +2265,7 @@ a:
 				}
 				else {
 					int shift = next0 - bit; // Length of '1' span including the removed position
-					trailingOnesCount += shift; // Extend trailingOnesCount by the span length
+					trailingOnesCount += shift - 1; // Extend trailingOnesCount by the span length
 					shiftRight( values, values, 1, last1InValues + 1, shift, true );
 				}
 			}
@@ -2421,11 +2412,7 @@ a:
 		 * @return This {@code RW} instance after setting the length.
 		 */
 		public RW length( int bits ) {
-			if( bits < 0 ) {
-				clear();
-				return this;
-			}
-			
+			if( bits < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
 			
 			if( bits <= trailingOnesCount ) {
 				trailingOnesCount = bits;

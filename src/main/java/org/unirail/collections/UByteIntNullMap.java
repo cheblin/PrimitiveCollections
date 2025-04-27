@@ -246,9 +246,9 @@ public interface UByteIntNullMap {
 		 * @return The primitive {@code int} value associated with the token.
 		 */
 		public int value( long token ) {
-			return  (isKeyNull( token ) ?
+			return  ( isKeyNull( token ) ?
 					nullKeyValue :
-					values[ ( int ) token >> KEY_LEN ]);
+					values[ ( int ) token >> KEY_LEN ] );
 		}
 		
 		public R get( HashMap<  Character,  Integer   > dst ) {
@@ -275,20 +275,20 @@ public interface UByteIntNullMap {
 		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-				int h =  seed;
-				
-				for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
-					if( hasValue( t ) ) {
-						h = Array.mix( h, Array.hash( values[ t >>> KEY_LEN ] ) );
-						
-						h = Array.finalizeHash( h, 2 );
-						a += h;
-						b ^= h;
-						c *= h | 1;
-					}
+			int h = seed;
+			
+			for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
+				if( hasValue( t ) ) {
+					h = Array.mix( h, Array.hash( values[ t >>> KEY_LEN ] ) );
+					
+					h = Array.finalizeHash( h, 2 );
+					a += h;
+					b ^= h;
+					c *= h | 1;
+				}
 			
 			if( hasNullKey ) {
-				 h = nullKeyHasValue ?
+				h = nullKeyHasValue ?
 						Array.mix( seed, nullKeyHasValue ?
 								Array.hash( nullKeyValue ) :
 								22633363 ) :
@@ -331,9 +331,6 @@ public interface UByteIntNullMap {
 			    size() != other.size() ||
 			    !super.equals( other ) || !nulls.equals( other.nulls ) )
 				return false;
-			
-			if( values.length == 256 && other.values.length == 256 || values.length != 256 && other.values.length != 256 )
-				return Array.equals( values, other.values, 0, nulls.cardinality );
 			
 			int t1 = -1, t2 = -1;
 			for( t1 = unsafe_token( t1 ), t2 = other.unsafe_token( t2 ); t1 != -1 && t2 != -1; t1 = unsafe_token( t1 ), t2 = other.unsafe_token( t2 ) )
@@ -579,12 +576,12 @@ public interface UByteIntNullMap {
 			if( nulls.get_( ( byte ) key ) ) {
 				values[ values.length == 256 ?
 						key & 0xFF :
-						rank( ( byte ) key ) - 1 ] = ( int ) value; // Set or update the value at the calculated index
+						nulls.rank( ( byte ) key ) - 1 ] = ( int ) value; // Set or update the value at the calculated index
 				return false;
 			}
 			
 			if( values.length == 256 ) values[ key & 0xFF ] = ( int ) value;
-			else if( nulls.cardinality == 127 && !nulls.get_( ( byte ) key ) ) {//switch to flat mode
+			else if( nulls.cardinality == 128 ) {//switch to flat mode
 				int[] values_ = new int[ 256 ];
 				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )
 					if( hasValue( token ) )
@@ -593,7 +590,6 @@ public interface UByteIntNullMap {
 				( values = values_ )[ key & 0xFF ] = ( int ) value;
 			}
 			else {
-				
 				int r = nulls.rank( ( byte ) key ); // Get the rank for the key
 				
 				Array.resize( values,

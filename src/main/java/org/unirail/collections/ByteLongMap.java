@@ -365,7 +365,7 @@ public interface ByteLongMap {
 			}
 			
 			if( values.length == 256 ) values[ key & 0xFF ] = ( long ) value;
-			else if( cardinality == 127 ) {//switch to flat mode
+			else if( cardinality == 128 ) {//switch to flat mode
 				long[] values_ = new long[ 256 ];
 				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )
 				     values_[ token & KEY_MASK ] = values[ ii++ ];
