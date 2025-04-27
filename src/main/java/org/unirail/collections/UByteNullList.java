@@ -1032,10 +1032,10 @@ public interface UByteNullList {
 			boolean e1 = hasValue( index1 ); // Get nullity status of element at index1.
 			boolean e2 = hasValue( index2 ); // Get nullity status of element at index2.
 			if( !e1 && !e2 ) return this;
-			byte v1 = e1 ?
+			char v1 = e1 ?
 					get( index1 ) :
 					0;
-			byte v2 = e2 ?
+			char v2 = e2 ?
 					get( index2 ) :
 					0;
 			
