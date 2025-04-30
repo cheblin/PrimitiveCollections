@@ -75,10 +75,10 @@ public interface ShortSet {
 		protected int            _freeCount;          // Number of free entries in the free list.
 		protected int            _version;            // Version counter for concurrent modification detection.
 		
-		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
-		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
+		protected static final int StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
+		protected static final int VERSION_SHIFT   = 32; // Bits to shift version in token.
 		// Special index used in tokens to represent the null key. Outside valid array index ranges.
-		protected static final int  NULL_KEY_INDEX  = 0x1_FFFF; // 65537
+		protected static final int NULL_KEY_INDEX  = 0x1_FFFF; // 65537
 		
 		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
@@ -86,16 +86,16 @@ public interface ShortSet {
 		/**
 		 * Flag indicating if the set is operating in flat bitset mode.
 		 */
-		protected boolean isFlatStrategy = false;
+		protected boolean isFlatStrategy() { return nulls != null; }
 		
 		/**
 		 * Bitset to track presence of keys in flat mode. Size 1024 longs = 65536 bits.
 		 */
-		protected long[] flat_bits; // Size: 65536 / 64 = 1024
+		protected long[] nulls; // Size: 65536 / 64 = 1024
 		
 		// Constants for Flat Mode
-		protected static final int FLAT_ARRAY_SIZE  = 0x10000;
-		protected static final int FLAT_BITSET_SIZE = FLAT_ARRAY_SIZE / 64; // 1024
+		protected static final int FLAT_ARRAY_SIZE = 0x10000;
+		protected static final int NULLS_SIZE      = FLAT_ARRAY_SIZE / 64; // 1024
 		
 		
 		/**
@@ -109,7 +109,7 @@ public interface ShortSet {
 			// Flat Mode: _count is the number of set bits (actual entries).
 			// Add 1 if the null key is present in either mode.
 			return (
-					       isFlatStrategy ?
+					       isFlatStrategy() ?
 							       _count :
 							       _count - _freeCount ) + (
 					       hasNullKey ?
@@ -139,7 +139,7 @@ public interface ShortSet {
 		 * @return The capacity.
 		 */
 		public int length() {
-			return isFlatStrategy ?
+			return isFlatStrategy() ?
 					FLAT_ARRAY_SIZE :
 					( nexts == null ?
 							0 :
@@ -153,11 +153,7 @@ public interface ShortSet {
 		 * @param key the key to check for in this set (boxed Character).
 		 * @return {@code true} if this set contains the specified key
 		 */
-		public boolean contains(  Short     key ) {
-			return key == null ?
-					hasNullKey :
-					contains( ( short ) ( key + 0 ) );
-		}
+		public boolean contains(  Short     key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this set contains the specified primitive char key.
@@ -165,12 +161,7 @@ public interface ShortSet {
 		 * @param key the primitive char key (0 to 65535) to check for in this set
 		 * @return {@code true} if this set contains the specified char key
 		 */
-		public boolean contains( short key ) {
-			return isFlatStrategy ?
-					exists( ( char ) key ) :
-					// Check bitset in flat mode
-					tokenOf( key ) != INVALID_TOKEN; // Check via hash table lookup in hash mode
-		}
+		public boolean contains( short key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		
 		/**
@@ -198,7 +189,7 @@ public interface ShortSet {
 		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found
 		 */
 		public long tokenOf( short key ) {
-			if( isFlatStrategy )
+			if( isFlatStrategy() )
 				return exists( ( char ) key ) ?
 						token( ( char ) key ) :
 						INVALID_TOKEN;
@@ -274,8 +265,8 @@ public interface ShortSet {
 		 * @see #key(long) To get the key associated with a token (use carefully with null key token).
 		 */
 		public int unsafe_token( final int token ) {
-			if( isFlatStrategy )
-				return next1( index( token ) + 1 );
+			if( isFlatStrategy() )
+				return next1( index( token ) );
 			else
 				for( int i = token + 1; i < _count; i++ )
 					if( -2 < nexts[ i ] ) return i;
@@ -283,7 +274,7 @@ public interface ShortSet {
 			return -1; // No more entries
 		}
 		
-	
+		
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
@@ -294,7 +285,7 @@ public interface ShortSet {
 		 */
 		public short key( long token ) {
 			return ( short ) (short) (
-					isFlatStrategy ?
+					isFlatStrategy() ?
 							index( token ) :
 							keys[ index( token ) ] );
 		}
@@ -311,7 +302,7 @@ public interface ShortSet {
 			int a = 0, b = 0, c = 1;
 			// Use unsafe iteration for potentially better performance, assuming no concurrent modification during hashCode calculation.
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
-				final int h = Array.hash( isFlatStrategy ?
+				final int h = Array.hash( isFlatStrategy() ?
 						                          token :
 						                          // Key is the index itself in flat mode
 						                          keys[ token ] ); // Key from array in hash mode
@@ -355,7 +346,7 @@ public interface ShortSet {
 			// Use unsafe iteration for potentially better performance
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				if( !other.contains(
-						( short ) (short)( isFlatStrategy ?
+						( short ) (short)( isFlatStrategy() ?
 								token :
 								keys[ token ] ) ) ) return false; // Check if each key in this set is present in the other set
 			return true; // All keys match
@@ -371,8 +362,8 @@ public interface ShortSet {
 		public R clone() {
 			try {
 				R dst = ( R ) super.clone();
-				if( isFlatStrategy ) {
-					dst.flat_bits = flat_bits.clone();
+				if( isFlatStrategy() ) {
+					dst.nulls = nulls.clone();
 				}
 				else if( _buckets != null ) {
 					dst._buckets = _buckets.clone();
@@ -411,7 +402,7 @@ public interface ShortSet {
 				// Use unsafe iteration
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 					json.value( String.valueOf(
-							(short)( isFlatStrategy ?
+							(short)( isFlatStrategy() ?
 									token :
 									keys[ token ] ) ) );
 				}
@@ -436,7 +427,7 @@ public interface ShortSet {
 		 * @param index the index of the element or special marker
 		 * @return the generated token
 		 */
-		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index  ); }
+		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); }
 		
 		/**
 		 * Extracts the index from a token.
@@ -444,7 +435,7 @@ public interface ShortSet {
 		 * @param token the token
 		 * @return the index extracted from the token
 		 */
-		protected int index( long token ) { return ( int ) ( token  ); }
+		protected int index( long token ) { return ( int ) ( token ); }
 		
 		/**
 		 * Extracts the version from a token.
@@ -456,41 +447,28 @@ public interface ShortSet {
 		
 		
 		/**
-		 * Checks if a key is present in flat mode using the bitset. Assumes flat_bits is not null.
+		 * Checks if a key is present in flat mode using the bitset. Assumes nulls is not null.
 		 * Safe check: returns false if key is out of bounds for char (shouldn't happen with char).
 		 */
-		protected final boolean exists( char key ) { return ( flat_bits[ key >>> 6 ] & 1L << key ) != 0; }
+		protected final boolean exists( char key ) { return ( nulls[ key >>> 6 ] & 1L << key ) != 0; }
 		
 		
 		/**
 		 * Finds the index of the next set bit (1) in the bitset, starting from or after 'bit'.
 		 */
-		public int next1( int bit ) { return next1( bit, flat_bits ); }
+		public int next1( int bit ) { return next1( bit, nulls ); }
 		
-		/**
-		 * Static helper to find the next set bit in any long array representing a bitset.
-		 */
-		public static int next1( int bit, long[] bits ) {
-			int index = bit >>> 6; // Index in bits array (word index)
-			if( bits.length <= index ) return -1;
+		public static int next1( int bit, long[] nulls ) {
 			
-			int pos = bit & 63;   // Bit position within the long (0-63)
+			if( 0xFFFF < ++bit ) return -1;
+			int  index = bit >>> 6;
+			long value = nulls[ index ] & -1L << ( bit & 63 );
 			
-			// Mask to consider only bits from pos onward in the first long
-			long mask  = -1L << pos; // 1s from pos to end
-			long value = bits[ index ] & mask; // Check for '1's from pos
+			while( value == 0 )
+				if( ++index == NULLS_SIZE ) return -1;
+				else value = nulls[ index ];
 			
-			// Check the first long
-			if( value != 0 ) return ( index << 6 ) + Long.numberOfTrailingZeros( value );
-			
-			// Search subsequent longs
-			for( int i = index + 1; i < 1024; i++ ) {
-				value = bits[ i ];
-				if( value != 0 ) return ( i << 6 ) + Long.numberOfTrailingZeros( value );
-			}
-			
-			// No '1' found, return -1
-			return -1;
+			return ( index << 6 ) + Long.numberOfTrailingZeros( value );
 		}
 	}
 	
@@ -515,7 +493,7 @@ public interface ShortSet {
 		 *
 		 * @param capacity the initial capacity hint
 		 */
-		public RW( int capacity ) { if( capacity > 0 )initialize( Array.prime( capacity ) ); }
+		public RW( int capacity ) { if( capacity > 0 ) initialize( Array.prime( capacity ) ); }
 		
 		
 		/**
@@ -527,17 +505,20 @@ public interface ShortSet {
 		 */
 		private int initialize( int capacity ) {
 			_version++;
+			_count = 0; // Flat mode _count tracks actual entries
 			if( flatStrategyThreshold < capacity ) {
-				isFlatStrategy = true;
-				flat_bits      = new long[ FLAT_BITSET_SIZE ]; // 1024 longs
-				_count         = 0; // Flat mode _count tracks actual entries
+				
+				nulls    = new long[ NULLS_SIZE ]; // 1024 longs
+				_buckets = null;
+				nexts    = null;
+				keys     = null;
 				return FLAT_ARRAY_SIZE;
 			}
-			_buckets  = new char[ capacity ];
-			nexts     = new short[ capacity ];
-			keys      = new short[ capacity ];
+			nulls      = null;
+			_buckets   = new char[ capacity ];
+			nexts      = new short[ capacity ];
+			keys       = new short[ capacity ];
 			_freeList  = -1;
-			_count     = 0;
 			_freeCount = 0;
 			return length();
 		}
@@ -563,7 +544,7 @@ public interface ShortSet {
 		 * @return {@code true} if this set did not already contain the specified char key
 		 */
 		public boolean add( short key ) {
-			if( isFlatStrategy ) {
+			if( isFlatStrategy() ) {
 				if( exists( ( char ) key ) ) return false; // Already exists
 				exists1( ( char ) key ); // Set the bit
 				_count++; // Increment count of set bits
@@ -604,7 +585,7 @@ public interface ShortSet {
 					
 					resize( i ); // Resize might switch to flat mode
 					
-					if( isFlatStrategy ) return add( key );
+					if( isFlatStrategy() ) return add( key );
 					
 					bucketIndex = bucketIndex( hash );
 					bucket      = _buckets[ bucketIndex ] - 1;
@@ -654,41 +635,39 @@ public interface ShortSet {
 		 * @return {@code true} if this set contained the char key
 		 */
 		public boolean remove( short key ) {
-			if( _count == 0 ) return false;
 			
-			if( isFlatStrategy ) {
-				if( exists( ( char ) key ) ) {
-					exists0( ( char ) key );
-					_count--;
-					_version++;
-					return true;
-				}
-				return false;
+			if( isFlatStrategy() ) {
+				if( _count == 0  || !exists( ( char ) key ) ) return false;
+				exists0( ( char ) key );
+				_count--;
+				_version++;
+				return true;
 			}
-			if( _buckets == null ) return false;
+			if( _count - _freeCount == 0 ) return false;
 			
-			int collisionCount = 0;
-			int last           = -1;
-			int hash           = Array.hash( key );
-			int bucketIndex    = bucketIndex( hash );
-			int i              = _buckets[ bucketIndex ] - 1;
+			int bucketIndex = bucketIndex( Array.hash( key ) );
+			int i           = _buckets[ bucketIndex ] - 1;
+			if( i < 0 ) return false;
 			
-			while( -1 < i ) {
-				short next = nexts[ i ];
-				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] = ( char ) ( next + 1 );
-					else nexts[ last ] = next;
-					nexts[ i ] = ( short ) ( StartOfFreeList - _freeList );
-					_freeList  = i;
-					_freeCount++;
-					_version++;
-					return true;
+			short next = nexts[ i ];
+			if( keys[ i ] == key ) _buckets[ bucketIndex ] = ( char ) ( next + 1 );
+			else
+				for( int last = i, collisionCount = 0; ; ) {
+					if( ( i = next ) < 0 ) return false;
+					next = nexts[ i ];
+					if( keys[ i ] == key ) {
+						nexts[ last ] = next;
+						break;
+					}
+					last = i;
+					if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				last = i;
-				i    = next;
-				if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			}
-			return false;
+			
+			nexts[ i ] = ( short ) ( StartOfFreeList - _freeList );
+			_freeList  = i;
+			_freeCount++;
+			_version++;
+			return true;
 		}
 		
 		/**
@@ -713,8 +692,8 @@ public interface ShortSet {
 			
 			hasNullKey = false;
 			if( _count == 0 ) return;
-			if( isFlatStrategy )
-				 Array.fill( flat_bits, 0 );
+			if( isFlatStrategy() )
+				Array.fill( nulls, 0 );
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
@@ -734,7 +713,7 @@ public interface ShortSet {
 		 * @throws ArrayStoreException  if the runtime type of the specified array is not a supertype of the runtime type of every element in this set (should not happen with primitive char).
 		 * @throws NullPointerException if the specified array is null.
 		 */
-		public short[] toArray( short[] dst , short null_substitute) {
+		public short[] toArray( short[] dst, short null_substitute ) {
 			int s = size();
 			if( dst.length < s ) dst = new short[ s ];
 			
@@ -743,7 +722,7 @@ public interface ShortSet {
 			
 			// Use unsafe iteration for performance
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
-				dst[ index++ ] = ( short ) (short)( isFlatStrategy ?
+				dst[ index++ ] = ( short ) (short)( isFlatStrategy() ?
 						token :
 						keys[ token ] );
 			}
@@ -764,7 +743,7 @@ public interface ShortSet {
 		 * @return The actual capacity after ensuring (might be larger than requested).
 		 */
 		public int ensureCapacity( int capacity ) {
-			if( isFlatStrategy || capacity <= length() ) return length(); // No change needed in flat mode or if capacity sufficient
+			if( isFlatStrategy() || capacity <= length() ) return length(); // No change needed in flat mode or if capacity sufficient
 			return _buckets == null ?
 					initialize( capacity ) :
 					// Initialize if not already done
@@ -790,7 +769,7 @@ public interface ShortSet {
 		public void trim( int capacity ) {
 			capacity = Array.prime( capacity );
 			if( length() <= capacity ) return;
-			if( isFlatStrategy ) {
+			if( isFlatStrategy() ) {
 				if( capacity <= flatStrategyThreshold ) resize( capacity );
 				return;
 			}
@@ -812,25 +791,28 @@ public interface ShortSet {
 		private int resize( int newSize ) {
 			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
 			
-			if( isFlatStrategy ) {
-				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
-				{
-					isFlatStrategy = false;
-					
-					initialize( newSize );
-					for( int token = -1; ( token = next1( token + 1, flat_bits ) ) != -1; )
-					     add( ( short ) token );
-					flat_bits = null;
-				}
+			if( isFlatStrategy() ) {
+				if( flatStrategyThreshold < newSize ) return length();
+				
+				_version++;
+				long[] _nulls = nulls;
+				
+				initialize( newSize );
+				for( int token = -1; ( token = next1( token, _nulls ) ) != -1; )
+				     add( ( short ) token );
+				
 				return length();
 			}
-			else if( flatStrategyThreshold < newSize ) {
+			
+			_version++;
+			if( flatStrategyThreshold < newSize ) {
 				
-				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
+				long[] nulls = new long[ NULLS_SIZE ];
 				
-				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) exists1( ( char ) keys[ i ] );
+				for( int i = -1; ( i = unsafe_token( i ) ) != -1; )
+				     exists1( ( char ) keys[ i ], nulls );
 				
-				isFlatStrategy = true;
+				this.nulls = nulls;
 				
 				_buckets = null;
 				nexts    = null;
@@ -840,11 +822,10 @@ public interface ShortSet {
 				
 				_freeList  = -1;
 				_freeCount = 0;
-				return length();
+				return FLAT_ARRAY_SIZE;
 			}
 			
 			
-			_version++;
 			short[]        new_next = Arrays.copyOf( nexts, newSize );
 			short[] new_keys = Arrays.copyOf( keys, newSize );
 			final int      count    = _count;
@@ -896,11 +877,13 @@ public interface ShortSet {
 		/**
 		 * Sets a key as present in flat mode using the bitset.
 		 */
-		protected final void exists1( char key ) { flat_bits[ key >>> 6 ] |= 1L << key; }
+		protected final void exists1( char key ) { nulls[ key >>> 6 ] |= 1L << key; }
+		
+		protected static void exists1( char key, long[] nulls ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
 		/**
 		 * Clears a key's presence in flat mode using the bitset.
 		 */
-		protected final void exists0( char key ) { flat_bits[ key >>> 6 ] &= ~( 1L << key ); }
+		protected final void exists0( char key ) { nulls[ key >>> 6 ] &= ~( 1L << key ); }
 	}
 }

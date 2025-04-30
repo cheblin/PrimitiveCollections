@@ -44,16 +44,16 @@ public interface ShortBitsMap {
 		/**
 		 * Flag indicating if the map is operating in flat array mode.
 		 */
-		protected boolean isFlatStrategy = false;
+		protected boolean isFlatStrategy() { return nulls != null; }
 		
 		/**
 		 * Bitset to track presence of keys in flat mode. Size 1024 longs = 65536 bits.
 		 */
-		protected long[] flat_bits; // Size: 65536 / 64 = 1024
+		protected long[] nulls; // Size: 65536 / 64 = 1024
 		
 		// Constants for Flat Mode
-		protected static final int FLAT_ARRAY_SIZE  = 0x10000;
-		protected static final int FLAT_BITSET_SIZE = FLAT_ARRAY_SIZE / 64; // 1024
+		protected static final int FLAT_ARRAY_SIZE = 0x10000;
+		protected static final int NULLS_SIZE      = FLAT_ARRAY_SIZE / 64; // 1024
 		
 		
 		/**
@@ -74,7 +74,7 @@ public interface ShortBitsMap {
 			// Flat Mode: _count is the number of set bits (actual entries).
 			// Add 1 if the null key is present in either mode.
 			return (
-					       isFlatStrategy ?
+					       isFlatStrategy() ?
 							       _count :
 							       _count - _freeCount ) + (
 					       hasNullKey ?
@@ -94,7 +94,7 @@ public interface ShortBitsMap {
 		 * @return The capacity.
 		 */
 		public int length() {
-			return isFlatStrategy ?
+			return isFlatStrategy() ?
 					FLAT_ARRAY_SIZE :
 					( nexts == null ?
 							0 :
@@ -107,11 +107,7 @@ public interface ShortBitsMap {
 		 * @param key The key to check.
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains(  Short     key ) {
-			return key == null ?
-					hasNullKey :
-					contains( ( short ) ( key + 0 ) );
-		}
+		public boolean contains(  Short     key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
@@ -119,11 +115,7 @@ public interface ShortBitsMap {
 		 * @param key The primitive char key (0 to 65535).
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains( short key ) {
-			return isFlatStrategy ?
-					exists( ( char ) key ) :
-					tokenOf( key ) != INVALID_TOKEN;
-		}
+		public boolean contains( short key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.
@@ -156,7 +148,7 @@ public interface ShortBitsMap {
 		 * @return A token representing the key's location if found, or INVALID_TOKEN if not found.
 		 */
 		public long tokenOf( short key ) {
-			if( isFlatStrategy )
+			if( isFlatStrategy() )
 				return exists( ( char ) key ) ?
 						token( ( char ) key ) :
 						INVALID_TOKEN;
@@ -232,8 +224,8 @@ public interface ShortBitsMap {
 		 * @see #nullKeyValue() To get the null key’s value.
 		 */
 		public int unsafe_token( final int token ) {
-			if( isFlatStrategy )
-				return next1( index( token ) + 1 );
+			if( isFlatStrategy() )
+				return next1( index( token ) );
 			else
 				for( int i = token + 1; i < _count; i++ )
 					if( -2 < nexts[ i ] ) return i;
@@ -263,7 +255,7 @@ public interface ShortBitsMap {
 		 */
 		public short key( long token ) {
 			return ( short ) (short) (
-					isFlatStrategy ?
+					isFlatStrategy() ?
 							index( token ) :
 							keys[ index( token ) ] );
 		}
@@ -290,7 +282,7 @@ public interface ShortBitsMap {
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
-				int h = Array.mix( seed, Array.hash( isFlatStrategy ?
+				int h = Array.mix( seed, Array.hash( isFlatStrategy() ?
 						                                     token :
 						                                     keys[ token ] ) );
 				h = Array.mix( h, Array.hash( value( token ) ) );
@@ -341,9 +333,9 @@ public interface ShortBitsMap {
 		public R clone() {
 			try {
 				R dst = ( R ) super.clone();
-				if( isFlatStrategy ) {
-					dst.flat_bits = flat_bits.clone();
-					dst.values    = values.clone();
+				if( isFlatStrategy() ) {
+					dst.nulls  = nulls.clone();
+					dst.values = values.clone();
 				}
 				else if( _buckets != null ) {
 					dst._buckets = _buckets.clone();
@@ -369,7 +361,7 @@ public interface ShortBitsMap {
 			
 			if( hasNullKey ) json.name().value( nullKeyValue );
 			
-			if( isFlatStrategy )
+			if( isFlatStrategy() )
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.name( token ).value( value( token ) );
 			else
@@ -404,35 +396,24 @@ public interface ShortBitsMap {
 		
 		
 		/**
-		 * Checks if a key is present in flat mode using the bitset. Assumes flat_bits is not null.
+		 * Checks if a key is present in flat mode using the bitset. Assumes nulls is not null.
 		 */
-		protected final boolean exists( char key ) { return ( flat_bits[ key >>> 6 ] & 1L << key ) != 0; }
+		protected final boolean exists( char key ) { return ( nulls[ key >>> 6 ] & 1L << key ) != 0; }
 		
 		
-		public int next1( int key ) { return next1( key, flat_bits ); }
+		public int next1( int key ) { return next1( key, nulls ); }
 		
-		public static int next1( int bit, long[] bits ) {
+		public static int next1( int bit, long[] nulls ) {
 			
-			int index = bit >>> 6; // Index in bits array (word index)
-			if( bits.length <= index ) return -1;
+			if( 0xFFFF < ++bit ) return -1;
+			int  index = bit >>> 6;
+			long value = nulls[ index ] & -1L << ( bit & 63 );
 			
-			int pos = bit & 63;   // Bit position within the long (0-63)
+			while( value == 0 )
+				if( ++index == NULLS_SIZE ) return -1;
+				else value = nulls[ index ];
 			
-			// Mask to consider only bits from pos onward in the first long
-			long mask  = -1L << pos; // 1s from pos to end
-			long value = bits[ index ] & mask; // Check for '1's from pos
-			
-			// Check the first long
-			if( value != 0 ) return ( index << 6 ) + Long.numberOfTrailingZeros( value );
-			
-			// Search subsequent longs
-			for( int i = index + 1; i < 1024; i++ ) {
-				value = bits[ i ];
-				if( value != 0 ) return ( i << 6 ) + Long.numberOfTrailingZeros( value );
-			}
-			
-			// No '1' found, return -1
-			return -1;
+			return ( index << 6 ) + Long.numberOfTrailingZeros( value );
 		}
 		
 	}
@@ -470,7 +451,7 @@ public interface ShortBitsMap {
 		 * @param defaultValue  The default value used when initializing the {@link BitsList} and for reset operations.
 		 */
 		public RW( int capacity, int bits_per_item, int defaultValue ) {
-			if( capacity > 0 )initialize( Array.prime( capacity ) );
+			if( capacity > 0 ) initialize( Array.prime( capacity ) );
 			values = new BitsList.RW( bits_per_item, defaultValue, capacity );
 		}
 		
@@ -483,17 +464,20 @@ public interface ShortBitsMap {
 		 */
 		private int initialize( int capacity ) {
 			_version++;
+			_count = 0; // Flat mode _count tracks actual entries
 			if( flatStrategyThreshold < capacity ) {
-				isFlatStrategy = true;
-				flat_bits      = new long[ FLAT_BITSET_SIZE ]; // 1024 longs
-				_count         = 0; // Flat mode _count tracks actual entries
+				nulls    = new long[ NULLS_SIZE ]; // 1024 longs
+				_buckets = null;
+				nexts    = null;
+				keys     = null;
 				return FLAT_ARRAY_SIZE;
 			}
-			_buckets  = new char[ capacity ];
-			nexts     = new short[ capacity ];
-			keys      = new short[ capacity ];
+			
+			nulls      = null;
+			_buckets   = new char[ capacity ];
+			nexts      = new short[ capacity ];
+			keys       = new short[ capacity ];
 			_freeList  = -1;
-			_count     = 0;
 			_freeCount = 0;
 			return length();
 		}
@@ -520,7 +504,7 @@ public interface ShortBitsMap {
 		 * @return True if the map was modified (key inserted or updated).
 		 */
 		public boolean put( short key, long value ) {
-			if( isFlatStrategy ) {
+			if( isFlatStrategy() ) {
 				boolean ret;
 				if( ret = !exists( ( char ) key ) ) {
 					exists1( ( char ) key );
@@ -563,7 +547,7 @@ public interface ShortBitsMap {
 					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
 					
 					resize( i );
-					if( isFlatStrategy ) return put( key, value );
+					if( isFlatStrategy() ) return put( key, value );
 					
 					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
 				}
@@ -609,7 +593,6 @@ public interface ShortBitsMap {
 		 * Removes the conceptual null key mapping.
 		 *
 		 * @return true if remove entry or false no mapping was found for the null key.
-		 *
 		 */
 		public boolean removeNullKey() {
 			if( !hasNullKey ) return false;
@@ -626,41 +609,40 @@ public interface ShortBitsMap {
 		 * @return true if remove entry or false no mapping was found for the key.
 		 */
 		public boolean remove( short key ) {
-			if( _count == 0 ) return false;
 			
-			if( isFlatStrategy ) {
-				if( exists( ( char ) key ) ) {
-					exists0( ( char ) key );
-					_count--;
-					_version++;
-					return true;
-				}
-				return false;
+			if( isFlatStrategy() ) {
+				if( _count == 0  || !exists( ( char ) key ) ) return false;
+				exists0( ( char ) key );
+				_count--;
+				_version++;
+				return true;
 			}
-			if( _buckets == null ) return false;
 			
-			int collisionCount = 0;
-			int last           = -1;
-			int hash           = Array.hash( key );
-			int bucketIndex    = bucketIndex( hash );
-			int i              = _buckets[ bucketIndex ] - 1;
+			if( _count - _freeCount == 0 ) return false;
 			
-			while( -1 < i ) {
-				short next = nexts[ i ];
-				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] = ( char ) ( next + 1 );
-					else nexts[ last ] = next;
-					nexts[ i ] = ( short ) ( StartOfFreeList - _freeList );
-					_freeList  = i;
-					_freeCount++;
-					_version++;
-					return true;
+			int bucketIndex = bucketIndex( Array.hash( key ) );
+			int i           = _buckets[ bucketIndex ] - 1;
+			if( i < 0 ) return false;
+			
+			short next = nexts[ i ];
+			if( keys[ i ] == key ) _buckets[ bucketIndex ] = ( char ) ( next + 1 );
+			else
+				for( int last = i, collisionCount = 0; ; ) {
+					if( ( i = next ) < 0 ) return false;
+					next = nexts[ i ];
+					if( keys[ i ] == key ) {
+						nexts[ last ] = next;
+						break;
+					}
+					last = i;
+					if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				last = i;
-				i    = next;
-				if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			}
-			return false;
+			
+			nexts[ i ] = ( short ) ( StartOfFreeList - _freeList );
+			_freeList  = i;
+			_freeCount++;
+			_version++;
+			return true;
 		}
 		
 		/**
@@ -670,8 +652,8 @@ public interface ShortBitsMap {
 			_version++;
 			hasNullKey = false;
 			if( _count == 0 ) return;
-			if( isFlatStrategy )
-				Array.fill( flat_bits, 0 );
+			if( isFlatStrategy() )
+				Array.fill( nulls, 0 );
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
@@ -691,7 +673,7 @@ public interface ShortBitsMap {
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity <= length() ) return length();
-			return !isFlatStrategy && _buckets == null ?
+			return !isFlatStrategy() && _buckets == null ?
 					initialize( capacity ) :
 					resize( Array.prime( capacity ) );
 		}
@@ -710,7 +692,7 @@ public interface ShortBitsMap {
 		public void trim( int capacity ) {
 			capacity = Array.prime( capacity );
 			if( length() <= capacity ) return;
-			if( isFlatStrategy ) {
+			if( isFlatStrategy() ) {
 				if( capacity <= flatStrategyThreshold ) resize( capacity );
 				return;
 			}
@@ -731,49 +713,48 @@ public interface ShortBitsMap {
 		private int resize( int newSize ) {
 			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
 			
-			if( isFlatStrategy ) {
-				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
-				{
-					BitsList.RW _values = values;
-					values = new BitsList.RW( values.bits_per_item(), newSize );
-					
-					isFlatStrategy = false;
-					
-					initialize( newSize );
-					for( int token = -1; ( token = next1( token + 1, flat_bits ) ) != -1; )
-					     put( ( short ) token, _values.get( token ) );
-					flat_bits = null;
-				}
+			if( isFlatStrategy() ) {
+				if( flatStrategyThreshold < newSize ) return length();
+				
+				_version++;
+				BitsList.RW _values = values;
+				values = new BitsList.RW( values.bits_per_item(), newSize );
+				long[] _nulls = nulls;
+				
+				initialize( newSize );
+				for( int token = -1; ( token = next1( token, _nulls ) ) != -1; )
+				     put( ( short ) token, _values.get( token ) );
+				
 				return length();
 			}
-			else if( flatStrategyThreshold < newSize ) {
+			
+			_version++;
+			if( flatStrategyThreshold < newSize ) {
 				
 				BitsList.RW _values = values;
 				values = new BitsList.RW( values.bits_per_item(), newSize );
 				
-				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
+				long[] nulls = new long[ NULLS_SIZE ];
 				
 				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) {
 					char key = ( char ) keys[ i ];
-					exists1( key );
+					exists1( key, nulls );
 					values.set1( key, _values.get( i ) );
 				}
 				
-				isFlatStrategy = true;
-				
-				_buckets = null;
-				nexts    = null;
-				keys     = null;
+				this.nulls = nulls;
+				_buckets   = null;
+				nexts      = null;
+				keys       = null;
 				
 				_count -= _freeCount;
 				
 				_freeList  = -1;
 				_freeCount = 0;
-				return length();
+				return FLAT_ARRAY_SIZE;
 			}
 			
 			
-			_version++;
 			short[]        new_next = Arrays.copyOf( nexts, newSize );
 			short[] new_keys = Arrays.copyOf( keys, newSize );
 			final int      count    = _count;
@@ -822,11 +803,13 @@ public interface ShortBitsMap {
 		/**
 		 * Sets a key as present in flat mode using the bitset.
 		 */
-		protected final void exists1( char key ) { flat_bits[ key >>> 6 ] |= 1L << key; }
+		protected final void exists1( char key ) { nulls[ key >>> 6 ] |= 1L << key; }
+		
+		protected static final void exists1( char key, long[] nulls ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
 		/**
 		 * Clears a key's presence in flat mode using the bitset.
 		 */
-		protected final void exists0( char key ) { flat_bits[ key >>> 6 ] &= ~( 1L << key ); }
+		protected final void exists0( char key ) { nulls[ key >>> 6 ] &= ~( 1L << key ); }
 	}
 }

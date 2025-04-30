@@ -114,9 +114,7 @@ public interface ObjectSet {
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
-		public boolean contains( Object key ) {
-			return tokenOf( ( K ) key ) != INVALID_TOKEN;
-		}
+		public boolean contains( Object key ) {			return tokenOf( ( K ) key ) != INVALID_TOKEN;		}
 		
 		/**
 		 * Checks if the set contains the specified key (type-safe version).
@@ -124,9 +122,7 @@ public interface ObjectSet {
 		 * @param key The key to check for.
 		 * @return {@code true} if the set contains the key, {@code false} otherwise.
 		 */
-		public boolean contains_( K key ) {
-			return tokenOf( key ) != INVALID_TOKEN;
-		}
+		public boolean contains_( K key ) {			return tokenOf( key ) != INVALID_TOKEN;		}
 		
 		/**
 		 * Returns the iteration token for the specified key, or {@link #INVALID_TOKEN} if not found.

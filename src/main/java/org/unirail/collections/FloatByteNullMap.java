@@ -132,11 +132,7 @@ public interface FloatByteNullMap {
 		 * @param key the key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean contains(  Float     key ) {
-			return key == null ?
-					hasNullKey :
-					contains( key.floatValue     () );
-		}
+		public boolean contains(  Float     key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this map contains a mapping for the specified key (primitive int).
@@ -678,8 +674,7 @@ public interface FloatByteNullMap {
 				return false; // Return invalid token indicating no removal
 			
 			// Compute hash and bucket index for the key to locate its chain
-			int hash           = Array.hash( key );                // Hash the key using Array.hash
-			int bucketIndex    = bucketIndex( hash );       // Map hash to bucket index
+			int bucketIndex    = bucketIndex( Array.hash( key ) );       // Map hash to bucket index
 			int last           = -1;                             // Previous index in chain (-1 if 'i' is head)
 			int i              = _buckets[ bucketIndex ] - 1;         // Head of chain (convert 1-based to 0-based)
 			int collisionCount = 0;                    // Counter to detect infinite loops or concurrency issues

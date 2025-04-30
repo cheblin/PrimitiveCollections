@@ -368,7 +368,7 @@ public interface BitList {
 			if( last1 < bit ) return -1;
 			
 			int bitOffset = bit - trailingOnesCount;
-			int index     = bitOffset >> LEN;
+			int index     = bitOffset >>> LEN;
 			
 			for( long value = values[ index ] & ~0L << ( bitOffset & MASK ); ; value = values[ ++index ] )
 				if( value != 0 )

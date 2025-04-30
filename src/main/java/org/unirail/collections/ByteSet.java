@@ -88,11 +88,7 @@ public interface ByteSet {
 		 * @param key The {@code Byte} value to check for presence in the set. Can be null.
 		 * @return {@code true} if the set contains the specified value or null key (if {@code key} is null), {@code false} otherwise.
 		 */
-		public boolean contains(  Byte      key ) {
-			return key == null ?
-					hasNullKey :
-					contains( ( byte ) ( key + 0 ) ); // Unbox Byte and call primitive contains method. Adding 0 ensures byte conversion.
-		}
+		public boolean contains(  Byte      key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the set contains the specified primitive byte value.

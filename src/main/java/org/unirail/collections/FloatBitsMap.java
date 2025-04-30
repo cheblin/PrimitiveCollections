@@ -112,11 +112,7 @@ public interface FloatBitsMap {
 		 * @param key The key to check (boxed {@link Integer}, may be {@code null}).
 		 * @return {@code true} if the key exists in the map, {@code false} otherwise.
 		 */
-		public boolean contains(  Float     key ) {
-			return key == null ?
-					hasNullKey :
-					contains( key.floatValue     () );
-		}
+		public boolean contains(  Float     key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
@@ -596,32 +592,32 @@ public interface FloatBitsMap {
 		 * @throws ConcurrentModificationException if excessive collisions are detected.
 		 */
 		public boolean remove( float key ) {
-			if( _buckets == null || _count == 0 ) return false;
+			if( _count - _freeCount == 0 ) return false;
+			int bucketIndex = bucketIndex( Array.hash( key ) );
+			int i           = _buckets[ bucketIndex ] - 1;
+			if( i < 0 ) return false;
 			
-			int collisionCount = 0;
-			int last           = -1;
-			int hash           = Array.hash( key );
-			int bucketIndex    = bucketIndex( hash );
-			int i              = _buckets[ bucketIndex ] - 1;
-			
-			while( -1 < i ) {
-				int next = nexts[ i ];
-				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 );
-					else nexts[ last ] = next;
-					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList );
-					values.set1( i, values.default_value );
-					_freeList = i;
-					_freeCount++;
-					_version++;
-					return true;
+			int next = nexts[ i ];
+			if( keys[ i ] == key ) _buckets[ bucketIndex ] =  next + 1 ;
+			else
+				for( int last = i, collisionCount = 0; ; ) {
+					if( ( i = next ) < 0 ) return false;
+					next = nexts[ i ];
+					if( keys[ i ] == key ) {
+						nexts[ last ] = next;
+						break;
+					}
+					last = i;
+					if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				last = i;
-				i    = next;
-				if( nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			}
-			return false;
+			
+			nexts[ i ] = StartOfFreeList - _freeList ;
+			values.set1( i, values.default_value );
+			
+			_freeList  = i;
+			_freeCount++;
+			_version++;
+			return true;
 		}
 		
 		/**

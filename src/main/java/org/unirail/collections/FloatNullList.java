@@ -279,7 +279,7 @@ public interface FloatNullList {
 		 */
 		public int indexOf( float value ) {
 			if( isFlatStrategy ) {
-				for( int i = nulls.next1( -1 ); i != -1; i = nulls.next1( i + 1 ) )
+				for( int i = nulls.next1( -1 ); i != -1; i = nulls.next1( i  ) )
 					if( values[ i ] == ( float ) value ) return i; // Linear search in flat array.
 				return -1;
 			}

@@ -222,11 +222,7 @@ public interface ObjectObjectMap {
 		 * @param key The key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean contains( K key ) {
-			return key == null ?
-					hasNullKey :
-					tokenOf( key ) != INVALID_TOKEN;
-		}
+		public boolean contains( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this map contains a mapping with the specified value.

@@ -62,7 +62,7 @@ public interface ShortObjectNullMap {
 		protected V                      nullKeyValue;        // Value for the null key, stored separately.
 		protected char[]                 _buckets;            // Hash table buckets array (1-based indices to chain heads).
 		protected short[]                nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
-		protected short[]         keys ; // Keys array.
+		protected short[]         keys; // Keys array.
 		protected ObjectNullList.RW< V > values;              // Values list, allowing nulls.
 		protected int                    _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
 		protected int                    _freeList;           // Index of the first entry in the free list (-1 if empty).
@@ -74,11 +74,11 @@ public interface ShortObjectNullMap {
 		 */
 		protected final Array.EqualHashOf< V > equal_hash_V;
 		
-		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
+		protected static final int StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
 		
-		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
+		protected static final int VERSION_SHIFT  = 32; // Bits to shift version in token.
 		// Special index used in tokens to represent the null key. Outside valid array index ranges.
-		protected static final int  NULL_KEY_INDEX  = 0x1_FFFF; // 65537
+		protected static final int NULL_KEY_INDEX = 0x1_FFFF; // 65537
 		
 		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
@@ -86,16 +86,16 @@ public interface ShortObjectNullMap {
 		/**
 		 * Flag indicating if the map is operating in flat array mode.
 		 */
-		protected boolean isFlatStrategy = false;
+		protected boolean isFlatStrategy() { return nulls != null; }
 		
 		/**
 		 * Bitset to track presence of keys in flat mode. Size 1024 longs = 65536 bits.
 		 */
-		protected long[] flat_bits; // Size: 65536 / 64 = 1024
+		protected long[] nulls; // Size: 65536 / 64 = 1024
 		
 		// Constants for Flat Mode
-		protected static final int FLAT_ARRAY_SIZE  = 0x10000;
-		protected static final int FLAT_BITSET_SIZE = FLAT_ARRAY_SIZE / 64; // 1024
+		protected static final int FLAT_ARRAY_SIZE = 0x10000;
+		protected static final int NULLS_SIZE      = FLAT_ARRAY_SIZE / 64; // 1024
 		
 		
 		/**
@@ -126,7 +126,7 @@ public interface ShortObjectNullMap {
 			// Flat Mode: _count is the number of set bits (actual entries).
 			// Add 1 if the null key is present in either mode.
 			return (
-					       isFlatStrategy ?
+					       isFlatStrategy() ?
 							       _count :
 							       _count - _freeCount ) + (
 					       hasNullKey ?
@@ -145,7 +145,7 @@ public interface ShortObjectNullMap {
 		 * @return The capacity.
 		 */
 		public int length() {
-			return isFlatStrategy ?
+			return isFlatStrategy() ?
 					FLAT_ARRAY_SIZE :
 					( nexts == null ?
 							0 :
@@ -158,11 +158,7 @@ public interface ShortObjectNullMap {
 		 * @param key The key to check.
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains(  Short     key ) {
-			return key == null ?
-					hasNullKey :
-					contains( ( short ) ( key + 0 ) );
-		}
+		public boolean contains(  Short     key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
@@ -170,11 +166,7 @@ public interface ShortObjectNullMap {
 		 * @param key The primitive char key (0 to 65535).
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains( short key ) {
-			return isFlatStrategy ?
-					exists( ( char ) key ) :
-					tokenOf( key ) != INVALID_TOKEN;
-		}
+		public boolean contains( short key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.
@@ -189,8 +181,8 @@ public interface ShortObjectNullMap {
 					1 :
 					0 ) ) return false; // Adjusted check: only null key?
 			
-			if( isFlatStrategy ) {
-				for( int i = -1; ( i = next1( i + 1 ) ) != -1; ) {
+			if( isFlatStrategy() ) {
+				for( int i = -1; ( i = next1( i ) ) != -1; ) {
 					if( Objects.equals( values.get( i ), value ) ) return true; // Use values.get()
 				}
 			}
@@ -223,7 +215,7 @@ public interface ShortObjectNullMap {
 		 * @return A token representing the key's location if found, or INVALID_TOKEN if not found.
 		 */
 		public long tokenOf( short key ) {
-			if( isFlatStrategy )
+			if( isFlatStrategy() )
 				return exists( ( char ) key ) ?
 						token( ( char ) key ) :
 						INVALID_TOKEN;
@@ -265,7 +257,7 @@ public interface ShortObjectNullMap {
 		 * @return The next valid token for iteration, or -1 (INVALID_TOKEN) if there are no more entries or the token is invalid due to structural modification.
 		 */
 		public long token( final long token ) {
-						if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
+			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
 			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			
 			int index = index( token );
@@ -299,8 +291,8 @@ public interface ShortObjectNullMap {
 		 * @see #nullKeyValue() To get the null key’s value.
 		 */
 		public int unsafe_token( final int token ) {
-			if( isFlatStrategy )
-				return next1( index( token ) + 1 );
+			if( isFlatStrategy() )
+				return next1( index( token ) );
 			else
 				for( int i = token + 1; i < _count; i++ )
 					if( -2 < nexts[ i ] ) return i;
@@ -350,7 +342,7 @@ public interface ShortObjectNullMap {
 		 */
 		public short key( long token ) {
 			return ( short ) (short) (
-					isFlatStrategy ?
+					isFlatStrategy() ?
 							index( token ) :
 							keys[ index( token ) ] );
 		}
@@ -499,9 +491,9 @@ public interface ShortObjectNullMap {
 			try {
 				R< V > dst = ( R< V > ) super.clone();
 				// Ensure equal_hash_V is copied (it's final, so reference is copied, which is ok)
-				if( isFlatStrategy ) {
-					dst.flat_bits = flat_bits.clone();
-					dst.values    = values.clone();
+				if( isFlatStrategy() ) {
+					dst.nulls  = nulls.clone();
+					dst.values = values.clone();
 				}
 				else if( _buckets != null ) {
 					dst._buckets = _buckets.clone();
@@ -527,7 +519,7 @@ public interface ShortObjectNullMap {
 			
 			if( hasNullKey ) json.name().value( nullKeyValue );
 			
-			if( isFlatStrategy )
+			if( isFlatStrategy() )
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.name( token ).value( values.get( token ) );
 			else if( nexts != null ) // Ensure initialized
@@ -548,12 +540,12 @@ public interface ShortObjectNullMap {
 		/**
 		 * Creates a token combining version and index.
 		 */
-		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index  ); }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index ); }
 		
 		/**
 		 * Extracts index from a token.
 		 */
-		protected int index( long token ) { return ( int ) ( token  ); }
+		protected int index( long token ) { return ( int ) ( token ); }
 		
 		/**
 		 * Extracts version from a token.
@@ -562,41 +554,27 @@ public interface ShortObjectNullMap {
 		
 		
 		/**
-		 * Checks if a key is present in flat mode using the bitset. Assumes flat_bits is not null.
+		 * Checks if a key is present in flat mode using the bitset. Assumes nulls is not null.
 		 */
-		protected final boolean exists( char key ) { return ( flat_bits[ key >>> 6 ] & 1L << key ) != 0; }
+		protected final boolean exists( char key ) { return ( nulls[ key >>> 6 ] & 1L << key ) != 0; }
 		
 		
 		/**
 		 * Finds the next set bit >= 'bit' in the bitset
 		 */
-		public int next1( int bit ) { return next1( bit, flat_bits ); }
+		public int next1( int bit ) { return next1( bit, nulls ); }
 		
-		/**
-		 * Static helper to find the next set bit >= 'bit' in a given bitset
-		 */
-		public static int next1( int bit, long[] bits ) {
+		public static int next1( int bit, long[] nulls ) {
 			
-			int index = bit >>> 6; // Index in bits array (word index)
-			if( bits.length <= index ) return -1;
+			if( 0xFFFF < ++bit ) return -1;
+			int  index = bit >>> 6;
+			long value = nulls[ index ] & -1L << ( bit & 63 );
 			
-			int pos = bit & 63;   // Bit position within the long (0-63)
+			while( value == 0 )
+				if( ++index == NULLS_SIZE ) return -1;
+				else value = nulls[ index ];
 			
-			// Mask to consider only bits from pos onward in the first long
-			long mask  = -1L << pos; // 1s from pos to end
-			long value = bits[ index ] & mask; // Check for '1's from pos
-			
-			// Check the first long
-			if( value != 0 ) return ( index << 6 ) + Long.numberOfTrailingZeros( value );
-			
-			// Search subsequent longs
-			for( int i = index + 1; i < 1024; i++ ) {
-				value = bits[ i ];
-				if( value != 0 ) return ( i << 6 ) + Long.numberOfTrailingZeros( value );
-			}
-			
-			// No '1' found, return -1
-			return -1;
+			return ( index << 6 ) + Long.numberOfTrailingZeros( value );
 		}
 		
 	}
@@ -645,7 +623,7 @@ public interface ShortObjectNullMap {
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int capacity ) {
 			super( equal_hash_V );
-			if( capacity > 0 )initialize( Array.prime( capacity ) );
+			if( capacity > 0 ) initialize( Array.prime( capacity ) );
 		}
 		
 		
@@ -658,22 +636,26 @@ public interface ShortObjectNullMap {
 		 */
 		private int initialize( int capacity ) {
 			_version++; // Increment version on initialization
+			_count = 0; // Flat mode _count tracks actual entries
 			
 			// Determine initial mode based on capacity hint
 			if( capacity > flatStrategyThreshold ) {
-				isFlatStrategy = true;
-				flat_bits      = new long[ FLAT_BITSET_SIZE ]; // 1024 longs
-				values         = new ObjectNullList.RW<>( equal_hash_V, FLAT_ARRAY_SIZE ); // Use ObjectNullList
-				_count         = 0; // Flat mode _count tracks actual entries
+				
+				nulls    = new long[ NULLS_SIZE ]; // 1024 longs
+				values   = new ObjectNullList.RW<>( equal_hash_V, FLAT_ARRAY_SIZE ); // Use ObjectNullList
+				_buckets = null;
+				nexts    = null;
+				keys     = null;
 				return FLAT_ARRAY_SIZE;
 			}
-			_buckets  = new char[ capacity ];
-			nexts     = new short[ capacity ];
-			keys      = new short[ capacity ];
+			
+			nulls      = null;
+			_buckets   = new char[ capacity ];
+			nexts      = new short[ capacity ];
+			keys       = new short[ capacity ];
 			_freeList  = -1;
-			_count     = 0;
 			_freeCount = 0;
-			values    = new ObjectNullList.RW<>( equal_hash_V, capacity );// Use strategy for V[] creation
+			values     = new ObjectNullList.RW<>( equal_hash_V, capacity );// Use strategy for V[] creation
 			return length();
 		}
 		
@@ -703,7 +685,7 @@ public interface ShortObjectNullMap {
 		 * @throws ConcurrentModificationException if excessive collisions are detected in hash mode.
 		 */
 		public boolean put( short key, V value ) {
-			if( isFlatStrategy ) {
+			if( isFlatStrategy() ) {
 				boolean b;
 				if( b = !exists( ( char ) key ) ) {
 					exists1( ( char ) key );
@@ -744,7 +726,7 @@ public interface ShortObjectNullMap {
 					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
 					
 					resize( i );
-					if( isFlatStrategy ) return put( key, value );
+					if( isFlatStrategy() ) return put( key, value );
 					
 					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
 				}
@@ -809,7 +791,7 @@ public interface ShortObjectNullMap {
 		 * @return The value of the removed entry if found and removed, or null if not found.
 		 */
 		public V remove( short key ) {
-			if( isFlatStrategy ) {
+			if( isFlatStrategy() ) {
 				if( exists( ( char ) key ) ) {
 					V oldValue = values.get( key );
 					if( oldValue != null ) values.set1( key, null );
@@ -905,8 +887,8 @@ public interface ShortObjectNullMap {
 			
 			hasNullKey = false;
 			if( _count == 0 ) return;
-			if( isFlatStrategy )
-				Array.fill( flat_bits, 0 );
+			if( isFlatStrategy() )
+				Array.fill( nulls, 0 );
 			else {
 				Arrays.fill( _buckets, ( char ) 0 );
 				Arrays.fill( nexts, ( short ) 0 );
@@ -928,7 +910,7 @@ public interface ShortObjectNullMap {
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity <= length() ) return length();
-			return !isFlatStrategy && _buckets == null ?
+			return !isFlatStrategy() && _buckets == null ?
 					initialize( capacity ) :
 					resize( Array.prime( capacity ) );
 		}
@@ -949,7 +931,7 @@ public interface ShortObjectNullMap {
 		public void trim( int capacity ) {
 			capacity = Array.prime( capacity );
 			if( length() <= capacity ) return;
-			if( isFlatStrategy ) {
+			if( isFlatStrategy() ) {
 				if( capacity <= flatStrategyThreshold ) resize( capacity );
 				return;
 			}
@@ -972,32 +954,35 @@ public interface ShortObjectNullMap {
 		private int resize( int newSize ) {
 			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
 			
-			if( isFlatStrategy ) {
-				if( newSize <= flatStrategyThreshold )//switch to hash map strategy
-				{
-					ObjectNullList.RW< V > _values = values;
-					isFlatStrategy = false;
-					
-					initialize( newSize );
-					for( int token = -1; ( token = next1( token + 1, flat_bits ) ) != -1; )
-					     put( ( short ) token, _values.get( token ) );
-					flat_bits = null;
-				}
+			if( isFlatStrategy() ) {
+				if( newSize > flatStrategyThreshold ) return length();
+				
+				_version++;
+				ObjectNullList.RW< V > _values = values;
+				long[]                 _nulls  = nulls;
+				
+				
+				initialize( newSize );
+				for( int token = -1; ( token = next1( token, _nulls ) ) != -1; )
+				     put( ( short ) token, _values.get( token ) );
+				
 				return length();
 			}
-			else if( flatStrategyThreshold < newSize ) {
+			
+			_version++;
+			if( flatStrategyThreshold < newSize ) {
 				
 				ObjectNullList.RW< V > _values = values;
-				values    = new ObjectNullList.RW<>( equal_hash_V, FLAT_ARRAY_SIZE );
-				flat_bits = new long[ FLAT_ARRAY_SIZE / 64 ];
+				values = new ObjectNullList.RW<>( equal_hash_V, FLAT_ARRAY_SIZE );
+				long[] nulls = new long[ NULLS_SIZE ];
 				
 				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) {
 					char key = ( char ) keys[ i ];
-					exists1( key );
+					exists1( key , nulls);
 					values.set1( key, _values.get( i ) );
 				}
 				
-				isFlatStrategy = true;
+				this.nulls = nulls;
 				
 				_buckets = null;
 				nexts    = null;
@@ -1007,11 +992,10 @@ public interface ShortObjectNullMap {
 				
 				_freeList  = -1;
 				_freeCount = 0;
-				return length();
+				return FLAT_ARRAY_SIZE;
 			}
 			
 			
-			_version++;
 			short[]        new_next = Arrays.copyOf( nexts, newSize );
 			short[] new_keys = Arrays.copyOf( keys, newSize );
 			
@@ -1065,12 +1049,13 @@ public interface ShortObjectNullMap {
 		/**
 		 * Sets a key as present in flat mode using the bitset.
 		 */
-		protected final void exists1( char key ) { flat_bits[ key >>> 6 ] |= 1L << key; }
+		protected final void exists1( char key ) { nulls[ key >>> 6 ] |= 1L << key; }
+		protected static void exists1( char key, long[] nulls ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
 		/**
 		 * Clears a key's presence in flat mode using the bitset.
 		 */
-		protected final void exists0( char key ) { flat_bits[ key >>> 6 ] &= ~( 1L << key ); }
+		protected final void exists0( char key ) { nulls[ key >>> 6 ] &= ~( 1L << key ); }
 		
 		/**
 		 * Static instance used for obtaining the EqualHashOf strategy
