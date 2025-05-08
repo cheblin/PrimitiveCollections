@@ -264,7 +264,7 @@ public interface BitList {
 		
 		/**
 		 * Retrieves the value of the bit at the specified index and returns one of two
-		 * provided integer values based on the result.
+		 * provided primitive values based on the result.
 		 * This is a convenience method equivalent to {@code get(bit) ? TRUE : FALSE}.
 		 *
 		 * @param bit   The global bit index (0-indexed) to check.
@@ -674,7 +674,7 @@ public interface BitList {
 		
 		/**
 		 * Writes the content of this {@code BitList} to the provided {@code JsonWriter}
-		 * as a JSON array of integers (0 or 1).
+		 * as a JSON array of primitives (0 or 1).
 		 * <p>
 		 * Iterates through the logical bits, including implicit trailing ones,
 		 * explicit bits from {@code values}, and implicit trailing zeros up to {@code size}.
@@ -1925,26 +1925,26 @@ a:
 		}
 		
 		/**
-		 * Sets the bit at the specified index based on an integer value.
+		 * Sets the bit at the specified index based on a primitive value.
 		 * The bit is set to '1' if the value is non-zero, and '0' if the value is zero.
 		 * The {@code BitList} size will be increased if the index is outside the current range.
 		 *
 		 * @param bit   The global bit index (0-indexed) to set. Must be non-negative.
-		 * @param value The integer value. If {@code value != 0}, sets the bit to '1',
+		 * @param value The primitive value. If {@code value != 0}, sets the bit to '1',
 		 *              otherwise sets it to '0'.
 		 * @return This {@code RW} instance for method chaining.
 		 */
 		public RW set( int bit, int value ) { return set( bit, value != 0 ); }
 		
 		/**
-		 * Sets the bit at the specified index based on comparing an integer value to a
+		 * Sets the bit at the specified index based on comparing a primitive value to a
 		 * reference 'TRUE' value.
 		 * The bit is set to '1' if {@code value == TRUE}, and '0' otherwise.
 		 * The {@code BitList} size will be increased if the index is outside the current range.
 		 *
 		 * @param bit   The global bit index (0-indexed) to set. Must be non-negative.
-		 * @param value The integer value to compare.
-		 * @param TRUE  The integer value representing the 'true' state.
+		 * @param value The primitive value to compare.
+		 * @param TRUE  The primitive value representing the 'true' state.
 		 * @return This {@code RW} instance for method chaining.
 		 */
 		public RW set( int bit, int value, int TRUE ) { return set( bit, value == TRUE ); }

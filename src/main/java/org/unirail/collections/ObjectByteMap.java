@@ -47,7 +47,7 @@ import java.util.function.Function;
  * <p><b>Key Features:</b></p>
  * <ul>
  *     <li><b>Generic Keys:</b> Supports any object type as keys.</li>
- *     <li><b>Integer Values:</b> Optimized for storing integer values.</li>
+ *     <li><b>Integer Values:</b> Optimized for storing primitive values.</li>
  *     <li><b>Separate Chaining:</b> Efficiently handles hash collisions.</li>
  *     <li><b>Dynamic Resizing:</b> Maintains performance as the map grows.</li>
  *     <li><b>Null Key Support:</b> Allows a single null key.</li>

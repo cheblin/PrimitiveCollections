@@ -300,6 +300,20 @@ public interface Array {
 			@Override
 			public boolean equals( byte[] v1, byte[] v2 ) { return Arrays.equals( v1, v2 ); }
 			
+			/**
+			 * Computes a hash code for an array of byte arrays ({@code byte[][]}) up to the specified {@code size}.
+			 * This method processes the bytes from these inner arrays. The hashing algorithm processes 4 bytes
+			 * at a time from each inner {@code byte[]} array, mixing them into an accumulated hash value.
+			 * The way {@code hash} (the accumulator for {@code byte[][]}) is updated inside the loop
+			 * suggests it's treating the bytes from all inner arrays as a single, continuous stream
+			 * for the mixing stages, rather than computing a hash for each inner {@code byte[]}
+			 * and then combining those complete sub-hashes.
+			 * The final hash is influenced by the content of each inner array, their lengths, and the number of inner arrays.
+			 *
+			 * @param src  The {@code byte[][]} to hash.
+			 * @param size The number of inner {@code byte[]} arrays to process from {@code src}.
+			 * @return The computed hash code.
+			 */
 			@Override
 			public int hashCode( byte[][] src, int size ) {
 				int hash = byte[][].class.hashCode();
@@ -343,13 +357,13 @@ public interface Array {
 		public static final _shorts shorts = new _shorts();
 		
 		/**
-		 * {@code _shorts} is a specialized {@code EqualHashOf} for {@code short[]} arrays.
-		 * It uses {@link Arrays#hashCode(short[])} and {@link Arrays#equals(short[], short[])}
-		 * for hash code and equality computations.
+		 * A specialized {@code EqualHashOf} for {@code short[]} as type {@code T}.
+		 * Handles {@code short[]} and {@code short[][]}.
+		 * Uses {@link Arrays#hashCode(short[])} and {@link Arrays#equals(short[], short[])}.
 		 */
 		public static final class _shorts extends EqualHashOf< short[] > {
 			/**
-			 * Cached empty short array.
+			 * Cached empty {@code short[]} array.
 			 */
 			public static final short[] O = new short[ 0 ];
 			
@@ -1352,22 +1366,14 @@ public interface Array {
 	@SuppressWarnings( "unchecked" )
 	static < T > EqualHashOf< T > get( Class< T > clazz ) {
 		final Object c = clazz;
-		if( c == boolean[].class )
-			return ( EqualHashOf< T > ) EqualHashOf.booleans;
-		if( c == byte[].class )
-			return ( EqualHashOf< T > ) EqualHashOf.bytes;
-		if( c == short[].class )
-			return ( EqualHashOf< T > ) EqualHashOf.shorts;
-		if( c == int[].class )
-			return ( EqualHashOf< T > ) EqualHashOf.ints;
-		if( c == long[].class )
-			return ( EqualHashOf< T > ) EqualHashOf.longs;
-		if( c == char[].class )
-			return ( EqualHashOf< T > ) EqualHashOf.chars;
-		if( c == float[].class )
-			return ( EqualHashOf< T > ) EqualHashOf.floats;
-		if( c == double[].class )
-			return ( EqualHashOf< T > ) EqualHashOf.doubles;
+		if( c == boolean[].class ) return ( EqualHashOf< T > ) EqualHashOf.booleans;
+		if( c == byte[].class ) return ( EqualHashOf< T > ) EqualHashOf.bytes;
+		if( c == short[].class ) return ( EqualHashOf< T > ) EqualHashOf.shorts;
+		if( c == int[].class ) return ( EqualHashOf< T > ) EqualHashOf.ints;
+		if( c == long[].class ) return ( EqualHashOf< T > ) EqualHashOf.longs;
+		if( c == char[].class ) return ( EqualHashOf< T > ) EqualHashOf.chars;
+		if( c == float[].class ) return ( EqualHashOf< T > ) EqualHashOf.floats;
+		if( c == double[].class ) return ( EqualHashOf< T > ) EqualHashOf.doubles;
 		
 		EqualHashOf< T > ret = ( EqualHashOf< T > ) pool.get( clazz );
 		if( ret != null )
@@ -1522,7 +1528,7 @@ public interface Array {
 	 * This is a component of the hash function used for array hash code generation.
 	 *
 	 * @param hash The current hash value.
-	 * @param data The integer data to mix in.
+	 * @param data The primitive data to mix in.
 	 * @return The updated hash value after mixing.
 	 */
 	static int mix( int hash, int data ) {
@@ -1616,10 +1622,10 @@ public interface Array {
 	static int hash( int hash, float src ) { return hash ^ hash( src ); }
 	
 	/**
-	 * Computes the combined hash of an existing hash and an integer value.
+	 * Computes the combined hash of an existing hash and a primitive value.
 	 *
 	 * @param hash The current hash value.
-	 * @param src  The integer value to combine with the hash.
+	 * @param src  The primitive value to combine with the hash.
 	 * @return The combined hash value.
 	 */
 	static int hash( int hash, int src ) { return hash ^ hash( src ); }
@@ -1651,10 +1657,10 @@ public interface Array {
 	static int hash( float src ) { return Float.hashCode( src ); }
 	
 	/**
-	 * Returns the integer value itself as its hash code.
+	 * Returns the primitive value itself as its hash code.
 	 *
-	 * @param src The integer value.
-	 * @return The integer value itself.
+	 * @param src The primitive value.
+	 * @return The primitive value itself.
 	 */
 	static int hash( int src ) { return src; }
 	
@@ -1667,7 +1673,15 @@ public interface Array {
 	static int hash( long src ) { return Long.hashCode( src ); }
 	
 	/**
-	 * Computes the combined hash code of elements in an Object array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in an {@code Object[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each element's hash code (via {@link #hash(Object)}) is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, Object[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1675,7 +1689,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Computes the combined hash code of elements in a boolean array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in a {@code boolean[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each boolean (converted to int: 1 for true, 0 for false) is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, boolean[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1683,7 +1705,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Computes the combined hash code of elements in a byte array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in a {@code byte[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each byte (widened to int) is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, byte[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1691,7 +1721,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Computes the combined hash code of elements in a char array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in a {@code char[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each char (widened to int) is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, char[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1699,7 +1737,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Computes the combined hash code of elements in a short array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in a {@code short[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each short (widened to int) is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, short[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1707,7 +1753,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Computes the combined hash code of elements in an int array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in an {@code int[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each int is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, int[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1715,7 +1769,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Computes the combined hash code of elements in a long array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in a {@code long[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each long's hash code (via {@link #hash(long)}) is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, long[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1723,7 +1785,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Computes the combined hash code of elements in a float array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in a {@code float[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each float's hash code (via {@link #hash(float)}) is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, float[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1731,7 +1801,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Computes the combined hash code of elements in a double array from fromIndex (inclusive) to toIndex (exclusive).
+	 * Computes a combined hash code of elements in a {@code double[]} array {@code src}
+	 * over the range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Each double's hash code (via {@link #hash(double)}) is XORed into the accumulating {@code hash}.
+	 *
+	 * @param hash      The initial hash value.
+	 * @param src       The source array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return The combined hash code.
 	 */
 	static int hash( int hash, double[] src, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) hash = hash( hash, src[ i ] );
@@ -1739,7 +1817,16 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two Object arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code Object[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Elements are compared using their {@link Object#equals(Object)} method.
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} are non-null and have sufficient length.
 	 */
 	static boolean equals( Object[] a, Object[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( !a[ i ].equals( b[ i ] ) ) return false;
@@ -1747,7 +1834,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two boolean arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code boolean[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} have sufficient length.
 	 */
 	static boolean equals( boolean[] a, boolean[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( a[ i ] != b[ i ] ) return false;
@@ -1755,7 +1850,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two byte arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code byte[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} have sufficient length.
 	 */
 	static boolean equals( byte[] a, byte[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( a[ i ] != b[ i ] ) return false;
@@ -1763,7 +1866,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two char arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code char[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} have sufficient length.
 	 */
 	static boolean equals( char[] a, char[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( a[ i ] != b[ i ] ) return false;
@@ -1771,7 +1882,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two short arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code short[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} have sufficient length.
 	 */
 	static boolean equals( short[] a, short[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( a[ i ] != b[ i ] ) return false;
@@ -1779,7 +1898,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two int arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code int[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} have sufficient length.
 	 */
 	static boolean equals( int[] a, int[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( a[ i ] != b[ i ] ) return false;
@@ -1787,7 +1914,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two long arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code long[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} have sufficient length.
 	 */
 	static boolean equals( long[] a, long[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( a[ i ] != b[ i ] ) return false;
@@ -1795,7 +1930,18 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two float arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code float[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Note: Uses direct {@code !=} comparison for floats, which means {@code NaN != NaN}
+	 * and {@code +0.0f == -0.0f}. For comparisons consistent with {@link Float#equals(Object)},
+	 * use {@link Arrays#equals(float[], float[])} or element-wise {@link Float#compare(float, float)}.
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal by {@code !=} comparison, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} have sufficient length.
 	 */
 	static boolean equals( float[] a, float[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( a[ i ] != b[ i ] ) return false;
@@ -1803,7 +1949,18 @@ public interface Array {
 	}
 	
 	/**
-	 * Compares two double arrays for equality from fromIndex (inclusive) to toIndex (exclusive).
+	 * Compares two {@code double[]} arrays, {@code a} and {@code b}, for equality over the
+	 * range from {@code fromIndex} (inclusive) to {@code toIndex} (exclusive).
+	 * Note: Uses direct {@code !=} comparison for doubles, which means {@code NaN != NaN}
+	 * and {@code +0.0 == -0.0}. For comparisons consistent with {@link Double#equals(Object)},
+	 * use {@link Arrays#equals(double[], double[])} or element-wise {@link Double#compare(double, double)}.
+	 *
+	 * @param a         The first array.
+	 * @param b         The second array.
+	 * @param fromIndex The starting index of the range (inclusive).
+	 * @param toIndex   The ending index of the range (exclusive).
+	 * @return {@code true} if all corresponding elements in the range are equal by {@code !=} comparison, {@code false} otherwise.
+	 * Assumes arrays {@code a} and {@code b} have sufficient length.
 	 */
 	static boolean equals( double[] a, double[] b, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( a[ i ] != b[ i ] ) return false;
@@ -1811,8 +1968,16 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the Object array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code Object[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive).
+	 * Handles null {@code value} correctly.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( Object[] src, Object value, int fromIndex, int toIndex ) {
 		if( value == null ) {
@@ -1826,8 +1991,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the boolean array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code boolean[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive).
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( boolean[] src, boolean value, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( src[ i ] == value ) return i;
@@ -1835,8 +2007,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the byte array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code byte[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive).
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( byte[] src, byte value, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( src[ i ] == value ) return i;
@@ -1844,8 +2023,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the char array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code char[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive).
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( char[] src, char value, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( src[ i ] == value ) return i;
@@ -1853,8 +2039,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the short array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code short[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive).
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( short[] src, short value, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( src[ i ] == value ) return i;
@@ -1862,8 +2055,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the int array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code int[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive).
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( int[] src, int value, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( src[ i ] == value ) return i;
@@ -1871,8 +2071,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the long array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code long[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive).
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( long[] src, long value, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( src[ i ] == value ) return i;
@@ -1880,8 +2087,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the float array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code float[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive). Uses direct {@code ==} comparison for floats.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( float[] src, float value, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( src[ i ] == value ) return i;
@@ -1889,8 +2103,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the first occurrence of the specified value in the double array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the first occurrence of the specified {@code value} in the
+	 * {@code double[]} array {@code src}, searching from {@code fromIndex} (inclusive)
+	 * to {@code toIndex} (exclusive). Uses direct {@code ==} comparison for doubles.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search (inclusive).
+	 * @param toIndex   The ending index of the search (exclusive).
+	 * @return The index of the first occurrence, or -1 if not found in the specified range.
 	 */
 	static int indexOf( double[] src, double value, int fromIndex, int toIndex ) {
 		for( int i = fromIndex; i < toIndex; i++ ) if( src[ i ] == value ) return i;
@@ -1898,8 +2119,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the Object array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code Object[]} array {@code src}, searching backwards from {@code toIndex-1} (inclusive)
+	 * down to {@code fromIndex} (inclusive). Handles null {@code value} correctly.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found in the specified range.
 	 */
 	static int lastIndexOf( Object[] src, Object value, int fromIndex, int toIndex ) {
 		if( value == null ) {
@@ -1912,8 +2140,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the boolean array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code boolean[]} array {@code src}, searching backwards from {@code toIndex-1}
+	 * down to {@code fromIndex}.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found.
 	 */
 	static int lastIndexOf( boolean[] src, boolean value, int fromIndex, int toIndex ) {
 		for( int i = toIndex - 1; i >= fromIndex; i-- ) if( src[ i ] == value ) return i;
@@ -1921,8 +2156,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the byte array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code byte[]} array {@code src}, searching backwards from {@code toIndex-1}
+	 * down to {@code fromIndex}.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found.
 	 */
 	static int lastIndexOf( byte[] src, byte value, int fromIndex, int toIndex ) {
 		for( int i = toIndex - 1; i >= fromIndex; i-- ) if( src[ i ] == value ) return i;
@@ -1930,8 +2172,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the char array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code char[]} array {@code src}, searching backwards from {@code toIndex-1}
+	 * down to {@code fromIndex}.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found.
 	 */
 	static int lastIndexOf( char[] src, char value, int fromIndex, int toIndex ) {
 		for( int i = toIndex - 1; i >= fromIndex; i-- ) if( src[ i ] == value ) return i;
@@ -1939,8 +2188,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the short array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code short[]} array {@code src}, searching backwards from {@code toIndex-1}
+	 * down to {@code fromIndex}.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found.
 	 */
 	static int lastIndexOf( short[] src, short value, int fromIndex, int toIndex ) {
 		for( int i = toIndex - 1; i >= fromIndex; i-- ) if( src[ i ] == value ) return i;
@@ -1948,8 +2204,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the int array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code int[]} array {@code src}, searching backwards from {@code toIndex-1}
+	 * down to {@code fromIndex}.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found.
 	 */
 	static int lastIndexOf( int[] src, int value, int fromIndex, int toIndex ) {
 		for( int i = toIndex - 1; i >= fromIndex; i-- ) if( src[ i ] == value ) return i;
@@ -1957,8 +2220,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the long array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code long[]} array {@code src}, searching backwards from {@code toIndex-1}
+	 * down to {@code fromIndex}.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found.
 	 */
 	static int lastIndexOf( long[] src, long value, int fromIndex, int toIndex ) {
 		for( int i = toIndex - 1; i >= fromIndex; i-- ) if( src[ i ] == value ) return i;
@@ -1966,8 +2236,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the float array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code float[]} array {@code src}, searching backwards from {@code toIndex-1}
+	 * down to {@code fromIndex}. Uses direct {@code ==} comparison for floats.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found.
 	 */
 	static int lastIndexOf( float[] src, float value, int fromIndex, int toIndex ) {
 		for( int i = toIndex - 1; i >= fromIndex; i-- ) if( src[ i ] == value ) return i;
@@ -1975,8 +2252,15 @@ public interface Array {
 	}
 	
 	/**
-	 * Returns the index of the last occurrence of the specified value in the double array
-	 * between fromIndex (inclusive) and toIndex (exclusive), or -1 if not found.
+	 * Returns the index of the last occurrence of the specified {@code value} in the
+	 * {@code double[]} array {@code src}, searching backwards from {@code toIndex-1}
+	 * down to {@code fromIndex}. Uses direct {@code ==} comparison for doubles.
+	 *
+	 * @param src       The array to search.
+	 * @param value     The value to search for.
+	 * @param fromIndex The starting index of the search range (inclusive).
+	 * @param toIndex   The ending index of the search range (exclusive).
+	 * @return The index of the last occurrence, or -1 if not found.
 	 */
 	static int lastIndexOf( double[] src, double value, int fromIndex, int toIndex ) {
 		for( int i = toIndex - 1; i >= fromIndex; i-- ) if( src[ i ] == value ) return i;
@@ -2112,7 +2396,7 @@ public interface Array {
 			public void copy( int idst, int isrc ) { dst[ idst ] = dst[ isrc ]; }
 			
 			/**
-			 * Fixed integer value used for dropping elements during sorting.
+			 * Fixed primitive value used for dropping elements during sorting.
 			 */
 			int fixi = 0;
 			
@@ -2623,6 +2907,16 @@ public interface Array {
 		}
 	}
 	
+	/**
+	 * Selects a prime number from a predefined list that is greater than or equal to the
+	 * requested {@code capacity}. This is typically used for setting optimal sizes for hash tables
+	 * to help distribute keys均匀ly. If no prime in the list is large enough,
+	 * the original {@code capacity} is returned.
+	 *
+	 * @param capacity The minimum desired capacity.
+	 * @return The smallest prime from the internal list that is {@code >= capacity},
+	 *         or {@code capacity} itself if all listed primes are smaller.
+	 */
 	static int prime( int capacity ) {
 		for( int prime : Array.primes )
 			if( capacity <= prime ) return prime;

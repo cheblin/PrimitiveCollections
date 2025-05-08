@@ -38,11 +38,11 @@ import org.unirail.JsonWriter;
 import java.util.Arrays;
 
 /**
- * {@code IntNullList} defines a contract for a list that stores primitive integer values,
+ * List defines a contract for a list that stores primitive values,
  * allowing elements to represent a {@code null} state.
  * <p>
  * This list is optimized for balancing memory usage and performance by employing two internal
- * storage strategies for the primitive integer data, managed by a backing {@link BitList.RW}
+ * storage strategies for the primitive data, managed by a backing {@link BitList.RW}
  * which tracks the nullity status of each logical element.
  * </p>
  * <p>
@@ -65,7 +65,7 @@ import java.util.Arrays;
 public interface FloatNullList {
 	
 	/**
-	 * {@code R} is an abstract base class providing a read-only view of an {@link IntNullList}.
+	 * {@code R} is an abstract base class providing a read-only view of a List.
 	 * <p>
 	 * It encapsulates the core data structures and logic for accessing elements
 	 * while being aware of the nullity status and the underlying storage strategy.
@@ -73,7 +73,7 @@ public interface FloatNullList {
 	 *
 	 * @implSpec This class utilizes a {@link BitList.RW} instance (`nulls`) to track
 	 * which logical positions contain a non-null value (bit is true) or a
-	 * null placeholder (bit is false). The actual primitive integer values
+	 * null placeholder (bit is false). The actual primitive values
 	 * are stored in an `int[]` array (`values`), whose organization depends
 	 * on the current storage strategy (`isFlatStrategy`). The number of
 	 * non-null elements is tracked in `cardinality`.
@@ -82,7 +82,7 @@ public interface FloatNullList {
 		
 		/**
 		 * The backing bitlist that tracks the nullity status of each element.
-		 * The size of this bitlist is the logical size of the {@code IntNullList}.
+		 * The size of this bitlist is the logical size of theList.
 		 * A bit set to {@code true} at index {@code i} indicates that the element
 		 * at logical index {@code i} in this list is non-null and has a corresponding
 		 * value in the {@code values} array. A bit set to {@code false} indicates a null element.
@@ -90,7 +90,7 @@ public interface FloatNullList {
 		protected BitList.RW nulls;
 		
 		/**
-		 * The array storing the primitive integer values of the non-null elements.
+		 * The array storing the primitive values of the non-null elements.
 		 * <p>
 		 *
 		 * @implSpec The interpretation and size of this array depend on the
@@ -158,7 +158,7 @@ public interface FloatNullList {
 		
 		/**
 		 * Returns the physical capacity of the underlying `values` array.
-		 * This is the number of primitive integer slots currently allocated.
+		 * This is the number of primitive  slots currently allocated.
 		 * <p>
 		 *
 		 * @return The allocated length of the internal `values` array.
@@ -244,12 +244,12 @@ public interface FloatNullList {
 		public @Positive_OK int prevNullIndex( int index ) { return nulls.prev0( index ); }
 		
 		/**
-		 * Retrieves the primitive integer value at the specified logical index.
+		 * Retrieves the primitive value at the specified logical index.
 		 * <p>
 		 *
 		 * @param index The logical index of the element to retrieve. Must be non-negative
 		 *              and less than `size()`.
-		 * @return The primitive integer value at the specified index.
+		 * @return The primitive value at the specified index.
 		 * @apiNote This method assumes the element at the given index is non-null.
 		 * It is strongly recommended to call {@link #hasValue(int)} first
 		 * to ensure the index contains a valid non-null value before
@@ -268,18 +268,18 @@ public interface FloatNullList {
 		
 		/**
 		 * Returns the first logical index where a non-null element with the specified
-		 * primitive integer value is found.
+		 * primitive value is found.
 		 * <p>
 		 * This method only searches among the non-null elements. To find indices of
 		 * nulls, use {@link #nextNullIndex(int)}.
 		 *
-		 * @param value The primitive integer value to search for.
+		 * @param value The primitive value to search for.
 		 * @return The logical index of the first occurrence of the specified value, or -1 if
 		 * the value is not found among the non-null elements.
 		 */
 		public int indexOf( float value ) {
 			if( isFlatStrategy ) {
-				for( int i = nulls.next1( -1 ); i != -1; i = nulls.next1( i  ) )
+				for( int i = nulls.next1( -1 ); i != -1; i = nulls.next1( i ) )
 					if( values[ i ] == ( float ) value ) return i; // Linear search in flat array.
 				return -1;
 			}
@@ -293,9 +293,9 @@ public interface FloatNullList {
 		
 		/**
 		 * Checks if this list contains at least one non-null element with the specified
-		 * primitive integer value.
+		 * primitive value.
 		 *
-		 * @param value The primitive integer value to check for.
+		 * @param value The primitive value to check for.
 		 * @return {@code true} if the value is found among the non-null elements, {@code false} otherwise.
 		 */
 		public boolean contains( float value ) { return indexOf( value ) != -1; }
@@ -306,9 +306,9 @@ public interface FloatNullList {
 		 * <p>
 		 * If the input {@code value} is {@code null}, this checks if the list contains
 		 * at least one null element. If the input {@code value} is non-null, this checks
-		 * if the list contains at least one non-null element with that primitive integer value.
+		 * if the list contains at least one non-null element with that primitive value.
 		 *
-		 * @param value The boxed Integer value (or {@code null}) to check for.
+		 * @param value The boxed value (or {@code null}) to check for.
 		 * @return {@code true} if the list contains the specified value (or a null if
 		 * input is null), {@code false} otherwise.
 		 */
@@ -322,11 +322,11 @@ public interface FloatNullList {
 		
 		/**
 		 * Returns the last logical index where a non-null element with the specified
-		 * primitive integer value is found.
+		 * primitive value is found.
 		 * <p>
 		 * This method only searches among the non-null elements.
 		 *
-		 * @param value The primitive integer value to search for.
+		 * @param value The primitive value to search for.
 		 * @return The logical index of the last occurrence of the specified value, or -1 if
 		 * the value is not found among the non-null elements.
 		 */
@@ -347,11 +347,11 @@ public interface FloatNullList {
 		
 		/**
 		 * Compares this list to another object for logical content equality.
-		 * Two {@code IntNullList}s are considered equal if they have the same logical size
+		 * TwoLists are considered equal if they have the same logical size
 		 * and the same elements (including nulls and their values) at each corresponding index.
 		 *
 		 * @param obj The object to compare with.
-		 * @return {@code true} if the specified object is an {@code IntNullList} of the
+		 * @return {@code true} if the specified object is anList of the
 		 * exact same class with the same logical content, {@code false} otherwise.
 		 */
 		@Override
@@ -364,7 +364,7 @@ public interface FloatNullList {
 		 * The hash code is independent of the internal storage strategy. It considers
 		 * both the presence/absence of values (nullity) and the values themselves.
 		 *
-		 * @return A hash code value for this {@code IntNullList}.
+		 * @return A hash code value for thisList.
 		 */
 		@Override
 		public int hashCode() {
@@ -378,7 +378,7 @@ public interface FloatNullList {
 		}
 		
 		/**
-		 * Checks logical equality between this {@code IntNullList} and another
+		 * Checks logical equality between thisList and another
 		 * {@link R} instance.
 		 *
 		 * @param other The {@link R} instance to compare with.
@@ -475,15 +475,15 @@ public interface FloatNullList {
 		}
 		
 		/**
-		 * Copies a range of elements from this list into a new or provided primitive integer array.
+		 * Copies a range of elements from this list into a new or provided primitive  array.
 		 * Null elements in the list are substituted with the specified {@code null_substitute} value.
 		 *
 		 * @param index           Starting logical index (inclusive, 0-indexed) from which to start copying.
 		 * @param len             The number of elements to copy.
 		 * @param dst             The destination array. If {@code null} or too small to hold `len` elements,
 		 *                        a new array of size `len` is created.
-		 * @param null_substitute The primitive integer value to use for null elements in the list.
-		 * @return The populated primitive integer array. Returns {@code dst} if the list is empty
+		 * @param null_substitute The primitive value to use for null elements in the list.
+		 * @return The populated primitive  array. Returns {@code dst} if the list is empty
 		 * and {@code dst} is provided.
 		 */
 		public float[] toArray( int index, int len, float[] dst, float null_substitute ) {
@@ -501,7 +501,7 @@ public interface FloatNullList {
 		
 		
 		/**
-		 * Checks if this list contains all elements from another {@code IntNullList}.
+		 * Checks if this list contains all elements from anotherList.
 		 * <p>
 		 *
 		 * @param src The source list whose elements are to be checked for containment within this list.
@@ -531,7 +531,7 @@ public interface FloatNullList {
 	}
 	
 	/**
-	 * {@code RW} extends {@link R} to provide read-write functionality for an {@link IntNullList}.
+	 * {@code RW} extends {@link R} to provide read-write functionality for a List.
 	 * <p>
 	 * This class allows modification of the list's content and structure, including
 	 * setting, adding, and removing elements (both null and non-null). It manages the
@@ -549,17 +549,22 @@ public interface FloatNullList {
 	class RW extends R {
 		
 		/**
-		 * Constructs a new empty {@code RW} BitList with a specified initial physical
-		 * capacity for the internal `values` array. The logical size of the list is 0.
+		 * Constructs a new empty {@code RW} list with a specified initial capacity for the internal storage.
+		 * The logical size of the list is initially 0, unless a negative capacity is provided (see below).
 		 *
-		 * @param length The initial capacity hint for the internal `values` array.
+		 * @param items The initial capacity for the internal {@code values} array, which determines the
+		 *              number of elements the list can hold without resizing.
+		 *              If positive, it sets the initial capacity.
+		 *              If negative, the list is initialized with a capacity and size of {@code -items},
+		 *              filled with null elements.
 		 */
-		public RW( int length ) {
-			nulls  = new BitList.RW( length ); // Initialize nulls bitlist with given length.
-			values = length > 0 ?
-					new float[ length ] :
-					// Allocate value array if length > 0.
-					Array.EqualHashOf.floats     .O; // Use empty array if length is 0.
+		public RW( int items ) {
+			int length = Math.abs( items );
+			nulls  = new BitList.RW( length );
+			values = length == 0 ?
+					Array.EqualHashOf.floats     .O :
+					new float[ items ];
+			if( items < 0 ) set1( -items - 1, null );// + set size
 		}
 		
 		
@@ -634,21 +639,21 @@ public interface FloatNullList {
 		 * @return This instance for method chaining.
 		 */
 		public RW set1(  Float     value ) {
-			set( this, Math.max( 0, size() - 1 ), value ); // Delegate to static set method for Integer.
+			set( this, Math.max( 0, size() - 1 ), value );
 			return this;
 		}
 		
 		/**
 		 * Sets the logical element at the end of the list (or the first element if the list
-		 * is empty) to the specified primitive integer value, marking it as non-null.
+		 * is empty) to the specified primitive value, marking it as non-null.
 		 * If the list is empty, this adds a new element at index 0. Otherwise, it modifies
 		 * the existing last element. Extends the list size if setting beyond the current end.
 		 *
-		 * @param value The primitive integer value to set.
+		 * @param value The primitive value to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set1( float value ) {
-			set( this, Math.max( 0, size() - 1 ), value ); // Delegate to static set method for primitive int.
+			set( this, Math.max( 0, size() - 1 ), value );
 			return this;
 		}
 		
@@ -662,22 +667,22 @@ public interface FloatNullList {
 		 * @return This instance for method chaining.
 		 */
 		public RW set1( int index,  Float     value ) {
-			set( this, index, value ); // Delegate to static set method for Integer at index.
+			set( this, index, value );
 			return this;
 		}
 		
 		/**
-		 * Sets the logical element at the specified index to the given primitive integer value,
+		 * Sets the logical element at the specified index to the given primitive value,
 		 * marking it as non-null.
 		 * If the index is beyond the current logical size, the list is extended with null elements
 		 * up to the specified index before setting the value at that index.
 		 *
 		 * @param index The logical index at which to set the value. Must be non-negative.
-		 * @param value The primitive integer value to set.
+		 * @param value The primitive value to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set1( int index, float value ) {
-			set( this, index, value ); // Delegate to static set method for primitive int at index.
+			set( this, index, value );
 			return this;
 		}
 		
@@ -698,28 +703,28 @@ public interface FloatNullList {
 		
 		/**
 		 * Sets a sequence of elements in the list starting from the specified index,
-		 * using values from a variable-length array of primitive integers.
+		 * using values from a variable-length array of primitives.
 		 * All elements in the specified range will be marked as non-null.
 		 * If the range extends beyond the current logical size, the list is extended
 		 * with null elements as needed before setting the specified values.
 		 *
 		 * @param index  The starting logical index (inclusive, 0-indexed) at which to begin setting. Must be non-negative.
-		 * @param values The array of primitive integer values.
+		 * @param values The array of primitive values.
 		 * @return This instance for method chaining.
 		 */
 		public RW set( int index, float... values ) {
-			return set( index, values, 0, values.length ); // Delegate to array range set method.
+			return set( index, values, 0, values.length );
 		}
 		
 		/**
 		 * Sets a range of elements in the list starting from the specified index,
-		 * using a portion of a primitive integer array.
+		 * using a portion of a primitive  array.
 		 * All elements in the specified range will be marked as non-null.
 		 * If the range extends beyond the current logical size, the list is extended
 		 * with null elements as needed before setting the specified values.
 		 *
 		 * @param index     The starting logical index (inclusive, 0-indexed) at which to begin setting. Must be non-negative.
-		 * @param src       The source primitive integer array.
+		 * @param src       The source primitive  array.
 		 * @param src_index The starting index (inclusive, 0-indexed) within the source array.
 		 * @param len       The number of elements to copy from the source array.
 		 * @return This instance for method chaining.
@@ -772,11 +777,11 @@ public interface FloatNullList {
 		}
 		
 		/**
-		 * Adds a primitive integer value to the end of the list, marking it as non-null.
+		 * Adds a primitive value to the end of the list, marking it as non-null.
 		 * Increases the logical size by one. May trigger a strategy switch if adding
 		 * the value causes the cardinality to exceed the {@code flatStrategyThreshold}.
 		 *
-		 * @param value The primitive integer value to add.
+		 * @param value The primitive value to add.
 		 * @return This instance for method chaining.
 		 */
 		public RW add1( float value ) {
@@ -785,11 +790,11 @@ public interface FloatNullList {
 		}
 		
 		/**
-		 * Adds multiple primitive integer values to the end of the list, marking them as non-null.
+		 * Adds multiple primitive values to the end of the list, marking them as non-null.
 		 * Increases the logical size by the number of items added. May trigger a strategy
 		 * switch if the resulting cardinality exceeds the {@code flatStrategyThreshold}.
 		 *
-		 * @param items The variable-length array of primitive integer values to add.
+		 * @param items The variable-length array of primitive values to add.
 		 * @return This instance for method chaining.
 		 */
 		public RW add( float... items ) { // VEXT -> int
@@ -830,12 +835,12 @@ public interface FloatNullList {
 							              values = new float[ ( nulls.size() - 1 ) * 2 / 3 ] :
 							              values, index, s, 1 );
 			}
-			else add1( index, value.floatValue     () ); // Delegate to primitive add at index for non-null value.
+			else add1( index, value.floatValue     () );
 			return this;
 		}
 		
 		/**
-		 * Inserts a primitive integer value at the specified index, marking it as non-null and
+		 * Inserts a primitive value at the specified index, marking it as non-null and
 		 * shifting all existing elements at and after that index one position to the right
 		 * (towards higher indices). Increases the logical size by one. If the index is beyond
 		 * the current logical size, this acts like setting the value at that index (which
@@ -843,7 +848,7 @@ public interface FloatNullList {
 		 * exceeds the {@code flatStrategyThreshold}.
 		 *
 		 * @param index The logical index (0-indexed) at which to insert the value. Must be non-negative.
-		 * @param value The primitive integer value to insert.
+		 * @param value The primitive value to insert.
 		 * @return This instance for method chaining.
 		 */
 		public RW add1( int index, float value ) {
@@ -886,7 +891,7 @@ public interface FloatNullList {
 		
 		
 		/**
-		 * Adds all elements from another {@code IntNullList} to the end of this list.
+		 * Adds all elements from anotherList to the end of this list.
 		 * The logical size of this list is increased by the size of the source list.
 		 * Handles both null and non-null elements from the source list. May trigger
 		 * strategy switches.
@@ -972,7 +977,7 @@ public interface FloatNullList {
 		 * @return This instance for method chaining.
 		 */
 		public RW size( int size ) {
-			if (size < 0) throw new IllegalArgumentException( "size cannot be negative" );
+			if( size < 0 ) throw new IllegalArgumentException( "size cannot be negative" );
 			if( size == 0 ) return clear(); // If size is less than 1, clear the list.
 			
 			if( this.size() < size ) set1( size - 1, null ); // If increasing size, ensure last element is set (though it might be null).
@@ -1046,7 +1051,7 @@ public interface FloatNullList {
 					set1( index2, v1 );
 					return this;
 				}
-				
+			
 			if( e1 ) {
 				set1( index1, null );
 				set1( index2, v1 );
@@ -1148,11 +1153,11 @@ public interface FloatNullList {
 					dst.nulls.set0( index );
 				}
 			}
-			else set( dst, index, value.floatValue     () ); // Delegate to primitive int setter for non-null value.
+			else set( dst, index, value.floatValue     () );
 		}
 		
 		/**
-		 * Static helper method to set a primitive integer value at a specific logical index,
+		 * Static helper method to set a primitive value at a specific logical index,
 		 * marking it as non-null.
 		 * This method handles updating the nullity bitlist, modifying the `values` array
 		 * based on the current strategy, and potentially triggering strategy switches
@@ -1160,7 +1165,7 @@ public interface FloatNullList {
 		 *
 		 * @param dst   The target {@code RW} list.
 		 * @param index The logical index at which to set the value. Must be non-negative.
-		 * @param value The primitive integer value to set.
+		 * @param value The primitive value to set.
 		 * @implSpec This method is the core logic for handling non-null values when
 		 * setting individual elements via the public `set` and `add` methods.
 		 * It manages inserting or updating values in the `values` array based

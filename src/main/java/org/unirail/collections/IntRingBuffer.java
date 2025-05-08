@@ -37,13 +37,13 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 /**
- * A thread-safe, fixed-size ring buffer (circular buffer) for storing integer values.
+ * A thread-safe, fixed-size ring buffer (circular buffer) for storing primitive values.
  * Optimized for efficient producer-consumer scenarios and bounded circular data storage.
  * The buffer uses atomic operations for thread-safe access and a bitwise mask for efficient index wrapping.
  */
 public class IntRingBuffer {
 	/**
-	 * The internal array storing the ring buffer's integer values.
+	 * The internal array storing the ring buffer's primitive values.
 	 */
 	private final int[] buffer;
 	
@@ -142,7 +142,7 @@ public class IntRingBuffer {
 	/**
 	 * Thread-safely adds an integer to the buffer.
 	 *
-	 * @param value The integer to add.
+	 * @param value The primitive to add.
 	 * @return True if the value was added, false if the buffer is full.
 	 */
 	public boolean put_multithreaded( int value ) {
@@ -162,7 +162,7 @@ public class IntRingBuffer {
 	 * Adds an integer to the buffer (non-thread-safe).
 	 * Use only in single-threaded contexts or with external synchronization.
 	 *
-	 * @param value The integer to add.
+	 * @param value The primitive to add.
 	 * @return True if the value was added, false if the buffer is full.
 	 */
 	public boolean put( int value ) {

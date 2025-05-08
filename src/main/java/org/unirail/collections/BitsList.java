@@ -44,7 +44,7 @@ import java.util.Arrays;
 public interface BitsList {
 	
 	/**
-	 * Abstract base class providing core functionality for a bit-packed list of integers.
+	 * Abstract base class providing core functionality for a bit-packed list of primitives.
 	 * Items are stored in an array of {@code long}s, with each item occupying a fixed number of bits.
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {

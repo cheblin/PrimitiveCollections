@@ -39,7 +39,7 @@ import org.unirail.JsonWriter;
  * Defines interfaces and abstract classes for bit-packed lists that efficiently store integers with support for a designated null value.
  * <p>
  * This framework extends {@link BitsList} to provide memory-efficient storage of lists where each element occupies a fixed number of bits (1 to 7),
- * and a specific integer value is reserved to represent null. The bit-packed storage uses an array of {@code long}s, with each item’s bit size
+ * and a specific primitive value is reserved to represent null. The bit-packed storage uses an array of {@code long}s, with each item’s bit size
  * determined at construction. The null value feature allows explicit handling of missing or undefined elements.
  * <p>
  * <b>Restrictions:</b>
@@ -56,7 +56,7 @@ public interface BitsNullList {
 	/**
 	 * Abstract base class for {@link BitsNullList} implementations that support a designated null value.
 	 * <p>
-	 * Extends {@link BitsList.R} to add support for a specific integer value representing null elements. This class provides the core functionality
+	 * Extends {@link BitsList.R} to add support for a specific primitive value representing null elements. This class provides the core functionality
 	 * for reading list contents, with bit-packed storage in an array of {@code long}s. Each item occupies a fixed number of bits (1 to 7), and the
 	 * {@code null_val} is used to distinguish missing or undefined elements.
 	 * <p>
@@ -73,7 +73,7 @@ public interface BitsNullList {
 	abstract class R extends BitsList.R {
 		
 		/**
-		 * The integer value that represents a null element in this list.
+		 * The primitive value that represents a null element in this list.
 		 * <p>
 		 * This value is masked during construction to fit within <code>bits_per_item</code> bits (i.e., <code>0</code> to <code>2<sup>bits_per_item</sup> - 1</code>).
 		 */
@@ -83,7 +83,7 @@ public interface BitsNullList {
 		 * Constructs an empty {@code BitsNullList.R} with the specified bits per item and null value.
 		 *
 		 * @param bits_per_item The number of bits used to store each item (must be 1 to 7).
-		 * @param null_val      The integer value to represent null elements. This value will be masked to fit within {@code bits_per_item}.
+		 * @param null_val      The primitive value to represent null elements. This value will be masked to fit within {@code bits_per_item}.
 		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
 		 */
 		protected R( int bits_per_item, int null_val ) {
@@ -96,7 +96,7 @@ public interface BitsNullList {
 		 * <p>
 		 *
 		 * @param bits_per_item The number of bits used to store each item (must be 1 to 7).
-		 * @param null_val      The integer value representing null. This value will be masked to fit within {@code bits_per_item}.
+		 * @param null_val      The primitive value representing null. This value will be masked to fit within {@code bits_per_item}.
 		 * @param size          Determines the initial size and fill behavior. Positive fills with {@code null_val}, negative sets size without filling.
 		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
 		 */
@@ -110,7 +110,7 @@ public interface BitsNullList {
 		 * <p>
 		 *
 		 * @param bits_per_item The number of bits used to store each item (must be 1 to 7).
-		 * @param null_val      The integer value representing null. This value will be masked to fit within {@code bits_per_item}.
+		 * @param null_val      The primitive value representing null. This value will be masked to fit within {@code bits_per_item}.
 		 * @param default_value The default value for initializing list elements if {@code size > 0}. This value will be masked to fit within {@code bits_per_item}.
 		 * @param size          Determines the initial size and fill behavior. Positive fills with {@code null_val}, negative sets size without filling.
 		 * @throws IllegalArgumentException if {@code bits_per_item} is not between 1 and 7.
@@ -142,17 +142,17 @@ public interface BitsNullList {
 		/**
 		 * Checks if this list contains the specified {@code Integer} value.
 		 * If the input {@code value} is {@code null}, this method searches for {@code null_val}.
-		 * Otherwise, it searches for the integer value masked to fit within {@code bits_per_item}.
+		 * Otherwise, it searches for the primitive value masked to fit within {@code bits_per_item}.
 		 *
 		 * @param value The {@code Integer} value to search for (can be {@code null}).
-		 * @return {@code true} if the list contains the corresponding value (either {@code null_val} for {@code null} input, or the masked integer value), {@code false} otherwise.
+		 * @return {@code true} if the list contains the corresponding value (either {@code null_val} for {@code null} input, or the masked primitive value), {@code false} otherwise.
 		 */
 		public boolean contains( Integer value ) { return -1 != indexOf( value ); }
 		
 		/**
 		 * Returns the index of the first occurrence of the specified {@code Integer} value in this list, or -1 if this list does not contain the value.
 		 * If the input {@code value} is {@code null}, this method searches for the first occurrence of {@code null_val}.
-		 * Otherwise, it searches for the first occurrence of the integer value masked to fit within {@code bits_per_item}.
+		 * Otherwise, it searches for the first occurrence of the primitive value masked to fit within {@code bits_per_item}.
 		 *
 		 * @param value The {@code Integer} value to search for (can be {@code null}).
 		 * @return The index of the first occurrence, or -1 if not found.

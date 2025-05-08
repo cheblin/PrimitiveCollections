@@ -51,7 +51,7 @@ import java.util.function.Function;
  * </p>
  * <ul>
  *     <li>**Generic Keys:** Supports any object type as keys, offering flexibility in key selection.</li>
- *     <li>**Bit-Packed Values:** Utilizes {@link BitsList} for value storage, significantly reducing memory usage, ideal for small integer values or flags.</li>
+ *     <li>**Bit-Packed Values:** Utilizes {@link BitsList} for value storage, significantly reducing memory usage, ideal for small primitive values or flags.</li>
  *     <li>**Hash Table with Separate Chaining:** Efficiently resolves hash collisions, maintaining performance under high load factors.</li>
  *     <li>**Dynamic Resizing:** Automatically adjusts internal capacity to ensure optimal performance as the map grows or shrinks.</li>
  *     <li>**Null Key Support:** Allows a single null key for representing default or absent values.</li>
@@ -76,7 +76,7 @@ import java.util.function.Function;
  *     <li>Caching systems requiring compact storage.</li>
  *     <li>Data structures in embedded systems.</li>
  *     <li>Representation of sparse data.</li>
- *     <li>Applications with many small integer values tied to keys.</li>
+ *     <li>Applications with many small primitive values tied to keys.</li>
  * </ul>
  */
 public interface ObjectBitsMap {

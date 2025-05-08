@@ -329,7 +329,7 @@ public interface FloatObjectNullMap {
 		 * Ensure {@link #isKeyNull(long)} is false before calling.
 		 *
 		 * @param token The token for the key.
-		 * @return The integer key.
+		 * @return The primitive key.
 		 * @throws IllegalArgumentException if the token corresponds to the null key.
 		 */
 		public float key( long token ) {

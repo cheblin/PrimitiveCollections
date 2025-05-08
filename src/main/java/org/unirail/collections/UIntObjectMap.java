@@ -187,7 +187,7 @@ public interface UIntObjectMap {
 		/**
 		 * Checks if the map contains a key-value pair with the specified integer key.
 		 *
-		 * @param key The integer key to search for.
+		 * @param key The primitive key to search for.
 		 * @return {@code true} if the map contains a key-value pair with the specified key, {@code false} otherwise.
 		 */
 		public boolean containsKey( long key ) { return tokenOf( key ) != INVALID_TOKEN; }
@@ -241,7 +241,7 @@ public interface UIntObjectMap {
 		 * A token is a long value that uniquely identifies a key-value pair within a specific version of the map.
 		 * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
 		 *
-		 * @param key The integer key to get the token for.
+		 * @param key The primitive key to get the token for.
 		 * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
 		 */
 		public long tokenOf( long key ) {
@@ -334,7 +334,7 @@ public interface UIntObjectMap {
 		 * Returns the key associated with the given token.  Before calling this method ensure that this token is not point to the isKeyNull
 		 *
 		 * @param token The token to get the key for.
-		 * @return The integer key associated with the token, or 0 if the token represents the null key or is invalid.
+		 * @return The primitive key associated with the token, or 0 if the token represents the null key or is invalid.
 		 */
 		public long key( long token ) { return  ( keys[ index( token ) ] ); }
 		
@@ -369,7 +369,7 @@ public interface UIntObjectMap {
 		/**
 		 * Returns the value associated with the specified integer key, or {@code defaultValue} if the key is not found.
 		 *
-		 * @param key          The integer key to get the value for.
+		 * @param key          The primitive key to get the value for.
 		 * @param defaultValue The default value to return if the key is not found.
 		 * @return The value associated with the key, or {@code defaultValue} if the key is not found.
 		 */
@@ -615,7 +615,7 @@ public interface UIntObjectMap {
 		/**
 		 * Removes the key-value pair with the specified integer key from this map, if present.
 		 *
-		 * @param key The integer key of the key-value pair to remove.
+		 * @param key The primitive key of the key-value pair to remove.
 		 * @return The value that was associated with the key, or {@code null} if the key was not found.
 		 */
 		public V remove( long key ) {
@@ -755,7 +755,7 @@ public interface UIntObjectMap {
 		 * Tries to insert a key-value pair with the specified integer key and value into the map.
 		 * Handles hash collisions and resizing if necessary.
 		 *
-		 * @param key   The integer key to insert.
+		 * @param key   The primitive key to insert.
 		 * @param value The value to insert.
 		 * @return {@code true} if insertion occurred, {@code false} otherwise (depending on behavior).
 		 * @throws IllegalArgumentException if behavior is 0 and the key already exists.

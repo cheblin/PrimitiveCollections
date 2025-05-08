@@ -254,7 +254,7 @@ public interface UIntBitsMap {
 		 * Ensure the token does not represent the null key using {@link #isKeyNull(long)} before calling.
 		 *
 		 * @param token The token representing the key-value pair.
-		 * @return The integer key associated with the token.
+		 * @return The primitive key associated with the token.
 		 * @throws ArrayIndexOutOfBoundsException if the token is invalid or represents the null key.
 		 */
 		public long key( long token ) { return   keys[ index( token ) ]; }

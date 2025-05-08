@@ -40,7 +40,7 @@ import java.util.Arrays;
 public interface ByteList {
 	
 	/**
-	 * Read-only base class for an integer list implementation providing core functionality.
+	 * Read-only base class for a primitive list implementation providing core functionality.
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
 		/**
@@ -58,16 +58,16 @@ public interface ByteList {
 		protected R( byte default_value ) { this.default_value = default_value; }
 		
 		/**
-		 * Internal array storing the list's integer values, dynamically resized as needed.
+		 * Internal array storing the list's primitive values, dynamically resized as needed.
 		 */
 		byte[] values = Array.EqualHashOf.bytes     .O;
 		
 		/**
-		 * Provides direct access to the internal integer array.
+		 * Provides direct access to the internal array.
 		 * <p>
 		 * Warning: Modifying this array directly may corrupt the list's state and should be avoided.
 		 *
-		 * @return The internal array of integer values.
+		 * @return The internal array of primitive values.
 		 */
 		public byte[] array() { return values; }
 		
@@ -91,7 +91,7 @@ public interface ByteList {
 		public boolean isEmpty() { return size == 0; }
 		
 		/**
-		 * Checks if the list contains a specific integer value.
+		 * Checks if the list contains a specific primitive value.
 		 *
 		 * @param value The value to search for.
 		 * @return true if the value is found, false otherwise.
@@ -132,14 +132,14 @@ public interface ByteList {
 		 * Retrieves the value at a specific index.
 		 *
 		 * @param index The 0-based index of the element to retrieve.
-		 * @return The integer value at the specified index.
+		 * @return The primitive value at the specified index.
 		 */
 		public byte get( int index ) { return  (byte) values[ index ]; }
 		
 		/**
 		 * Retrieves the last value in the list.
 		 *
-		 * @return The integer value at the end of the list.
+		 * @return The primitive value at the end of the list.
 		 */
 		public byte get() { return  (byte) values[ size - 1 ]; }
 		
@@ -290,7 +290,7 @@ public interface ByteList {
 		/**
 		 * Appends a value to the end of the list, expanding if necessary.
 		 *
-		 * @param value The integer to add.
+		 * @param value The primitive to add.
 		 * @return This instance for method chaining.
 		 */
 		public RW add1( byte value ) { return add1( size, value ); }
@@ -299,7 +299,7 @@ public interface ByteList {
 		 * Inserts a value at the specified index, shifting elements rightward.
 		 *
 		 * @param index 0-based position for insertion.
-		 * @param value The integer to insert.
+		 * @param value The primitive to insert.
 		 * @return This instance for method chaining.
 		 */
 		public RW add1( int index, byte value ) {
@@ -314,7 +314,7 @@ public interface ByteList {
 		/**
 		 * Appends multiple values from an array to the end of the list.
 		 *
-		 * @param src Array of integers to add.
+		 * @param src Array of primitives to add.
 		 * @return This instance for method chaining.
 		 */
 		public RW add( byte... src ) { return add( size(), src, 0, src.length ); }
@@ -323,7 +323,7 @@ public interface ByteList {
 		 * Inserts a range of values from an array at a specified index, shifting elements rightward.
 		 *
 		 * @param index     Starting position in this list.
-		 * @param src       Source array of integers.
+		 * @param src       Source array of primitives.
 		 * @param src_index Starting index in the source array.
 		 * @param len       Number of elements to insert.
 		 * @return This instance for method chaining.
@@ -374,7 +374,7 @@ public interface ByteList {
 		/**
 		 * Sets the value at the end of the list, expanding if necessary with default_value.
 		 *
-		 * @param value The integer to set.
+		 * @param value The primitive to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set1( byte value ) { return set1( size, value ); }
@@ -383,7 +383,7 @@ public interface ByteList {
 		 * Sets a value at a specific index, expanding the list with default_value if needed.
 		 *
 		 * @param index 0-based index to set the value.
-		 * @param value The integer to set.
+		 * @param value The primitive to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set1( int index, byte value ) {
@@ -400,7 +400,7 @@ public interface ByteList {
 		 * Sets multiple values from an array starting at a specified index.
 		 *
 		 * @param index Starting 0-based index in this list.
-		 * @param src   Array of integers to set.
+		 * @param src   Array of primitives to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set( int index, byte... src ) { return set( index, src, 0, src.length ); }
@@ -409,7 +409,7 @@ public interface ByteList {
 		 * Sets a range of values from an array starting at a specified index, expanding if necessary.
 		 *
 		 * @param index     Starting 0-based index in this list.
-		 * @param src       Source array of integers.
+		 * @param src       Source array of primitives.
 		 * @param src_index Starting index in the source array.
 		 * @param len       Number of elements to set.
 		 * @return This instance for method chaining.

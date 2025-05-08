@@ -274,7 +274,7 @@ public interface ShortByteMap {
 		 * Retrieves the value associated with a token.
 		 *
 		 * @param token The token representing the key-value pair.
-		 * @return The integer value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
+		 * @return The primitive value associated with the token, or undefined if the token is -1 (INVALID_TOKEN) or invalid due to structural modification.
 		 */
 		public byte value( long token ) {
 			return (byte)(
