@@ -443,7 +443,7 @@ public interface BitList {
 			int bitOffset = bit - trailingOnesCount;
 			int index     = bitOffset >> LEN;
 			
-			for( var value = values[ index ] & mask( ( bitOffset & MASK ) + 1 ); ; value = values[ --index ] )
+			for( long value = values[ index ] & mask( ( bitOffset & MASK ) + 1 ); ; value = values[ --index ] )
 				if( value == 0 ) { if( index == 0 ) return trailingOnesCount - 1; }
 				else
 					return trailingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
@@ -474,7 +474,7 @@ public interface BitList {
 			int bitInValues = bit - trailingOnesCount;
 			int index       = bitInValues >> LEN; // Index in values array
 			
-			for( var value = ~values[ index ] & mask( ( bitInValues & MASK ) + 1 ); ; value = ~values[ --index ] )
+			for( long value = ~values[ index ] & mask( ( bitInValues & MASK ) + 1 ); ; value = ~values[ --index ] )
 				if( value != 0 )
 					return trailingOnesCount + ( index << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( value );
 		}

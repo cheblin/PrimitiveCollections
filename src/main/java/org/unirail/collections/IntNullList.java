@@ -563,7 +563,7 @@ public interface IntNullList {
 			nulls  = new BitList.RW( length );
 			values = length == 0 ?
 					Array.EqualHashOf.ints     .O :
-					new int[ items ];
+					new int[ length ];
 			if( items < 0 ) set1( -items - 1, null );// + set size
 		}
 		
@@ -939,7 +939,7 @@ public interface IntNullList {
 		public RW length( int length ) {
 			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
 			
-			var shrink = length < nulls.size();
+			boolean shrink = length < nulls.size();
 			nulls.length( length ); // Clear the nulls bitlist.
 			
 			if( length == 0 ) {
@@ -1124,7 +1124,7 @@ public interface IntNullList {
 		protected void switchToCompressedStrategy() {
 			
 			cardinality = nulls.cardinality(); // Count of non-null elements.
-			var ii = 0;
+			int ii = 0;
 			for( int i = -1; ( i = nulls.next1( i ) ) != -1; )
 				if( i != ii ) values[ ii++ ] = values[ i ];// Pack non-null values sequentially in the same array.
 			

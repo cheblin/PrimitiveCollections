@@ -104,7 +104,7 @@ public interface ObjectNullList< V > {
 			
 			
 			int count = 0;// Need to count in flat mode.
-			for( var i = 0; i < size_card; i++ )
+			for( int i = 0; i < size_card; i++ )
 				if( values[ i ] != null )
 					count++;
 			
@@ -358,7 +358,7 @@ public interface ObjectNullList< V > {
 			}
 			
 			
-			for( var i = 0; i < size_card; i++ )
+			for( int i = 0; i < size_card; i++ )
 				if( equal_hash_V.equals( values[ i ], value ) ) return nulls.bit( i + 1 );
 			
 			return -1;
@@ -387,7 +387,7 @@ public interface ObjectNullList< V > {
 			
 			if( value == null ) return prevNullIndex( size() );
 			
-			for( var i = size_card; -1 < --i; )
+			for( int i = size_card; -1 < --i; )
 				if( equal_hash_V.equals( values[ i ], value ) ) return nulls.bit( i + 1 );
 			return -1;
 		}
@@ -400,9 +400,9 @@ public interface ObjectNullList< V > {
 		@Override
 		public int hashCode() {
 			
-			var hash = 17;
+			int hash = 17;
 			if( isFlatStrategy )
-				for( var i = 0; i < size_card; i++ )
+				for( int i = 0; i < size_card; i++ )
 				     hash = Array.hash( hash, equal_hash_V.hashCode( values[ i ] ) );
 			else
 				for( int i = 0, s = nulls.size; i < s; i++ )
@@ -723,8 +723,8 @@ public interface ObjectNullList< V > {
 				return this;
 			}
 			
-			var i   = nulls.rank( index ) - 1;
-			var max = Math.max( i + 2, size_card + 1 ); // Ensure capacity
+			int i   = nulls.rank( index ) - 1;
+			int max = Math.max( i + 2, size_card + 1 ); // Ensure capacity
 			if( values.length <= max && flatStrategyThreshold <= size_card ) {
 				switchToFlatStrategy( max );
 				nulls.set1( index );
