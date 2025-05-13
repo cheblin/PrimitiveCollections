@@ -725,10 +725,8 @@ public interface BitList {
 		}
 		
 		/**
-		 * Counts the number of trailing '0' bits (zeros at the least significant end,
-		 * lowest indices) in this {@code BitList}.
-		 * This is equivalent to the index of the first '1' bit, or {@code size()} if
-		 * the list contains only '0's.
+		 * Counts the number of trailing '0' bits (zeros at the least significant end, lowest indices) in this {@code BitList}.
+		 * This is equivalent to the index of the first '1' bit, or {@code size()} if the list contains only '0's.
 		 *
 		 * @return The number of trailing zero bits. Returns {@code size()} if the list
 		 * is all zeros or empty. Returns 0 if the first bit (index 0) is '1'.
@@ -737,11 +735,11 @@ public interface BitList {
 			if( size == 0 ) return 0;
 			
 			int i = next0( -1 );
-			if( i == -1 || 0 < i ) return 0;
+			if( i != 0  ) return 0;
 			i = next1( -1 );
 			return i == -1 ?
 					size :
-					i + 1;
+					i;
 		}
 		
 		/**
