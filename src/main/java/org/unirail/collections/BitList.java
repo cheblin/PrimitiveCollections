@@ -300,51 +300,19 @@ public interface BitList {
 			to_bit = Math.min( to_bit, size );
 			int bits_to_copy = to_bit - from_bit;
 			
-			int dst_index      = 0;
-			int dst_bit_offset = 0;
-			int copied_bits    = 0;
+			// Calculate number of full 64-bit chunks that fit in dst
+			int full_longs = Math.min( bits_to_copy >> LEN, dst.length );
 			
-			int trailing_ones_to_copy = Math.min( trailingOnesCount - from_bit, bits_to_copy );
-			if( trailing_ones_to_copy > 0 ) {
-				for( int i = 0; i < trailing_ones_to_copy; i++ ) {
-					if( dst_bit_offset == BITS ) {
-						dst_bit_offset = 0;
-						dst_index++;
-						if( dst_index >= dst.length )
-							return copied_bits;
-					}
-					dst[ dst_index ] |= 1L << dst_bit_offset;
-					dst_bit_offset++;
-				}
-				from_bit += trailing_ones_to_copy;
-				bits_to_copy -= trailing_ones_to_copy;
-				copied_bits += trailing_ones_to_copy;
-				if( bits_to_copy == 0 )
-					return copied_bits;
-			}
+			for( int i = 0; i < full_longs; i++ )
+			     dst[ i ] = get64( from_bit + i * 64 );
 			
-			int start_bit_offset_in_values = from_bit - trailingOnesCount & MASK;
+			int copied_bits    = full_longs * 64;
+			int remaining_bits = bits_to_copy - copied_bits;
+			if( remaining_bits == 0 ) return copied_bits;
 			
-			for( int i = from_bit - trailingOnesCount >> LEN; i < used() && bits_to_copy > 0; i++ ) {
-				long current_value          = values[ i ] >>> start_bit_offset_in_values;
-				int  bits_from_current_long = Math.min( BITS - start_bit_offset_in_values, bits_to_copy );
-				
-				for( int j = 0; j < bits_from_current_long; j++ ) {
-					if( dst_bit_offset == BITS ) {
-						dst_bit_offset = 0;
-						dst_index++;
-						if( dst_index >= dst.length )
-							return copied_bits;
-					}
-					if( ( current_value & 1L << j ) != 0 )
-						dst[ dst_index ] |= 1L << dst_bit_offset;
-					dst_bit_offset++;
-				}
-				copied_bits += bits_from_current_long;
-				bits_to_copy -= bits_from_current_long;
-				start_bit_offset_in_values = 0;
-			}
-			return copied_bits;
+			dst[ full_longs ] = get64( from_bit + copied_bits ) & mask( remaining_bits );
+			
+			return copied_bits + remaining_bits;
 		}
 		
 		
@@ -499,7 +467,7 @@ public interface BitList {
 		 * is 0 and the {@code values} array contains no set bits;
 		 * {@code false} otherwise.
 		 */
-		public boolean isAllZeros() { return trailingOnesCount == 0 && used == 0; }
+		public boolean isAllZeros() { return trailingOnesCount == 0 && used() == 0; }
 		
 		/**
 		 * Calculates the number of '1' bits from index 0 up to and including the
@@ -551,24 +519,24 @@ public interface BitList {
 		public int bit( int cardinality ) {
 			// Handle invalid cardinality
 			if( cardinality <= 0 ) return -1; // No position has zero or negative '1's
-			if( cardinality > rank( size() - 1 ) ) return -1; // Exceeds total '1's in list
+			if( cardinality() < cardinality ) return -1; // Exceeds total '1's in list
 			
 			// If within trailing ones, return cardinality - 1 (since all are '1's)
 			if( cardinality <= trailingOnesCount ) return cardinality - 1; // 0-based index of the cardinality-th '1'
 			
 			// Adjust cardinality for bits beyond trailing ones
 			int remainingCardinality = cardinality - trailingOnesCount;
-			int totalBits            = size() - trailingOnesCount; // Bits stored in values
+			int totalBits            = last1() - trailingOnesCount; // Bits stored in values
 			
 			// Scan through values array
 			for( int i = 0; i < used() && remainingCardinality > 0; i++ ) {
-				long value      = values[ i ];
-				int  bitsInLong = Math.min( BITS, totalBits - ( i << LEN ) ); // Bits in this long
-				int  count      = Long.bitCount( value & mask( bitsInLong ) ); // '1's in this long
+				long value = values[ i ];
+				int  bits  = Math.min( BITS, totalBits - ( i << LEN ) ); // Bits in this long
+				int  count = Long.bitCount( value & mask( bits ) ); // '1's in this long
 				
 				// Find the exact bit in this long
 				if( remainingCardinality <= count )
-					for( int j = 0; j < bitsInLong; j++ )
+					for( int j = 0; j < bits; j++ )
 						if( ( value & 1L << j ) != 0 )
 							if( --remainingCardinality == 0 )
 								return trailingOnesCount + ( i << LEN ) + j;
@@ -732,11 +700,8 @@ public interface BitList {
 		 * is all zeros or empty. Returns 0 if the first bit (index 0) is '1'.
 		 */
 		public int numberOfTrailing0() {
-			if( size == 0 ) return 0;
-			
-			int i = next0( -1 );
-			if( i != 0  ) return 0;
-			i = next1( -1 );
+			if( size == 0 || 0 < trailingOnesCount ) return 0;
+			int i = next1( -1 );
 			return i == -1 ?
 					size :
 					i;
@@ -770,66 +735,33 @@ public interface BitList {
 			return 0;
 		}
 		
-		public long get_( int bit ) {
-			// Case 1: The entire 64-bit word falls within the trailing ones region.
-			if( bit + BITS <= trailingOnesCount )
-				return -1L; // All ones
+		public long get64( int bit ) {
+			if( bit + BITS <= trailingOnesCount ) return -1L;
+			if( last1() < bit ) return 0L;
 			
-			// Case 2: The entire 64-bit word falls after the explicitly stored bits (in the
-			// implicit trailing zeros region).
-			// The conceptual start of implicit zeros is trailingOnesCount + (used << LEN).
-			if( trailingOnesCount + last1() < bit )
-				return 0L; // All zeros
-			
-			// --- Cases involving overlap or falling within the 'values' array ---
 			long ret          = 0L;
 			int  bits_fetched = 0;
 			
-			// Part 1: Fetch bits overlapping with trailing ones (if any)
 			if( bit < trailingOnesCount ) {
-				int ones_count = Math.min( BITS, trailingOnesCount - bit ); // Num ones in this word
-				if( 0 < ones_count ) { // Avoid mask with 0 or negative count
-					ret          = mask( ones_count ); // Lower bits are 1s
-					bits_fetched = ones_count;
-				}
-				if( bits_fetched == BITS )
-					return ret; // Fetched a full word of 1s
+				bits_fetched = trailingOnesCount - bit;
+				ret          = mask( bits_fetched );
+				bit += bits_fetched - trailingOnesCount;
 			}
+			else bit -= trailingOnesCount;
 			
-			// Part 2: Fetch bits from the 'values' array
-			// Calculate the starting bit position *relative* to the 'values' array.
-			// This is the bit corresponding to absolute index `bit + bits_fetched`.
-			long val_rel_bit_start = bit + bits_fetched - trailingOnesCount;
-			// Adjust if calculation resulted in a negative index (shouldn't happen if logic
-			// is correct, but safety)
-			if( val_rel_bit_start < 0 )
-				val_rel_bit_start = 0;
+			int index = bit >> LEN;
+			if( used() <= index ) return ret;
 			
-			int val_idx = ( int ) ( val_rel_bit_start >> LEN ); // Index in values array
-			int val_off = ( int ) ( val_rel_bit_start & MASK ); // Offset within values[val_idx]
+			int pos = bit & MASK;
 			
-			// Fetch remaining bits needed (BITS - bits_fetched)
-			int bits_needed = BITS - bits_fetched;
-			if( val_idx < used ) {
-				// Get bits from the first relevant word in values
-				long chunk1 = values[ val_idx ] >>> val_off;
-				
-				// If the needed bits span across two words in values
-				// Combine with bits from the next word
-				if( val_off != 0 && val_idx + 1 < used )
-					chunk1 |= values[ val_idx + 1 ] << BITS - val_off;
-				
-				// Mask chunk1 to take only the bits actually needed for the result word
-				// Avoid masking if we need all 64 bits from chunk1
-				if( bits_needed < BITS )
-					chunk1 &= mask( bits_needed );
-				
-				// Combine with the bits already fetched (from trailingOnesCount)
-				ret |= chunk1 << bits_fetched;
-			}
-			// If bits_needed > 0 but val_idx >= used, the remaining bits are implicit
-			// zeros,
-			// so no further action is needed as 'word' already has zeros there.
+			int  bits_needed = BITS - bits_fetched;
+			long bits        = values[ index ] >>> pos;
+			
+			if( pos != 0 && index + 1 < used ) bits |= values[ index + 1 ] << BITS - pos;
+			
+			if( bits_needed < BITS ) bits &= mask( bits_needed );
+			
+			ret |= bits << bits_fetched;
 			
 			return ret;
 		}
@@ -847,26 +779,21 @@ public interface BitList {
 			int toc2       = trailingOnesCount;
 			int commonTOC  = Math.min( toc1, toc2 );
 			
-			// 1. Check if they differ within the shorter trailingOnesCount range
-			if( toc1 != toc2 )
-				return commonTOC; // First difference is where one runs out of 1s
-			// If commonTOC > 0 and toc1 == toc2, they are identical up to commonTOC
+			if( toc1 != toc2 ) return commonTOC; // First difference is where one runs out of 1s
 			
 			// 2. Check word by word after the common TOC
 			int bit = commonTOC;
 			while( bit < checkLimit ) {
-				long word1 = other.get_( bit );
-				long word2 = get_( bit );
+				long word1 = other.get64( bit );
+				long word2 = get64( bit );
 				if( word1 != word2 ) {
 					int diffOffset = Long.numberOfTrailingZeros( word1 ^ word2 );
 					int diffBit    = bit + diffOffset;
 					return Math.min( diffBit, checkLimit ); // Return the difference capped by size
 				}
 				// Avoid overflow on adding BITS
-				if( bit > checkLimit - BITS )
-					bit = checkLimit; // Processed the last partial word
-				else
-					bit += BITS;
+				if( bit > checkLimit - BITS ) bit = checkLimit; // Processed the last partial word
+				else bit += BITS;
 			}
 			
 			return checkLimit; // No difference found up to checkLimit
@@ -1092,7 +1019,7 @@ public interface BitList {
 				// `values[i] &= ...`: ANDs the fetched chunk from `and` with the corresponding
 				// word in `this.values`
 				// and stores the result back into `this.values[i]`.
-				 values[ i ] &= and.get_( bit );
+				 values[ i ] &= and.get64( bit );
 			
 			// --- 7. Final State Update ---
 			// After the loop, `this.values` holds the result of the AND operation for the
@@ -1173,8 +1100,7 @@ a:
 			// If the first common zero is at or after the result size, the result is all
 			// ones.
 			if( max_size <= max_toc ) {
-				if( 0 < this.used() )
-					Arrays.fill( this.values, 0, this.used(), 0L );
+				if( 0 < this.used() ) Arrays.fill( this.values, 0, this.used(), 0L );
 				this.trailingOnesCount = max_size; // All ones up to size
 				this.size              = max_size;
 				this.used              = 0;
@@ -1201,7 +1127,7 @@ a:
 			}
 			
 			for( int i = 0; bit < max_size && i < used(); i++, bit += BITS )
-			     values[ i ] |= or.get_( bit );
+			     values[ i ] |= or.get64( bit );
 			
 			this.size = max_size;
 			
@@ -1293,7 +1219,6 @@ a:
 				return this; // Result is all zeros.
 			}
 			
-			int min_size = Math.min( size(), xor.size() );
 			
 			// --- Calculate the new TrailingOnesCount (new_toc) for the result ---
 			
@@ -1302,7 +1227,7 @@ a:
 			
 			if( first_1 == 0 )
 				for( long x = -1; x == -1; ) {
-					x = xor.get_( new_toc ) ^ get_( new_toc );
+					x = xor.get64( new_toc ) ^ get64( new_toc );
 					if( x == -1 ) new_toc += 64;
 					else
 						new_toc += Long.numberOfTrailingZeros( ~x );
@@ -1344,17 +1269,6 @@ a:
 			
 			// Initialize loop variables for iterating through words.
 			int i = 0; // Start writing to index 0 of the result's `values` array.
-			
-			/*
-			 * <p> remember !
-			 * . MSB LSB
-			 * . | |
-			 * bits in the list [0, 0, 0, 1, 1, 1, 1] Leading 3 zeros and trailing 4 ones
-			 * index in the list 6 5 4 3 2 1 0
-			 * shift left <<
-			 * shift right >>>
-			 *
-			 */
 			
 			// --- Handle structural changes due to TOC differences ---
 			
@@ -1416,14 +1330,14 @@ a:
 					// Invert them (`~`) to get all '0's. Store these '0's in `values[i]`.
 					// This correctly sets the result bits in this segment to 0.
 					// Note: If xor.get_() wasn't all 1s, new_toc would have been different.
-					 values[ i ] = ~xor.get_( bit );
+					 values[ i ] = ~xor.get64( bit );
 				
 				// Handle the boundary word at `index` (if `shift_bits` wasn't a multiple of 64).
 				int pos = shift_bits & MASK; // Position within the boundary word.
 				if( pos != 0 ) { //process on edge bits
 					long mask_lower = mask( pos ); // Mask for lower `pos` bits (range [new_toc, original_toc)).
 					long val        = values[ i ]; // Value already shifted into upper bits of index i.
-					long xor_val    = xor.get_( new_toc + ( i << LEN ) ); // Corresponding word from xor.
+					long xor_val    = xor.get64( new_toc + ( i << LEN ) ); // Corresponding word from xor.
 					
 					// Calculate result for the boundary word:
 					// Lower `pos` bits: Calculate `1 XOR xor_val` which equals `NOT xor_val`.
@@ -1464,7 +1378,7 @@ a:
 			// `i` tracks the index in `this.values` (starting potentially non-zero if Case 4.1 occurred).
 			// `bit` tracks the corresponding absolute bit index.
 			for( int max = len4bits( max_size ); i < max; i++, bit += BITS )
-			     this.values[ i ] ^= xor.get_( bit );
+			     this.values[ i ] ^= xor.get64( bit );
 			
 			
 			this.size = max_size; // Set final size
@@ -1543,13 +1457,13 @@ a:
 			// --- 6. Perform Word-Level AND NOT Operation using get_() ---
 			for( int i = 0; i < result_values_len; i++ ) {
 				int  current_abs_bit_start = res_toc + ( i << LEN );
-				long this_word             = this.get_( current_abs_bit_start );
+				long this_word             = this.get64( current_abs_bit_start );
 				// Optimization: if this_word is 0, the result is 0, skip fetching not_word
 				if( this_word == 0L ) {
 					result_values[ i ] = 0L;
 					continue;
 				}
-				long not_word = not.get_( current_abs_bit_start );
+				long not_word = not.get64( current_abs_bit_start );
 				
 				result_values[ i ] = this_word & ~not_word;
 			}

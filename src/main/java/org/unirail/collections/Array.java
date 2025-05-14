@@ -2938,7 +2938,7 @@ public interface Array {
 			1186732499, 1424078987, 1708894781, 2050673741
 	};
 	
-	// Fixed-size 256-bit Flag Set class.
+	
 	// Represents a set of byte values (0-255) using a bitset implemented with four long integers.
 	abstract class FF implements Cloneable {
 		protected long _1, _2, _3, _4; // Segments representing bits for byte values 0-63, 64-127, 128-191, and 192-255 respectively.

@@ -83,6 +83,7 @@ public interface IntList {
 		 */
 		public int size() { return size; }
 		
+		public int length() { return values.length; }
 		/**
 		 * Checks if the list is empty.
 		 *
@@ -536,7 +537,7 @@ public interface IntList {
 					size   = 0;
 					return this;
 				}
-			values = Arrays.copyOf( values, length ); // Fixed missing assignment
+			values = Arrays.copyOf( values, length ); 
 			if( length < size ) size = length;
 			return this;
 		}
