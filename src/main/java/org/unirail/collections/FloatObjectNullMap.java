@@ -36,7 +36,6 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
-import java.util.Objects;
 
 /**
  * {@code IntObjectNullMap} is a generic interface for a map that stores key-value pairs
@@ -217,10 +216,14 @@ public interface FloatObjectNullMap {
 		 * @param value The value whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a value equal to the specified value, {@code false} otherwise.
 		 */
+		@SuppressWarnings( "unchecked" )
 		public boolean containsValue( Object value ) {
-			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
+			
+			V v;
+			try { v = ( V ) value; } catch( Exception e ) { return false; }
+			if( hasNullKey && equal_hash_V.equals( nullKeyValue, v ) ) return true;
 			for( int i = 0; i < _count; i++ )
-				if( nexts[ i ] >= -1 && Objects.equals( values.get( i ), value ) ) return true;
+				if( nexts[ i ] >= -1 && equal_hash_V.equals( values.get( i ), v ) ) return true;
 			return false;
 		}
 		
@@ -467,12 +470,12 @@ public interface FloatObjectNullMap {
 		public boolean equals( R< V > other ) {
 			if( other == this ) return true; // Same instance
 			if( other == null || hasNullKey != other.hasNullKey || // Null check, null key presence check
-			    hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) || // Null key value equality check
+			    hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) || // Null key value equality check
 			    size() != other.size() ) return false; // Size check
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );
-				if( t == INVALID_TOKEN || !Objects.equals( value( token ), other.value( t ) ) ) return false;
+				if( t == INVALID_TOKEN || !equal_hash_V.equals( value( token ), other.value( t ) ) ) return false;
 			}
 			return true; // All key-value pairs are equal
 		}
@@ -596,8 +599,8 @@ public interface FloatObjectNullMap {
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int capacity ) {
 			super( equal_hash_V );
-			if(capacity<0) throw new IllegalArgumentException("capacity < 0");
-			if( capacity > 0 )initialize( Array.prime( capacity ) ); // Initialize internal arrays if capacity is specified
+			if( capacity < 0 ) throw new IllegalArgumentException( "capacity < 0" );
+			if( capacity > 0 ) initialize( Array.prime( capacity ) ); // Initialize internal arrays if capacity is specified
 		}
 		
 		
@@ -667,7 +670,7 @@ public interface FloatObjectNullMap {
 					
 					else
 						// Otherwise, link the previous entry to the next, bypassing 'i'
-						nexts[ last ] =  next;
+						nexts[ last ] = next;
 					
 					// Step 2: Optimize removal if value is non-null and not the last non-null
 					final int lastNonNullValue = values.nulls.last1(); // Index of last non-null value

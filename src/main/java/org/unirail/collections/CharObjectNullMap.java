@@ -175,20 +175,23 @@ public interface CharObjectNullMap {
 		 * @param value The value to search for. Can be null.
 		 * @return True if the value exists in the map.
 		 */
+		@SuppressWarnings( "unchecked" )
 		public boolean containsValue( Object value ) {
-			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
+			V v;
+			try { v = ( V ) value; } catch( Exception e ) { return false; }
+			if( hasNullKey && equal_hash_V.equals( nullKeyValue, v ) ) return true;
 			if( size() == ( hasNullKey ?
 					1 :
 					0 ) ) return false; // Adjusted check: only null key?
 			
 			if( isFlatStrategy() ) {
 				for( int i = -1; ( i = next1( i ) ) != -1; ) {
-					if( Objects.equals( values.get( i ), value ) ) return true; // Use values.get()
+					if( equal_hash_V.equals( values.get( i ), v ) ) return true; // Use values.get()
 				}
 			}
 			else if( nexts != null ) {
 				for( int i = 0; i < _count; i++ ) // Iterate up to _count, not nexts.length
-					if( -2 < nexts[ i ] && Objects.equals( values.get( i ), value ) ) return true;
+					if( -2 < nexts[ i ] && equal_hash_V.equals( values.get( i ), v ) ) return true;
 			}
 			
 			return false;
@@ -474,12 +477,12 @@ public interface CharObjectNullMap {
 		public boolean equals( R< V > other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) || size() != other.size() )
+			    ( hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ) || size() != other.size() )
 				return false;
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );
-				if( t == INVALID_TOKEN || !Objects.equals( value( token ), other.value( t ) ) ) return false;
+				if( t == INVALID_TOKEN || !equal_hash_V.equals( value( token ), other.value( t ) ) ) return false;
 			}
 			return true;
 		}

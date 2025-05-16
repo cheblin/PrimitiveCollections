@@ -216,10 +216,14 @@ public interface ObjectObjectNullMap {
 		 * {@inheritDoc}
 		 */
 		@Override
+		@SuppressWarnings( "unchecked" )
 		public boolean containsValue( Object value ) {
-			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
+			
+			V v;
+			try { v = ( V ) value; } catch( Exception e ) { return false; }
+			if( hasNullKey && equal_hash_V.equals( nullKeyValue, v ) ) return true;
 			for( int i = 0; i < _count; i++ )
-				if( next( hash_nexts[ i ] ) >= -1 && Objects.equals( values.get( i ), value ) ) return true;
+				if( next( hash_nexts[ i ] ) >= -1 && equal_hash_V.equals( values.get( i ), v ) ) return true;
 			return false;
 		}
 		
@@ -450,13 +454,13 @@ public interface ObjectObjectNullMap {
 		public boolean equals( R< K, V > other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) ||
+			    ( hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ) ||
 			    size() != other.size() ) return false;
 			
 			long t;
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				if( ( t = other.tokenOf( key( token ) ) ) == INVALID_TOKEN ||
-				    !Objects.equals( value( token ), other.value( t ) ) ) return false;
+				    !equal_hash_V.equals( value( token ), other.value( t ) ) ) return false;
 			return true;
 		}
 		
@@ -1208,7 +1212,7 @@ public interface ObjectObjectNullMap {
 		public RW( Array.EqualHashOf< K > equal_hash_K, Array.EqualHashOf< V > equal_hash_V, int capacity ) {
 			super( equal_hash_V );
 			this.equal_hash_K = equal_hash_K;
-			if( capacity > 0 )initialize( Array.prime( capacity ) );
+			if( capacity > 0 ) initialize( Array.prime( capacity ) );
 		}
 		
 		/**
@@ -1665,9 +1669,13 @@ public interface ObjectObjectNullMap {
 			 * @return {@code true} if a value was removed, {@code false} otherwise.
 			 */
 			@Override
-			public boolean remove( Object item ) {
+			@SuppressWarnings( "unchecked" )
+			
+			public boolean remove( Object value ) {
+				V v;
+				try { v = ( V ) value; } catch( Exception e ) { return false; }
 				for( long token = _map.token(); token != INVALID_TOKEN; token = _map.token( token ) ) {
-					if( Objects.equals( _map.value( token ), item ) ) {
+					if( equal_hash_V.equals( _map.value( token ), v ) ) {
 						_map.remove( _map.key( token ) );
 						return true;
 					}

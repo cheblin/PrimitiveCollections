@@ -212,10 +212,13 @@ public interface UIntObjectMap {
 		 * @param value The value to search for.
 		 * @return {@code true} if the map contains a key-value pair with the specified value, {@code false} otherwise.
 		 */
+		@SuppressWarnings( "unchecked" )
 		public boolean containsValue( Object value ) {
-			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
+			V v;
+			try { v = ( V ) value; } catch( Exception e ) { return false; }
+			if( hasNullKey && equal_hash_V.equals( nullKeyValue, v ) ) return true;
 			for( int i = 0; i < _count; i++ )
-				if( -2 < nexts[ i ] && Objects.equals( values[ i ], value ) ) return true;
+				if( -2 < nexts[ i ] && equal_hash_V.equals( values[ i ], v ) ) return true;
 			return false;
 		}
 		
@@ -455,13 +458,13 @@ public interface UIntObjectMap {
 		public boolean equals( R< V > other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) ||
+			    ( hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ) ||
 			    size() != other.size() ) return false;
 			
 			long t;
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				if( ( t = other.tokenOf( key( token ) ) ) == INVALID_TOKEN ||
-				    !Objects.equals( value( token ), other.value( t ) ) ) return false;
+				    !equal_hash_V.equals( value( token ), other.value( t ) ) ) return false;
 			return true;
 		}
 		

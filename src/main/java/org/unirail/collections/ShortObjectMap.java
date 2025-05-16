@@ -145,20 +145,23 @@ public interface ShortObjectMap {
 		 * Checks if the map contains one or more mappings to the specified value.
 		 * This operation iterates through all entries and can be relatively slow (O(N) where N is the size).
 		 *
-		 * @param value The value to search for (comparison uses {@code Objects.equals}). Can be null.
+		 * @param value The value to search for (comparison uses {@code equal_hash_V.equals}). Can be null.
 		 * @return True if the value exists in the map.
 		 */
+		@SuppressWarnings( "unchecked" )
 		public boolean containsValue( Object value ) {
-			if( hasNullKey && Objects.equals( nullKeyValue, value ) ) return true;
+			V v;
+			try { v = ( V ) value; } catch( Exception e ) { return false; }
+			if( hasNullKey && equal_hash_V.equals( nullKeyValue, v ) ) return true;
 			if( size() == 0 ) return false;
 			if( isFlatStrategy() ) {
 				for( int i = -1; ( i = next1( i ) ) != -1; ) {
-					if( Objects.equals( values[ i ], value ) ) return true;
+					if( equal_hash_V.equals( values[ i ], v ) ) return true;
 				}
 			}
 			else if( nexts != null ) {
 				for( int i = 0; i < _count; i++ ) // Iterate up to _count, not nexts.length
-					if( -2 < nexts[ i ] && Objects.equals( values[ i ], value ) ) return true;
+					if( -2 < nexts[ i ] && equal_hash_V.equals( values[ i ], v ) ) return true;
 			}
 			
 			return false;
@@ -451,13 +454,13 @@ public interface ShortObjectMap {
 			
 			if( other == this ) return true;
 			if( other == null ||
-			    hasNullKey != other.hasNullKey || ( hasNullKey && !Objects.equals( nullKeyValue, other.nullKeyValue ) ) ||
+			    hasNullKey != other.hasNullKey || ( hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ) ||
 			    size() != other.size() )
 				return false;
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );
-				if( t == INVALID_TOKEN || !Objects.equals( value( token ), other.value( t ) ) ) return false;
+				if( t == INVALID_TOKEN || !equal_hash_V.equals( value( token ), other.value( t ) ) ) return false;
 			}
 			return true;
 		}
