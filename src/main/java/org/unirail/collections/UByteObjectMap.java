@@ -187,7 +187,21 @@ public interface UByteObjectMap {
 		 * {@code equal_hash_V.equals(v, value)} is {@code true}, {@code false} otherwise.
 		 */
 		public boolean containsValue( V value ) { return tokenOfValue( value ) != -1; }
+		/**
+		 * Checks if the map contains the specified key as a {@code Byte} object.
+		 *
+		 * @param key the key to search for
+		 * @return {@code true} if the key is found, {@code false} otherwise
+		 */
+		public boolean containsKey(  Character key ) { return super.contains( key ); }
 		
+		/**
+		 * Checks if the map contains the specified primitive {@code byte} key.
+		 *
+		 * @param key the primitive key to search for
+		 * @return {@code true} if the key is found, {@code false} otherwise
+		 */
+		public boolean containsKey( char key ) { return super.contains( key ); }
 		/**
 		 * Computes the hash code for this map.
 		 * <p>

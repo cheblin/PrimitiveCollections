@@ -169,7 +169,21 @@ public interface UByteUShortNullMap {
 		 * @return {@code true} if the map maps one or more keys to the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue(  Character value ) { return tokenOfValue( value ) != -1; }
+		/**
+		 * Checks if the map contains the specified key as a {@code Byte} object.
+		 *
+		 * @param key the key to search for
+		 * @return {@code true} if the key is found, {@code false} otherwise
+		 */
+		public boolean containsKey(  Character key ) { return super.contains( key ); }
 		
+		/**
+		 * Checks if the map contains the specified primitive {@code byte} key.
+		 *
+		 * @param key the primitive key to search for
+		 * @return {@code true} if the key is found, {@code false} otherwise
+		 */
+		public boolean containsKey( char key ) { return super.contains( key ); }
 		
 		/**
 		 * Checks if this map contains the specified primitive {@code int} value. This includes checking the value

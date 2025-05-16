@@ -97,7 +97,7 @@ public interface ByteDoubleMap {
 					nullKeyValue :
 					values[ ( int ) token >>> KEY_LEN ] );
 		}
-	
+		
 		
 		/**
 		 * Checks if the map contains the specified primitive value.
@@ -110,6 +110,21 @@ public interface ByteDoubleMap {
 		 */
 		public boolean containsValue( double value ) { return tokenOfValue( value ) != -1; }
 		
+		/**
+		 * Checks if the map contains the specified key as a {@code Byte} object.
+		 *
+		 * @param key the key to search for
+		 * @return {@code true} if the key is found, {@code false} otherwise
+		 */
+		public boolean containsKey(  Byte      key ) { return super.contains( key ); }
+		
+		/**
+		 * Checks if the map contains the specified primitive {@code byte} key.
+		 *
+		 * @param key the primitive key to search for
+		 * @return {@code true} if the key is found, {@code false} otherwise
+		 */
+		public boolean containsKey( byte key ) { return super.contains( key ); }
 		
 		/**
 		 * Calculates the hash code for this {@code ByteIntMap}.
@@ -122,7 +137,7 @@ public interface ByteDoubleMap {
 		 */
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
-			int h =  seed;
+			int h = seed;
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				h = Array.mix( h, Array.hash( values[ token >>> KEY_LEN ] ) );
@@ -132,7 +147,7 @@ public interface ByteDoubleMap {
 				b ^= h;
 				c *= h | 1;
 			}
-		
+			
 			
 			if( hasNullKey ) {
 				h = Array.hash( seed );
