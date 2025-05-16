@@ -84,6 +84,7 @@ public interface ShortList {
 		public int size() { return size; }
 		
 		public int length() { return values.length; }
+		
 		/**
 		 * Checks if the list is empty.
 		 *
@@ -389,7 +390,9 @@ public interface ShortList {
 		 */
 		public RW set1( int index, short value ) {
 			if( size <= index ) {
-				if( values.length <= index ) values = Arrays.copyOf( values, index + index / 2 );
+				if( values.length <= index ) values = Arrays.copyOf( values, index == 0 ?
+						16 :
+						index * 3 / 2 );
 				if( default_value != 0 ) Arrays.fill( values, size, index, ( short ) default_value );
 				size = index + 1;
 			}
@@ -429,9 +432,9 @@ public interface ShortList {
 		 * @return This instance for method chaining.
 		 */
 		public RW swap( int index1, int index2 ) {
-				if( index1 < 0 || index1 >= size() ) throw new IndexOutOfBoundsException( "Index1 must be non-negative and less than the list's size: " + index1 );
+			if( index1 < 0 || index1 >= size() ) throw new IndexOutOfBoundsException( "Index1 must be non-negative and less than the list's size: " + index1 );
 			if( index2 < 0 || index2 >= size() ) throw new IndexOutOfBoundsException( "Index2 must be non-negative and less than the list's size: " + index2 );
-		
+			
 			final short tmp = values[ index1 ];
 			values[ index1 ] = values[ index2 ];
 			values[ index2 ] = tmp;
@@ -537,7 +540,7 @@ public interface ShortList {
 					size   = 0;
 					return this;
 				}
-			values = Arrays.copyOf( values, length ); 
+			values = Arrays.copyOf( values, length );
 			if( length < size ) size = length;
 			return this;
 		}

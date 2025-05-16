@@ -319,7 +319,7 @@ public interface ObjectNullList< V > {
 		public int prevNullIndex( int index ) {
 			if( !isFlatStrategy ) return nulls.prev0( index );
 			
-			for( int i = index; -1 < --i ; )
+			for( int i = index; -1 < --i; )
 				if( values[ i ] == null ) return i;
 			return -1;
 		}
@@ -732,9 +732,12 @@ public interface ObjectNullList< V > {
 				values[ index ] = value;
 			}
 			else {
-				size_card = Array.resize( values, values.length <= max ?
-						equal_hash_V.copyOf( null, Math.max( 16, max * 3 / 2 ) ) :
-						values, i, size_card, 1 );
+				size_card = Array.resize( values,
+				                          values.length <= max ?
+						                          equal_hash_V.copyOf( null, max == 0 ?
+								                          16 :
+								                          max * 3 / 2 ) :
+						                          values, i, size_card, 1 );
 				nulls.add( index, true );
 				values[ i ] = value;
 			}

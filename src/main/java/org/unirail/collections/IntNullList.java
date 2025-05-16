@@ -1176,7 +1176,9 @@ public interface IntNullList {
 			if( index < 0 ) throw new IllegalArgumentException( "Index cannot be negative" );
 			
 			if( dst.isFlatStrategy ) {
-				if( dst.values.length <= index ) dst.values = Arrays.copyOf( dst.values, Math.max( index + 1, dst.values.length * 3 / 2 ) ); // Ensure array capacity.
+				if( dst.values.length <= index ) dst.values = Arrays.copyOf( dst.values, index == 0 ?
+						16 :
+						index * 3 / 2 ); // Ensure array capacity.
 				dst.values[ index ] = ( int ) value; // Set value in flat array.
 				dst.nulls.set1( index ); // Mark as non-null.
 			}
@@ -1193,7 +1195,9 @@ public interface IntNullList {
 				else {
 					dst.cardinality    = Array.resize( dst.values,
 					                                   dst.values.length <= max ?
-							                                   ( dst.values = new int[ 2 + max * 3 / 2 ] ) :
+							                                   ( dst.values = new int[ max == 0 ?
+									                                   16 :
+									                                   max * 3 / 2 ] ) :
 							                                   dst.values,
 					                                   rank, dst.cardinality, 1 ); // Insert a slot for the new value.
 					dst.values[ rank ] = ( int ) value; // Set the new value in compressed array.

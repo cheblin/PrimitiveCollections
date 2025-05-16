@@ -108,8 +108,8 @@ public interface ObjectList {
 		 */
 		public V[] toArray( int index, int len, V[] dst ) {
 			if( index < 0 ) throw new IndexOutOfBoundsException( "index cannot be negative" );
-			if( size <= index  ) throw new IndexOutOfBoundsException( "index range exceeds bounds" );
-			if (index + len > size)         throw new IllegalArgumentException("range exceeds size");
+			if( size <= index ) throw new IndexOutOfBoundsException( "index range exceeds bounds" );
+			if( index + len > size ) throw new IllegalArgumentException( "range exceeds size" );
 			if( dst == null || dst.length < len ) return Arrays.copyOfRange( values, index, index + len );
 			System.arraycopy( values, index, dst, 0, len );
 			return dst;
@@ -339,8 +339,11 @@ public interface ObjectList {
 			
 			int max = Math.max( index, size ) + len;
 			size = Array.resize( values,
-			                     values.length < max ?
-					                     values = equal_hash_V.copyOf( null, max * 3 / 2 ) :
+			                     values.length <= max ?
+					                     values = equal_hash_V.copyOf( null,
+					                                                   max == 0 ?
+							                                                   16 :
+							                                                   max * 3 / 2 ) :
 					                     values, index, size, len );
 			System.arraycopy( src, src_index, values, index, len );
 			return this;
@@ -408,7 +411,10 @@ public interface ObjectList {
 		public RW< V > set1( int index, V value ) {
 			if( index < 0 ) throw new IndexOutOfBoundsException();
 			if( size <= index ) {
-				if( values.length <= index ) values = equal_hash_V.copyOf( values, 2 + index * 3 / 2 );
+				if( values.length <= index ) values = equal_hash_V.copyOf( values,
+				                                                           index == 0 ?
+						                                                           16 :
+						                                                           index * 3 / 2 );
 				size = index + 1;
 			}
 			values[ index ] = value;
@@ -546,9 +552,9 @@ public interface ObjectList {
 		 * @return This list for method chaining.
 		 */
 		public RW< V > swap( int index1, int index2 ) {
-				if( index1 < 0 || index1 >= size() ) throw new IndexOutOfBoundsException( "Index1 must be non-negative and less than the list's size: " + index1 );
+			if( index1 < 0 || index1 >= size() ) throw new IndexOutOfBoundsException( "Index1 must be non-negative and less than the list's size: " + index1 );
 			if( index2 < 0 || index2 >= size() ) throw new IndexOutOfBoundsException( "Index2 must be non-negative and less than the list's size: " + index2 );
-		
+			
 			final V tmp = values[ index1 ];
 			values[ index1 ] = values[ index2 ];
 			values[ index2 ] = tmp;
