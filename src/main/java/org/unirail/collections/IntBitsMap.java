@@ -435,26 +435,26 @@ public interface IntBitsMap {
 		 * @throws IllegalArgumentException if bits_per_item is out of range.
 		 */
 		public RW( int bits_per_item ) {
-			this( 0, bits_per_item );
+			this( bits_per_item, 0 );
 		}
 		
 		/**
 		 * Constructs an empty map with specified initial capacity and bits per value.
 		 *
-		 * @param capacity      The initial capacity (rounded to the nearest prime).
 		 * @param bits_per_item The number of bits per value (1 to 7 inclusive).
+		 * @param capacity      The initial capacity (rounded to the nearest prime).
 		 * @throws IllegalArgumentException if bits_per_item is out of range or capacity is negative.
 		 */
-		public RW( int capacity, int bits_per_item ) { this( capacity, bits_per_item, 0 ); }
+		public RW( int bits_per_item, int capacity ) { this( bits_per_item, capacity, 0 ); }
 		
 		/**
 		 * Constructs an empty map with specified initial capacity, bits per value, and default value.
 		 *
-		 * @param capacity      The initial capacity (rounded to the nearest prime).
 		 * @param bits_per_item The number of bits per value (1 to 7 inclusive).
+		 * @param capacity      The initial capacity (rounded to the nearest prime).
 		 * @param defaultValue  The default value for the {@link BitsList} and reset operations.
 		 */
-		public RW( int capacity, int bits_per_item, int defaultValue ) {
+		public RW( int bits_per_item, int capacity, int defaultValue ) {
 			if( capacity < 0 ) throw new NegativeArraySizeException( "capacity" );
 			if( capacity > 0 )initialize( Array.prime( capacity ) );
 			values = new BitsList.RW( bits_per_item, defaultValue, capacity );
