@@ -419,7 +419,7 @@ public class PerformanceBenchmarks {
 	}
 	
 	@Benchmark public void Short_AdHoc_Search( MapState state ) {
-		for( short key : shortKeys ) b = state.shortAdHoc.contains( key );
+		for( short key : shortKeys ) b = state.shortAdHoc.containsKey( key );
 	}
 	
 	@Benchmark public void Short_AdHoc_Get( MapState state ) {
@@ -458,7 +458,7 @@ public class PerformanceBenchmarks {
 	}
 	
 	@Benchmark public void Int_AdHoc_Search( MapState state ) {
-		for( int key : intKeys ) b = state.intAdHoc.contains( key );
+		for( int key : intKeys ) b = state.intAdHoc.containsKey( key );
 	}
 	
 	@Benchmark public void Int_AdHoc_Get( MapState state ) {
@@ -497,7 +497,7 @@ public class PerformanceBenchmarks {
 	}
 	
 	@Benchmark public void Long_AdHoc_Search( MapState state ) {
-		for( long key : longKeys ) b = state.longAdHoc.contains( key );
+		for( long key : longKeys ) b = state.longAdHoc.containsKey( key );
 	}
 	
 	@Benchmark public void Long_AdHoc_Get( MapState state ) {
@@ -539,7 +539,7 @@ public class PerformanceBenchmarks {
 	}
 	
 	@Benchmark public void IntBool_AdHoc_Search( MapState state ) {
-		for( int key : intKeys ) b = state.intBoolAdHoc.contains( key );
+		for( int key : intKeys ) b = state.intBoolAdHoc.containsKey( key );
 	}
 	
 	@Benchmark public void IntBool_AdHoc_Get( MapState state ) {
