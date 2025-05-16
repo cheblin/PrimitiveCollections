@@ -565,16 +565,21 @@ public interface ObjectNullList< V > {
 		 * Constructs an empty list with a specified initial capacity and equality utility.
 		 *
 		 * @param equal_hash_V The utility for type-safe operations on type {@code V}.
-		 * @param length       The initial capacity of the internal array.
+		 * @param items        The initial capacity for the internal {@code values} array, which determines the
+		 *                     number of elements the list can hold without resizing.
+		 *                     If positive, it sets the initial capacity.
+		 *                     If negative, the list is initialized with a capacity and size of {@code -items},
+		 *                     filled with null elements.
 		 */
-		public RW( Array.EqualHashOf< V > equal_hash_V, int length ) {
+		public RW( Array.EqualHashOf< V > equal_hash_V, int items ) {
 			super( equal_hash_V );
+			int length = Math.abs( items );
 			
-			
-			nulls  = new BitList.RW( length );
-			values = length > 0 ?
-					equal_hash_V.copyOf( null, Math.max( 16, length ) ) :
-					equal_hash_V.OO;
+			nulls  = new BitList.RW( items );
+			values = length == 0 ?
+					equal_hash_V.OO :
+					equal_hash_V.copyOf( null, length );
+			if( items < 0 ) set1( -items - 1, null );// + set size
 		}
 		
 		/**
