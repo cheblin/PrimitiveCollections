@@ -575,7 +575,7 @@ public interface ObjectNullList< V > {
 			super( equal_hash_V );
 			int length = Math.abs( items );
 			
-			nulls  = new BitList.RW( items );
+			nulls  = new BitList.RW( length );
 			values = length == 0 ?
 					equal_hash_V.OO :
 					equal_hash_V.copyOf( null, length );
