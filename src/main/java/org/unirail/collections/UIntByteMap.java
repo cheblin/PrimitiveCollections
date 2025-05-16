@@ -37,9 +37,6 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.stream.Stream;
 
 /**
  * A specialized map implementation for storing integer key-value pairs with efficient operations.
@@ -115,7 +112,7 @@ public interface UIntByteMap {
 		 * @param key The key to check (may be {@code null}).
 		 * @return {@code true} if the key exists in the map, {@code false} otherwise.
 		 */
-		public boolean contains(  Long      key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey(  Long      key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive int key.
@@ -123,7 +120,7 @@ public interface UIntByteMap {
 		 * @param key The primitive int key to check.
 		 * @return {@code true} if the key exists in the map, {@code false} otherwise.
 		 */
-		public boolean contains( long key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( long key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.

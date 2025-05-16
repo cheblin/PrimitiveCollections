@@ -123,7 +123,7 @@ public interface ObjectIntMap {
 		 * @param key The key to check.
 		 * @return {@code true} if the map contains the key, {@code false} otherwise.
 		 */
-		public boolean contains( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.

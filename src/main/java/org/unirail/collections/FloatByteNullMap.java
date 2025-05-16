@@ -132,7 +132,7 @@ public interface FloatByteNullMap {
 		 * @param key the key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean contains(  Float     key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey(  Float     key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this map contains a mapping for the specified key (primitive int).
@@ -140,7 +140,7 @@ public interface FloatByteNullMap {
 		 * @param key the key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean contains( float key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( float key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this map contains the specified value (boxed).

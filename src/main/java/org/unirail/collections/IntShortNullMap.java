@@ -132,7 +132,7 @@ public interface IntShortNullMap {
 		 * @param key the key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean contains(  Integer   key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey(  Integer   key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this map contains a mapping for the specified key (primitive int).
@@ -140,7 +140,7 @@ public interface IntShortNullMap {
 		 * @param key the key whose presence in this map is to be tested.
 		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
-		public boolean contains( int key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( int key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this map contains the specified value (boxed).

@@ -94,7 +94,7 @@ public interface ObjectBitsMap {
 	 * </p>
 	 * <ul>
 	 *     <li>Maintains the hash table structure (buckets, hash_nexts, keys, values).</li>
-	 *     <li>Implements read operations such as {@link #size()}, {@link #contains(Object)}, {@link #tokenOf(Object)}, {@link #key(long)}, and {@link #value(long)}.</li>
+	 *     <li>Implements read operations such as {@link #size()}, {@link #containsKey(Object)}, {@link #tokenOf(Object)}, {@link #key(long)}, and {@link #value(long)}.</li>
 	 *     <li>Supports token-based iteration for safe and efficient traversal.</li>
 	 *     <li>Provides {@link #hashCode()}, {@link #equals(Object)}, {@link #clone()}, and {@link #toJSON(JsonWriter)} for standard operations.</li>
 	 * </ul>
@@ -232,7 +232,7 @@ public interface ObjectBitsMap {
 		 * @param key The key to check for.
 		 * @return {@code true} if the key is mapped, {@code false} otherwise.
 		 */
-		public boolean contains( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.

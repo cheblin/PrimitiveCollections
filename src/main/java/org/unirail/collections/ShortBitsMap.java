@@ -107,7 +107,7 @@ public interface ShortBitsMap {
 		 * @param key The key to check.
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains(  Short     key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey(  Short     key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
@@ -115,7 +115,7 @@ public interface ShortBitsMap {
 		 * @param key The primitive char key (0 to 65535).
 		 * @return True if the key exists in the map.
 		 */
-		public boolean contains( short key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( short key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.

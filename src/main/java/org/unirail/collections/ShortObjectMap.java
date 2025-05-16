@@ -131,7 +131,7 @@ public interface ShortObjectMap {
 		 * @param key The key to check (can be null).
 		 * @return True if a mapping for the key exists.
 		 */
-		public boolean contains(  Short     key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey(  Short     key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
@@ -139,7 +139,7 @@ public interface ShortObjectMap {
 		 * @param key The primitive char key (0 to 65535).
 		 * @return True if a mapping for the key exists.
 		 */
-		public boolean contains( short key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( short key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains one or more mappings to the specified value.

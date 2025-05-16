@@ -129,11 +129,11 @@ public interface ObjectUShortNullMap {
 		 * @param key key whose presence in this map is to be tested
 		 * @return true if this map contains a mapping for the specified key, false otherwise.
 		 */
-		public boolean contains( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this map contains the specified value.
-		 * Note: This operation is less efficient than {@link #contains(Object)} as it requires iterating through the values.
+		 * Note: This operation is less efficient than {@link #containsKey(Object)} as it requires iterating through the values.
 		 *
 		 * @param value value whose presence in this map is to be tested (can be null)
 		 * @return true if this map contains a mapping with the specified value, false otherwise.
@@ -150,7 +150,7 @@ public interface ObjectUShortNullMap {
 		
 		/**
 		 * Checks if this map contains the specified int value.
-		 * Note: This operation is less efficient than {@link #contains(Object)} as it requires iterating through the values.
+		 * Note: This operation is less efficient than {@link #containsKey(Object)} as it requires iterating through the values.
 		 *
 		 * @param value int value whose presence in this map is to be tested
 		 * @return true if this map contains a mapping with the specified value, false otherwise.

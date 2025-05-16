@@ -187,7 +187,7 @@ public interface CharULongNullMap {
 		 * @param key The key to check (can be null).
 		 * @return {@code true} if a mapping for the key exists, {@code false} otherwise.
 		 */
-		public boolean contains(  Character key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey(  Character key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
@@ -195,7 +195,7 @@ public interface CharULongNullMap {
 		 * @param key The primitive key (0 to 65535).
 		 * @return {@code true} if a mapping for the key exists, {@code false} otherwise.
 		 */
-		public boolean contains( char key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( char key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if this map contains one or more keys mapped to the specified value (boxed {@code Integer}).

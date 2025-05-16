@@ -112,7 +112,7 @@ public interface DoubleBitsMap {
 		 * @param key The key to check (boxed {@link Integer}, may be {@code null}).
 		 * @return {@code true} if the key exists in the map, {@code false} otherwise.
 		 */
-		public boolean contains(  Double    key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey(  Double    key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
@@ -120,7 +120,7 @@ public interface DoubleBitsMap {
 		 * @param key The primitive {@code int} key.
 		 * @return {@code true} if the key exists in the map, {@code false} otherwise.
 		 */
-		public boolean contains( double key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( double key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains the specified value.

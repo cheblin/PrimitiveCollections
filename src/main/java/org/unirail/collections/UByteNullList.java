@@ -298,7 +298,7 @@ public interface UByteNullList {
 		 * @param value The primitive value to check for.
 		 * @return {@code true} if the value is found among the non-null elements, {@code false} otherwise.
 		 */
-		public boolean contains( char value ) { return indexOf( value ) != -1; }
+		public boolean containsKey( char value ) { return indexOf( value ) != -1; }
 		
 		/**
 		 * Checks if this list contains at least one element equal to the specified
@@ -312,7 +312,7 @@ public interface UByteNullList {
 		 * @return {@code true} if the list contains the specified value (or a null if
 		 * input is null), {@code false} otherwise.
 		 */
-		public boolean contains(  Character value ) {
+		public boolean containsKey(  Character value ) {
 			int i;
 			return value == null ?
 					nextNullIndex( -1 ) != -1 :
