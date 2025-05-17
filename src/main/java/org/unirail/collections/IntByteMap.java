@@ -273,9 +273,9 @@ public interface IntByteMap {
 		 * @return The value associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
 		 */
 		public byte value( long token ) {
-			return (byte)isKeyNull( token ) ?
+			return (byte) (isKeyNull( token ) ?
 					nullKeyValue :
-					values[ index( token ) ]/**/;
+					values[ index( token ) ]);
 		}
 		
 		/**

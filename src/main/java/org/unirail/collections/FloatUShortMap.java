@@ -273,9 +273,9 @@ public interface FloatUShortMap {
 		 * @return The value associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
 		 */
 		public char value( long token ) {
-			return isKeyNull( token ) ?
+			return  (isKeyNull( token ) ?
 					nullKeyValue :
-					values[ index( token ) ]/**/;
+					values[ index( token ) ]);
 		}
 		
 		/**

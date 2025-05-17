@@ -273,9 +273,9 @@ public interface IntUIntMap {
 		 * @return The value associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
 		 */
 		public long value( long token ) {
-			return (0xFFFFFFFFL & isKeyNull)( token ) ?
+			return (0xFFFFFFFFL &  (isKeyNull( token ) ?
 					nullKeyValue :
-					values[ index( token ) ]/**/;
+					values[ index( token ) ]));
 		}
 		
 		/**
