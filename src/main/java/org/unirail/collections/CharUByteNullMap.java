@@ -481,7 +481,7 @@ public interface CharUByteNullMap {
 		public boolean equals( R other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyValue != other.nullKeyValue ) ||
+			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyHasValue && nullKeyValue != other.nullKeyValue ) ||
 			    size() != other.size() )
 				return false;
 			

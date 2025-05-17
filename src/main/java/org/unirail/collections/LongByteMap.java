@@ -145,9 +145,9 @@ public interface LongByteMap {
 		 */
 		public long tokenOf(  Long      key ) {
 			return key == null ?
-					( hasNullKey ?
+					hasNullKey ?
 							token( NULL_KEY_INDEX ) :
-							INVALID_TOKEN ) :
+							INVALID_TOKEN :
 					tokenOf( key.longValue     () );
 		}
 		
@@ -264,7 +264,7 @@ public interface LongByteMap {
 		 * @return The key associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
 		 * @throws IllegalStateException if the token points to the null key (use {@link #isKeyNull(long)} to check).
 		 */
-		public long key( long token ) { return  ( keys[ index( token ) ] ); }
+		public long key( long token ) { return  keys[ index( token ) ]; }
 		
 		/**
 		 * Retrieves the value associated with the specified token.
@@ -273,9 +273,9 @@ public interface LongByteMap {
 		 * @return The value associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
 		 */
 		public byte value( long token ) {
-			return (byte)( isKeyNull( token ) ?
+			return (byte)isKeyNull( token ) ?
 					nullKeyValue :
-					values[ index( token ) ] );
+					values[ index( token ) ]/**/;
 		}
 		
 		/**
@@ -322,7 +322,7 @@ public interface LongByteMap {
 		public boolean equals( R other ) {
 			if( other == this ) return true;
 			if( other == null ||
-			    hasNullKey != other.hasNullKey || ( hasNullKey && nullKeyValue != other.nullKeyValue ) ||
+			    hasNullKey != other.hasNullKey || hasNullKey && nullKeyValue != other.nullKeyValue ||
 			    size() != other.size() )
 				return false;
 			
@@ -387,7 +387,7 @@ public interface LongByteMap {
 		
 		protected long token( int index )   { return ( long ) _version << VERSION_SHIFT | index; }
 		
-		protected int index( long token )   { return ( int ) ( ( int ) token ); }
+		protected int index( long token )   { return ( int ) ( int ) token; }
 		
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 	}
@@ -481,7 +481,8 @@ public interface LongByteMap {
 			else {
 				if( _count == _nexts.length ) {
 					resize( Array.prime( _count * 2 ) );
-					bucket = ( ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1 );
+					
+					bucket = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
 				}
 				index = _count++;
 			}
@@ -642,7 +643,7 @@ public interface LongByteMap {
 				if( -2 < new_next[ i ] ) {
 					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
 					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 ); //relink chain
-					_buckets[ bucketIndex ] = ( i + 1 );
+					_buckets[ bucketIndex ] = i + 1;
 				}
 			
 			nexts  = new_next;

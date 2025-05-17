@@ -323,9 +323,9 @@ public interface ObjectIntNullMap {
 		 * @return The value associated with the token, or 0 if the value is null or the token is invalid
 		 */
 		public int value( long token ) {
-			return  (index( token ) == NULL_KEY_INDEX ?
+			return  ( index( token ) == NULL_KEY_INDEX ?
 					nullKeyValue :
-					values.get( index( token ) ));
+					values.get( index( token ) ) );
 		}
 		
 		@Override
@@ -370,8 +370,7 @@ public interface ObjectIntNullMap {
 		public boolean equals( R< K > other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue ||
-			                    nullKeyHasValue && nullKeyValue != other.nullKeyValue ) ||
+			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyHasValue && nullKeyValue != other.nullKeyValue ) ||
 			    size() != other.size() ) return false;
 			
 			long t;
@@ -508,7 +507,7 @@ public interface ObjectIntNullMap {
 		 */
 		public boolean put( K key,  Integer   value ) {
 			return value == null ?
-					put( key, (int)0, false ) :
+					put( key, (int ) 0, false ) :
 					put( key, value, true );
 		}
 		

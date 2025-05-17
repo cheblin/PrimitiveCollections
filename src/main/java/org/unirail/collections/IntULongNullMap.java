@@ -380,7 +380,7 @@ public interface IntULongNullMap {
 		public boolean equals( R other ) {
 			if( other == this ) return true;
 			if( other == null || hasNullKey != other.hasNullKey ||
-			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyValue != other.nullKeyValue ) ||
+			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyHasValue && nullKeyValue != other.nullKeyValue ) ||
 			    size() != other.size() )
 				return false;
 			
@@ -500,7 +500,7 @@ public interface IntULongNullMap {
 		 */
 		public RW( int capacity ) {
 			values = new ULongNullList.RW( 0 );
-			if( capacity > 0 )initialize( Array.prime( capacity ) );
+			if( capacity > 0 ) initialize( Array.prime( capacity ) );
 		}
 		
 		/**
@@ -523,10 +523,10 @@ public interface IntULongNullMap {
 		 */
 		private int initialize( int capacity ) {
 			_version++;
-			_buckets  = new int[ capacity ];
-			nexts     = new int[ capacity ];
-			keys      = new int[ capacity ];
-			values    = new ULongNullList.RW( capacity );
+			_buckets   = new int[ capacity ];
+			nexts      = new int[ capacity ];
+			keys       = new int[ capacity ];
+			values     = new ULongNullList.RW( capacity );
 			_freeList  = -1;
 			_count     = 0;
 			_freeCount = 0;
