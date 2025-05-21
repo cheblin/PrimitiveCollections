@@ -322,7 +322,7 @@ public interface DoubleUByteMap {
 		public boolean equals( R other ) {
 			if( other == this ) return true;
 			if( other == null ||
-			    hasNullKey != other.hasNullKey || hasNullKey && nullKeyValue != other.nullKeyValue ||
+			    hasNullKey != other.hasNullKey ||  hasNullKey && nullKeyValue != other.nullKeyValue ||
 			    size() != other.size() )
 				return false;
 			
