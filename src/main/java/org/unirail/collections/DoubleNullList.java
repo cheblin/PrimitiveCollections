@@ -1176,9 +1176,10 @@ public interface DoubleNullList {
 			if( index < 0 ) throw new IllegalArgumentException( "Index cannot be negative" );
 			
 			if( dst.isFlatStrategy ) {
-				if( dst.values.length <= index ) dst.values = Arrays.copyOf( dst.values, index == 0 ?
-						16 :
-						index * 3 / 2 ); // Ensure array capacity.
+				if( dst.values.length <= index ) dst.values = Arrays.copyOf( dst.values,
+				                                                             index == 0 ?
+						                                                             16 :
+						                                                             index * 3 / 2 ); // Ensure array capacity.
 				dst.values[ index ] = ( double ) value; // Set value in flat array.
 				dst.nulls.set1( index ); // Mark as non-null.
 			}

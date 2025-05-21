@@ -1883,7 +1883,7 @@ a:
 		}
 		
 		/**
-		 * Sets the bit at the specified index to '1'.
+		 * Sets the bit at the specified bit to '1'.
 		 * Handles adjustments to {@code trailingOnesCount} and the {@code values} array,
 		 * including potential merging of adjacent '1' sequences and shifting bits if
 		 * a '0' within the {@code values} array (conceptually, the first '0' after
