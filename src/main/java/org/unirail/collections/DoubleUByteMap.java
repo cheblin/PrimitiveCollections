@@ -50,16 +50,16 @@ public interface DoubleUByteMap {
 	 * Abstract base class providing read-only operations for the map.
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
-		protected boolean           hasNullKey;          // Indicates if the map contains a null key.
-		protected byte       nullKeyValue;        // Value for the null key, stored separately.
-		protected int[]             _buckets;            // Hash table buckets array (1-based indices to chain heads).
-		protected int[]             nexts;               // Packed entries: next index in collision chain.
-		protected double[]     keys; // Keys array.
-		protected byte[]     values;              // Values array.
-		protected int               _count;              // Total number of entries in arrays (including free slots).
-		protected int               _freeList;           // Index of the first entry in the free list (-1 if empty).
-		protected int               _freeCount;          // Number of free entries in the free list.
-		protected int               _version;            // Version counter for concurrent modification detection.
+		protected boolean  hasNullKey;          // Indicates if the map contains a null key.
+		protected byte     nullKeyValue;        // Value for the null key, stored separately.
+		protected int[]    _buckets;            // Hash table buckets array (1-based indices to chain heads).
+		protected int[]    nexts;               // Packed entries: next index in collision chain.
+		protected double[] keys; // Keys array.
+		protected byte[]   values;              // Values array.
+		protected int      _count;              // Total number of entries in arrays (including free slots).
+		protected int      _freeList;           // Index of the first entry in the free list (-1 if empty).
+		protected int      _freeCount;          // Number of free entries in the free list.
+		protected int      _version;            // Version counter for concurrent modification detection.
 		
 		protected static final int  StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
 		protected static final int  VERSION_SHIFT   = 32; // Bits to shift version in token.
@@ -112,7 +112,7 @@ public interface DoubleUByteMap {
 		 * @param key The key to check (may be {@code null}).
 		 * @return {@code true} if the key exists in the map, {@code false} otherwise.
 		 */
-		public boolean containsKey(  Double    key ) { return tokenOf( key ) != INVALID_TOKEN; }
+		public boolean containsKey( Double key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive int key.
@@ -143,12 +143,12 @@ public interface DoubleUByteMap {
 		 * @param key The key to find (may be {@code null}).
 		 * @return A token representing the key's location if found, or {@code INVALID_TOKEN} if not found.
 		 */
-		public long tokenOf(  Double    key ) {
+		public long tokenOf( Double key ) {
 			return key == null ?
 					hasNullKey ?
 							token( NULL_KEY_INDEX ) :
 							INVALID_TOKEN :
-					tokenOf( key.doubleValue     () );
+					tokenOf( key.doubleValue() );
 		}
 		
 		/**
@@ -247,7 +247,7 @@ public interface DoubleUByteMap {
 		 *
 		 * @return The value for the null key; behavior is undefined if no null key exists (check {@link #hasNullKey()} first).
 		 */
-		public char nullKeyValue() { return (char)( 0xFF &  nullKeyValue); }
+		public char nullKeyValue() { return ( char ) ( 0xFF & nullKeyValue ); }
 		
 		/**
 		 * Checks if the specified token corresponds to the null key.
@@ -264,7 +264,7 @@ public interface DoubleUByteMap {
 		 * @return The key associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
 		 * @throws IllegalStateException if the token points to the null key (use {@link #isKeyNull(long)} to check).
 		 */
-		public double key( long token ) { return  keys[ index( token ) ]; }
+		public double key( long token ) { return keys[ index( token ) ]; }
 		
 		/**
 		 * Retrieves the value associated with the specified token.
@@ -273,9 +273,9 @@ public interface DoubleUByteMap {
 		 * @return The value associated with the token; behavior is undefined if the token is {@code INVALID_TOKEN} or invalid.
 		 */
 		public char value( long token ) {
-			return (char)( 0xFF &  (isKeyNull( token ) ?
+			return ( char ) ( 0xFF & ( isKeyNull( token ) ?
 					nullKeyValue :
-					values[ index( token ) ]));
+					values[ index( token ) ] ) );
 		}
 		
 		/**
@@ -322,7 +322,7 @@ public interface DoubleUByteMap {
 		public boolean equals( R other ) {
 			if( other == this ) return true;
 			if( other == null ||
-			    hasNullKey != other.hasNullKey ||  hasNullKey && nullKeyValue != other.nullKeyValue ||
+			    hasNullKey != other.hasNullKey || hasNullKey && nullKeyValue != other.nullKeyValue ||
 			    size() != other.size() )
 				return false;
 			
@@ -410,7 +410,7 @@ public interface DoubleUByteMap {
 		 * @param capacity The initial capacity (will be adjusted to a prime number if greater than 0).
 		 */
 		public RW( int capacity ) {
-			if( capacity > 0 )initialize( Array.prime( capacity ) );
+			if( capacity > 0 ) initialize( Array.prime( capacity ) );
 		}
 		
 		/**
@@ -421,13 +421,13 @@ public interface DoubleUByteMap {
 		 */
 		private int initialize( int capacity ) {
 			_version++;
-			_buckets  = new int[ capacity ];
-			nexts     = new int[ capacity ];
-			keys      = new double[ capacity ];
-			values    = new byte[ capacity ];
-			_freeList = -1;
-			_count    = 0;
-			_freeCount =0;
+			_buckets   = new int[ capacity ];
+			nexts      = new int[ capacity ];
+			keys       = new double[ capacity ];
+			values     = new byte[ capacity ];
+			_freeList  = -1;
+			_count     = 0;
+			_freeCount = 0;
 			return capacity;
 		}
 		
@@ -438,10 +438,10 @@ public interface DoubleUByteMap {
 		 * @param value The value to store as an integer.
 		 * @return {@code true} if the map was structurally modified (new entry added), {@code false} if an existing key’s value was updated.
 		 */
-		public boolean put(  Double    key, char value ) {
+		public boolean put( Double key, char value ) {
 			return key == null ?
 					this.put( value ) :
-					put( (double)(key + 0), value );
+					put( ( double ) ( key + 0 ), value );
 		}
 		
 		
@@ -517,10 +517,10 @@ public interface DoubleUByteMap {
 		 * @param key The key to remove (may be {@code null}).
 		 * @return The token of the removed entry if found and removed, or {@code INVALID_TOKEN} if not found.
 		 */
-		public boolean remove(  Double    key ) {
+		public boolean remove( Double key ) {
 			return key == null ?
 					removeNullKey() :
-					remove( key.doubleValue     () );
+					remove( key.doubleValue() );
 		}
 		
 		/**
@@ -550,7 +550,7 @@ public interface DoubleUByteMap {
 			if( i < 0 ) return false;
 			
 			int next = nexts[ i ];
-			if( keys[ i ] == key ) _buckets[ bucketIndex ] =  next + 1 ;
+			if( keys[ i ] == key ) _buckets[ bucketIndex ] = next + 1;
 			else
 				for( int last = i, collisionCount = 0; ; ) {
 					if( ( i = next ) < 0 ) return false;
@@ -563,7 +563,7 @@ public interface DoubleUByteMap {
 					if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
 			
-			nexts[ i ] = StartOfFreeList - _freeList ;
+			nexts[ i ] = StartOfFreeList - _freeList;
 			_freeList  = i;
 			_freeCount++;
 			_version++;
@@ -616,13 +616,13 @@ public interface DoubleUByteMap {
 			int newSize         = Array.prime( capacity );
 			if( currentCapacity <= newSize ) return;
 			
-			int[]         old_next   = nexts;
+			int[]    old_next   = nexts;
 			double[] old_keys   = keys;
-			byte[] old_values = values;
-			int           old_count  = _count;
+			byte[]   old_values = values;
+			int      old_count  = _count;
 			initialize( newSize );
 			for( int i = 0; i < old_count; i++ )
-				if( -2 < old_next[ i ] ) put(  old_keys[ i ],(char)( 0xFF &  old_values[ i ]) );
+				if( -2 < old_next[ i ] ) put( old_keys[ i ], ( char ) ( 0xFF & old_values[ i ] ) );
 		}
 		
 		/**
@@ -631,12 +631,12 @@ public interface DoubleUByteMap {
 		 * @param newSize The desired new capacity; capped at a maximum based on key type constraints.
 		 */
 		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Double   .BYTES * 8 );
+			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 - Double.BYTES * 8 );
 			_version++;
-			int[]         new_next   = Arrays.copyOf( nexts, newSize );
-			double[] new_keys   = Arrays.copyOf( keys, newSize );
-			byte[] new_values = Arrays.copyOf( values, newSize );
-			final int     count      = _count;
+			int[]     new_next   = Arrays.copyOf( nexts, newSize );
+			double[]  new_keys   = Arrays.copyOf( keys, newSize );
+			byte[]    new_values = Arrays.copyOf( values, newSize );
+			final int count      = _count;
 			
 			_buckets = new int[ newSize ];
 			for( int i = 0; i < count; i++ )
