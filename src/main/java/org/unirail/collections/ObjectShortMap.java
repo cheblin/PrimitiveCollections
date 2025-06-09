@@ -65,21 +65,26 @@ public interface ObjectShortMap {
 		protected boolean                hasNullKey;        // Indicates if the Map contains a null key
 		protected short            nullKeyValue;      // Value for the null key
 		protected int[]                  _buckets;         // Hash table buckets array
-		protected long[]                 hash_nexts;       // Array of entries: hashCode | next index
+		protected int[]                  hash;             // Array of entries: hashCode
+		protected int[]                  links;            // Array of entries: next index in collision chain (0-based)
 		protected K[]                    keys;            // Array of keys
 		protected short[]          values;          // Array of values
-		protected int                    _count;          // Total number of entries
-		protected int                    _freeList;       // Index of first free entry
-		protected int                    _freeCount;      // Number of free entries
+		protected int                    _lo_Size;         // Number of active entries in the low region (0 to _lo_Size-1).
+		protected int                    _hi_Size;         // Number of active entries in the high region (keys.length - _hi_Size to keys.length-1).
 		protected int                    _version;        // Version for modification detection
 		protected Array.EqualHashOf< K > equal_hash_K;    // Key equality and hash strategy
 		
-		protected static final int  StartOfFreeList = -3;
-		protected static final long HASH_CODE_MASK  = 0xFFFFFFFF00000000L;
-		protected static final long NEXT_MASK       = 0x00000000FFFFFFFFL;
-		protected static final int  NULL_KEY_INDEX  = 0x7FFF_FFFF;
-		protected static final int  VERSION_SHIFT   = 32;
-		protected static final long INVALID_TOKEN   = -1L;
+		protected static final int  NULL_KEY_INDEX = 0x7FFF_FFFF;
+		protected static final int  VERSION_SHIFT  = 32;
+		protected static final long INVALID_TOKEN  = -1L;
+		
+		/**
+		 * Returns the total number of active non-null entries in the map.
+		 * This is the sum of entries in the low and high regions.
+		 *
+		 * @return The current count of non-null entries.
+		 */
+		protected int _count() { return _lo_Size + _hi_Size; }
 		
 		/**
 		 * Checks if the map is empty.
@@ -94,9 +99,9 @@ public interface ObjectShortMap {
 		 * @return The number of key-value mappings, including the null key if present.
 		 */
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count() + ( hasNullKey ?
+			                    1 :
+			                    0 );
 		}
 		
 		/**
@@ -112,9 +117,9 @@ public interface ObjectShortMap {
 		 * @return The length of the internal arrays, or 0 if uninitialized.
 		 */
 		public int length() {
-			return hash_nexts == null ?
-					0 :
-					hash_nexts.length;
+			return keys == null ?
+			       0 :
+			       keys.length;
 		}
 		
 		/**
@@ -135,9 +140,12 @@ public interface ObjectShortMap {
 			
 			if( hasNullKey && nullKeyValue == value ) return true;
 			
-			if( _count - _freeCount == 0 ) return false;
-			for( int i = 0; i < _count; i++ )
-				if( -2 < next( hash_nexts[ i ] ) && values[ i ] == value ) return true;
+			if( _count() == 0 ) return false;
+			
+			// Iterate active entries in the low region
+			for( int i = 0; i < _lo_Size; i++ ) if( values[ i ] == value ) return true;
+			// Iterate active entries in the high region
+			for( int i = keys.length - _hi_Size; i < keys.length; i++ ) if( values[ i ] == value ) return true;
 			return false;
 		}
 		
@@ -164,19 +172,26 @@ public interface ObjectShortMap {
 		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
-					token( NULL_KEY_INDEX ) :
-					INVALID_TOKEN;
-			if( _buckets == null ) return INVALID_TOKEN;
-			int hash = equal_hash_K.hashCode( key );
-			int next = _buckets[ bucketIndex( hash ) ] - 1;
+			                         token( NULL_KEY_INDEX ) :
+			                         INVALID_TOKEN;
 			
-			for( int collisionCount = 0; ( next & 0x7FFF_FFFF ) < hash_nexts.length; ) {
-				final long hash_next = hash_nexts[ next ];
-				if( hash( hash_next ) == hash && equal_hash_K.equals( keys[ next ], key ) )
-					return token( next );
-				next = next( hash_next );
-				if( hash_nexts.length <= collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN;
+			
+			int hash  = equal_hash_K.hashCode( key );
+			int index = _buckets[ bucketIndex( hash ) ] - 1; // 0-based index from bucket
+			if( index < 0 ) return INVALID_TOKEN; // Bucket is empty
+			
+			// If the first entry is in the hi Region (it's the only one for this bucket)
+			if( _lo_Size <= index ) return ( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) ?
+			                               token( index ) :
+			                               INVALID_TOKEN;
+			
+			// Traverse collision chain (entry is in lo Region)
+			for( int collisions = 0; ; ) {
+				if( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) return token( index );
+				if( _lo_Size <= index ) break; // Reached a terminal node that might be in hi Region (no more links)
+				index = links[ index ];
+				if( _lo_Size + 1 < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
 			return INVALID_TOKEN;
 		}
@@ -187,11 +202,13 @@ public interface ObjectShortMap {
 		 * @return A token for iteration, or {@link #INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
-			for( int i = 0; i < _count; i++ )
-				if( -2 < next( hash_nexts[ i ] ) ) return token( i );
-			return hasNullKey ?
-					token( NULL_KEY_INDEX ) :
-					INVALID_TOKEN;
+			int index = unsafe_token( -1 ); // Get the first non-null key token
+			return index == -1 ?
+			       hasNullKey ?
+			       token( NULL_KEY_INDEX ) :
+			       // If no non-null keys, return null key token if present
+			       INVALID_TOKEN :
+			       token( index ); // Return token for found non-null key
 		}
 		
 		/**
@@ -205,16 +222,18 @@ public interface ObjectShortMap {
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
 			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			int i = index( token );
-			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
 			
-			if( 0 < _count - _freeCount )
-				for( i++; i < _count; i++ )
-					if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
+			int index = index( token );
+			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN; // If current token is null key, no more elements
 			
-			return hasNullKey && index( token ) < _count ?
-					token( NULL_KEY_INDEX ) :
-					INVALID_TOKEN;
+			index = unsafe_token( index ); // Get next unsafe token (non-null key)
+			
+			return index == -1 ?
+			       hasNullKey ?
+			       token( NULL_KEY_INDEX ) :
+			       // If no more non-null keys, check for null key
+			       INVALID_TOKEN :
+			       token( index ); // Return token for found non-null key
 		}
 		
 		/**
@@ -232,9 +251,26 @@ public interface ObjectShortMap {
 		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
 		 */
 		public int unsafe_token( int token ) {
-			for( int i = token + 1; i < _count; i++ )
-				if( -2 < next( hash_nexts[ i ] ) ) return i;
-			return -1;
+			if( _buckets == null || _count() == 0 ) return -1;
+			
+			int i         = token + 1;
+			int lowest_hi = keys.length - _hi_Size; // Start of hi region (inclusive)
+			
+			// Check lo region first
+			if( i < _lo_Size ) return i; // Return the current index in lo region
+			
+			// If we've exhausted lo region or started beyond it
+			if( i < lowest_hi ) { // If 'i' is in the gap between lo and hi regions
+				// If hi region is empty, no more entries
+				if( _hi_Size == 0 ) return -1;
+				return lowest_hi; // Return the start of hi region
+			}
+			
+			// If 'i' is already in or past the start of the hi region
+			// Iterate through hi region
+			if( i < keys.length ) return i;
+			
+			return -1; // No more entries
 		}
 		
 		/**
@@ -253,8 +289,8 @@ public interface ObjectShortMap {
 		 */
 		public K key( long token ) {
 			return isKeyNull( token ) ?
-					null :
-					keys[ index( token ) ];
+			       null :
+			       keys[ index( token ) ];
 		}
 		
 		/**
@@ -265,8 +301,8 @@ public interface ObjectShortMap {
 		 */
 		public short value( long token ) {
 			return (short)( index( token ) == NULL_KEY_INDEX ?
-					nullKeyValue :
-					values[ index( token ) ] );
+			                   nullKeyValue :
+			                   values[ index( token ) ] );
 		}
 		
 		/**
@@ -340,15 +376,15 @@ public interface ObjectShortMap {
 			try {
 				R dst = ( R ) super.clone();
 				if( _buckets != null ) {
-					dst._buckets   = _buckets.clone();
-					dst.hash_nexts = hash_nexts.clone();
-					dst.keys       = keys.clone();
-					dst.values     = values.clone();
+					dst._buckets = _buckets.clone();
+					dst.hash     = hash.clone();
+					dst.links    = links.clone();
+					dst.keys     = keys.clone();
+					dst.values   = values.clone();
 				}
 				return dst;
 			} catch( CloneNotSupportedException e ) {
-				e.printStackTrace();
-				return null;
+				throw new InternalError( e );
 			}
 		}
 		
@@ -373,8 +409,8 @@ public interface ObjectShortMap {
 				if( hasNullKey ) json.name().value( nullKeyValue );
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.name( key( token ) == null ?
-						                null :
-						                key( token ).toString() )
+				                null :
+				                key( token ).toString() )
 				         .value( value( token ) );
 				json.exitObject();
 			}
@@ -398,15 +434,7 @@ public interface ObjectShortMap {
 		
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
-		protected static int hash( long packedEntry ) {
-			return ( int ) ( packedEntry >> 32 );
-		}
-		
-		protected static int next( long hash_next ) {
-			return ( int ) ( hash_next & NEXT_MASK );
-		}
-		
-		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index; }
+		protected long token( int index )     { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); }
 		
 		protected int index( long token ) {
 			return ( int ) token;
@@ -429,7 +457,7 @@ public interface ObjectShortMap {
 		 *
 		 * @param clazzK The class of the keys.
 		 */
-		public RW( Class< K > clazzK ) { this( clazzK, 0 ); }
+		public RW( Class< K > clazzK ) { this( Array.get( clazzK ), 0 ); }
 		
 		/**
 		 * Constructs an empty map for the specified key class with the given initial capacity.
@@ -463,232 +491,402 @@ public interface ObjectShortMap {
 		public void clear() {
 			_version++;
 			hasNullKey = false;
-			if( _count == 0 ) return;
+			if( _count() == 0 ) return; // Uses _count() for current entries
 			Arrays.fill( _buckets, 0 );
-			Arrays.fill( hash_nexts, 0, _count, 0L );
-			Arrays.fill( keys, 0, _count, null );
-			Arrays.fill( values, 0, _count, ( short ) 0 );
-			_count     = 0;
-			_freeList  = -1;
-			_freeCount = 0;
+			Arrays.fill( keys, null ); // Clear object references
+			// The values, hash, and links arrays are implicitly cleared as _lo_Size and _hi_Size are reset.
+			_lo_Size = 0;
+			_hi_Size = 0;
 		}
 		
 		/**
 		 * Removes the mapping for the specified key, if present.
 		 *
 		 * @param key The key to remove.
-		 * @return true if remove entry or false no mapping was found for the  key.
+		 * @return true if remove entry or false no mapping was found for the key.
 		 * @throws ConcurrentModificationException if excessive collisions are detected.
 		 */
 		public boolean remove( K key ) {
-			if( key == null ) {
-				if( !hasNullKey ) return false;
-				hasNullKey = false;
+			if( key == null ) { // Handle null key removal
+				if( !hasNullKey ) return false; // Null key not present
+				hasNullKey = false;                     // Remove null key flag
+				_version++;                             // Increment version
+				return true;
+			}
+			
+			if( _count() == 0 ) return false; // Map is empty
+			
+			int hash              = equal_hash_K.hashCode( key );
+			int removeBucketIndex = bucketIndex( hash );
+			int removeIndex       = _buckets[ removeBucketIndex ] - 1; // 0-based index from bucket
+			if( removeIndex < 0 ) return false; // Key not in this bucket
+			
+			// Case 1: Entry to be removed is in the hi Region (cannot be part of a chain from _lo_Size)
+			if( _lo_Size <= removeIndex ) {
+				if( this.hash[ removeIndex ] != hash || !equal_hash_K.equals( keys[ removeIndex ], key ) ) return false;
+				
+				// Move the last element of hi region to the removed slot
+				move( keys.length - _hi_Size, removeIndex );
+				
+				_hi_Size--; // Decrement hi_Size
+				_buckets[ removeBucketIndex ] = 0; // Clear the bucket reference (it was the only one)
 				_version++;
 				return true;
 			}
 			
-			if( _buckets == null || _count == 0 ) return false;
+			// Case 2: Entry to be removed is in the lo Region
+			// Finding the key in the chain and updating links
+			int next = links[ removeIndex ]; // Get the link from the first element in the chain
 			
-			int collisionCount = 0;
-			int last           = -1;
-			int hash           = equal_hash_K.hashCode( key );
-			int bucketIndex    = bucketIndex( hash );
-			int i              = _buckets[ bucketIndex ] - 1;
-			
-			while( -1 < i ) {
-				long hash_next = hash_nexts[ i ];
-				if( hash( hash_next ) == hash && equal_hash_K.equals( keys[ i ], key ) ) {
-					if( last < 0 ) _buckets[ bucketIndex ] = next( hash_next ) + 1;
-					else next( hash_nexts, last, next( hash_next ) );
+			// Key found at the head of the chain (removeIndex)
+			if( this.hash[ removeIndex ] == hash && equal_hash_K.equals( keys[ removeIndex ], key ) ) _buckets[ removeBucketIndex ] = ( next + 1 ); // Update bucket to point to the next element
+			else {
+				// Key is NOT at the head of the chain. Traverse.
+				int last = removeIndex; // 'last' tracks the node *before* 'removeIndex' (the element we are currently checking)
+				
+				// This block is from ObjectBitsMap, it handles the 2nd element in the chain.
+				// 'removeIndex' is reassigned here to be the 'next' element.
+				// The key is found at the 'SecondNode'
+				// 'SecondNode' is in 'lo Region', relink 'last' to bypass 'SecondNode'
+				if( this.hash[ removeIndex = next ] == hash && equal_hash_K.equals( keys[ removeIndex ], key ) ) if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
+				else {  // 'SecondNode' is in the hi Region (it's a terminal node)
+					// This block performs a specific compaction for hi-region terminal nodes.
+					keys[ removeIndex ]      = keys[ last ]; // Copies `keys[last]` to `keys[removeIndex]`
+					this.hash[ removeIndex ] = this.hash[ last ];
+					values[ removeIndex ]    = values[ last ]; // Copies `values[last]` to `values[removeIndex]`
 					
-					next( hash_nexts, i, StartOfFreeList - _freeList );
-					keys[ i ] = null;
-					_freeList = i;
-					_freeCount++;
-					_version++;
-					return true;
+					// 'removeBucketIndex' is the hash bucket for the original 'key'.
+					// By pointing it to 'removeIndex' (which now contains data from 'last'),
+					// we make 'last' (now at 'removeIndex') the new sole head of the bucket.
+					_buckets[ removeBucketIndex ] = ( removeIndex + 1 );
+					removeIndex                   = last; // Mark original 'last' (lo-region entry) for removal/compaction
 				}
-				last = i;
-				i    = next( hash_next );
-				if( hash_nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				else // Loop for 3rd+ elements in the chain
+					// If 'removeIndex' (now the second element) is in hi-region and didn't match
+					if( _lo_Size <= removeIndex ) return false; // Key not found in this chain
+					else for( int collisionCount = 0; ; ) {
+						int prev = last; // This 'prev' is the element *before* 'last' in this inner loop context
+						
+						// Advance 'last' and 'removeIndex' (current element being checked)
+						if( this.hash[ removeIndex = links[ last = removeIndex ] ] == hash && equal_hash_K.equals( keys[ removeIndex ], key ) ) {
+							// Found in lo-region: relink 'last' to bypass 'removeIndex'
+							if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
+							else { // Found in hi-region (terminal node): Special compaction
+								// Copy data from 'removeIndex' (hi-region node) to 'last' (lo-region node)
+								keys[ removeIndex ]      = keys[ last ];
+								this.hash[ removeIndex ] = this.hash[ last ];
+								values[ removeIndex ]    = values[ last ]; // Adapted type
+								
+								// Relink 'prev' (the element before 'last') to 'removeIndex'
+								links[ prev ] = removeIndex;
+								                removeIndex = last; // Mark original 'last' (lo-region entry) for removal/compaction
+							}
+							break; // Key found and handled, break from loop.
+						}
+						if( _lo_Size <= removeIndex ) return false; // Reached hi-region terminal node, key not found
+						// Safeguard against excessively long or circular chains (corrupt state)
+						if( _lo_Size + 1 < ++collisionCount ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+					}
 			}
-			return false;
+			
+			// At this point, 'removeIndex' holds the final index of the element to be removed.
+			// This 'removeIndex' might have been reassigned multiple times within the if-else blocks.
+			move( _lo_Size - 1, removeIndex ); // Move the last lo-region element to the spot of the removed entry
+			_lo_Size--; // Decrement lo-region size
+			_version++; // Structural modification
+			return true;
 		}
 		
 		/**
-		 * Ensures the map has at least the specified capacity.
+		 * Relocates an entry's key, hash, link, and value from a source index ({@code src}) to a destination index ({@code dst})
+		 * within the internal arrays. This method is crucial for compaction during removal operations.
+		 * <p>
+		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
+		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
+		 * {@code src} to now correctly reference {@code dst}.
+		 *
+		 * @param src The index of the entry to be moved (its current location).
+		 * @param dst The new index where the entry's data will be placed.
+		 */
+		private void move( int src, int dst ) {
+			if( src == dst ) return;
+			
+			int bucketIndex = bucketIndex( this.hash[ src ] );
+			int index       = _buckets[ bucketIndex ] - 1;
+			
+			if( index == src ) _buckets[ bucketIndex ] = ( dst + 1 ); // Update bucket head if src was the head
+			else {
+				// Find the link pointing to src
+				// This loop iterates through the chain for the bucket to find the predecessor of `src`
+				while( links[ index ] != src ) {
+					index = links[ index ];
+					// Defensive break for corrupted chain or if `src` is somehow not in this chain (shouldn't happen if logic is correct)
+					if( index == -1 || index >= keys.length ) break;
+				}
+				if( links[ index ] == src ) // Ensure we found it before updating
+					links[ index ] = dst; // Update the link to point to dst
+			}
+			
+			// Only copy the link if the source was in the low region (as hi-region elements don't link further)
+			if( src < _lo_Size ) links[ dst ] = links[ src ];
+			
+			this.hash[ dst ] = this.hash[ src ]; // Copy hash
+			keys[ dst ]      = keys[ src ];   // Copy key
+			keys[ src ]      = null;          // Clear source slot for memory management and to prevent stale references
+			values[ dst ]    = values[ src ]; // Copy value
+		}
+		
+		/**
+		 * Ensures the hash table can hold at least the specified capacity without resizing.
+		 * <p>
+		 * Resizes to the next prime number >= capacity if needed.
 		 *
 		 * @param capacity The desired minimum capacity.
-		 * @return The new capacity of the map.
-		 * @throws IllegalArgumentException if capacity is negative.
+		 * @return The new capacity after resizing, or current capacity if sufficient.
+		 * @throws IllegalArgumentException If capacity is negative.
 		 */
 		public int ensureCapacity( int capacity ) {
-			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
+			if( capacity < 0 ) throw new IllegalArgumentException( "capacity < 0" );
 			int currentCapacity = length();
-			if( capacity <= currentCapacity ) return currentCapacity;
-			_version++;
-			if( _buckets == null ) return initialize( Array.prime( capacity ) );
-			int newSize = Array.prime( capacity );
-			resize( newSize, false );
+			if( capacity <= currentCapacity ) return currentCapacity; // Already sufficient capacity
+			_version++; // Increment version as structural change is about to occur
+			if( _buckets == null ) return initialize( Array.prime( capacity ) ); // Initialize if buckets are null
+			int newSize = Array.prime( capacity ); // Get next prime size
+			resize( newSize, false );                // Resize to the new size
 			return newSize;
 		}
 		
 		/**
-		 * Trims the map's capacity to fit its current size.
+		 * Reduces the hash table capacity to the current number of mappings.
+		 * <p>
+		 * Uses a prime number >= current count.
 		 */
-		public void trim() { trim( count() ); }
+		public void trim() { trim( _count() ); } // Uses _count()
 		
 		/**
-		 * Trims the map's capacity to the specified minimum capacity.
+		 * Reduces the hash table capacity to at least the specified capacity.
+		 * <p>
+		 * Uses a prime number >= capacity. No action if current capacity is already <= specified capacity.
 		 *
-		 * @param capacity The desired minimum capacity.
-		 * @throws IllegalArgumentException if capacity is less than the current size.
+		 * @param capacity The desired capacity (>= current count).
 		 */
 		public void trim( int capacity ) {
-			if( capacity < count() ) throw new IllegalArgumentException( "capacity is less than Count." );
-			int new_size        = Array.prime( capacity );
-			if( length() <= new_size ) return;
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
+			int currentCapacity = length();
+			capacity = Array.prime( Math.max( capacity, _count() ) ); // Ensure capacity is at least current count and prime
+			if( currentCapacity <= capacity ) return; // No need to trim if current capacity is already smaller or equal
 			
-			long[]        old_hash_next = hash_nexts;
-			K[]           old_keys      = keys;
-			short[] old_values    = values;
-			int           old_count     = _count;
+			resize( capacity, false ); // Resize to the new smaller size
+		}
+		
+		/**
+		 * Sets or updates the value for the null key.
+		 *
+		 * @param value The value for the null key.
+		 * @return {@code true} if the null key was newly set or updated, {@code false} if unchanged.
+		 */
+		public boolean putNullKeyValue( short value ) {
+			boolean b = !hasNullKey;
+			hasNullKey   = true;
+			nullKeyValue = ( short ) value;
 			_version++;
-			initialize( new_size );
-			copy( old_hash_next, old_keys, old_values, old_count );
+			return b;
+		}
+		
+		/**
+		 * Puts all key-value mappings from the given source map into this map.
+		 * Existing keys will have their values updated.
+		 *
+		 * @param src The source map whose mappings are to be put into this map.
+		 */
+		public void putAll( RW< ? extends K > src ) {
+			for( int token = -1; ( token = src.unsafe_token( token ) ) != -1; )
+			     put( src.key( token ), src.value( token ) );
 		}
 		
 		/**
 		 * Associates the specified value with the specified key.
+		 * <p>
+		 * Replaces the old value if the key exists; otherwise, adds a new mapping.
 		 *
-		 * @param key   The key to associate the value with.
+		 * @param key   The key to map.
 		 * @param value The value to associate.
-		 * @return {@code true} if the key was not previously mapped, {@code false} if the key's value was updated.
-		 * @throws ConcurrentModificationException if excessive collisions are detected.
+		 * @return {@code true} if a new mapping was added, {@code false} if an existing value was updated.
+		 * @throws ConcurrentModificationException If concurrent modifications are detected.
 		 */
 		public boolean put( K key, short value ) {
-			if( key == null ) {
-				boolean b = !hasNullKey;
-				hasNullKey   = true;
-				nullKeyValue = ( short ) value;
-				_version++;
-				return b;
-			}
+			if( key == null ) return putNullKeyValue( value );
 			
-			if( _buckets == null ) initialize( 7 );
-			long[] _hash_nexts    = hash_nexts;
-			int    hash           = equal_hash_K.hashCode( key );
-			int    collisionCount = 0;
-			int    bucketIndex    = bucketIndex( hash );
-			int    bucket         = _buckets[ bucketIndex ] - 1;
 			
-			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _hash_nexts.length; ) {
-				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) ) {
-					values[ next ] = ( short ) value;
-					_version++;
-					return false;
+			if( _buckets == null ) initialize( 7 ); // Initial capacity if not yet initialized
+			else // If backing array is full, resize
+				if( _count() == keys.length ) resize( Array.prime( keys.length * 2 ), false ); // Resize to double capacity
+			
+			int hash        = equal_hash_K.hashCode( key );
+			int bucketIndex = bucketIndex( hash );
+			int index       = _buckets[ bucketIndex ] - 1; // 0-based index from bucket
+			int dst_index; // Destination index for the new/updated entry
+			
+			// If bucket is empty, new entry goes into hi Region
+			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++; // Calculate new position in hi region
+			else {
+				// Bucket is not empty, 'index' points to an existing entry
+				if( _lo_Size <= index ) { // Existing entry is in {@code hi Region}
+					if( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) { // Key matches existing {@code hi Region} entry
+						values[ index ] = ( short ) value; // Update value
+						_version++;
+						return false; // Key was not new
+					}
+				}
+				else  // Existing entry is in {@code lo Region} (collision chain)
+				{
+					int collisions = 0;
+					for( int next = index; ; ) {
+						if( this.hash[ next ] == hash && equal_hash_K.equals( keys[ next ], key ) ) {
+							values[ next ] = ( short ) value; // Update value
+							return false;// Key was not new
+						}
+						if( _lo_Size <= next ) break; // Reached a terminal node in hi Region
+						next = links[ next ]; // Move to next in chain
+						// Safeguard against excessively long or circular chains (corrupt state)
+						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+					}
+					// Check for high collision and potential rehashing for string keys, adapted from original put()
+					if( HashCollisionThreshold < collisions && this.forceNewHashCodes != null && key instanceof String ) // Check for high collision and potential rehashing for string keys
+					{
+						resize( keys.length, true ); // Resize to potentially trigger new hash codes
+						hash        = equal_hash_K.hashCode( key );
+						bucketIndex = bucketIndex( hash );
+						index       = _buckets[ bucketIndex ] - 1;
+					}
 				}
 				
-				next = next( _hash_nexts[ next ] );
-				if( _hash_nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				
+				// Key is new, and a collision occurred (bucket was not empty). Place new entry in {@code lo Region}.
+				if( links.length == ( dst_index = _lo_Size++ ) ) // If links array needs resize, and assign new index
+					// Resize links array, cap at keys.length to avoid unnecessary large array
+					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				
+				links[ dst_index ] = ( int ) index; // Link new entry to the previous head of the chain
 			}
 			
-			int index;
-			if( 0 < _freeCount ) {
-				index     = _freeList;
-				_freeList = StartOfFreeList - next( _hash_nexts[ _freeList ] );
-				_freeCount--;
-			}
-			else {
-				if( _count == _hash_nexts.length ) {
-					resize( Array.prime( _count * 2 ), false );
-					bucket = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
-				}
-				index = _count++;
-			}
 			
-			hash_nexts[ index ]     = hash_next( hash, bucket );
-			keys[ index ]           = key;
-			values[ index ]         = ( short ) value;
-			_buckets[ bucketIndex ] = index + 1;
-			_version++;
+			this.hash[ dst_index ]  = hash; // Store hash code
+			keys[ dst_index ]       = key;     // Store key
+			values[ dst_index ]     = ( short ) value; // Store value
+			_buckets[ bucketIndex ] = dst_index + 1; // Update bucket to point to the new entry (1-based)
+			_version++; // Increment version
 			
-			if( HashCollisionThreshold < collisionCount && this.forceNewHashCodes != null && key instanceof String )
-				resize( hash_nexts.length, true );
-			return true;
+			
+			return true; // New mapping added
 		}
 		
-		private void resize( int new_size, boolean forceNewHashCodes ) {
+		/**
+		 * Resizes the hash table to the specified capacity.
+		 * This method rebuilds the hash table structure based on the new size.
+		 * All existing entries are rehashed and re-inserted into the new, larger structure.
+		 * This operation increments the set's version.
+		 *
+		 * @param newSize The desired new capacity for the internal arrays.
+		 * @return The actual allocated capacity after resize.
+		 */
+		private int resize( int newSize, boolean forceNewHashCodes ) {
 			_version++;
-			long[]        new_hash_next = Arrays.copyOf( hash_nexts, new_size );
-			K[]           new_keys      = Arrays.copyOf( keys, new_size );
-			short[] new_values    = Arrays.copyOf( values, new_size );
-			final int     count         = _count;
 			
-			if( forceNewHashCodes && this.forceNewHashCodes != null ) {
-				equal_hash_K = this.forceNewHashCodes.apply( equal_hash_K );
-				for( int i = 0; i < count; i++ )
-					if( next( new_hash_next[ i ] ) >= -2 )
-						hash( new_hash_next, i, equal_hash_K.hashCode( keys[ i ] ) );
+			// Store old data before re-initializing
+			K[]           old_keys    = keys;
+			int[]         old_hash    = hash;
+			short[] old_values  = values.clone(); // Clone values to copy them over
+			int           old_lo_Size = _lo_Size;
+			int           old_hi_Size = _hi_Size;
+			
+			// Re-initialize with new capacity (this clears _buckets, resets _lo_Size, _hi_Size)
+			initialize( newSize );
+			
+			
+			// If forceNewHashCodes is set, apply it to the equal_hash_K provider BEFORE re-hashing elements.
+			if( forceNewHashCodes ) {
+				
+				equal_hash_K = this.forceNewHashCodes.apply( equal_hash_K ); // Apply new hashing strategy
+				
+				// Copy elements from old structure to new structure by re-inserting
+				K key;
+				// Iterate through old lo region
+				for( int i = 0; i < old_lo_Size; i++ ) copy( key = old_keys[ i ], equal_hash_K.hashCode( key ), old_values[ i ] );
+				
+				// Iterate through old hi region
+				for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ ) copy( key = old_keys[ i ], equal_hash_K.hashCode( key ), old_values[ i ] );
+				
+				return keys.length; // Return actual new capacity
 			}
 			
-			_buckets = new int[ new_size ];
-			for( int i = 0; i < count; i++ )
-				if( next( new_hash_next[ i ] ) > -2 ) {
-					int bucketIndex = bucketIndex( hash( new_hash_next[ i ] ) );
-					next( new_hash_next, i, _buckets[ bucketIndex ] - 1 );
-					_buckets[ bucketIndex ] = i + 1;
-				}
+			// Copy elements from old structure to new structure by re-inserting
 			
-			hash_nexts = new_hash_next;
-			keys       = new_keys;
-			values     = new_values;
+			// Iterate through old lo region
+			for( int i = 0; i < old_lo_Size; i++ ) copy( old_keys[ i ], old_hash[ i ], old_values[ i ] );
+			
+			// Iterate through old hi region
+			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ ) copy( old_keys[ i ], old_hash[ i ], old_values[ i ] );
+			
+			return keys.length; // Return actual new capacity
 		}
 		
+		/**
+		 * Initializes the hash table with the specified capacity.
+		 *
+		 * @param capacity The initial capacity (adjusted to next prime).
+		 * @return The actual capacity used.
+		 */
 		private int initialize( int capacity ) {
 			_version++;
-			_buckets   = new int[ capacity ];
-			hash_nexts = new long[ capacity ];
-			keys       = equal_hash_K.copyOf( null, capacity );
-			values     = new short[ capacity ];
-			_freeList  = -1;
-			_count     = 0;
-			_freeCount = 0;
+			_buckets = new int[ capacity ];     // Initialize buckets array
+			hash     = new int[ capacity ];     // Initialize hash array
+			links    = new int[ Math.min( 16, capacity ) ]; // Initialize links with a small, reasonable capacity
+			keys     = equal_hash_K.copyOf( null, capacity ); // Initialize keys array
+			values   = new short[ capacity ]; // Initialize values array
+			_lo_Size = 0;
+			_hi_Size = 0;
 			return capacity;
 		}
 		
-		private void copy( long[] old_hash_next, K[] old_keys, short[] old_values, int old_count ) {
-			int new_count = 0;
-			for( int i = 0; i < old_count; i++ ) {
-				final long hn = old_hash_next[ i ];
-				if( next( hn ) < -1 ) continue;
+		/**
+		 * Internal helper method used during resizing to efficiently copy an
+		 * existing key-value pair into the new hash table structure. It re-hashes the key
+		 * and places it into the correct bucket and region (lo or hi) in the new arrays.
+		 * This method does not check for existing keys, assuming all keys are new in the
+		 * target structure during a resize operation.
+		 *
+		 * @param key   The key to copy.
+		 * @param value The value associated with the key.
+		 */
+		private void copy( K key, int hash, short value ) {
+			int bucketIndex = bucketIndex( hash );
+			int index       = _buckets[ bucketIndex ] - 1; // 0-based index from the bucket
+			
+			int dst_index; // Destination index for the key
+			
+			if( index == -1 ) // Bucket is empty: place new entry in {@code hi Region}
+				dst_index = keys.length - 1 - _hi_Size++;
+			else {
+				// Collision occurred. Place new entry in {@code lo Region}
+				if( links.length == _lo_Size ) // If lo_Size exceeds links array capacity
+					links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
 				
-				keys[ new_count ]   = old_keys[ i ];
-				values[ new_count ] = old_values[ i ];
-				int h           = hash( hn );
-				int bucketIndex = bucketIndex( h );
-				hash_nexts[ new_count ] = hash_next( h, _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] = new_count + 1;
-				new_count++;
+				links[ dst_index = _lo_Size++ ] = index; // New entry points to the old head
 			}
-			_count     = new_count;
-			_freeCount = 0;
+			
+			keys[ dst_index ]       = key; // Store the key
+			this.hash[ dst_index ]  = hash; // Store the hash
+			values[ dst_index ]     = (short)value; // Store the value
+			_buckets[ bucketIndex ] = dst_index + 1; // Update bucket to new head (1-based)
 		}
 		
-		private static long hash_next( int hash, int next ) { return ( long ) hash << 32 | next & NEXT_MASK; }
-		
-		private static void next( long[] dst, int index, int next ) {
-			dst[ index ] = dst[ index ] & HASH_CODE_MASK | next & NEXT_MASK;
-		}
-		
-		private static void hash( long[] dst, int index, int hash ) {
-			dst[ index ] = dst[ index ] & NEXT_MASK | ( long ) hash << 32;
-		}
-		
+		/**
+		 * Default {@link Array.EqualHashOf} instance for {@link RW}.
+		 */
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
+		
+		@Override public RW< K > clone() { return ( RW< K > ) super.clone(); }
 	}
 	
 	@SuppressWarnings( "unchecked" )

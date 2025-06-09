@@ -69,8 +69,8 @@ public interface UByteSet {
 		 */
 		public int size() {
 			return hasNullKey ?
-					cardinality + 1 :
-					cardinality;
+			       cardinality + 1 :
+			       cardinality;
 		}
 		
 		/**
@@ -97,7 +97,7 @@ public interface UByteSet {
 		 * @param key The primitive byte value to check for presence in the set (valid range is 0-255).
 		 * @return {@code true} if the set contains the specified byte value, {@code false} otherwise.
 		 */
-		protected boolean contains( char key ) { return get_( ( byte ) key ); }
+		public boolean contains( char key ) { return is1( ( byte ) key ); }
 		
 		/**
 		 * Returns the first valid iteration token for traversing the set.
@@ -108,10 +108,10 @@ public interface UByteSet {
 		 */
 		public long token() {
 			return 0 < cardinality ?
-					tokenOf( next1( -1 ) ) :
-					hasNullKey ?
-							token( KEY_MASK ) :
-							INVALID_TOKEN;
+			       tokenOf( next1( -1 ) ) :
+			       hasNullKey ?
+			       token( KEY_MASK ) :
+			       INVALID_TOKEN;
 		}
 		
 		/**
@@ -128,12 +128,12 @@ public interface UByteSet {
 			
 			int key = ( int ) ( token & KEY_MASK ); // Extract the key (byte value or 256 for null) from the token.
 			return 0xFF < key ?
-					INVALID_TOKEN :
-					( key = next1( key ) ) == -1 ?
-							hasNullKey ?
-									token( KEY_MASK ) :
-									INVALID_TOKEN :
-							token( token, key );
+			       INVALID_TOKEN :
+			       ( key = next1( key ) ) == -1 ?
+			       hasNullKey ?
+			       token( KEY_MASK ) :
+			       INVALID_TOKEN :
+			       token( token, key );
 		}
 		
 		/**
@@ -170,7 +170,7 @@ public interface UByteSet {
 		 */
 		public char key( long token ) { return ( char ) (char)( 0xFF &  ( KEY_MASK & token )); }
 		
-		public long token(int key) { return ( long ) _version << VERSION_SHIFT | key; }
+		public long token( int key )                { return ( long ) _version << VERSION_SHIFT | key; }
 		
 		protected long token( long token, int key ) { return ( long ) _version << VERSION_SHIFT | key; }
 		
@@ -185,12 +185,12 @@ public interface UByteSet {
 		 */
 		public long tokenOf( Byte key ) {
 			return key == null ?
-					hasNullKey ?
-							// Check if null key is present in the set.
-							token( KEY_MASK ) :
-							// Return token for null key.
-							INVALID_TOKEN :
-					tokenOf( ( byte ) ( key + 0 ) ); // Unbox Byte and call primitive tokenOf method. Adding 0 ensures byte conversion.
+			       hasNullKey ?
+			       // Check if null key is present in the set.
+			       token( KEY_MASK ) :
+			       // Return token for null key.
+			       INVALID_TOKEN :
+			       tokenOf( ( byte ) ( key + 0 ) ); // Unbox Byte and call primitive tokenOf method. Adding 0 ensures byte conversion.
 		}
 		
 		/**
@@ -201,9 +201,9 @@ public interface UByteSet {
 		 * @return The iteration token for the given value, or {@link #INVALID_TOKEN} (-1) if the value is not in the set.
 		 */
 		public long tokenOf( char key ) {
-			return get_( ( byte ) key ) ?
-					tokenOf( key & 0xFF ) :
-					INVALID_TOKEN; // Byte value not present, return invalid token.
+			return is1( ( byte ) key ) ?
+			       tokenOf( key & 0xFF ) :
+			       INVALID_TOKEN; // Byte value not present, return invalid token.
 		}
 		
 		
@@ -214,13 +214,14 @@ public interface UByteSet {
 		 * @return {@code true} if this set contains all elements of the {@code subset}, {@code false} otherwise.
 		 */
 		public boolean containsAll( R subset ) {
+			long b;
 			return subset == null ||
 			       subset.size() <= size() &&
 			       ( hasNullKey || !subset.hasNullKey ) &&
-			       ( _1 & subset._1 ) == subset._1 &&
-			       ( _2 & subset._2 ) == subset._2 &&
-			       ( _3 & subset._3 ) == subset._3 &&
-			       ( _4 & subset._4 ) == subset._4;  // If 'subset' is larger, or if 'subset' has null key but this doesn't, it cannot be a subset.
+			       ( segments[ 0 ] & ( b = subset.segments[ 0 ] ) ) == b &&
+			       ( segments[ 1 ] & ( b = subset.segments[ 1 ] ) ) == b &&
+			       ( segments[ 2 ] & ( b = subset.segments[ 2 ] ) ) == b &&
+			       ( segments[ 3 ] & ( b = subset.segments[ 3 ] ) ) == b;
 		}
 		
 		/**
@@ -231,8 +232,8 @@ public interface UByteSet {
 		 */
 		public int hashCode() {
 			return Array.finalizeHash( hasNullKey ?
-					                           184889743 :
-					                           22633363, super.hashCode() );
+			                           184889743 :
+			                           22633363, super.hashCode() );
 		}
 		
 		/**
@@ -255,9 +256,7 @@ public interface UByteSet {
 		 * @return {@code true} if the sets are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R other ) {
-			if( other == this ) return true;
-			if( other == null || cardinality != other.cardinality || hasNullKey != other.hasNullKey ) return false; // Quick check for size and null key status.
-			return _4 == other._4 && _3 == other._3 && _2 == other._2 && _1 == other._1; // Compare the four long segments for equality.
+			return other == this || other != null && cardinality == other.cardinality && hasNullKey == other.hasNullKey && super.equals( other );
 		}
 		
 		/**
@@ -305,8 +304,8 @@ public interface UByteSet {
 		 */
 		protected boolean _add(  Character key ) {
 			return key == null ?
-					_add() :
-					set1( ( byte ) ( key + 0 ) );
+			       _add() :
+			       set1( ( byte ) ( key + 0 ) );
 		}
 		
 		protected boolean _add() {
@@ -326,8 +325,8 @@ public interface UByteSet {
 		 */
 		protected boolean _remove(  Character key ) {
 			return key == null ?
-					_remove() :
-					set0( ( byte ) ( key + 0 ) );
+			       _remove() :
+			       set0( ( byte ) ( key + 0 ) );
 		}
 		
 		protected boolean _remove() {
@@ -433,30 +432,32 @@ public interface UByteSet {
 		 */
 		public boolean retainAll( R src ) {
 			boolean modified = false; // Flag to track if any modification occurred.
-			if( _1 != src._1 ) {
-				_1 &= src._1;
-				modified = true;
-			} // Intersect _1 with src._1, set modification flag if changed.
-			if( _2 != src._2 ) {
-				_2 &= src._2;
-				modified = true;
-			} // Intersect _2 with src._2, set modification flag if changed.
-			if( _3 != src._3 ) {
-				_3 &= src._3;
-				modified = true;
-			} // Intersect _3 with src._3, set modification flag if changed.
-			if( _4 != src._4 ) {
-				_4 &= src._4;
-				modified = true;
-			} // Intersect _4 with src._4, set modification flag if changed.
+			long    _0, _1, _2, _3, b;
+			
+			if( ( _0 = segments[ 0 ] ) != ( b = src.segments[ 0 ] ) ) {
+				segments[ 0 ] = _0 &= b;
+				                modified = true;
+			}
+			if( ( _1 = segments[ 1 ] ) != ( b = src.segments[ 1 ] ) ) {
+				segments[ 1 ] = _1 &= b;
+				                modified = true;
+			}
+			if( ( _2 = segments[ 2 ] ) != ( b = src.segments[ 2 ] ) ) {
+				segments[ 2 ] = _2 &= b;
+				                modified = true;
+			}
+			if( ( _3 = segments[ 3 ] ) != ( b = src.segments[ 3 ] ) ) {
+				segments[ 3 ] = _3 &= b;
+				                modified = true;
+			}
 			
 			if( modified ) {
 				
-				cardinality = Long.bitCount( _1 ) +
+				cardinality = Long.bitCount( _0 ) +
+				              Long.bitCount( _1 ) +
 				              Long.bitCount( _2 ) +
-				              Long.bitCount( _3 ) +
-				              Long.bitCount( _4 );
-				_version++; // Increment version if modified.
+				              Long.bitCount( _3 );
+				_version++;
 			}
 			
 			if( !hasNullKey || src.hasNullKey ) return modified;
@@ -476,31 +477,32 @@ public interface UByteSet {
 		 */
 		public RW addAll( R src ) {
 			boolean modified = false; // Flag to track if any modification occurred.
+			long    _0, _1, _2, _3, b;
 			
-			if( _1 != src._1 ) {
-				_1 |= src._1;
-				modified = true;
+			if( ( _0 = segments[ 0 ] ) != ( b = src.segments[ 0 ] ) ) {
+				segments[ 0 ] = _0 |= b;
+				                modified = true;
 			}
-			if( _2 != src._2 ) {
-				_2 |= src._2;
-				modified = true;
+			if( ( _1 = segments[ 1 ] ) != ( b = src.segments[ 1 ] ) ) {
+				segments[ 1 ] = _1 |= b;
+				                modified = true;
 			}
-			if( _3 != src._3 ) {
-				_3 |= src._3;
-				modified = true;
+			if( ( _2 = segments[ 2 ] ) != ( b = src.segments[ 2 ] ) ) {
+				segments[ 2 ] = _2 |= b;
+				                modified = true;
 			}
-			if( _4 != src._4 ) {
-				_4 |= src._4;
-				modified = true;
+			if( ( _3 = segments[ 3 ] ) != ( b = src.segments[ 3 ] ) ) {
+				segments[ 3 ] = _3 |= b;
+				                modified = true;
 			}
 			
-			if( modified ) { //recount
+			if( modified ) {
 				
-				cardinality = Long.bitCount( _1 ) +
+				cardinality = Long.bitCount( _0 ) +
+				              Long.bitCount( _1 ) +
 				              Long.bitCount( _2 ) +
-				              Long.bitCount( _3 ) +
-				              Long.bitCount( _4 );
-				_version++; // Increment version if modified.
+				              Long.bitCount( _3 );
+				_version++;
 			}
 			
 			if( hasNullKey || !src.hasNullKey ) return this;

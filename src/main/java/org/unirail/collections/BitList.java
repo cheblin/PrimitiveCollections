@@ -274,8 +274,8 @@ public interface BitList {
 		 */
 		public int get( int bit, int FALSE, int TRUE ) {
 			return get( bit ) ?
-					TRUE :
-					FALSE;
+			       TRUE :
+			       FALSE;
 		}
 		
 		/**
@@ -359,8 +359,8 @@ public interface BitList {
 			
 			if( ++bit < trailingOnesCount )
 				return trailingOnesCount == size ?
-						-1 :
-						trailingOnesCount;
+				       -1 :
+				       trailingOnesCount;
 			
 			if( size <= bit ) return -1;
 			
@@ -368,13 +368,13 @@ public interface BitList {
 			
 			if( bit == last1 )
 				return last1 + 1 < size ?
-						bit + 1 :
-						-1;
+				       bit + 1 :
+				       -1;
 			
 			if( last1 < bit )
 				return last1 + 1 < size ?
-						bit :
-						-1;
+				       bit :
+				       -1;
 			
 			
 			// Adjust bit position relative to the end of trailing ones
@@ -401,8 +401,8 @@ public interface BitList {
 			if( size == 0 || bit < -1 ) return -1;
 			
 			bit = size <= bit || bit == -1 ?
-					size - 1 :
-					bit - 1;
+			      size - 1 :
+			      bit - 1;
 			
 			if( bit < trailingOnesCount ) return bit;
 			int last1 = last1();
@@ -432,8 +432,8 @@ public interface BitList {
 			if( size == 0 || bit < -1 ) return -1;
 			
 			bit = size <= bit || bit == -1 ?
-					size - 1 :
-					bit - 1;
+			      size - 1 :
+			      bit - 1;
 			
 			if( bit < trailingOnesCount ) return -1;
 			
@@ -456,8 +456,8 @@ public interface BitList {
 		 */
 		public int last1() {
 			return used() == 0 ?
-					trailingOnesCount - 1 :
-					trailingOnesCount + ( used - 1 << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( values[ used - 1 ] );
+			       trailingOnesCount - 1 :
+			       trailingOnesCount + ( used - 1 << LEN ) + BITS - 1 - Long.numberOfLeadingZeros( values[ used - 1 ] );
 		}
 		
 		/**
@@ -526,7 +526,7 @@ public interface BitList {
 			
 			// Adjust cardinality for bits beyond trailing ones
 			int remainingCardinality = cardinality - trailingOnesCount;
-			int totalBits            = last1() - trailingOnesCount; // Bits stored in values
+			int totalBits            = last1() + 1 - trailingOnesCount; // Bits stored in values
 			
 			// Scan through values array
 			for( int i = 0; i < used() && remainingCardinality > 0; i++ ) {
@@ -589,8 +589,8 @@ public interface BitList {
 			try {
 				R dst = ( R ) super.clone();
 				dst.values = values.length == 0 ?
-						values :
-						values.clone();
+				             values :
+				             values.clone();
 				return dst;
 			} catch( CloneNotSupportedException e ) {
 				e.printStackTrace();
@@ -665,8 +665,8 @@ public interface BitList {
 					
 					for( int s = 0, max = Math.min( BITS, k ); s < max; s++ )
 					     json.value( ( v & 1L << s ) == 0 ?
-							                 0 :
-							                 1 );
+					                 0 :
+					                 1 );
 				}
 				
 				for( int i = last1; ++i < size; )
@@ -688,8 +688,8 @@ public interface BitList {
 		 */
 		public int numberOfLeading0() {
 			return size == 0 ?
-					0 :
-					size - 1 - last1();
+			       0 :
+			       size - 1 - last1();
 		}
 		
 		/**
@@ -703,8 +703,8 @@ public interface BitList {
 			if( size == 0 || 0 < trailingOnesCount ) return 0;
 			int i = next1( -1 );
 			return i == -1 ?
-					size :
-					i;
+			       size :
+			       i;
 		}
 		
 		/**
@@ -729,8 +729,8 @@ public interface BitList {
 			if( 0 < size ) {
 				int last1 = last1();
 				return last1 + 1 == size ?
-						last1 - prev0( last1 ) :
-						0;
+				       last1 - prev0( last1 ) :
+				       0;
 			}
 			return 0;
 		}
@@ -1090,8 +1090,8 @@ a:
 				
 				if( i == ii ) {
 					max_toc = i == -1 ?
-							Math.max( last1, or.last1() ) + 1 :
-							i;
+					          Math.max( last1, or.last1() ) + 1 :
+					          i;
 					break;
 				}
 			}
@@ -1264,8 +1264,8 @@ a:
 			// new_toc) + 1`.
 			// Handle the case where `new_toc` might be greater than `max_last1`.
 			int new_values_len = len4bits( new_toc <= max_last1 ?
-					                               max_last1 - new_toc + 1 :
-					                               0 );
+			                               max_last1 - new_toc + 1 :
+			                               0 );
 			
 			// Initialize loop variables for iterating through words.
 			int i = 0; // Start writing to index 0 of the result's `values` array.
@@ -1309,10 +1309,10 @@ a:
 				// `~xor.get_()`.
 				int sb = len4bits( shift_bits );
 				values = 0 < used() ?
-						shiftLeft( values, 0, last1 - trailingOnesCount + 1, shift_bits, false ) :
-						values.length < sb ?
-								new long[ sb ] :
-								values;
+				         shiftLeft( values, 0, last1 - trailingOnesCount + 1, shift_bits, false ) :
+				         values.length < sb ?
+				         new long[ sb ] :
+				         values;
 				
 				
 				int index = shift_bits >>> LEN;
@@ -1573,11 +1573,11 @@ a:
 			int thisUsed  = this.used(); // Cache used() result
 			int otherUsed = other.used();
 			int thisWordEndIndex = thisRelBitEnd < 0 ?
-					-1 :
-					Math.min( thisUsed - 1, thisRelBitEnd >> LEN );
+			                       -1 :
+			                       Math.min( thisUsed - 1, thisRelBitEnd >> LEN );
 			int otherWordEndIndex = otherRelBitEnd < 0 ?
-					-1 :
-					Math.min( otherUsed - 1, otherRelBitEnd >> LEN );
+			                        -1 :
+			                        Math.min( otherUsed - 1, otherRelBitEnd >> LEN );
 			
 			// The loop needs to cover all word indices relevant to *both* lists within the
 			// check range.
@@ -1591,18 +1591,18 @@ a:
 				// Get the word value from 'this', default to 0 if outside its relevant range or
 				// used words.
 				long thisWord = wordIndex >= thisWordStartIndex && wordIndex <= thisWordEndIndex
-						?
-						this.values[ wordIndex ]
-						:
-						0L;
+				                ?
+				                this.values[ wordIndex ]
+				                :
+				                0L;
 				
 				// Get the word value from 'other', default to 0 if outside its relevant range
 				// or used words.
 				long otherWord = wordIndex >= otherWordStartIndex && wordIndex <= otherWordEndIndex
-						?
-						other.values[ wordIndex ]
-						:
-						0L;
+				                 ?
+				                 other.values[ wordIndex ]
+				                 :
+				                 0L;
 				
 				// If both words are 0, they can't intersect in this word.
 				if( thisWord == 0L && otherWord == 0L )
@@ -1658,8 +1658,8 @@ a:
 		public RW flip( int bit ) {
 			if( bit < 0 ) return this;
 			return get( bit ) ?
-					set0( bit ) :
-					set1( bit );
+			       set0( bit ) :
+			       set1( bit );
 		}
 		
 		
@@ -1715,8 +1715,8 @@ a:
 				
 				values = shiftRight( values,
 				                     values.length < len ?
-						                     new long[ len ] :
-						                     values, 0, last1 - trailingOnesCount + 1, shift_bits, true );
+				                     new long[ len ] :
+				                     values, 0, last1 - trailingOnesCount + 1, shift_bits, true );
 				
 				trailingOnesCount += shift_bits;
 				used = len | IO;
@@ -1752,8 +1752,8 @@ a:
 				
 				if( values.length < u )
 					values = used == 0 ?
-							new long[ u ] :
-							Arrays.copyOf( values, u );
+					         new long[ u ] :
+					         Arrays.copyOf( values, u );
 				used = u;
 				
 				if( last1 < from_bit ) {
@@ -1832,8 +1832,8 @@ a:
 			if( size <= bit )
 				size = bit + 1;
 			return value ?
-					set1( bit ) :
-					set0( bit );
+			       set1( bit ) :
+			       set0( bit );
 		}
 		
 		/**
@@ -1878,8 +1878,8 @@ a:
 			if( from_bit >= to_bit || from_bit < 0 ) return this;
 			if( size < to_bit ) size = to_bit;
 			return value ?
-					set1( from_bit, to_bit ) :
-					set0( from_bit, to_bit );
+			       set1( from_bit, to_bit ) :
+			       set0( from_bit, to_bit );
 		}
 		
 		/**
@@ -1916,8 +1916,8 @@ a:
 					int next0After = next0( next1 - 1 ); // Find the first '0' at or after the start of the run.
 					int span_of_1_end =
 							next0After == -1 ?
-									last1 + 1 :
-									next0After;
+							last1 + 1 :
+							next0After;
 					if( last1 < span_of_1_end ) {
 						Arrays.fill( values, 0, used, 0 );// Cleanup the values array.
 						used = 0;
@@ -1974,8 +1974,8 @@ a:
 			if( from_bit <= trailingOnesCount ) {
 				int next_zero = next0( to_bit - 1 );
 				to_bit = next_zero == -1 ?
-						size :
-						next_zero; // Corrected line: if no '0' found, extend to size
+				         size :
+				         next_zero; // Corrected line: if no '0' found, extend to size
 				
 				if( last1 < to_bit ) {
 					Arrays.fill( values, 0, used, 0 ); // Clear the values array as all bits become trailing ones
@@ -2086,8 +2086,8 @@ a:
 			
 			int last1InValue = last1 - trailingOnesCount;
 			int bitsInValues = last1InValue < 0 ?
-					0 :
-					last1InValue + 1;
+			                   0 :
+			                   last1InValue + 1;
 			
 			if( to_bit <= trailingOnesCount ) {
 				
@@ -2188,15 +2188,15 @@ a:
 		
 		public RW add( boolean value ) {
 			return value ?
-					add1( size ) :
-					add0( size );
+			       add1( size ) :
+			       add0( size );
 		}
 		
 		
 		public RW add( int bit, boolean value ) {
 			return value ?
-					add1( bit ) :
-					add0( bit );
+			       add1( bit ) :
+			       add0( bit );
 		}
 		
 		/**
@@ -2566,7 +2566,7 @@ a:
 		 * @param lo_bit The starting bit index (inclusive, relative) of the range to fill.
 		 * @param hi_bit The ending bit index (exclusive, relative) of the range to fill.
 		 */
-		private static void fill( int src, long[] dst, int lo_bit, int hi_bit ) {
+		static void fill( int src, long[] dst, int lo_bit, int hi_bit ) {
 			
 			int lo_index  = lo_bit >> LEN;
 			int hi_index  = hi_bit - 1 >> LEN;

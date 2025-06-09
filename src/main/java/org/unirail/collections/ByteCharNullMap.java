@@ -169,6 +169,7 @@ public interface ByteCharNullMap {
 		 * @return {@code true} if the map maps one or more keys to the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue(  Character value ) { return tokenOfValue( value ) != -1; }
+		
 		/**
 		 * Checks if the map contains the specified key as a {@code Byte} object.
 		 *
@@ -206,7 +207,7 @@ public interface ByteCharNullMap {
 		public long tokenOfValue(  Character value ) {
 			if( value == null ) {
 				if( hasNullKey && !nullKeyHasValue ) return token( KEY_MASK );
-				for( int t = -1; ( t = unsafe_token( t ) ) != -1; ) if( !nulls.get_( ( byte ) ( t & KEY_MASK ) ) ) return t;
+				for( int t = -1; ( t = unsafe_token( t ) ) != -1; ) if( !nulls.is1( ( byte ) ( t & KEY_MASK ) ) ) return t;
 				return -1;
 			}
 			
@@ -224,7 +225,7 @@ public interface ByteCharNullMap {
 		public long tokenOfValue( char value ) {
 			if( hasNullKey && nullKeyHasValue && nullKeyValue == value ) return token( KEY_MASK );
 			for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
-				if( nulls.get_( ( byte ) ( t & KEY_MASK ) ) && values[ t >>> KEY_LEN ] == value ) return t;
+				if( nulls.is1( ( byte ) ( t & KEY_MASK ) ) && values[ t >>> KEY_LEN ] == value ) return t;
 			return -1;
 		}
 		
@@ -239,8 +240,8 @@ public interface ByteCharNullMap {
 		 */
 		public boolean hasValue( long token ) {
 			return isKeyNull( token ) ?
-					nullKeyHasValue :
-					-1 < ( int ) token;
+			       nullKeyHasValue :
+			       -1 < ( int ) token;
 		}
 		
 		/**
@@ -261,8 +262,8 @@ public interface ByteCharNullMap {
 		 */
 		public char value( long token ) {
 			return (char) ( isKeyNull( token ) ?
-					nullKeyValue :
-					values[ ( int ) token >> KEY_LEN ] );
+			                    nullKeyValue :
+			                    values[ ( int ) token >> KEY_LEN ] );
 		}
 		
 		public R get( HashMap<  Byte     ,  Character > dst ) {
@@ -303,10 +304,10 @@ public interface ByteCharNullMap {
 			
 			if( hasNullKey ) {
 				h = nullKeyHasValue ?
-						Array.mix( seed, nullKeyHasValue ?
-								Array.hash( nullKeyValue ) :
-								22633363 ) :
-						Array.hash( seed );
+				    Array.mix( seed, nullKeyHasValue ?
+				                     Array.hash( nullKeyValue ) :
+				                     22633363 ) :
+				    Array.hash( seed );
 				h = Array.finalizeHash( h, 2 );
 				a += h;
 				b ^= h;
@@ -356,23 +357,23 @@ public interface ByteCharNullMap {
 		// Internal helper for token generation/update, possibly accounting for strategy
 		protected long token( long token, int key ) {
 			return ( long ) _version << VERSION_SHIFT | (
-					nulls.get_( ( byte ) key ) ?
-							values.length == 256 ?
-									( long ) key << KEY_LEN :
-									( ( int ) token & ~KEY_MASK ) + ( 1 << KEY_LEN ) & 0x7FFF_FFFFL :
-							token & ( long ) ~KEY_MASK | 0x8000_0000L
+					nulls.is1( ( byte ) key ) ?
+					values.length == 256 ?
+					( long ) key << KEY_LEN :
+					( ( int ) token & ~KEY_MASK ) + ( 1 << KEY_LEN ) & 0x7FFF_FFFFL :
+					token & ( long ) ~KEY_MASK | 0x8000_0000L
 			) | key;
 		}
 		
 		protected long tokenOf( int key ) {
 			return ( long ) _version << VERSION_SHIFT |
 			       (
-					       nulls.get_( ( byte ) key ) ?
-							       ( values.length == 256 ?
-									       ( long ) key :
-									       nulls.rank( ( byte ) key ) - 1
-							       ) << KEY_LEN :
-							       ~KEY_MASK & 0xFFFF_FFFFL
+					       nulls.is1( ( byte ) key ) ?
+					       ( values.length == 256 ?
+					         ( long ) key :
+					         nulls.rank( ( byte ) key ) - 1
+					       ) << KEY_LEN :
+					       ~KEY_MASK & 0xFFFF_FFFFL
 			       ) | key;
 		}
 		
@@ -405,18 +406,18 @@ public interface ByteCharNullMap {
 		@Override public int unsafe_token( int token ) {
 			if( token == -1 ) {
 				
-				int ret = next1( -1 );
+				int key = next1( -1 );
 				
-				return ret == -1 ?
-						-1 :
-						( int ) tokenOf( ret );
+				return key == -1 ?
+				       -1 :
+						( int ) tokenOf( key );
 			}
 			
 			int next = next1( token & KEY_MASK );
 			
 			return next == -1 ?
-					-1 :
-					( int ) token( token, next );
+			       -1 :
+			       ( int ) token( token, next );
 		}
 		
 		/**
@@ -464,8 +465,8 @@ public interface ByteCharNullMap {
 			
 			if( hasNullKey )
 				json.name().value( nullKeyHasValue ?
-						                   nullKeyValue :
-						                   null );
+				                   nullKeyValue :
+				                   null );
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				json.name( key( token ) );
 				if( hasValue( token ) )
@@ -587,10 +588,10 @@ public interface ByteCharNullMap {
 		 */
 		public boolean put( byte key, char value ) {
 			
-			if( nulls.get_( ( byte ) key ) ) {
+			if( nulls.is1( ( byte ) key ) ) {
 				values[ values.length == 256 ?
-						key & 0xFF :
-						nulls.rank( ( byte ) key ) - 1 ] = ( char ) value; // Set or update the value at the calculated index
+				        key & 0xFF :
+				        nulls.rank( ( byte ) key ) - 1 ] = ( char ) value; // Set or update the value at the calculated index
 				return false;
 			}
 			
@@ -608,8 +609,8 @@ public interface ByteCharNullMap {
 				
 				Array.resize( values,
 				              nulls.cardinality < values.length ?
-						              values :
-						              ( values = new char[ values.length * 2 ] ), r, nulls.cardinality, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
+				              values :
+				              ( values = new char[ values.length * 2 ] ), r, nulls.cardinality, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
 				values[ r ] = ( char ) value;
 			}
 			

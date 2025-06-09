@@ -69,17 +69,12 @@ public interface BitsList {
 		 */
 		public final int bits_per_item;
 		
-		/**
-		 * Returns the number of bits per item, calculated from the mask.
-		 *
-		 * @return The number of bits per item.
-		 */
-		protected int bits_per_item() { return 32 - Integer.numberOfLeadingZeros( ( int ) mask ); }
 		
 		/**
 		 * Sentinel value representing uninitialized elements in the list.
 		 * Since primitive ints cannot be null, this value is used to fill new slots when the list expands.
-		 * Choose a value that does not conflict with valid data in your use case.
+		 * For best performance, set {@code default_value == 0}, as it avoids explicit initialization of array slots,
+		 * leveraging Java's default zeroing of {@code long} arrays. Choose a value that does not conflict with valid data.
 		 */
 		public final int default_value;
 		
@@ -116,6 +111,7 @@ public interface BitsList {
 		 *
 		 * @param bits_per_item The number of bits per item, must be between 1 and 7 (inclusive).
 		 * @param default_value The default value for items, masked to fit within {@code bits_per_item}.
+		 *                      Set to 0 for optimal performance to skip initialization overhead.
 		 * @param size          If positive, sets the initial number of items to this value and fills the list with the effective `default_value`.
 		 *                      If negative, sets the initial number of items to `abs(size)` no filling occurs.
 		 */
@@ -124,13 +120,12 @@ public interface BitsList {
 			mask               = mask( this.bits_per_item = bits_per_item );
 			this.size          =
 					size < 0 ?
-							-size :
-							size;
+					-size :
+					size;
 			values             = new long[ len4bits( this.size * this.bits_per_item ) ];
 			this.default_value = ( int ) ( default_value & mask );
 			
-			if( this.default_value != 0 && 0 < size )
-				for( int i = 0; i < this.size; i++ ) set_( this, i, this.default_value );
+			init( 0, size * bits_per_item );
 		}
 		
 		/**
@@ -164,8 +159,8 @@ public interface BitsList {
 				int new_length = len4bits( -items * bits_per_item );
 				if( values.length != new_length ) {
 					values = new_length == 0 ?
-							Array.EqualHashOf._longs.O :
-							new long[ new_length ];
+					         Array.EqualHashOf._longs.O :
+					         new long[ new_length ];
 					size   = 0;
 				}
 				else clear();
@@ -177,8 +172,8 @@ public interface BitsList {
 		 */
 		protected void clear() {
 			if( size() == 0 ) return;
-			java.util.Arrays.fill( values, 0, len4bits( size * bits_per_item ), 0L );
 			size = 0;
+			
 		}
 		
 		/**
@@ -197,8 +192,10 @@ public interface BitsList {
 		public int hashCode() {
 			if( size == 0 ) return 149989999;
 			int last_long = index( size * bits_per_item );
-			int hash      = Array.hash( 149989999, values[ last_long ] & mask( bit( size * bits_per_item ) ) );
-			for( int i = last_long - 1; i >= 0; i-- ) hash = Array.hash( hash, values[ i ] );
+			int hash      = Array.hash( 149989999, values, 0, last_long );
+			
+			long last_mask = mask( bit( size * bits_per_item ) );
+			if( last_mask != 0 ) hash = Array.hash( hash, values[ last_long ] & last_mask );
 			return Array.finalizeHash( hash, size() );
 		}
 		
@@ -252,8 +249,8 @@ public interface BitsList {
 			int index   = index( bit_pos );
 			int bit     = bit( bit_pos );
 			return bit + bits_per_item > BITS ?
-					value( values[ index ], values[ index + 1 ], bit, bits_per_item, mask ) :
-					value( values[ index ], bit, mask );
+			       value( values[ index ], values[ index + 1 ], bit, bits_per_item, mask ) :
+			       value( values[ index ], bit, mask );
 		}
 		
 		/**
@@ -380,12 +377,55 @@ public interface BitsList {
 			
 			if( dst.length() <= item ) dst.length_( Math.max( dst.length() * 3 / 2, item + 1 ) );
 			
-			if( dst.default_value != 0 )
-				for( int i = dst.size; i < item; i++ )
-				     set_( dst, i, dst.default_value );
+			dst.init( dst.size * dst.bits_per_item, item * dst.bits_per_item );
 			
 			set_( dst, item, v );
 			dst.size = item + 1;
+		}
+		
+		protected void init( int min, int max ) {
+			if( min >= max || default_value == 0 ) return; // Skip if range is empty or default_value is 0 (arrays are zero-initialized)
+			
+			// Fast path for maximum default_value (e.g., 0b111 for 3 bits): set all bits to 1
+			if( default_value == ( -1L >>> ( 64 - bits_per_item ) ) ) {
+				BitList.RW.fill( 1, values, min * bits_per_item, max * bits_per_item );
+				return;
+			}
+			
+			// If bits_per_item divides 64 (e.g., 1, 2, 4, 8), use a repeated pattern for efficiency
+			if( 64 % bits_per_item == 0 ) {
+				// Build a 64-bit pattern by repeating default_value (e.g., 0b1010_1010_... for default_value = 0b1010)
+				long pattern = 0;
+				for( int i = 0; i < 64; i += bits_per_item )
+				     pattern |= ( ( long ) default_value & mask ) << i;
+				
+				// Convert min and max to long indices and bit offsets
+				int min_index = min >> 6, max_index = max >> 6;
+				int min_bit   = min & MASK, max_bit = max & MASK;
+				
+				// Handle partial long at min if not aligned
+				if( min_bit != 0 ) {
+					long mask = ~0L << min_bit;
+					values[ min_index ] = ( values[ min_index ] & ~mask ) | ( pattern & mask );
+					min_index++;
+				}
+				
+				if( max_index < min_index ) return;
+				
+				// Handle partial long at max if not aligned
+				if( max_bit != 0 ) {
+					long mask = mask( max_bit );
+					values[ max_index ] = ( values[ max_index ] & ~mask ) | ( pattern & mask );
+				}
+				
+				// Fill whole longs between min_index and max_index
+				while( min_index < max_index )
+					values[ min_index++ ] = pattern;
+			}
+			// Fallback: Set each item individually for non-divisible bits_per_item (e.g., 3, 5, 7)
+			else
+				for( min /= bits_per_item, max /= bits_per_item; min < max; min++ )
+				     set_( this, min, default_value );
 		}
 		
 		/**
@@ -473,8 +513,8 @@ public interface BitsList {
 				for( int bp = 0, max = size * bits_per_item, i = 0; bp < max; bp += bits_per_item, i++ ) {
 					int bit = bit( bp );
 					long value = bit + bits_per_item > BITS ?
-							value( src, values[ index( bp ) + 1 ], bit, bits_per_item, mask ) :
-							value( src, bit, mask );
+					             value( src, values[ index( bp ) + 1 ], bit, bits_per_item, mask ) :
+					             value( src, bit, mask );
 					json.value( value );
 					if( bit + bits_per_item > BITS ) src = values[ index( bp ) + 1 ];
 				}
@@ -576,9 +616,7 @@ public interface BitsList {
 		 * @param bit_position The bit position in the bit-packed array.
 		 * @return The bit offset within the {@code long} (0 to 63).
 		 */
-		protected static int bit( int bit_position ) {
-			return bit_position & MASK;
-		}
+		protected static int bit( int bit_position ) { return bit_position & MASK; }
 		
 		/**
 		 * Extracts a value from a {@code long} at a specified bit position.
@@ -660,6 +698,7 @@ public interface BitsList {
 		
 		/**
 		 * Constructs a list with specified bits per item, default value, and initial size.
+		 * For best performance, set {@code default_value == 0} to avoid initialization overhead.
 		 *
 		 * @param bits_per_item The number of bits per item (1 to 7).
 		 * @param defaultValue  The default value for items, masked to fit within {@code bits_per_item}.
@@ -871,7 +910,7 @@ public interface BitsList {
 		public RW length( int length ) {
 			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
 			
-			if( length ==0 ) {
+			if( length == 0 ) {
 				values = Array.EqualHashOf._longs.O;
 				size   = 0;
 			}

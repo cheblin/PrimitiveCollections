@@ -78,10 +78,10 @@ public interface Array {
 		@SuppressWarnings( "unchecked" )
 		public T[] copyOf( T[] src, int len ) {
 			return len < 1 ?
-					OO :
-					Arrays.copyOf( src == null ?
-							               OO :
-							               src, len );
+			       OO :
+			       Arrays.copyOf( src == null ?
+			                      OO :
+			                      src, len );
 		}
 		
 		/**
@@ -101,8 +101,8 @@ public interface Array {
 			OO = ( T[] ) java.lang.reflect.Array.newInstance( clazz, 0 );
 			
 			O = ( array = clazz.isArray() ) ?
-					java.lang.reflect.Array.newInstance( clazz.componentType(), 0 ) :
-					OO;
+			    java.lang.reflect.Array.newInstance( clazz.componentType(), 0 ) :
+			    OO;
 		}
 		
 		/**
@@ -116,8 +116,8 @@ public interface Array {
 		@SuppressWarnings( "unchecked" )
 		public int hashCode( T src ) {
 			return array ?
-					hashCode( ( T[] ) src ) :
-					hash( src );
+			       hashCode( ( T[] ) src ) :
+			       hash( src );
 		}
 		
 		/**
@@ -138,8 +138,8 @@ public interface Array {
 		 */
 		public int hashCode( T[] src ) {
 			return src == null ?
-					0 :
-					hashCode( src, src.length );
+			       0 :
+			       hashCode( src, src.length );
 		}
 		
 		/**
@@ -695,8 +695,8 @@ public interface Array {
 	@SuppressWarnings( "unchecked" )
 	static < T > T[] copyOf( T[] src, int len ) {
 		return len < 1 ?
-				( T[] ) get( src.getClass() ).O :
-				Arrays.copyOf( src, len );
+		       ( T[] ) get( src.getClass() ).O :
+		       Arrays.copyOf( src, len );
 	}
 	
 	/**
@@ -713,11 +713,11 @@ public interface Array {
 	 */
 	static < T > T[] resize( T[] src, int len, T val ) {
 		return src == null ?
-				fill( copyOf( ( T[] ) null, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( ( T[] ) null, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -764,8 +764,8 @@ public interface Array {
 	@SuppressWarnings( "unchecked" )
 	static < T > T[][] copyOf( T[][] src, int len ) {
 		return len < 1 ?
-				( T[][] ) get( src.getClass() ).OO :
-				Arrays.copyOf( src, len );
+		       ( T[][] ) get( src.getClass() ).OO :
+		       Arrays.copyOf( src, len );
 	}
 	
 	/**
@@ -782,11 +782,11 @@ public interface Array {
 	 */
 	static < T > T[][] resize( T[][] src, int len, T[] val ) {
 		return src == null ?
-				fill( copyOf( ( T[][] ) null, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( ( T[][] ) null, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -831,10 +831,10 @@ public interface Array {
 	 */
 	static boolean[] copyOf( boolean[] src, int len ) {
 		return len < 1 ?
-				EqualHashOf._booleans.O :
-				Arrays.copyOf( src == null ?
-						               EqualHashOf._booleans.O :
-						               src, len );
+		       EqualHashOf._booleans.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf._booleans.O :
+		                      src, len );
 	}
 	
 	/**
@@ -850,11 +850,11 @@ public interface Array {
 	 */
 	static boolean[] resize( boolean[] src, int len, boolean val ) {
 		return src == null ?
-				fill( copyOf( EqualHashOf._booleans.O, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( EqualHashOf._booleans.O, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -897,10 +897,10 @@ public interface Array {
 	 */
 	static byte[] copyOf( byte[] src, int len ) {
 		return len < 1 ?
-				EqualHashOf._bytes.O :
-				Arrays.copyOf( src == null ?
-						               EqualHashOf._bytes.O :
-						               src, len );
+		       EqualHashOf._bytes.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf._bytes.O :
+		                      src, len );
 	}
 	
 	/**
@@ -916,11 +916,11 @@ public interface Array {
 	 */
 	static byte[] resize( byte[] src, int len, byte val ) {
 		return src == null ?
-				fill( copyOf( EqualHashOf._bytes.O, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( EqualHashOf._bytes.O, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -963,10 +963,10 @@ public interface Array {
 	 */
 	static short[] copyOf( short[] src, int len ) {
 		return len < 1 ?
-				EqualHashOf._shorts.O :
-				Arrays.copyOf( src == null ?
-						               EqualHashOf._shorts.O :
-						               src, len );
+		       EqualHashOf._shorts.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf._shorts.O :
+		                      src, len );
 	}
 	
 	/**
@@ -982,11 +982,11 @@ public interface Array {
 	 */
 	static short[] resize( short[] src, int len, short val ) {
 		return src == null ?
-				fill( copyOf( EqualHashOf._shorts.O, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( EqualHashOf._shorts.O, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -1029,10 +1029,10 @@ public interface Array {
 	 */
 	static char[] copyOf( char[] src, int len ) {
 		return len < 1 ?
-				EqualHashOf._chars.O :
-				Arrays.copyOf( src == null ?
-						               EqualHashOf._chars.O :
-						               src, len );
+		       EqualHashOf._chars.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf._chars.O :
+		                      src, len );
 	}
 	
 	/**
@@ -1048,11 +1048,11 @@ public interface Array {
 	 */
 	static char[] resize( char[] src, int len, char val ) {
 		return src == null ?
-				fill( copyOf( EqualHashOf._chars.O, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( EqualHashOf._chars.O, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -1095,10 +1095,10 @@ public interface Array {
 	 */
 	static int[] copyOf( int[] src, int len ) {
 		return len < 1 ?
-				EqualHashOf._ints.O :
-				Arrays.copyOf( src == null ?
-						               EqualHashOf._ints.O :
-						               src, len );
+		       EqualHashOf._ints.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf._ints.O :
+		                      src, len );
 	}
 	
 	/**
@@ -1114,11 +1114,11 @@ public interface Array {
 	 */
 	static int[] resize( int[] src, int len, int val ) {
 		return src == null ?
-				fill( copyOf( EqualHashOf._ints.O, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( EqualHashOf._ints.O, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -1161,10 +1161,10 @@ public interface Array {
 	 */
 	static long[] copyOf( long[] src, int len ) {
 		return len < 1 ?
-				EqualHashOf._longs.O :
-				Arrays.copyOf( src == null ?
-						               EqualHashOf._longs.O :
-						               src, len );
+		       EqualHashOf._longs.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf._longs.O :
+		                      src, len );
 	}
 	
 	/**
@@ -1180,11 +1180,11 @@ public interface Array {
 	 */
 	static long[] resize( long[] src, int len, long val ) {
 		return src == null ?
-				fill( copyOf( EqualHashOf._longs.O, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( EqualHashOf._longs.O, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -1227,10 +1227,10 @@ public interface Array {
 	 */
 	static float[] copyOf( float[] src, int len ) {
 		return len < 1 ?
-				EqualHashOf._floats.O :
-				Arrays.copyOf( src == null ?
-						               EqualHashOf._floats.O :
-						               src, len );
+		       EqualHashOf._floats.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf._floats.O :
+		                      src, len );
 	}
 	
 	/**
@@ -1246,11 +1246,11 @@ public interface Array {
 	 */
 	static float[] resize( float[] src, int len, float val ) {
 		return src == null ?
-				fill( copyOf( EqualHashOf._floats.O, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( EqualHashOf._floats.O, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -1293,10 +1293,10 @@ public interface Array {
 	 */
 	static double[] copyOf( double[] src, int len ) {
 		return len < 1 ?
-				EqualHashOf._doubles.O :
-				Arrays.copyOf( src == null ?
-						               EqualHashOf._doubles.O :
-						               src, len );
+		       EqualHashOf._doubles.O :
+		       Arrays.copyOf( src == null ?
+		                      EqualHashOf._doubles.O :
+		                      src, len );
 	}
 	
 	/**
@@ -1312,11 +1312,11 @@ public interface Array {
 	 */
 	static double[] resize( double[] src, int len, double val ) {
 		return src == null ?
-				fill( copyOf( EqualHashOf._doubles.O, len ), val ) :
-				src.length == len ?
-						src
-						:
-						fill( copyOf( src, len ), src.length, len, val );
+		       fill( copyOf( EqualHashOf._doubles.O, len ), val ) :
+		       src.length == len ?
+		       src
+		                         :
+		       fill( copyOf( src, len ), src.length, len, val );
 	}
 	
 	/**
@@ -2276,8 +2276,8 @@ public interface Array {
 	 */
 	static int hash( Object src ) {
 		return src == null ?
-				0 :
-				src.hashCode();
+		       0 :
+		       src.hashCode();
 	}
 	
 	/**
@@ -2300,8 +2300,8 @@ public interface Array {
 			long ch = str.charAt( i );
 			x |= ch << b;
 			if( ( b += ch < 0x100 ?
-					8 :
-					16 ) < 32 )
+			           8 :
+			           16 ) < 32 )
 				continue;
 			
 			h = mix( h, ( int ) x );
@@ -2448,11 +2448,11 @@ public interface Array {
 					final float X = Float.intBitsToFloat( ( int ) x );
 					final float Y = Float.intBitsToFloat( ( int ) y );
 					return X < Y ?
-							-1 :
-							Y < X ?
-									1
-									:
-									Long.compare( x, y );
+					       -1 :
+					       Y < X ?
+					       1
+					             :
+					       Long.compare( x, y );
 				}
 			}
 			
@@ -2477,11 +2477,11 @@ public interface Array {
 					final double X = Double.longBitsToDouble( x );
 					final double Y = Double.longBitsToDouble( y );
 					return X < Y ?
-							-1 :
-							Y < X ?
-									1
-									:
-									Long.compare( x, y );
+					       -1 :
+					       Y < X ?
+					       1
+					             :
+					       Long.compare( x, y );
 				}
 			}
 			
@@ -2915,7 +2915,7 @@ public interface Array {
 	 *
 	 * @param capacity The minimum desired capacity.
 	 * @return The smallest prime from the internal list that is {@code >= capacity},
-	 *         or {@code capacity} itself if all listed primes are smaller.
+	 * or {@code capacity} itself if all listed primes are smaller.
 	 */
 	static int prime( int capacity ) {
 		for( int prime : Array.primes )
@@ -2941,24 +2941,41 @@ public interface Array {
 	
 	// Represents a set of byte values (0-255) using a bitset implemented with four long integers.
 	abstract class FF implements Cloneable {
-		protected long _1, _2, _3, _4; // Segments representing bits for byte values 0-63, 64-127, 128-191, and 192-255 respectively.
-		protected int cardinality = 0;        // The number of elements currently in the set.
-		protected int _version;  // Version counter for detecting concurrent modifications. Incremented on any structural modification.
+		/**
+		 * The bitset is stored in four 64-bit longs.
+		 * segment 0: keys 0-63
+		 * segment 1: keys 64-127
+		 * segment 2: keys 128-191
+		 * segment 3: keys 192-255
+		 */
+		protected long[] segments = new long[ 4 ];
 		
-		@Override public Object clone() throws CloneNotSupportedException { return super.clone(); }
+		protected int cardinality = 0; // The number of elements currently in the set.
+		protected int _version;  // Version counter for detecting concurrent modifications.
 		
-		@Override public boolean equals( Object other ) {
+		@Override
+		protected Object clone() throws CloneNotSupportedException {
+			FF cloned = ( FF ) super.clone();
+			cloned.segments = segments.clone();
+			return cloned;
+		}
+		
+		@Override
+		public boolean equals( Object other ) {
 			return other != null && getClass() == other.getClass() && equals( getClass().cast( other ) );
 		}
 		
 		/**
 		 * Checks if this Flag Set is equal to another Flag Set.
-		 * Two Flag Sets are considered equal if they have the same size and the same bit representation.
+		 * Two Flag Sets are equal if they have the same size and the same bit representation.
 		 *
 		 * @param other The other Flag Set to compare with.
 		 * @return {@code true} if the Flag Sets are equal, {@code false} otherwise.
 		 */
-		public boolean equals( FF other ) { return cardinality == other.cardinality && _4 == other._4 && _3 == other._3 && _2 == other._2 && _1 == other._1; }
+		public boolean equals( FF other ) {
+			return this.cardinality == other.cardinality && Arrays.equals( this.segments, other.segments );
+		}
+		
 		
 		/**
 		 * Returns the hash code for this Flag Set.
@@ -2966,107 +2983,69 @@ public interface Array {
 		 *
 		 * @return The hash code value for this Flag Set.
 		 */
-		public int hashCode() {
-			return Array.finalizeHash( Array.hash( Array.hash( Array.hash( Array.hash( 22633363, _1 ), _2 ), _3 ), _4 ), cardinality ); // Hash segments _1, _2, _3, _4 and size.
-		}
+		public int hashCode() { return Array.finalizeHash( Array.hash( 22633363, segments, 0, 4 ), cardinality ); }
 		
 		/**
 		 * Calculates the rank of a given byte value within the set.
-		 * The rank is the number of elements in the set that are strictly less than the given byte value.
+		 * The rank is the number of elements in the set that are less or equal the given byte value.
 		 * This method is useful for operations requiring ordered access or positional information within the set.
 		 *
 		 * @param key The byte value to determine the rank for. Must be in the range 0-255.
 		 * @return The rank of the byte value. Returns the count of elements in the set less than {@code key}.
 		 */
 		protected int rank( byte key ) {
-			return key < 0 ?
-					-65 < key ?
-							Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 ) + Long.bitCount( _4 << 63 - key ) :
-							Long.bitCount( _1 ) + Long.bitCount( _2 ) + Long.bitCount( _3 << 63 - key ) :
-					63 < key ?
-							Long.bitCount( _1 ) + Long.bitCount( _2 << 63 - key ) :
-							Long.bitCount( _1 << 63 - key );
+			final int segmentIndex = ( key & 0xFF ) >>> 6;
+			
+			int rank = Long.bitCount( segments[ segmentIndex ] << 63 - key );
+			
+			for( int i = 0; i < segmentIndex; i++ ) rank += Long.bitCount( segments[ i ] );
+			
+			return rank;
 		}
 		
 		
 		/**
-		 * Finds the index of the first set bit after the given index.
+		 * Finds the bit of the first set bit after the given bit.
 		 *
-		 * @param index The starting index (0-255) to search from.
-		 * @return The index of the next set bit (0-255), or -1 if no set bit exists after {@code index}.
+		 * @param bit The starting bit (0-255) to search from.
+		 * @return The bit of the next set bit (0-255), or -1 if no set bit exists after {@code bit}.
 		 */
-		protected int next1( int index ) {
-			if( cardinality == 0 ) return -1;
-			long l;
-			index++; // Start searching for the next set bit from the byte value immediately after the current one.
+		protected int next1( int bit ) {
+			if( cardinality == 0 || bit ==  0xFF ) return -1;
+			bit++; // Start searching for the next set bit from the byte value immediately after the current one.
 			
-			if( 127 < index )
-				if( 191 < index )// Values 192-255
-				{
-					if( 0xFF < index ) return -1;
-					l = _4 >>> index; // Right-shift _4 to start searching from 'index' onwards.
-					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
-				}
-				else {
-					l = _3 >>> index; // Right-shift _3 to start searching from 'index' onwards.
-					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
-					if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bit in the remaining part of _3, check if there are any set bits in _4 and return the smallest one.
-				}
-			else if( 63 < index ) {
-				l = _2 >>> index; // Right-shift _2 to start searching from 'index' onwards.
-				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
-				if( _3 != 0 ) return 128 + Long.numberOfTrailingZeros( _3 ); // If no set bit in the remaining part of _2, check if there are any set bits in _3 and return the smallest one.
-				if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bits in _2 or _3, check if there are any set bits in _4 and return the smallest one.
-				
-			}
-			else {
-				
-				l = _1 >>> index; // Right-shift _1 to start searching from 'index' onwards.
-				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found a set bit, create a token for it and return.
-				if( _2 != 0 ) return 64 + Long.numberOfTrailingZeros( _2 ); // If no set bit in the remaining part of _1, check if there are any set bits in _2 and return the smallest one.
-				if( _3 != 0 ) return 128 + Long.numberOfTrailingZeros( _3 ); // If no set bits in _1 or _2, check if there are any set bits in _3 and return the smallest one.
-				if( _4 != 0 ) return 192 + Long.numberOfTrailingZeros( _4 ); // If no set bits in _1, _2 or _3, check if there are any set bits in _4 and return the smallest one.
-			}
+			
+			int index = bit >>> 6;
+			
+			long word = segments[ index ] >>> bit;
+			if( word != 0 ) return bit + Long.numberOfTrailingZeros( word );
+			
+			for( index++; index < 4; index++ )
+				if( ( word = segments[ index ] ) != 0 )
+					return ( index << 6 ) + Long.numberOfTrailingZeros( word );
 			
 			return -1;
 		}
 		
 		
 		/**
-		 * Finds the index of the first unset bit after the given index.
+		 * Finds the bit of the first unset bit after the given bit.
 		 *
-		 * @param index The starting index (0-255) to search from.
-		 * @return The index of the next unset bit (0-255), or -1 if no unset bit exists after {@code index}.
+		 * @param bit The starting bit (0-255) to search from.
+		 * @return The bit of the next unset bit (0-255), or -1 if no unset bit exists after {@code bit}.
 		 */
-		protected int next0( int index ) {
-			long l;
-			index++; // Start searching for the next unset bit from the position immediately after the current one
+		protected int next0( int bit ) {
+			if( bit ==  0xFF ) return -1;
+			bit++; // Start searching for the next unset bit from the position immediately after the current one
 			
-			if( 127 < index ) {
-				if( 191 < index ) { // Values 192-255
-					if( 0xFF < index ) return -1;
-					l = ~_4 >>> index; // Invert _4 and right-shift to start searching from 'index' onwards
-					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found an unset bit, return its position
-				}
-				else {
-					l = ~_3 >>> index; // Invert _3 and right-shift to start searching from 'index' onwards
-					if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found an unset bit, return its position
-					if( _4 != -1 ) return 192 + Long.numberOfTrailingZeros( ~_4 ); // Check for unset bits in _4
-				}
-			}
-			else if( 63 < index ) {
-				l = ~_2 >>> index; // Invert _2 and right-shift to start searching from 'index' onwards
-				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found an unset bit, return its position
-				if( _3 != -1 ) return 128 + Long.numberOfTrailingZeros( ~_3 ); // Check for unset bits in _3
-				if( _4 != -1 ) return 192 + Long.numberOfTrailingZeros( ~_4 ); // Check for unset bits in _4
-			}
-			else {
-				l = ~_1 >>> index; // Invert _1 and right-shift to start searching from 'index' onwards
-				if( l != 0 ) return index + Long.numberOfTrailingZeros( l ); // If found an unset bit, return its position
-				if( _2 != -1 ) return 64 + Long.numberOfTrailingZeros( ~_2 ); // Check for unset bits in _2
-				if( _3 != -1 ) return 128 + Long.numberOfTrailingZeros( ~_3 ); // Check for unset bits in _3
-				if( _4 != -1 ) return 192 + Long.numberOfTrailingZeros( ~_4 ); // Check for unset bits in _4
-			}
+			int index = bit >>> 6;
+			
+			long word = ~segments[ index ] >>> bit;
+			if( word != 0 ) return bit + Long.numberOfTrailingZeros( word );
+			
+			for( index++; index < 4; index++ )
+				if( ( word = segments[ index ] ) != -1L )  // -1L means all bits are set
+					return index << 6 + Long.numberOfTrailingZeros( ~word );
 			
 			return -1;
 		}
@@ -3081,13 +3060,12 @@ public interface Array {
 		 */
 		protected boolean set0( byte key ) {
 			if( cardinality == 0 ) return false; // Optimization: empty set cannot contain any key to remove.
-			final long bit = ~( 1L << key ); // Calculate bitmask to clear the bit at the given key position. Ensure key is treated as unsigned byte.
-			if( key < 0 ) {
-				if( -65 < key ) { if( _4 == ( _4 &= bit ) ) return false; }
-				else if( _3 == ( _3 &= bit ) ) return false;
-			}
-			else if( 63 < key ) { if( _2 == ( _2 &= bit ) ) return false; }
-			else if( _1 == ( _1 &= bit ) ) return false;
+			int  k   = ( key & 0xFF ) >> 6;
+			long was = segments[ k ];
+			long now = was & ~( 1L << key );
+			if( was == now ) return false;
+			
+			segments[ k ] = now;
 			cardinality--; // Decrement size as an element was removed.
 			_version++; // Increment version to indicate structural modification.
 			return true; // Value was removed.
@@ -3101,15 +3079,12 @@ public interface Array {
 		 * {@code false} otherwise, indicating the key was already in the set.
 		 */
 		protected boolean set1( final byte key ) {
-			final long bit = 1L << key;        // Calculate the bitmask to set the bit at the given key position. Ensure key is treated as unsigned byte.
+			int  k   = ( key & 0xFF ) >> 6;
+			long was = segments[ k ];
+			long now = was | 1L << key;
+			if( was == now ) return false;
 			
-			if( key < 0 ) {
-				if( -65 < key ) { if( _4 == ( _4 |= bit ) ) return false; }
-				else if( _3 == ( _3 |= bit ) ) return false;
-			}
-			else if( key > 63 ) { if( _2 == ( _2 |= bit ) ) return false; }
-			else if( _1 == ( _1 |= bit ) ) return false;
-			
+			segments[ k ] = now;
 			cardinality++; // Increment size as a new element was added.
 			_version++; // Increment version to indicate structural modification.
 			return true; // Value was added.
@@ -3119,7 +3094,8 @@ public interface Array {
 		 * Clears all byte values from the set, making it empty.
 		 */
 		protected void _clear() {
-			_1 = _2 = _3 = _4 = cardinality = 0; // Reset all bitset segments to 0.
+			Arrays.fill( segments, 0 );
+			cardinality = 0; // Reset all bitset segments to 0.
 			_version++; // Increment version to indicate structural modification.
 		}
 		
@@ -3130,17 +3106,7 @@ public interface Array {
 		 * @param key The byte value to check for presence in the set (valid range is 0-255).
 		 * @return {@code true} if the set contains the specified byte value, {@code false} otherwise.
 		 */
-		protected boolean get_( byte key ) {
-			if( cardinality == 0 ) return false; // Optimization: empty set cannot contain any value.
-			
-			return ( ( key < 0 ?
-					-65 < key ?
-							_4 :
-							_3 :
-					63 < key ?
-							_2 :
-							_1 ) & 1L << key ) != 0;
-		}
+		protected boolean is1( byte key ) { return cardinality != 0 && ( segments[ ( key & 0xFF ) >> 6 ] & 1L << key ) != 0; }
 	}
 }
 

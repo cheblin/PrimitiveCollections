@@ -38,11 +38,11 @@ import org.unirail.JsonWriter;
 
 /**
  * A list interface for efficiently managing nullable objects of type {@code V}.
- * Unlike a standard {@link ObjectList}, which stores all elements including nulls in a single array,
+ * Unlike a standard list, which stores all elements including nulls in a single array,
  * this interface uses two strategies to optimize memory and performance:
  * <ul>
  *     <li><b>Compressed Strategy</b>: Minimizes memory by storing only non-null values in a compact array,
- *         using a {@link BitList.RW} to track nullity.</li>
+ *         using a bit list to track nullity.</li>
  *     <li><b>Flat Strategy</b>: Prioritizes fast access by storing all elements, including nulls, in a single array.</li>
  * </ul>
  * Implementations dynamically switch between these strategies based on null density and a configurable threshold,
@@ -53,19 +53,19 @@ import org.unirail.JsonWriter;
 public interface ObjectNullList< V > {
 	
 	/**
-	 * Abstract base class providing read-only functionality for {@link ObjectNullList}.
+	 * Abstract base class providing read-only functionality for lists of nullable objects.
 	 * It implements two storage strategies for nullable objects:
 	 * <p>
 	 * <b>Compressed Strategy</b>:
-	 * - Optimizes memory for lists with many nulls by storing only non-null values in a {@code values} array.
-	 * - Uses a {@link BitList.RW} ({@code nulls}) to track nullity, where {@code true} indicates a non-null value
+	 * - Optimizes memory for lists with many nulls by storing only non-null values in an array.
+	 * - Uses a bit list ({@code nulls}) to track nullity, where {@code true} indicates a non-null value
 	 * and {@code false} indicates null.
-	 * - Access requires rank calculations on {@code nulls}, trading some performance for memory savings.
+	 * - Access requires rank calculations on the bit list, trading some performance for memory savings.
 	 * <p>
 	 * <b>Flat Strategy</b>:
 	 * - Optimizes access speed for lists with few nulls by storing all elements, including nulls, in a single
-	 * {@code values} array.
-	 * - Discards {@code nulls}, using {@code null} entries in {@code values} to indicate nullity, eliminating rank
+	 * array.
+	 * - Discards the bit list, using {@code null} entries in the values array to indicate nullity, eliminating rank
 	 * calculation overhead.
 	 * <p>
 	 * The strategy is chosen based on null density compared to {@code flatStrategyThreshold}, ensuring an optimal
@@ -76,29 +76,36 @@ public interface ObjectNullList< V > {
 	abstract class R< V > implements Cloneable, JsonWriter.Source {
 		
 		/**
-		 * Tracks nullity in the compressed strategy using a {@link BitList.RW}.
-		 * Each bit corresponds to a logical index: {@code true} for non-null, {@code false} for null.
-		 * In flat strategy, this is {@code null}, as nullity is tracked directly in {@code values}.
+		 * Used in the compressed strategy only
+		 * Using to tracks nullity. Each bit corresponds to a logical index: {@code true} for non-null, {@code false} for null.
+		 * In flat strategy, is null and not used, as nullity is tracked directly in the values array V[].
 		 */
 		protected BitList.RW nulls;
 		
 		/**
 		 * Stores the list's elements.
-		 * In compressed strategy, contains only non-null values; in flat strategy, contains all elements, including nulls.
+		 * In compressed strategy, contains only non-null values.
+		 * In flat strategy, contains all elements, including nulls.
 		 */
 		protected V[] values;
 		
 		/**
-		 * Provides type-safe equality checks, hashing, and array creation for type {@code V}.
+		 * Provides type-safe equality checks, hashing, and array creation for elements of type {@code V}.
 		 */
 		protected final Array.EqualHashOf< V > equal_hash_V;
 		
 		/**
-		 * Tracks the number of non-null elements (cardinality) in compressed strategy or total size (including nulls)
-		 * in flat strategy.
+		 * In compressed strategy: the number of non-null elements (cardinality).
+		 * In flat strategy:       total size (including nulls).
 		 */
 		protected int size_card = 0;
 		
+		/**
+		 * Returns the number of non-null elements currently in the list.
+		 * This count reflects the actual number of stored values, excluding explicit null entries.
+		 *
+		 * @return The count of non-null elements (cardinality).
+		 */
 		public int cardinality() {
 			if( !isFlatStrategy ) return size_card;                     // In compressed mode, size_card is the cardinality.
 			
@@ -112,10 +119,13 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Threshold for switching from compressed to flat strategy, defaulting to 1024.
-		 * Compared against {@code nulls.cardinality} to decide when to switch, balancing memory and performance.
+		 * Threshold for switching from compressed to flat strategy, defaulting to {@code 64}.
+		 * When the number of non-null elements exceeds this threshold, the list may switch to the flat strategy
+		 * to optimize access speed. This value balances memory efficiency and performance.
 		 */
-		protected int flatStrategyThreshold = 1024;
+		protected int flatStrategyThreshold = 64;
+		
+		public int flatStrategyThreshold() { return flatStrategyThreshold; }
 		
 		/**
 		 * Indicates the current storage strategy: {@code true} for flat, {@code false} for compressed.
@@ -125,7 +135,7 @@ public interface ObjectNullList< V > {
 		/**
 		 * Constructs a read-only instance for elements of type {@code V}.
 		 *
-		 * @param clazzV The class of the element type {@code V}, used to initialize {@code equal_hash_V}.
+		 * @param clazzV The class of the element type {@code V}, used to initialize the utility for type-safe operations.
 		 */
 		protected R( Class< V > clazzV ) {
 			this.equal_hash_V = Array.get( clazzV );
@@ -135,7 +145,7 @@ public interface ObjectNullList< V > {
 		/**
 		 * Constructs a read-only instance with a provided equality and hashing utility.
 		 *
-		 * @param equal_hash_V The utility for type-safe operations on type {@code V}.
+		 * @param equal_hash_V The utility for type-safe operations on elements of type {@code V}.
 		 */
 		public R( Array.EqualHashOf< V > equal_hash_V ) {
 			this.equal_hash_V = equal_hash_V;
@@ -143,15 +153,23 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Switches to the flat strategy, reallocating {@code values} to include all elements, including nulls.
+		 * Switches to the flat strategy, reallocating the underlying values array to include all elements, including nulls.
 		 */
 		protected void switchToFlatStrategy() { switchToFlatStrategy( nulls.size ); }
 		
+		/**
+		 * Switches the internal storage to the flat strategy, ensuring enough capacity.
+		 * All elements, including nulls, will be stored directly in the values array.
+		 * If the list is empty, it initializes with a default capacity.
+		 *
+		 * @param capacity The desired minimum capacity for the underlying array.
+		 */
 		protected void switchToFlatStrategy( int capacity ) {
 			if( size() == 0 )//the collection is empty
 			{
 				if( values.length == 0 ) values = equal_hash_V.copyOf( null, 16 );
 				isFlatStrategy = true;
+				size_card      = 0; // Size_card represents logical size in flat strategy
 				return;
 			}
 			
@@ -166,26 +184,31 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Switches to the compressed strategy, compacting non-null values and rebuilding {@code nulls}.
+		 * Switches to the compressed strategy, compacting non-null values and rebuilding the bit list.
 		 * Performs a single pass to count and populate for efficiency.
 		 */
 		protected void switchToCompressedStrategy() {
 			nulls = new BitList.RW( size_card );
-			for( int i = 0, ii = 0; i < size_card; i++ )
+			int cardinality = 0;
+			for( int i = 0; i < size_card; i++ )
 				if( values[ i ] != null ) { // packing
 					nulls.set1( i );
-					values[ ii++ ] = values[ i ];
+					values[ cardinality++ ] = values[ i ];
 				}
+			size_card      = cardinality;// Update size_card to actual cardinality
 			isFlatStrategy = false;
 		}
 		
 		/**
-		 * Copies a range of elements into a destination array, preserving nulls.
+		 * Copies a range of elements from this list into a destination array, preserving nulls.
+		 * The destination array will be resized if it is {@code null} or too small to hold the specified range.
 		 *
-		 * @param index Starting logical index.
-		 * @param len   Number of elements to copy.
-		 * @param dst   Destination array; resized if null or too small.
-		 * @return The destination array with copied elements, or {@code null} if empty.
+		 * @param index The starting logical index in this list from which to begin copying.
+		 * @param len   The number of elements to copy.
+		 * @param dst   The destination array where elements will be copied. If {@code null} or insufficient in size,
+		 *              a new array of the appropriate type and size will be allocated.
+		 * @return The destination array (either the provided {@code dst} or a newly allocated one)
+		 * containing the copied elements. If the specified range is empty, the original {@code dst} is returned.
 		 */
 		public V[] toArray( int index, int len, V[] dst ) {
 			if( size() == 0 ) return dst;
@@ -199,13 +222,13 @@ public interface ObjectNullList< V > {
 			if( isFlatStrategy ) System.arraycopy( values, index, dst, 0, Math.min( len, size_card - index ) );
 			else for( int i = 0, ii = nulls.rank( index ) - 1; i < len && index < size(); i++, index++ )
 			          dst[ i ] = hasValue( index ) ?
-					          values[ ii++ ] :
-					          null;
+			                     values[ ii++ ] :
+			                     null;
 			return dst;
 		}
 		
 		/**
-		 * Checks if this list contains all non-null elements from another {@link ObjectNullList.R}.
+		 * Checks if this list contains all non-null elements from another list of nullable objects.
 		 *
 		 * @param src The source list to check against.
 		 * @return {@code true} if all non-null elements are present, {@code false} otherwise.
@@ -217,9 +240,10 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Returns the physical capacity of the internal {@code values} array.
+		 * Returns the physical capacity of the internal values array.
+		 * This is the maximum number of elements the list can hold without resizing its internal storage.
 		 *
-		 * @return The length of the {@code values} array.
+		 * @return The current capacity of the underlying values array.
 		 */
 		public int length() {
 			return values.length;
@@ -227,35 +251,36 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Returns the logical size of the list, including nulls.
+		 * This represents the total number of elements, whether they are non-null values or explicit null entries.
 		 *
 		 * @return The total number of elements in the list.
 		 */
 		public int size() {
 			return isFlatStrategy ?
-					size_card :
-					nulls.size();
+			       size_card :
+			       nulls.size();
 		}
 		
 		/**
 		 * Checks if the list is empty.
 		 *
-		 * @return {@code true} if the list has no elements, {@code false} otherwise.
+		 * @return {@code true} if the list has no elements (logical size is zero), {@code false} otherwise.
 		 */
 		public boolean isEmpty() {
 			return size() < 1;
 		}
 		
 		/**
-		 * Checks if the specified index contains a non-null value.
+		 * Checks if the specified logical index contains a non-null value.
 		 *
-		 * @param index The index to check.
-		 * @return {@code true} if the index has a non-null value, {@code false} if null or out of bounds.
+		 * @param index The logical index to check.
+		 * @return {@code true} if the index has a non-null value, {@code false} if the element at that index is null or the index is out of bounds.
 		 */
 		public boolean hasValue( int index ) {
 			return 0 <= index && index < size() && (
 					isFlatStrategy ?
-							values[ index ] != null :
-							nulls.get( index ) );
+					values[ index ] != null :
+					nulls.get( index ) );
 		}
 		
 		/**
@@ -325,26 +350,27 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Retrieves the value at the specified index.
+		 * Retrieves the element at the specified logical index.
 		 *
-		 * @param index The index to retrieve.
-		 * @return The value at the index, or {@code null} if the index is null or out of bounds.
+		 * @param index The logical index of the element to retrieve.
+		 * @return The element at the specified index, or {@code null} if the element at that index is null,
+		 * or if the index is out of the list's bounds.
 		 */
 		public V get( int index ) {
 			return index < 0 || index >= size() ?
-					null :
-					isFlatStrategy ?
-							values[ index ] :
-							nulls.get( index ) ?
-									values[ nulls.rank( index ) - 1 ] :
-									null;
+			       null :
+			       isFlatStrategy ?
+			       values[ index ] :
+			       nulls.get( index ) ?
+			       values[ nulls.rank( index ) - 1 ] :
+			       null;
 		}
 		
 		/**
 		 * Finds the first occurrence of a specified value.
 		 *
 		 * @param value The value to locate (can be null).
-		 * @return The index of the first occurrence, or -1 if not found.
+		 * @return The logical index of the first occurrence, or -1 if not found.
 		 */
 		public int indexOf( V value ) {
 			if( value == null ) return nextNullIndex( -1 );
@@ -368,7 +394,7 @@ public interface ObjectNullList< V > {
 		 * Checks if the list contains a specified value.
 		 *
 		 * @param value The value to check for.
-		 * @return {@code true} if the value is present, {@code false} otherwise.
+		 * @return {@code true} if the value is present in the list, {@code false} otherwise.
 		 */
 		public boolean contains( V value ) { return indexOf( value ) != -1; }
 		
@@ -376,7 +402,7 @@ public interface ObjectNullList< V > {
 		 * Finds the last occurrence of a specified value.
 		 *
 		 * @param value The value to locate (can be null).
-		 * @return The index of the last occurrence, or -1 if not found.
+		 * @return The logical index of the last occurrence, or -1 if not found.
 		 */
 		public int lastIndexOf( V value ) {
 			if( isFlatStrategy ) {
@@ -394,6 +420,7 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Computes a hash code based on the list's logical content.
+		 * The hash code is derived from the values of all elements, considering nulls.
 		 *
 		 * @return The hash code for the list.
 		 */
@@ -407,16 +434,18 @@ public interface ObjectNullList< V > {
 			else
 				for( int i = 0, s = nulls.size; i < s; i++ )
 				     hash = Array.hash( hash, equal_hash_V.hashCode( nulls.get( i ) ?
-						                                                     values[ i ] :
-						                                                     null ) );
+				                                                     values[ i ] :
+				                                                     null ) );
 			return Array.finalizeHash( hash, size() );
 		}
 		
 		/**
 		 * Compares this list with another object for equality.
+		 * Returns {@code true} if the object is an instance of {@code R} (or a subclass)
+		 * and contains the same elements in the same order, considering nulls.
 		 *
 		 * @param obj The object to compare with.
-		 * @return {@code true} if the object is an equivalent {@code R} instance, {@code false} otherwise.
+		 * @return {@code true} if the object is an equivalent list instance, {@code false} otherwise.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
@@ -425,9 +454,11 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Compares this list to another {@code R} instance for logical equality.
+		 * Compares this list to another read-only list instance for logical equality.
+		 * Two lists are considered equal if they have the same logical size and
+		 * all corresponding elements are equal (including null-equality).
 		 *
-		 * @param other The other {@code R} instance to compare with.
+		 * @param other The other read-only list instance to compare with.
 		 * @return {@code true} if the lists are logically equal, {@code false} otherwise.
 		 */
 		public boolean equals( R< V > other ) {
@@ -447,8 +478,9 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Creates a deep copy of this list.
+		 * The returned list will have independent copies of internal data structures.
 		 *
-		 * @return A new {@code R} instance with the same content.
+		 * @return A new read-only list instance with the same content.
 		 * @throws RuntimeException if cloning fails.
 		 */
 		@SuppressWarnings( "unchecked" )
@@ -456,8 +488,8 @@ public interface ObjectNullList< V > {
 			try {
 				R< V > dst = ( R< V > ) super.clone();
 				dst.nulls  = nulls != null ?
-						nulls.clone() :
-						null;
+				             nulls.clone() :
+				             null;
 				dst.values = values.clone();
 				return dst;
 			} catch( CloneNotSupportedException e ) {
@@ -467,8 +499,9 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Returns a JSON string representation of the list.
+		 * This method internally calls {@link #toJSON(JsonWriter)} to format the output.
 		 *
-		 * @return The JSON string.
+		 * @return The JSON string representation of the list.
 		 */
 		@Override
 		public String toString() {
@@ -477,6 +510,7 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Serializes the list to JSON format.
+		 * Elements are written in their logical order. Null elements are represented as JSON 'null'.
 		 *
 		 * @param json The {@link JsonWriter} to write to.
 		 */
@@ -500,10 +534,11 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Sets a value at a specific index, handling both compressed and flat strategies.
+		 * Sets a value at a specific logical index within a target list instance, handling both compressed and flat strategies.
+		 * This is a protected static helper method used by read-write implementations.
 		 *
-		 * @param dst   The target {@code R} instance to modify.
-		 * @param index The index to set.
+		 * @param dst   The target list instance to modify.
+		 * @param index The logical index at which to set the value.
 		 * @param value The value to set (can be null).
 		 */
 		protected static < V > void set( R< V > dst, int index, V value ) {
@@ -523,19 +558,19 @@ public interface ObjectNullList< V > {
 			}
 			else if( dst.nulls.get( index ) ) dst.values[ dst.nulls.rank( index ) - 1 ] = value;
 			else {
-				int rank = dst.nulls.rank( index );
-				int max  = Math.max( rank, dst.size_card + 1 );
 				
-				if( dst.values.length <= max && dst.flatStrategyThreshold < dst.size_card ) {
+				if( dst.flatStrategyThreshold < dst.size_card ) {
 					dst.switchToFlatStrategy( Math.max( index + 1, dst.nulls.size() * 3 / 2 ) );
 					dst.values[ index ] = value;
 				}
 				else {
+					int rank = dst.nulls.rank( index );
+					int max  = Math.max( rank, dst.size_card + 1 );
 					
 					dst.size_card = Array.resize( dst.values,
-					                              dst.values.length == rank ?
-							                              ( dst.values = dst.equal_hash_V.copyOf( null, Math.max( 16, rank * 3 / 2 ) ) ) :
-							                              dst.values, rank, dst.size_card, 1 );
+					                              dst.values.length == max ?
+					                              ( dst.values = dst.equal_hash_V.copyOf( null, Math.max( 16, max * 3 / 2 ) ) ) :
+					                              dst.values, rank, dst.size_card, 1 );
 					
 					dst.values[ rank ] = value;
 					dst.nulls.set1( index );
@@ -545,60 +580,91 @@ public interface ObjectNullList< V > {
 	}
 	
 	/**
-	 * Read-write implementation of {@link ObjectNullList}, extending {@code R} with methods to modify the list.
+	 * Read-write implementation of {@link ObjectNullList}, extending its read-only counterpart {@code R}
+	 * with methods to modify the list's content and structure. This class manages elements
+	 * using either a compressed or flat storage strategy to optimize memory or performance.
 	 *
 	 * @param <V> The type of elements in the list, allowing null values.
 	 */
 	class RW< V > extends R< V > {
 		
 		/**
-		 * Constructs an empty list with a specified initial capacity.
+		 * Constructs a new list with a specified initial logical capacity, using a default flat strategy threshold of {@code 64}.
 		 *
-		 * @param clazz  The class of type {@code V}.
-		 * @param length The initial capacity of the internal array.
+		 * @param clazz  The class of the element type {@code V}.
+		 * @param length The initial logical capacity of the list. If {@code 0}, the list is empty.
+		 *               If negative, the list is initialized with a logical size of {@code -length} and filled with nulls.
 		 */
-		public RW( Class< V > clazz, int length ) {
-			this( Array.get( clazz ), length );
+		public RW( Class< V > clazz, int length ) { this( clazz, length, 64 ); }
+		
+		/**
+		 * Constructs a new list with a specified initial logical capacity and a configurable flat strategy threshold.
+		 *
+		 * @param clazz                 The class of the element type {@code V}.
+		 * @param length                The initial logical capacity for the list. If {@code 0}, the list is empty.
+		 *                              If negative, the list is initialized with a logical size of {@code -length} and filled with null elements.
+		 * @param flatStrategyThreshold The threshold for switching between compressed and flat storage strategies.
+		 *                              A higher value favors the compressed strategy (memory efficiency), while a lower value favors the flat strategy (access speed).
+		 * @throws IllegalArgumentException if {@code flatStrategyThreshold} is negative.
+		 */
+		public RW( Class< V > clazz, int length, int flatStrategyThreshold ) {
+			this( Array.get( clazz ), length, flatStrategyThreshold );
 		}
 		
 		/**
-		 * Constructs an empty list with a specified initial capacity and equality utility.
+		 * Constructs a new list with a specified initial capacity, using a provided equality utility and a default flat strategy threshold of {@code 64}.
 		 *
-		 * @param equal_hash_V The utility for type-safe operations on type {@code V}.
-		 * @param items        The initial capacity for the internal {@code values} array, which determines the
-		 *                     number of elements the list can hold without resizing.
-		 *                     If positive, it sets the initial capacity.
-		 *                     If negative, the list is initialized with a capacity and size of {@code -items},
-		 *                     filled with null elements.
+		 * @param equal_hash_V The utility for type-safe operations on elements of type {@code V}.
+		 * @param items        The initial logical capacity for the list.
+		 *                     If positive, it sets the initial capacity for the internal arrays.
+		 *                     If negative, the list is initialized with a logical size of {@code -items}
+		 *                     and is pre-filled with null elements up to that size.
 		 */
-		public RW( Array.EqualHashOf< V > equal_hash_V, int items ) {
+		public RW( Array.EqualHashOf< V > equal_hash_V, int items ) { this( equal_hash_V, items, 64 ); }
+		
+		/**
+		 * Constructs a new list with a specified initial capacity, equality utility, and flat strategy threshold.
+		 *
+		 * @param equal_hash_V          The utility for type-safe operations on elements of type {@code V}.
+		 * @param items                 The initial logical capacity for the list.
+		 *                              If positive, it sets the initial capacity for the internal arrays.
+		 *                              If negative, the list is initialized with a logical size of {@code -items}
+		 *                              and is pre-filled with null elements up to that size.
+		 * @param flatStrategyThreshold The threshold for switching between compressed and flat storage strategies.
+		 *                              A higher value favors the compressed strategy (memory efficiency), while a lower value favors the flat strategy (access speed).
+		 * @throws IllegalArgumentException if {@code flatStrategyThreshold} is negative.
+		 */
+		public RW( Array.EqualHashOf< V > equal_hash_V, int items, int flatStrategyThreshold ) {
 			super( equal_hash_V );
+			if( flatStrategyThreshold < 0 ) throw new IllegalArgumentException( "flatStrategyThreshold cannot be negative" );
+			this.flatStrategyThreshold = flatStrategyThreshold;
 			int length = Math.abs( items );
 			
 			nulls  = new BitList.RW( length );
 			values = length == 0 ?
-					equal_hash_V.OO :
-					equal_hash_V.copyOf( null, length );
+			         equal_hash_V.OO :
+			         equal_hash_V.copyOf( null, length );
 			if( items < 0 ) set1( -items - 1, null );// + set size
 		}
 		
 		/**
-		 * Sets the threshold for strategy switching and may trigger an immediate switch.
+		 * Sets the threshold for strategy switching and may trigger an immediate strategy switch.
 		 * <ul>
-		 *     <li>If {@code threshold} ≤ {@code cardinality} and currently compressed, switches to flat.</li>
-		 *     <li>If {@code threshold} > {@code cardinality} and currently flat, switches to compressed.</li>
+		 *     <li>If {@code threshold} is less than or equal to the current cardinality (number of non-null elements)
+		 *         and the list is currently using the compressed strategy, it will switch to the flat strategy.</li>
+		 *     <li>If {@code threshold} is greater than the current cardinality and the list is currently
+		 *         using the flat strategy, it will switch to the compressed strategy.</li>
 		 * </ul>
+		 * This method allows fine-tuning the balance between memory efficiency and access performance.
 		 * Operations like {@code add} or {@code set} may also trigger switches based on resizing needs.
 		 *
-		 * @param threshold New threshold value (higher favors compressed, lower favors flat).
+		 * @param threshold New threshold value (a higher value favors compressed, a lower value favors flat).
 		 * @see #switchToFlatStrategy()
 		 * @see #switchToCompressedStrategy()
 		 */
 		public void flatStrategyThreshold( int threshold ) {
 			
 			if( isFlatStrategy ) {
-				
-				
 				if( cardinality() < ( flatStrategyThreshold = threshold ) ) switchToCompressedStrategy();
 			}
 			else if( ( flatStrategyThreshold = threshold ) <= nulls.cardinality() ) switchToFlatStrategy();
@@ -607,8 +673,11 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Creates a deep copy of this list.
+		 * The returned list will be an independent {@code RW} instance with the same content
+		 * and internal state (e.g., strategy, thresholds).
 		 *
 		 * @return A new {@code RW} instance with the same content.
+		 * @throws RuntimeException if cloning fails (e.g., if the underlying element type is not cloneable).
 		 */
 		public RW< V > clone() {
 			return ( RW< V > ) super.clone();
@@ -616,6 +685,7 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Removes the last element from the list.
+		 * If the list is empty, no operation is performed.
 		 *
 		 * @return This instance for method chaining.
 		 */
@@ -624,9 +694,10 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Removes the element at the specified index.
+		 * Removes the element at the specified logical index.
+		 * If the index is out of the list's bounds, no operation is performed.
 		 *
-		 * @param index The index of the element to remove.
+		 * @param index The logical index of the element to remove.
 		 * @return This instance for method chaining.
 		 */
 		public RW< V > remove( int index ) {
@@ -652,9 +723,11 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Sets the value at a specific index.
+		 * Sets the value at a specific logical index.
+		 * If the index is beyond the current logical size, the list will be extended with nulls
+		 * up to the specified index before setting the value.
 		 *
-		 * @param index The index to set.
+		 * @param index The logical index to set.
 		 * @param value The value to set (can be null).
 		 * @return This instance for method chaining.
 		 */
@@ -664,9 +737,10 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Sets multiple values starting from a specified index.
+		 * Sets multiple values starting from a specified logical index.
+		 * The elements from the provided array are copied into the list.
 		 *
-		 * @param index  The starting index.
+		 * @param index  The starting logical index in this list.
 		 * @param values The values to set (can include nulls).
 		 * @return This instance for method chaining.
 		 */
@@ -677,12 +751,12 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Sets a range of values from an array starting at a specified index.
+		 * Sets a range of values from a source array into this list, starting at a specified logical index.
 		 *
-		 * @param index     The starting index in the list.
-		 * @param values    The source array containing values to set.
-		 * @param src_index The starting index in the source array.
-		 * @param len       The number of elements to copy.
+		 * @param index     The starting logical index in this list where the values will be placed.
+		 * @param values    The source array containing the elements to set.
+		 * @param src_index The starting index within the source array from which elements will be read.
+		 * @param len       The number of elements to copy from the source array.
 		 * @return This instance for method chaining.
 		 */
 		public RW< V > set( int index, V[] values, int src_index, int len ) {
@@ -692,6 +766,7 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Appends a value to the end of the list.
+		 * The new element will be placed at the current logical size of the list.
 		 *
 		 * @param value The value to append (can be null).
 		 * @return This instance for method chaining.
@@ -702,9 +777,11 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Inserts a value at a specific index, shifting elements as needed.
+		 * Inserts a value at a specific logical index, shifting existing elements at and after that index to the right.
+		 * If the index is greater than or equal to the current logical size, the element is appended, and any
+		 * intermediate indices are filled with nulls.
 		 *
-		 * @param index The index at which to insert.
+		 * @param index The logical index at which to insert the value.
 		 * @param value The value to insert (can be null).
 		 * @return This instance for method chaining.
 		 */
@@ -717,8 +794,8 @@ public interface ObjectNullList< V > {
 			if( isFlatStrategy ) {
 				size_card       = Array.resize( values,
 				                                values.length <= size_card ?
-						                                equal_hash_V.copyOf( null, Math.max( 16, size_card * 3 / 2 ) ) :
-						                                values, index, size_card, 1 );
+				                                equal_hash_V.copyOf( null, Math.max( 16, size_card * 3 / 2 ) ) :
+				                                values, index, size_card, 1 );
 				values[ index ] = value;
 				return this;
 			}
@@ -739,10 +816,10 @@ public interface ObjectNullList< V > {
 			else {
 				size_card = Array.resize( values,
 				                          values.length <= max ?
-						                          equal_hash_V.copyOf( null, max == 0 ?
-								                          16 :
-								                          max * 3 / 2 ) :
-						                          values, i, size_card, 1 );
+				                          equal_hash_V.copyOf( null, max == 0 ?
+				                                                     16 :
+				                                                     max * 3 / 2 ) :
+				                          values, i, size_card, 1 );
 				nulls.add( index, true );
 				values[ i ] = value;
 			}
@@ -752,6 +829,7 @@ public interface ObjectNullList< V > {
 		
 		/**
 		 * Appends multiple values to the end of the list.
+		 * Each value from the provided array is added sequentially.
 		 *
 		 * @param items The values to append (can include nulls).
 		 * @return This instance for method chaining.
@@ -759,12 +837,13 @@ public interface ObjectNullList< V > {
 		@SafeVarargs
 		public final RW< V > add( V... items ) {
 			return items == null ?
-					this :
-					set( size(), items );
+			       this :
+			       set( size(), items );
 		}
 		
 		/**
-		 * Appends all elements from another {@code R} instance to this list.
+		 * Appends all elements from another read-only list instance to this list.
+		 * The elements are appended in their original order.
 		 *
 		 * @param src The source list to append.
 		 * @return This instance for method chaining.
@@ -776,7 +855,9 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Clears the list, resetting it to the compressed strategy.
+		 * Clears all elements from the list, making it empty.
+		 * The internal storage strategy (compressed or flat) remains the same.
+		 * The underlying values array is filled with nulls, and the logical size is set to zero.
 		 *
 		 * @return This instance for method chaining.
 		 */
@@ -790,10 +871,14 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Sets the physical capacity of the list, truncating or expanding as needed.
+		 * Sets the physical capacity of the underlying storage, truncating or expanding as needed.
+		 * This affects the allocated memory but does not change the logical size of the list directly.
+		 * If the new capacity is less than the current logical size, the list will be truncated to the new capacity,
+		 * effectively removing elements beyond that point.
 		 *
-		 * @param length The new capacity.
+		 * @param length The new desired physical capacity.
 		 * @return This instance for method chaining.
+		 * @throws IllegalArgumentException if {@code length} is negative.
 		 */
 		public RW< V > length( int length ) {
 			if( length < 0 ) throw new IllegalArgumentException( "length cannot be negative" );
@@ -817,9 +902,17 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Sets the logical size of the list, extending with nulls or truncating as needed.
+		 * Sets the logical size of the list.
+		 * <ul>
+		 *     <li>If the new size is less than the current size, the list is truncated, and elements beyond
+		 *         the new size are removed.</li>
+		 *     <li>If the new size is greater than the current size, the list is extended with null elements
+		 *         up to the new size.</li>
+		 *     <li>If the new size is {@code 0} or less, the list is cleared.</li>
+		 * </ul>
+		 * This operation may also trigger a strategy switch if the cardinality threshold is met.
 		 *
-		 * @param size The new logical size.
+		 * @param size The new desired logical size for the list.
 		 * @return This instance for method chaining.
 		 */
 		public RW< V > size( int size ) {
@@ -835,7 +928,10 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Trims the list's capacity to match its logical size, potentially switching to compressed strategy.
+		 * Trims the list's capacity to match its logical size, potentially switching to the compressed strategy.
+		 * This reduces the memory footprint by reallocating the internal array to exactly fit the current elements.
+		 * If currently in flat strategy and the cardinality (number of non-null elements) falls below
+		 * the {@code flatStrategyThreshold}, it will switch to the compressed strategy.
 		 *
 		 * @return This instance for method chaining.
 		 */
@@ -854,11 +950,15 @@ public interface ObjectNullList< V > {
 		}
 		
 		/**
-		 * Swaps the elements at two indices.
+		 * Swaps the elements located at the specified logical indices within the list.
+		 * If the indices are the same, no operation is performed. If the elements at the indices
+		 * are identical (considering nulls and object equality), no modification occurs.
 		 *
-		 * @param index1 The first index to swap.
-		 * @param index2 The second index to swap.
+		 * @param index1 The first logical index of an element to swap.
+		 * @param index2 The second logical index of an element to swap.
 		 * @return This instance for method chaining.
+		 * @throws IndexOutOfBoundsException if either {@code index1} or {@code index2} is negative
+		 *                                   or greater than or equal to the current logical size of the list.
 		 */
 		public RW< V > swap( int index1, int index2 ) {
 			if( index1 < 0 || index1 >= size() ) throw new IndexOutOfBoundsException( "Index1 must be non-negative and less than the list's size: " + index1 );
@@ -878,10 +978,11 @@ public interface ObjectNullList< V > {
 	}
 	
 	/**
-	 * Provides a type-safe {@link Array.EqualHashOf} for {@code RW} instances.
+	 * Provides a type-safe {@link Array.EqualHashOf} instance for {@code RW} lists.
+	 * This utility can be used for operations like comparing or hashing {@code RW} instances themselves.
 	 *
 	 * @param <V> The element type of the list.
-	 * @return A type-safe {@link Array.EqualHashOf} for {@code RW<V>}.
+	 * @return A type-safe {@link Array.EqualHashOf} for {@code RW<V>} instances.
 	 */
 	@SuppressWarnings( "unchecked" )
 	static < V > Array.EqualHashOf< RW< V > > equal_hash() {

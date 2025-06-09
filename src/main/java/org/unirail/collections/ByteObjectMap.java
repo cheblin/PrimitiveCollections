@@ -166,7 +166,7 @@ public interface ByteObjectMap {
 		 * (or if {@code null} is explicitly mapped to the key).
 		 */
 		public V value( byte key ) {
-			if( !get_( ( byte ) key ) ) return null;
+			if( !is1( ( byte ) key ) ) return null;
 			
 			return values[
 					values.length == 256 ?
@@ -240,7 +240,7 @@ public interface ByteObjectMap {
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
 		
-		private static final int seed = IntObjectMap.R.class.hashCode();
+		private static final int seed = R.class.hashCode();
 		
 		/**
 		 * Compares the specified object with this map for equality.
@@ -519,7 +519,7 @@ public interface ByteObjectMap {
 		 * {@code false} if the key existed and its value was updated.
 		 */
 		public boolean put( byte key, V value ) {
-			if( get_( ( byte ) key ) ) {
+			if( is1( ( byte ) key ) ) {
 				values[ values.length == 256 ?
 						key & 0xFF :
 						rank( ( byte ) key ) - 1 ] = value; // Set or update the value at the calculated index

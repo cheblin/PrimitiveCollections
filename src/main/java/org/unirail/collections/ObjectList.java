@@ -414,7 +414,7 @@ public interface ObjectList {
 				if( values.length <= index ) values = equal_hash_V.copyOf( values,
 				                                                           index == 0 ?
 						                                                           16 :
-						                                                           index * 3 / 2 );
+						                                                           index *  2 );
 				size = index + 1;
 			}
 			values[ index ] = value;

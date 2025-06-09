@@ -39,21 +39,151 @@ import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 
 /**
- * {@code CharSet} is a specialized Set interface designed for efficient storage and manipulation of char/short keys (65,536 distinct values).
- * It provides optimized operations for adding, removing, checking for existence, and iterating over char elements.
- * Implements a HYBRID strategy:
- * 1. Starts as a hash set with separate chaining, optimized for sparse data.
- * Uses short[] for next pointers, limiting this phase's capacity.
- * 2. Automatically transitions to a direct-mapped flat bitset when the hash set
- * reaches its capacity limit (~32,749 entries) and needs to grow further.
- * This approach balances memory efficiency for sparse sets with guaranteed O(1)
- * performance and full key range support for dense sets.
+ * A specialized set for storing primitive keys (e.g., 2-byte values).
+ * <p>
+ * This implementation uses a HYBRID strategy that automatically adapts based on data density:
+ * <p>
+ * 1. SPARSE MODE (Hash Set Phase):
+ * - Starts as a hash set, optimized for sparse data.
+ * - Uses a dual-region approach for keys storage to minimize memory overhead:
+ * - {@code lo Region}: Stores entries involved in hash collisions. Uses an explicit {@code links} array for chaining.
+ * Occupies low indices (0 to {@code _lo_Size-1}) in {@code keys}.
+ * - {@code hi Region}: Stores entries that do not (initially) require {@code links} links (i.e., no collision at insertion time, or they are terminal nodes of a chain).
+ * Occupies high indices (from {@code keys.length - _hi_Size} to {@code keys.length-1}) in {@code keys}.
+ * - Manages collision-involved ({@code lo Region}) and initially non-collision ({@code hi Region}) entries distinctly.
+ * <p>
+ * 2. DENSE MODE (Flat Array Phase):
+ * - Automatically transitions to a direct-mapped flat array when a resize operation targets a capacity beyond
+ * {@link RW#flatStrategyThreshold} (typically 0x7FFF = 32,767 entries).
+ * - Provides guaranteed O(1) performance with full primitive key range support (0-65535).
+ * <p>
+ * This approach balances memory efficiency for sparse sets with optimal performance for dense sets.
+ *
+ * <h3>Hash Set Phase Optimization:</h3>
+ * The hash set phase uses a sophisticated dual-region strategy for storing keys to minimize memory usage:
+ *
+ * <ul>
+ * <li><b>{@code hi Region}:</b> Occupies high indices in the {@code keys} array.
+ *     Entries are added at {@code keys[keys.length - 1 - _hi_Size]}, and {@code _hi_Size} is incremented.
+ *     Thus, this region effectively grows downwards from {@code keys.length-1}. Active entries are in indices
+ *     {@code [keys.length - _hi_Size, keys.length - 1]}.
+ *     <ul>
+ *         <li>Stores entries that, at the time of insertion, map to an empty bucket in the {@code _buckets} hash table.</li>
+ *         <li>These entries can also become the terminal entries of collision chains originating in the {@code lo Region}.</li>
+ *         <li>Managed stack-like: new entries are added to what becomes the lowest index of this region if it were viewed as growing from {@code keys.length-1} downwards.</li>
+ *     </ul>
+ * </li>
+ *
+ * <li><b>{@code lo Region}:</b> Occupies low indices in the {@code keys} array, indices {@code 0} through {@code _lo_Size - 1}. It grows upwards
+ *     (e.g., from {@code 0} towards higher indices, up to a maximum of {@code _lo_Size} elements).
+ *     <ul>
+ *         <li>Stores entries that are part of a collision chain (i.e., multiple keys hash to the same bucket, or an entry that initially was in {@code hi Region} caused a collision upon a new insertion).</li>
+ *         <li>Uses the {@code links} array for managing collision chains. This array is sized dynamically.</li>
+ *         <li>Only entries in this region can have their {@code links} array slot utilized for chaining to another entry in either region.</li>
+ *     </ul>
+ * </li>
+ * </ul>
+ *
+ * <h3>Insertion Algorithm (Hash Mode):</h3>
+ * <ol>
+ * <li>Compute the bucket index using {@code bucketIndex(hash)}.</li>
+ * <li><b>If the bucket is empty ({@code _buckets[bucketIndex] == 0}):</b>
+ *     <ul><li>The new entry is placed in the {@code hi Region} (at index `keys.length - 1 - _hi_Size`, then `_hi_Size` is incremented).
+ *      The bucket {@code _buckets[bucketIndex]} is updated to point to this new entry (using 1-based index: `dst_index + 1`).</li></ul></li>
+ * <li><b>If the bucket is not empty:</b>
+ *     <ul>
+ *         <li>Let `index = _buckets[bucketIndex]-1` be the 0-based index of the current head of the chain.</li>
+ *         <li><b>If `index` is in the {@code hi Region} (`_lo_Size <= index`):</b>
+ *             <ul>
+ *                 <li>If the new primitive key matches `keys[index]`, the key is already present.</li>
+ *                 <li>If the new primitive key collides with `keys[index]`:
+ *                     <ul>
+ *                         <li>The new entry is placed in the {@code lo Region} (at index `n_idx = _lo_Size`, then `_lo_Size` is incremented).</li>
+ *                         <li>The `links[n_idx]` field of this new {@code lo Region} entry is set to `index` (making it point to the existing {@code hi Region} entry).</li>
+ *                         <li>The bucket {@code _buckets[bucketIndex]} is updated to point to this new {@code lo Region} entry `n_idx` (using 1-based index: `n_idx + 1`), effectively making the new entry the head of the chain.</li>
+ *                     </ul>
+ *                 </li>
+ *             </ul>
+ *         </li>
+ *         <li><b>If `index` is in the {@code lo Region} (part of an existing collision chain):</b>
+ *             <ul>
+ *                 <li>The existing collision chain starting from `index` is traversed.</li>
+ *                 <li>If the primitive key is found in the chain, it's already present.</li>
+ *                 <li>If the primitive key is not found after traversing the entire chain:
+ *                     <ul>
+ *                         <li>The new entry is placed in the {@code lo Region} (at index `n_idx = _lo_Size`, then `_lo_Size` is incremented).</li>
+ *                         <li>The `links` array is resized if necessary.</li>
+ *                         <li>The `links[n_idx]` field of this new {@code lo Region} entry is set to `index` (pointing to the old head).</li>
+ *                         <li>The bucket {@code _buckets[bucketIndex]} is updated to point to this new {@code lo Region} entry `n_idx` (using 1-based index: `n_idx + 1`), making the new entry the new head.</li>
+ *                     </ul>
+ *                 </li>
+ *             </ul>
+ *         </li>
+ *     </ul>
+ * </li>
+ * </ol>
+ *
+ * <h3>Removal Algorithm (Hash Mode):</h3>
+ * Removal involves finding the entry, updating chain links or bucket pointers, and then compacting the
+ * respective region (`lo` or `hi`) to maintain memory density.
+ *
+ * <ul>
+ * <li><b>Removing an entry `E` at `removeIndex` in the {@code hi Region} (`_lo_Size <= removeIndex`):</b>
+ *     <ul>
+ *         <li>The key at `removeIndex` must match the target key.</li>
+ *         <li>If `E` was the head of its collision chain, the bucket that pointed to `removeIndex` is cleared (set to 0).</li>
+ *         <li>To compact the {@code hi Region}, the entry from the lowest-addressed slot in the {@code hi Region}
+ *             (i.e., at `keys[keys.length - _hi_Size]`) is moved into the `removeIndex` slot using {@code move()},
+ *             unless `removeIndex` was already the lowest-addressed slot.</li>
+ *         <li>`_hi_Size` is decremented.</li>
+ *     </ul>
+ * </li>
+ * <li><b>Removing an entry `E` at `removeIndex` in the {@code lo Region} (`removeIndex < _lo_Size`):</b>
+ *     <ul>
+ *         <li>The collision chain starting from its bucket is traversed to find `E` and its preceding entry.</li>
+ *         <li>If `E` is the head of its collision chain, the bucket `_buckets[bucketIndex]` is updated to point to the next entry in the chain (`links[removeIndex]`).</li>
+ *         <li>If `E` is within or at the end of its collision chain (not the head), the `links` link of the preceding entry in the chain is updated to bypass `E`.</li>
+ *         <li>After chain adjustments, the {@code lo Region} is compacted:
+ *             The data from the last logical entry in {@code lo Region} (at index `_lo_Size-1`) is moved into the freed `removeIndex` slot using {@code move()}.
+ *             This includes updating `keys` and the `links` link of the moved entry.
+ *             Any pointers (bucket or `links` links from other entries) to the moved entry (`_lo_Size-1`) are updated to its new location (`removeIndex`).
+ *             `_lo_Size` is decremented. This ensures the {@code lo Region} remains dense.
+ *         </li>
+ *     </ul>
+ * </li>
+ * </ul>
+ *
+ * <h3>Iteration ({@code unsafe_token}) (Hash Mode):</h3>
+ * Iteration over non-null key entries proceeds by scanning the {@code lo Region} first, then the {@code hi Region}:
+ * Due to compaction all entries in this ranges are valid and pass very fast.
+ * <ul>
+ *   <li>1. Iterate through indices from `token + 1` up to `_lo_Size - 1` (inclusive).</li>
+ *   <li>2. If the {@code lo Region} scan is exhausted (i.e., `token + 1 >= _lo_Size`), iteration continues by scanning the {@code hi Region} from its logical start (`keys.length - _hi_Size`) up to `keys.length - 1` (inclusive).</li>
+ * </ul>
+ *
+ * <h3>Resizing (Hash to Hash):</h3>
+ * <ul>
+ * <li>Allocate new internal arrays ({@code _buckets}, {@code keys}, {@code links}) with the new capacity.</li>
+ * <li>Iterate through all valid entries in the old {@code lo Region} (indices {@code 0} to {@code old_lo_Size - 1}) and
+ * old {@code hi Region} (indices {@code old_keys.length - old_hi_Size} to {@code old_keys.length - 1}).</li>
+ * <li>Re-insert each key into the new structure using an internal {@code copy} operation, which efficiently re-hashes and re-inserts entries into the new structure, rebuilding the hash table and regions.</li>
+ * </ul>
+ *
+ * <h3>Flat Array Phase (Dense Mode):</h3>
+ * <ul>
+ * <li><b>Trigger:</b> Switches to this mode if a resize operation targets a capacity greater than {@link RW#flatStrategyThreshold} (0x7FFF = 32,767 entries),
+ *     or if the initial capacity is set above this threshold.</li>
+ * <li><b>Storage:</b> Uses a {@code long[] nulls} bitset (1 bit per possible primitive key) for presence
+ * tracking. The key itself serves as the index into the implicit values array (not present for a Set).</li>
+ * <li><b>Memory:</b> Hash-mode specific arrays like {@code _buckets}, {@code links}, and the dual-region {@code keys} array are discarded (set to null).
+ * <li><b>Performance:</b> Guaranteed O(1) access for all operations (add, contains, remove) as there are no hash collisions.</li>
+ * </ul>
  */
 public interface CharSet {
 	
 	/**
-	 * {@code R} is a read-only abstract base class that implements the core functionalities and state management for {@code CharSet}.
-	 * It handles the underlying structure which can be either a hash set or a flat bitset.
+	 * {@code R} is a read-only abstract base class that implements the core functionalities and state management for
+	 * a set of primitive keys. It handles the underlying structure which can be either a hash set or a flat bitset.
 	 * It serves as a foundation for read-write implementations and provides methods for querying the set without modification.
 	 * This class is designed to be lightweight and efficient for read-heavy operations.
 	 * <p>
@@ -63,39 +193,60 @@ public interface CharSet {
 		/**
 		 * Indicates whether the Set contains a null key. Null keys are handled separately.
 		 */
-		
 		public boolean hasNullKey() { return hasNullKey; }
 		
-		protected boolean        hasNullKey;          // Indicates if the map contains a null key
-		protected char[]         _buckets;            // Hash table buckets array (1-based indices to chain heads).
-		protected short[]        nexts;               // Links within collision chains (-1 termination, -2 unused, <-2 free list link).
-		protected char[] keys; // Keys array.
-		protected int            _count;              // Hash mode: Total slots used (entries + free slots). Flat mode: Number of set bits (actual entries).
-		protected int            _freeList;           // Index of the first entry in the free list (-1 if empty).
-		protected int            _freeCount;          // Number of free entries in the free list.
-		protected int            _version;            // Version counter for concurrent modification detection.
+		protected boolean        hasNullKey;          // Indicates if the set contains a null key.
+		protected char[]         _buckets;            // Hash table buckets array (1-based indices to chain heads). Stores 0-based indices plus one.
+		protected char[]         links;               // Links within collision chains. Stores 0-based indices.
+		protected char[] keys;                // Stores the primitive keys in the set.
 		
-		protected static final int StartOfFreeList = -3; // Marks the start of the free list in 'nexts' field.
-		protected static final int VERSION_SHIFT   = 32; // Bits to shift version in token.
-		// Special index used in tokens to represent the null key. Outside valid array index ranges.
-		protected static final int NULL_KEY_INDEX  = 0x1_FFFF; // 65537
+		protected int _lo_Size;                       // Number of active entries in the low region (0 to _lo_Size-1).
+		protected int _hi_Size;                       // Number of active entries in the high region (keys.length - _hi_Size to keys.length-1).
 		
+		/**
+		 * Returns the total number of active entries in the set when operating in hash mode.
+		 * This is the sum of entries in the low and high regions.
+		 *
+		 * @return The current count of entries in hash mode.
+		 */
+		protected int _count() { return _lo_Size + _hi_Size; } // Total number of active entries in hash mode
+		
+		protected int _version;                       // Version counter for concurrent modification detection. Incremented on structural changes.
+		
+		protected static final int VERSION_SHIFT  = 32; // Number of bits to shift the version value when packing into a token.
+		/**
+		 * Special index used in tokens to represent the null key. This value is outside
+		 * the valid range of array indices (0-65535).
+		 */
+		protected static final int NULL_KEY_INDEX = 0x1_FFFF;
+		
+		/**
+		 * A constant representing an invalid or non-existent token.
+		 */
 		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
 		
 		/**
-		 * Flag indicating if the set is operating in flat bitset mode.
+		 * Checks if the set is currently operating in dense (flat bitset) mode.
+		 *
+		 * @return {@code true} if the set uses the flat strategy, {@code false} otherwise.
 		 */
 		protected boolean isFlatStrategy() { return nulls != null; }
 		
 		/**
-		 * Bitset to track presence of keys in flat mode. Size 1024 longs = 65536 bits.
+		 * In dense (flat array) mode, this bitset tracks the presence of primitive keys.
+		 * Each bit corresponds to a primitive key value (0-65535). A set bit indicates the key is present.
 		 */
-		protected long[] nulls; // Size: 65536 / 64 = 1024
+		protected long[] nulls;
+		
+		/**
+		 * The number of elements in the set when operating in flat (dense array) mode.
+		 */
+		protected int flat_count; // Number of elements in flat mode
 		
 		// Constants for Flat Mode
-		protected static final int FLAT_ARRAY_SIZE = 0x10000;
-		protected static final int NULLS_SIZE      = FLAT_ARRAY_SIZE / 64; // 1024
+		protected static final int FLAT_ARRAY_SIZE = 0x10000; // 65536 possible primitive key values
+		protected static final int NULLS_SIZE      = FLAT_ARRAY_SIZE / 64; // Size of the 'nulls' bitset array (1024 longs for 65536 bits)
 		
 		
 		/**
@@ -105,16 +256,14 @@ public interface CharSet {
 		 * @return the number of elements in this set
 		 */
 		public int size() {
-			// Hash Mode: _count includes free slots, subtract _freeCount for actual entries.
-			// Flat Mode: _count is the number of set bits (actual entries).
-			// Add 1 if the null key is present in either mode.
 			return (
 					       isFlatStrategy() ?
-							       _count :
-							       _count - _freeCount ) + (
+					       flat_count :
+					       // Flat mode: flat_count tracks actual entries
+					       _count() ) + ( // Hash mode: _count() (lo_Size + hi_Size) is actual entries
 					       hasNullKey ?
-							       1 :
-							       0 );
+					       1 :
+					       0 );
 		}
 		
 		/**
@@ -133,103 +282,120 @@ public interface CharSet {
 		
 		/**
 		 * Returns the allocated capacity of the internal structure.
-		 * In hash set mode, it's the length of the internal arrays.
-		 * In flat mode, it's the fixed size (65536).
+		 * In hash set mode, it's the length of the internal {@code keys} array.
+		 * In flat mode, it's the fixed maximum size (65536).
 		 *
 		 * @return The capacity.
 		 */
 		public int length() {
 			return isFlatStrategy() ?
-					FLAT_ARRAY_SIZE :
-					( nexts == null ?
-							0 :
-							nexts.length );
+			       FLAT_ARRAY_SIZE :
+			       ( keys == null ?
+			         0 :
+			         keys.length );
 		}
 		
 		
 		/**
-		 * Checks if this set contains the specified key. Handles null keys.
+		 * Checks if this set contains the specified boxed key. Handles null keys.
 		 *
-		 * @param key the key to check for in this set (boxed Character).
-		 * @return {@code true} if this set contains the specified key
+		 * @param key the boxed key to check for in this set.
+		 * @return {@code true} if this set contains the specified key.
 		 */
 		public boolean contains(  Character key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if this set contains the specified primitive char key.
+		 * Checks if this set contains the specified primitive key.
 		 *
-		 * @param key the primitive char key (0 to 65535) to check for in this set
-		 * @return {@code true} if this set contains the specified char key
+		 * @param key the primitive key to check for in this set.
+		 * @return {@code true} if this set contains the specified key.
 		 */
 		public boolean contains( char key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		
 		/**
-		 * Returns a token for the specified key if it exists in the set, otherwise returns {@link #INVALID_TOKEN}.
+		 * Returns a token for the specified boxed key if it exists in the set, otherwise returns {@link #INVALID_TOKEN}.
 		 * Tokens are used for efficient iteration and element access. Handles null keys.
 		 *
-		 * @param key the key to get the token for (can be null, boxed Character)
-		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found
+		 * @param key the boxed key to get the token for (can be null).
+		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found.
 		 */
 		public long tokenOf(  Character key ) {
 			return key == null ?
-					( hasNullKey ?
-							token( NULL_KEY_INDEX ) :
-							// Use special index for null key token
-							INVALID_TOKEN ) :
-					tokenOf( ( char ) ( key + 0 ) );
+			       ( hasNullKey ?
+			         token( NULL_KEY_INDEX ) :
+			         INVALID_TOKEN ) :
+			       tokenOf( ( char ) ( key + 0 ) );
 		}
 		
 		
 		/**
-		 * Returns a token for the specified primitive char key if it exists in the set, otherwise returns {@link #INVALID_TOKEN}.
-		 * Tokens are used for efficient iteration and element access.
+		 * Returns a "token" representing the internal location of the specified primitive key.
+		 * This token can be used for fast access to the key via {@link #key(long)}.
+		 * It also includes a version stamp to detect concurrent modifications.
 		 *
-		 * @param key the primitive char key to get the token for
-		 * @return a valid token if the key is in the set, -1 ({@link #INVALID_TOKEN}) if not found
+		 * @param key The primitive key to get the token for.
+		 * @return A {@code long} token for the key, or {@link #INVALID_TOKEN} if the key is not found.
+		 * @throws ConcurrentModificationException if a concurrent structural modification is detected while traversing a collision chain.
 		 */
 		public long tokenOf( char key ) {
 			if( isFlatStrategy() )
 				return exists( ( char ) key ) ?
-						token( ( char ) key ) :
-						INVALID_TOKEN;
+				       token( ( char ) key ) :
+				       INVALID_TOKEN;
 			
-			if( _buckets == null || size() == 0 ) return INVALID_TOKEN; // Check size() to account for only null key present
+			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN; // Use _count()
 			
-			int hash = Array.hash( key );
-			int i    = ( _buckets[ bucketIndex( hash ) ] ) - 1;
+			int index = ( _buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1; // 0-based index
+			if( index < 0 ) return INVALID_TOKEN; // Bucket is empty
 			
-			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < nexts.length; ) {
-				if( keys[ i ] == key ) return token( i );
-				i = nexts[ i ];
-				if( nexts.length < ++collisionCount ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			if( _lo_Size <= index ) // If the first entry is in the hi Region
+				return keys[ index ] == key ?
+				       token( index ) :
+				       INVALID_TOKEN; // If key doesn't match, it's not here as hi entries are non-colliding heads unless moved
+			
+			// Traverse collision chain in lo Region
+			for( int collisions = 0; ; ) {
+				if( keys[ index ] == key ) return token( index );
+				if( _lo_Size <= index ) break; // Reached a terminal node (which is in hi Region, or end of chain)
+				index = links[ index ];
+				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." ); // Max _lo_Size collisions
 			}
 			return INVALID_TOKEN;
 		}
 		
 		
 		/**
-		 * Returns a token representing the first element in the set for iteration. Starts with the first non-null key.
-		 * If only the null key exists, returns the null key token.
+		 * Returns the first valid token for iterating over set entries (excluding the null key initially).
+		 * Call {@link #token(long)} subsequently to get the next token.
 		 *
-		 * @return a token for the first element, or -1 ({@link #INVALID_TOKEN}) if the set is empty
+		 * @return The token for the first entry, or {@link #INVALID_TOKEN} if the set is empty.
 		 */
 		public long token() {
 			int index = unsafe_token( -1 );
 			
 			return index == -1 ?
-					hasNullKey ?
-							token( NULL_KEY_INDEX ) :
-							INVALID_TOKEN :
-					token( index );
+			       hasNullKey ?
+			       token( NULL_KEY_INDEX ) :
+			       INVALID_TOKEN :
+			       token( index );
 		}
 		
 		
 		/**
-		 * Returns a token representing the next element in the set after the element associated with the given token.
+		 * Returns the next valid token for iterating over set entries.
+		 * This method is designed to be used in a loop:
+		 * {@code for (long token = set.token(); token != INVALID_TOKEN; token = set.token(token))}
+		 * <p>
+		 * Iteration order: First, entries in the {@code lo Region} (0 to {@code _lo_Size-1}),
+		 * then entries in the {@code hi Region} ({@code keys.length - _hi_Size} to {@code keys.length-1}),
+		 * and finally the null key if it exists.
 		 *
-		 * @param token the token of the current element
-		 * @return a token for the next element, or -1 ({@link #INVALID_TOKEN}) if no next element exists or if the token is invalid due to structural modification
+		 * @param token The current token obtained from a previous call to {@link #token()} or {@link #token(long)}.
+		 *              Must not be {@link #INVALID_TOKEN}.
+		 * @return The token for the next entry, or {@link #INVALID_TOKEN} if no more entries exist.
+		 * @throws IllegalArgumentException        if the input token is {@link #INVALID_TOKEN}.
+		 * @throws ConcurrentModificationException if the set has been structurally modified since the token was issued.
 		 */
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
@@ -240,54 +406,68 @@ public interface CharSet {
 			index = unsafe_token( index );
 			
 			return index == -1 ?
-					hasNullKey ?
-							token( NULL_KEY_INDEX ) :
-							INVALID_TOKEN :
-					token( index );
+			       hasNullKey ?
+			       token( NULL_KEY_INDEX ) :
+			       INVALID_TOKEN :
+			       token( index );
 		}
 		
 		
 		/**
-		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
-		 * skipping concurrency and modification checks.
+		 * Returns the next valid internal array index for iteration, excluding the null key.
+		 * This is a low-level method primarily used internally for iteration logic.
+		 * In hash mode, it iterates {@code lo Region} then {@code hi Region}.
+		 * In flat mode, it iterates through set bits in the `nulls` array.
 		 *
-		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
-		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()}.
-		 *
-		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
-		 * set is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
-		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
-		 *
-		 * @param token The previous token (index), or {@code -1} to begin iteration.
-		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
-		 * @see #token(long) For safe iteration including the null key.
-		 * @see #hasNullKey() To check for a null key.
-		 * @see #key(long) To get the key associated with a token (use carefully with null key token).
+		 * @param token The current internal index, or -1 to start from the beginning.
+		 * @return The next valid internal array index, or -1 if no more entries exist in the main set arrays.
 		 */
 		public int unsafe_token( final int token ) {
-			if( isFlatStrategy() )
-				return next1( index( token ) );
-			else
-				for( int i = token + 1; i < _count; i++ )
-					if( -2 < nexts[ i ] ) return i;
+			if( isFlatStrategy() ) return next1( index( token ) );
 			
-			return -1; // No more entries
+			if( _count() == 0 ) return -1; // Use _count()
+			int i         = token + 1;
+			int lowest_hi = keys.length - _hi_Size; // Start of hi region
+			
+			return i < _lo_Size ?
+			       // Check lo region first
+			       i :
+			       i < lowest_hi ?
+			       // If lo region exhausted, check if we're past its end
+			       _hi_Size == 0 ?
+			       // If hi region is empty, no more entries
+			       -1 :
+			       lowest_hi :
+			       // Otherwise, return start of hi region
+			       i < keys.length ?
+			       // Iterate through hi region
+			       i :
+			       -1; // No more entries
 		}
 		
 		
+		/**
+		 * Checks if the given token represents the null key.
+		 *
+		 * @param token The token to check.
+		 * @return {@code true} if the token represents the null key, {@code false} otherwise.
+		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Returns the char key associated with the given token.  Before calling this method ensure that this token is not point to the isKeyNull
+		 * Returns the primitive key associated with the given token.
 		 *
-		 * @param token the token of the element
-		 * @return the char key associated with the token, or `(char) 0` if the token represents a null key
+		 * @param token The token obtained from {@link #tokenOf} or iteration methods.
+		 *              Must not be {@link #INVALID_TOKEN} or represent the null key.
+		 * @return The primitive key.
+		 * @throws IllegalArgumentException if the token is invalid or represents the null key.
 		 */
 		public char key( long token ) {
+			if( index( token ) == NULL_KEY_INDEX ) throw new IllegalArgumentException( "Token represents a null key." );
 			return ( char ) (char) (
 					isFlatStrategy() ?
-							index( token ) :
-							keys[ index( token ) ] );
+					index( token ) :
+					keys[ index( token ) ] ); // In hash mode, retrieve from the keys array
 		}
 		
 		/**
@@ -302,10 +482,10 @@ public interface CharSet {
 			int a = 0, b = 0, c = 1;
 			// Use unsafe iteration for potentially better performance, assuming no concurrent modification during hashCode calculation.
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
-				final int h = Array.hash( isFlatStrategy() ?
-						                          token :
-						                          // Key is the index itself in flat mode
-						                          keys[ token ] ); // Key from array in hash mode
+				final int h = Array.mix( seed, Array.hash( isFlatStrategy() ?
+				                                           token :
+				                                           // Key is the index itself in flat mode
+				                                           keys[ token ] ) ); // Key from array in hash mode
 				a += h;
 				b ^= h;
 				c *= h | 1;
@@ -320,12 +500,16 @@ public interface CharSet {
 		}
 		
 		/**
-		 * Seed value used in hashCode calculation. Initialized with the hashCode of the class.
+		 * Seed value used in hashCode calculation to add randomness and improve hash distribution.
+		 * Initialized with the hashCode of the class.
 		 */
 		private static final int seed = R.class.hashCode();
 		
 		/**
-		 * Compares this set to the specified object for equality.
+		 * Compares this set with the specified object for equality.
+		 * Returns {@code true} if the given object is of the same type, and the two sets
+		 * contain the same number of elements, and each element in this set is also present in the
+		 * other set.
 		 *
 		 * @param obj the object to compare with
 		 * @return {@code true} if the specified object is an {@code R} instance with the same keys
@@ -347,64 +531,68 @@ public interface CharSet {
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				if( !other.contains(
 						( char ) (char)( isFlatStrategy() ?
-								token :
-								keys[ token ] ) ) ) return false; // Check if each key in this set is present in the other set
+						                             token :
+						                             keys[ token ] ) ) ) return false; // Check if each key in this set is present in the other set
 			return true; // All keys match
 		}
 		
 		/**
-		 * Creates and returns a shallow copy of this {@code R} instance.
-		 * The underlying data arrays (or bitset) are cloned.
+		 * Creates and returns a deep copy of this set.
+		 * All internal arrays are cloned, ensuring the cloned set is independent of the original.
 		 *
-		 * @return a clone of this {@code R} instance
+		 * @return A cloned instance of this set.
+		 * @throws InternalError if cloning fails (should not happen as Cloneable is supported).
 		 */
 		@Override
 		public R clone() {
 			try {
-				R dst = ( R ) super.clone();
+				R cloned = ( R ) super.clone();
+				
 				if( isFlatStrategy() ) {
-					dst.nulls = nulls.clone();
+					if( nulls != null ) cloned.nulls = nulls.clone();
 				}
-				else if( _buckets != null ) {
-					dst._buckets = _buckets.clone();
-					dst.nexts    = nexts.clone();
-					dst.keys     = keys.clone();
+				else {
+					if( _buckets != null ) cloned._buckets = _buckets.clone();
+					if( links != null ) cloned.links = links.clone();
+					if( keys != null ) cloned.keys = keys.clone();
 				}
-				return dst;
+				return cloned;
 			} catch( CloneNotSupportedException e ) {
-				// This should not happen as R implements Cloneable
-				throw new InternalError( e ); // Re-throw as InternalError
+				throw new InternalError( e );
 			}
 		}
 		
 		/**
-		 * Returns a JSON string representation of this set.
+		 * Returns a string representation of this set in JSON array format.
+		 * The null key is represented as JSON null. Primitive keys are written as numbers.
 		 *
-		 * @return a JSON string representation of this set
+		 * @return A JSON string representing the set.
 		 */
 		@Override
 		public String toString() { return toJSON(); }
 		
 		/**
 		 * Writes the set's content to a {@link JsonWriter} as a JSON array.
-		 * Null key is represented as JSON null. Char keys are written as strings or numbers depending on context.
+		 * The null key is represented as JSON null. Primitive keys are written as numbers.
 		 *
-		 * @param json the JsonWriter to write to
+		 * @param json the JsonWriter to write to.
 		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
-			int size = size();
+			json.preallocate( size() * 5 ); // Pre-allocate buffer (estimate size based on average key length)
 			json.enterArray(); // Start JSON array
+			
 			if( hasNullKey ) json.value(); // Write null value if null key is present
 			
-			if( size > 0 ) {
-				json.preallocate( size * 5 ); // Pre-allocate buffer (estimate size)
-				// Use unsafe iteration
+			// Use unsafe iteration
+			if( isFlatStrategy() ) { // Handle flat strategy keys (which are indices)
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
-					json.value( String.valueOf(
-							(char)( isFlatStrategy() ?
-									token :
-									keys[ token ] ) ) );
+					json.value( ( char ) token ); // Key is the index itself in flat mode
+				}
+			}
+			else { // Handle hash strategy keys (from keys array)
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
+					json.value( keys[ token ] ); // Key from the keys array
 				}
 			}
 			json.exitArray(); // End JSON array
@@ -412,53 +600,67 @@ public interface CharSet {
 		
 		
 		/**
-		 * Calculates the bucket index for a given hash value in hash mode.
-		 * Ensures non-negative index within the bounds of the buckets array.
+		 * Calculates the bucket index for a given hash value within the {@code _buckets} array.
 		 *
-		 * @param hash the hash value of the key
-		 * @return the bucket index
+		 * @param hash The hash value of a key.
+		 * @return The calculated bucket index.
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
 		/**
-		 * Creates a token from an index and the current version.
-		 * The index can be a regular array index or a special value like NULL_KEY_INDEX.
+		 * Packs an internal array index and the current set version into a single {@code long} token.
+		 * The version is stored in the higher 32 bits, and the index in the lower 32 bits.
 		 *
-		 * @param index the index of the element or special marker
-		 * @return the generated token
+		 * @param index The 0-based index of the entry in the internal arrays (or {@link #NULL_KEY_INDEX} for the null key).
+		 * @return A {@code long} token representing the entry.
 		 */
 		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); }
 		
 		/**
-		 * Extracts the index from a token.
+		 * Extracts the 0-based internal array index from a given {@code long} token.
 		 *
-		 * @param token the token
-		 * @return the index extracted from the token
+		 * @param token The {@code long} token.
+		 * @return The 0-based index.
 		 */
 		protected int index( long token ) { return ( int ) ( token ); }
 		
 		/**
-		 * Extracts the version from a token.
+		 * Extracts the version stamp from a given {@code long} token.
 		 *
-		 * @param token the token
-		 * @return the version extracted from the token
+		 * @param token The {@code long} token.
+		 * @return The version stamp.
 		 */
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 		
 		
 		/**
-		 * Checks if a key is present in flat mode using the bitset. Assumes nulls is not null.
-		 * Safe check: returns false if key is out of bounds for char (shouldn't happen with char).
+		 * In dense (flat array) mode, checks if a given primitive key exists by checking its
+		 * corresponding bit in the {@code nulls} bitset.
+		 *
+		 * @param key The primitive key to check.
+		 * @return {@code true} if the key exists, {@code false} otherwise.
 		 */
 		protected final boolean exists( char key ) { return ( nulls[ key >>> 6 ] & 1L << key ) != 0; }
 		
 		
 		/**
-		 * Finds the index of the next set bit (1) in the bitset, starting from or after 'bit'.
+		 * In dense (flat array) mode, finds the next existing primitive key index in the conceptual array
+		 * after the given starting {@code bit} index. Uses the {@code nulls} bitset for efficient lookup.
+		 *
+		 * @param bit The starting primitive key index (inclusive). If -1, starts from 0.
+		 * @return The next existing key index, or -1 if no more keys are found.
 		 */
-		public int next1( int bit ) { return next1( bit, nulls ); }
+		protected int next1( int bit ) { return next1( bit, nulls ); }
 		
-		public static int next1( int bit, long[] nulls ) {
+		/**
+		 * Finds the next set bit in the given bitset after the specified starting bit index.
+		 * This is a static helper for flat mode iteration.
+		 *
+		 * @param bit   The starting bit index (inclusive). If -1, starts from 0.
+		 * @param nulls The bitset array to search within.
+		 * @return The index of the next set bit, or -1 if no more set bits are found.
+		 */
+		protected static int next1( int bit, long[] nulls ) {
 			
 			if( 0xFFFF < ++bit ) return -1;
 			int  index = bit >>> 6;
@@ -473,199 +675,324 @@ public interface CharSet {
 	}
 	
 	/**
-	 * {@code RW} is a read-write implementation of {@code CharSet}, extending the read-only base class {@link R}.
+	 * {@code RW} is a read-write implementation, extending the read-only base class {@link R}.
 	 * It provides methods for modifying the set, such as adding and removing elements, as well as clearing and managing the set's capacity (including switching between hash and flat modes).
 	 * This class is suitable for scenarios where both read and write operations are frequently performed on the set.
 	 */
 	class RW extends R {
-		// The threshold capacity determining the switch to flat strategy.
-		// Set to the max capacity of the hash phase (due to short[] nexts).
-		protected static int flatStrategyThreshold = 0x7FFF; // 32767
+		/**
+		 * The threshold at which the set switches from the sparse (hash set) strategy to the
+		 * dense (flat array) strategy. If the target capacity during a resize operation
+		 * exceeds this value, or if the initial capacity is set above this threshold,
+		 * the set transitions to flat mode.
+		 * Current value: 0x7FFF (32,767 entries). This value was chosen to ensure that a
+		 * hash table would likely require more memory than a flat bitset for the same
+		 * number of elements, and to allow for O(1) operations in dense scenarios.
+		 */
+		protected static int flatStrategyThreshold = 0x7FFF;
 		
 		/**
-		 * Constructs an empty {@code RW} set with a default initial capacity for hash mode.
+		 * Constructs an empty {@code RW} set with a default initial capacity.
+		 * The initial capacity is chosen to be small and will expand as needed.
 		 */
-		public RW() { this( 0 ); } // Default initial capacity
+		public RW() { this( 0 ); }
 		
 		/**
 		 * Constructs an empty {@code RW} set with the specified initial capacity hint.
-		 * If capacity exceeds the {@link #flatStrategyThreshold}, starts in flat mode.
+		 * The set will use the sparse (hash set) strategy unless the initial capacity
+		 * exceeds {@link #flatStrategyThreshold}, in which case it starts in dense (flat array) mode.
 		 *
-		 * @param capacity the initial capacity hint
+		 * @param capacity the initial capacity hint. The set will be initialized to hold at least this many elements.
 		 */
 		public RW( int capacity ) { if( capacity > 0 ) initialize( Array.prime( capacity ) ); }
 		
 		
 		/**
-		 * Initializes the internal data structures of the set with the specified capacity.
-		 * Selects between hash mode and flat mode based on the capacity.
+		 * Initializes or re-initializes the internal arrays based on the specified capacity
+		 * and the current strategy (sparse or dense). This method updates the set's version.
+		 * When transitioning to flat strategy, hash-specific arrays are nulled, and vice-versa.
 		 *
-		 * @param capacity the initial capacity hint for the set
-		 * @return the actual capacity used (prime for hash mode, fixed for flat mode)
+		 * @param capacity The desired capacity for the new internal arrays.
+		 * @return The actual allocated capacity.
 		 */
 		private int initialize( int capacity ) {
 			_version++;
-			_count = 0; // Flat mode _count tracks actual entries
+			flat_count = 0; // Reset flat_count
 			if( flatStrategyThreshold < capacity ) {
-				
-				nulls    = new long[ NULLS_SIZE ]; // 1024 longs
+				// Transition to Flat Strategy
+				nulls    = new long[ NULLS_SIZE ];
 				_buckets = null;
-				nexts    = null;
+				links    = null;
 				keys     = null;
+				_lo_Size = 0; // Reset lo/hi sizes when transitioning to flat mode
+				_hi_Size = 0;
 				return FLAT_ARRAY_SIZE;
 			}
-			nulls      = null;
-			_buckets   = new char[ capacity ];
-			nexts      = new short[ capacity ];
-			keys       = new char[ capacity ];
-			_freeList  = -1;
-			_freeCount = 0;
+			nulls    = null;
+			_buckets = new char[ capacity ];
+			links    = new char[ Math.min( 16, capacity ) ];
+			_lo_Size = 0;
+			keys     = new char[ capacity ];
+			_hi_Size = 0;
 			return length();
 		}
 		
 		
 		/**
-		 * Adds the specified key to this set if it is not already present. Handles null keys.
+		 * Adds the specified boxed key to this set if it is not already present. Handles null keys.
 		 *
-		 * @param key the key (boxed Character) to add to this set
-		 * @return {@code true} if this set did not already contain the specified key
+		 * @param key the boxed key to add to this set.
+		 * @return {@code true} if this set did not already contain the specified key.
 		 */
 		public boolean add(  Character key ) {
 			return key == null ?
-					addNullKey() :
-					add( ( char ) ( key + 0 ) ); // Add primitive char key
+			       addNullKey() :
+			       add( ( char ) ( key + 0 ) );
 		}
 		
 		
 		/**
-		 * Adds the specified primitive char key to this set if it is not already present.
+		 * Adds the specified primitive key to this set if it is not already present.
+		 * <p>
+		 * <h3>Hash Set Insertion Logic (Sparse Mode):</h3>
+		 * <ol>
+		 * <li><b>Check for existing key:</b> If the key already exists, {@code false} is returned.
+		 *     This involves traversing the collision chain if one exists.</li>
+		 * <li><b>Determine insertion point:</b> If the key is new:
+		 *     <ul>
+		 *         <li>If the target bucket is empty ({@code _buckets[bucketIndex] == 0}), the new entry is placed in the
+		 *             {@code hi Region} (at {@code keys.length - 1 - _hi_Size++}).</li>
+		 *         <li>If the target bucket is not empty (a collision occurs), the new entry is placed in the
+		 *             {@code lo Region} (at {@code _lo_Size++}). The `links` array is resized if necessary.
+		 *             The {@code links} link of this new entry points to the *previous* head of the chain (which was
+		 *             pointed to by {@code _buckets[bucketIndex]-1}), effectively making the new entry the new head of the chain.</li>
+		 *     </ul>
+		 * </li>
+		 * <li><b>Update structures:</b> The new key is stored. The {@code _buckets} array is updated
+		 *     to point to the new entry's index (1-based). The set's version is incremented.</li>
+		 * </ol>
 		 *
-		 * @param key the primitive char key to add to this set
-		 * @return {@code true} if this set did not already contain the specified char key
+		 * @param key the primitive key to add to this set.
+		 * @return {@code true} if this set did not already contain the specified key.
+		 * @throws ConcurrentModificationException if an internal state inconsistency is detected during collision chain traversal.
 		 */
 		public boolean add( char key ) {
 			if( isFlatStrategy() ) {
-				if( exists( ( char ) key ) ) return false; // Already exists
-				exists1( ( char ) key ); // Set the bit
-				_count++; // Increment count of set bits
-				_version++;
-				return true;
-			}
-			
-			// --- Hash Mode Logic ---
-			if( _buckets == null ) initialize( 7 ); // Initialize if first add
-			
-			short[] _nexts      = nexts;
-			int     hash        = Array.hash( key );
-			int     bucketIndex = bucketIndex( hash );
-			int     bucket      = _buckets[ bucketIndex ] - 1; // Get 0-based index
-			
-			// Check for key existence in the collision chain
-			for( int next = bucket, collisionCount = 0; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key ) return false; // Key already exists
-				next = _nexts[ next ];
-				if( _nexts.length <= collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			}
-			
-			// Key not found, add it
-			int index;
-			if( 0 < _freeCount ) {
-				// Reuse a free slot
-				index     = _freeList;
-				_freeList = StartOfFreeList - _nexts[ _freeList ]; // Update free list pointer
-				_freeCount--;
-			}
-			else {
-				// Allocate a new slot
-				if( _count == _nexts.length ) {
-					// Resize needed
-					int i = Array.prime( _count * 2 );
-					if( flatStrategyThreshold < i && _count < flatStrategyThreshold ) i = flatStrategyThreshold;
-					
-					resize( i ); // Resize might switch to flat mode
-					
-					if( isFlatStrategy() ) return add( key );
-					
-					bucketIndex = bucketIndex( hash );
-					bucket      = _buckets[ bucketIndex ] - 1;
+				boolean ret = !exists( ( char ) key );
+				if( ret ) {
+					exists1( ( char ) key );
+					flat_count++;
 				}
-				index = _count++; // Use next available slot and increment total slot count
+				_version++;
+				return ret;
 			}
 			
-			nexts[ index ]          = ( short ) bucket; // Link new entry to previous bucket head
-			keys[ index ]           = ( char ) key; // Store the key
-			_buckets[ bucketIndex ] = ( char ) ( index + 1 ); // Update bucket head (1-based index)
-			_version++; // Increment version
+			if( _buckets == null ) initialize( 7 );
+			else if( _count() == keys.length ) {
+				int i = Array.prime( keys.length * 2 );
+				if( flatStrategyThreshold < i && keys.length < flatStrategyThreshold ) i = flatStrategyThreshold;
+				
+				resize( i );
+				if( isFlatStrategy() ) return add( key );
+			}
 			
-			return true; // Key added successfully
+			int hash        = Array.hash( key );
+			int bucketIndex = bucketIndex( hash );
+			int index       = _buckets[ bucketIndex ] - 1;
+			int dst_index;
+			
+			if( index == -1 )  // Bucket is empty: place new entry in {@code hi Region}
+				dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of {@code hi Region}
+			else {
+				// Bucket is not empty, 'index' points to an existing entry
+				if( _lo_Size <= index ) { // Entry is in {@code hi Region}
+					if( keys[ index ] == ( char ) key ) { // Key matches existing {@code hi Region} entry
+						_version++;
+						return false; // Key was not new
+					}
+				}
+				else // Entry is in {@code lo Region} (collision chain)
+					for( int next = index, collisions = 0; ; ) {
+						if( keys[ next ] == key ) {
+							_version++;
+							return false;// Key was not new
+						}
+						if( _lo_Size <= next ) break;
+						next = links[ next ];
+						
+						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+					}
+				
+				if( links.length == ( dst_index = _lo_Size++ ) )
+					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				
+				links[ dst_index ] = ( char ) index;
+			}
+			
+			keys[ dst_index ]       = ( char ) key;
+			_buckets[ bucketIndex ] = ( char ) ( dst_index + 1 );
+			_version++;
+			return true;
 		}
 		
 		
 		/**
 		 * Adds a null key to the set if it is not already present.
 		 *
-		 * @return {@code true} if the null key was added, {@code false} if already present
+		 * @return {@code true} if the null key was added, {@code false} if already present.
 		 */
 		public boolean addNullKey() {
-			if( hasNullKey ) return false; // Null key already exists
-			hasNullKey = true; // Set null key flag
-			_version++; // Increment version
-			return true; // Null key added
+			if( hasNullKey ) return false;
+			hasNullKey = true;
+			_version++;
+			return true;
 		}
 		
 		
 		/**
-		 * Removes the specified key from this set if it is present. Handles null keys.
+		 * Removes the mapping for the specified boxed key from this set if present.
+		 * Handles {@code null} keys.
 		 *
-		 * @param key the key (boxed Character) to remove from this set
-		 * @return {@code true} if this set contained the key
+		 * @param key The boxed key whose mapping is to be removed.
+		 * @return {@code true} if the set contained a mapping for the specified key, {@code false} otherwise.
 		 */
 		public boolean remove(  Character key ) {
 			return key == null ?
-					removeNullKey() :
-					remove( ( char ) ( key + 0 ) ); // Remove primitive char key
+			       removeNullKey() :
+			       remove( ( char ) ( key + 0 ) );
 		}
 		
 		
 		/**
-		 * Removes the specified primitive char key from this set if it is present.
+		 * Relocates an entry's key from a source index ({@code src}) to a destination index ({@code dst})
+		 * within the internal {@code keys} array. This method is crucial for compaction
+		 * during removal operations in sparse mode.
+		 * <p>
+		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
+		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
+		 * {@code src} to now correctly reference {@code dst}.
 		 *
-		 * @param key the primitive char key to remove from this set
-		 * @return {@code true} if this set contained the char key
+		 * @param src The index of the entry to be moved (its current location).
+		 * @param dst The new index where the entry's data will be placed.
+		 */
+		private void move( int src, int dst ) {
+			if( src == dst ) return;
+			int bucketIndex = bucketIndex( Array.hash( keys[ src ] ) );
+			int index       = _buckets[ bucketIndex ] - 1;
+			
+			if( index == src ) _buckets[ bucketIndex ] = ( char ) ( dst + 1 );
+			else {
+				while( links[ index ] != src )
+					index = links[ index ];
+				
+				links[ index ] = ( char ) dst;
+			}
+			if( src < _lo_Size ) links[ dst ] = links[ src ];
+			
+			keys[ dst ] = keys[ src ];
+			
+		}
+		
+		/**
+		 * Removes the specified primitive key from this set if it is present.
+		 * <p>
+		 * <h3>Hash Set Removal Logic (Sparse Mode):</h3>
+		 * Removal involves finding the entry, updating chain links or bucket pointers, and then
+		 * compacting the respective region ({@code lo} or {@code hi}) to maintain memory density.
+		 * <ol>
+		 * <li><b>Find entry:</b> Locate the entry corresponding to the key by traversing the hash bucket's chain.</li>
+		 * <li><b>Handle 'hi Region' removal:</b>
+		 *     <ul>
+		 *         <li>If the found entry is in the {@code hi Region} and is the head of its bucket, the bucket pointer is cleared (set to 0).</li>
+		 *         <li>To compact the {@code hi Region}, the entry from the "bottom" of the {@code hi Region}
+		 *             (at {@code keys[keys.length - _hi_Size]}) is moved into the freed {@code removeIndex} slot using {@link #move(int, int)},
+		 *             unless {@code removeIndex} was already that last slot.</li>
+		 *         <li>{@code _hi_Size} is then decremented.</li>
+		 *     </ul>
+		 * </li>
+		 * <li><b>Handle 'lo Region' removal:</b>
+		 *     <ul>
+		 *         <li>The collision chain starting from its bucket is traversed. If the key is found:</li>
+		 *         <li>If the key is the head of its chain, the bucket pointer is updated to the next entry in the chain.</li>
+		 *         <li>If the key is within or at the end of its chain, the {@code links} link of the preceding entry is updated to bypass it.</li>
+		 *         <li>After chain adjustments, the {@code lo Region} is compacted:
+		 *             The data from the last logical entry in {@code lo Region} (at index {@code _lo_Size-1})
+		 *             is moved into the freed {@code removeIndex} slot using {@link #move(int, int)}.
+		 *             All pointers (bucket or {@code links} links) to the moved entry's original position
+		 *             are updated to its new location. {@code _lo_Size} is decremented.</li>
+		 *     </ul>
+		 * </li>
+		 * </ol>
+		 *
+		 * @param key The primitive key whose mapping is to be removed.
+		 * @return {@code true} if the set contained a mapping for the specified key, {@code false} otherwise.
+		 * @throws ConcurrentModificationException if an internal state inconsistency is detected during collision chain traversal.
 		 */
 		public boolean remove( char key ) {
-			
 			if( isFlatStrategy() ) {
-				if( _count == 0  || !exists( ( char ) key ) ) return false;
+				
+				if( flat_count == 0 || !exists( ( char ) key ) ) return false;
 				exists0( ( char ) key );
-				_count--;
+				flat_count--;
 				_version++;
 				return true;
 			}
-			if( _count - _freeCount == 0 ) return false;
 			
-			int bucketIndex = bucketIndex( Array.hash( key ) );
-			int i           = _buckets[ bucketIndex ] - 1;
-			if( i < 0 ) return false;
+			if( _count() == 0 ) return false;
+			int removeBucketIndex = bucketIndex( Array.hash( key ) );
+			int removeIndex       = _buckets[ removeBucketIndex ] - 1;
+			if( removeIndex < 0 ) return false;
 			
-			short next = nexts[ i ];
-			if( keys[ i ] == key ) _buckets[ bucketIndex ] = ( char ) ( next + 1 );
-			else
-				for( int last = i, collisionCount = 0; ; ) {
-					if( ( i = next ) < 0 ) return false;
-					next = nexts[ i ];
-					if( keys[ i ] == key ) {
-						nexts[ last ] = next;
-						break;
+			if( _lo_Size <= removeIndex ) {// Entry is in {@code hi Region}
+				
+				if( keys[ removeIndex ] != key ) return false;
+				
+				move( keys.length - _hi_Size, removeIndex );
+				_hi_Size--;
+				_buckets[ removeBucketIndex ] = 0;
+				_version++;
+				return true;
+			}
+			
+			char next = links[ removeIndex ];
+			if( keys[ removeIndex ] == key ) _buckets[ removeBucketIndex ] = ( char ) ( next + 1 );
+			else {
+				int last = removeIndex;
+				if( keys[ removeIndex = next ] == key )// The key is found at 'SecondNode'
+					if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];// 'SecondNode' is in 'lo Region', relink to bypasses 'SecondNode'
+					else {  // 'SecondNode' is in the hi Region (it's a terminal node)
+						
+						keys[ removeIndex ] = keys[ last ]; //  Copies `keys[last]` to `keys[removeIndex]`
+						
+						// Update the bucket for this chain.
+						// 'removeBucketIndex' is the hash bucket for the original 'key' (which was keys[T]).
+						// Since keys[P] and keys[T] share the same bucket index, this is also the bucket for keys[P].
+						// By pointing it to 'removeIndex' (which now contains keys[P]), we make keys[P] the new sole head.
+						_buckets[ removeBucketIndex ] = ( char ) ( removeIndex + 1 );
+						removeIndex                   = last;
 					}
-					last = i;
-					if( nexts.length < collisionCount++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-				}
+				else if( _lo_Size <= removeIndex ) return false;
+				else
+					for( int collisions = 0; ; ) {
+						int prev = last;
+						
+						if( keys[ removeIndex = links[ last = removeIndex ] ] == key ) {
+							if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
+							else {
+								
+								keys[ removeIndex ] = keys[ last ];
+								links[ prev ]       = ( char ) removeIndex;
+								removeIndex         = last;
+							}
+							break;
+						}
+						if( _lo_Size <= removeIndex ) return false;
+						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+					}
+			}
 			
-			nexts[ i ] = ( short ) ( StartOfFreeList - _freeList );
-			_freeList  = i;
-			_freeCount++;
+			move( _lo_Size - 1, removeIndex );
+			_lo_Size--;
 			_version++;
 			return true;
 		}
@@ -673,45 +1000,49 @@ public interface CharSet {
 		/**
 		 * Removes the null key from this set if it is present.
 		 *
-		 * @return {@code true} if the null key was removed, {@code false} if not present
+		 * @return {@code true} if the null key was removed, {@code false} if not present.
 		 */
 		public boolean removeNullKey() {
-			if( !hasNullKey ) return false; // Null key not present
-			hasNullKey = false; // Clear null key flag
-			_version++; // Increment version
-			return true; // Null key removed
+			if( !hasNullKey ) return false;
+			hasNullKey = false;
+			_version++;
+			return true;
 		}
 		
 		
 		/**
 		 * Removes all elements from this set. The set will be empty after this call returns.
-		 * Resets the mode if necessary (stays in flat mode if it was already there, hash mode resets arrays).
+		 * The internal arrays are reset to their initial state or cleared, but not deallocated.
+		 * This operation increments the set's version.
 		 */
 		public void clear() {
 			_version++;
 			
 			hasNullKey = false;
-			if( _count == 0 ) return;
-			if( isFlatStrategy() )
-				Array.fill( nulls, 0 );
-			else {
-				Arrays.fill( _buckets, ( char ) 0 );
-				Arrays.fill( nexts, ( short ) 0 );
-				_freeList  = -1;
-				_freeCount = 0;
+			
+			
+			if( isFlatStrategy() ) {
+				if( flat_count == 0 ) return; // Already empty in flat mode
+				flat_count = 0;
+				Array.fill( nulls, 0 ); // Clear all bits
+				return;
 			}
-			_count = 0;
+			
+			if( _count() == 0 ) return; // Already empty in hash mode
+			if( _buckets != null ) Arrays.fill( _buckets, ( char ) 0 ); // Clear bucket pointers
+			_lo_Size = 0; // Reset lo/hi sizes
+			_hi_Size = 0;
 		}
 		
 		
 		/**
-		 * Returns an array containing all of the keys in this set.
+		 * Returns an array containing all of the primitive keys in this set.
 		 * The order of keys is not guaranteed.
 		 *
-		 * @param dst the array into which the elements of this set are to be stored, if it is big enough; otherwise, a new array of the same runtime type is allocated for this purpose.
-		 * @return an array containing all the keys in this set
-		 * @throws ArrayStoreException  if the runtime type of the specified array is not a supertype of the runtime type of every element in this set (should not happen with primitive char).
-		 * @throws NullPointerException if the specified array is null.
+		 * @param dst             The array into which the elements of this set are to be stored, if it is big enough;
+		 *                        otherwise, a new array of the same runtime type is allocated for this purpose.
+		 * @param null_substitute The primitive value to use if the null key is present in the set.
+		 * @return An array containing all the keys in this set.
 		 */
 		public char[] toArray( char[] dst, char null_substitute ) {
 			int s = size();
@@ -720,169 +1051,200 @@ public interface CharSet {
 			int index = 0;
 			if( hasNullKey ) dst[ index++ ] = null_substitute;
 			
-			// Use unsafe iteration for performance
-			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
-				dst[ index++ ] = ( char ) (char)( isFlatStrategy() ?
-						token :
-						keys[ token ] );
-			}
-			
-			// If dst was larger than needed, set the element after the last one to 0 (optional, standard for Collection.toArray(T[]))
-			// if( dst.length > s ) dst[ s ] = 0; // Not strictly necessary for primitive arrays
+			// Handle flat strategy keys (which are indices)
+			if( isFlatStrategy() )
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
+				     dst[ index++ ] = ( char ) (char) ( token ); // Key is the index itself in flat mode
+			else  // Handle hash strategy keys (from keys array)
+				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
+				     dst[ index++ ] = ( char ) (char) ( keys[ token ] ); // Key from the keys array
 			
 			return dst;
 		}
 		
 		
 		/**
-		 * Ensures the map’s capacity is at least the specified value.
-		 * May trigger resize or switch to flat mode.
-		 * Does nothing if the requested capacity is already met or if in flat mode (fixed capacity).
+		 * Ensures that this set can hold at least the specified number of entries without resizing.
+		 * If the current capacity is less than the specified capacity, the set is resized.
+		 * If in sparse mode and the set is uninitialized, it will be initialized.
+		 * This operation increments the set's version if a structural change occurs.
 		 *
-		 * @param capacity The minimum desired capacity (number of elements).
-		 * @return The actual capacity after ensuring (might be larger than requested).
+		 * @param capacity The minimum desired capacity.
+		 * @return The new capacity of the set's internal arrays.
 		 */
 		public int ensureCapacity( int capacity ) {
-			if( isFlatStrategy() || capacity <= length() ) return length(); // No change needed in flat mode or if capacity sufficient
-			return _buckets == null ?
-					initialize( capacity ) :
-					// Initialize if not already done
-					resize( Array.prime( capacity ) ); // Resize hash table
+			if( capacity <= length() ) return length(); // No change needed if capacity is sufficient
+			return !isFlatStrategy() && _buckets == null ?
+			       initialize( capacity ) :
+			       // Initialize if not already done
+			       resize( Array.prime( capacity ) ); // Resize hash table
 		}
 		
 		/**
-		 * Reduces the capacity of this set to be the set's current size (number of elements).
-		 * This method can be used to minimize the storage of a set instance.
-		 * May switch from flat mode back to hash mode if size is below threshold.
+		 * Trims the capacity of the set's internal arrays to reduce memory usage.
+		 * The capacity will be reduced to the current size of the set, or a prime number
+		 * slightly larger than the size, ensuring sufficient space for future additions.
+		 * This method maintains the current strategy (sparse or dense) unless trimming
+		 * a flat set below the flat strategy threshold.
+		 * This operation increments the set's version if a structural change occurs.
 		 */
 		public void trim() { trim( size() ); }
 		
 		
 		/**
-		 * Reduces the capacity of this set to be at least as large as the set's current size or the given capacity hint, whichever is larger.
-		 * If the current mode is flat, this might switch back to hash mode if the target capacity is below the threshold.
-		 * If the current mode is hash, the internal arrays are resized to a prime number close to the target capacity.
+		 * Trims the capacity of the set's internal arrays to a specified minimum capacity.
+		 * If the current capacity is greater than the specified capacity, the set is resized.
+		 * The actual new capacity will be a prime number at least {@code capacity} and
+		 * at least the current {@link #size()}. This operation increments the set's version
+		 * if a structural change occurs.
 		 *
-		 * @param capacity the desired new capacity hint (will use at least `size()`)
-		 * @throws IllegalArgumentException if the capacity hint is negative.
+		 * @param capacity The minimum desired capacity after trimming.
 		 */
 		public void trim( int capacity ) {
-			capacity = Array.prime( capacity );
-			if( length() <= capacity ) return;
+			capacity = Array.prime( Math.max( capacity, size() ) ); // Ensure capacity is at least current size and a prime
+			if( length() <= capacity ) return; // No trim needed if already small enough or larger capacity requested
+			
+			// If current strategy is flat, and target capacity is below threshold, switch to hash mode
 			if( isFlatStrategy() ) {
 				if( capacity <= flatStrategyThreshold ) resize( capacity );
 				return;
 			}
 			
-			short[]        old_next  = nexts;
-			char[] old_keys  = keys;
-			int            old_count = _count;
-			_version++;
-			initialize( capacity );
-			copy( old_next, old_keys, old_count );
+			// If current strategy is hash, just resize if capacity is smaller than current length
+			resize( capacity );
 		}
 		
+		
 		/**
-		 * Resizes the internal arrays (in hash mode) or switches between modes.
+		 * Resizes the set's internal arrays to a new specified size.
+		 * This method handles transitions between sparse and dense strategies based on {@code newSize}
+		 * relative to {@link #flatStrategyThreshold}. When resizing in sparse mode, all existing
+		 * entries are rehashed and re-inserted into the new, larger structure. When transitioning
+		 * to flat mode, data is copied directly.
+		 * This operation increments the set's version.
 		 *
-		 * @param newSize the desired new capacity (for hash mode) or a trigger capacity for mode switching.
-		 * @return the new actual capacity.
+		 * @param newSize The desired new capacity for the internal arrays.
+		 * @return The actual allocated capacity after resize.
 		 */
 		private int resize( int newSize ) {
-			newSize = Math.min( newSize, FLAT_ARRAY_SIZE ); ; ;
+			newSize = Math.min( newSize, FLAT_ARRAY_SIZE );
+			_version++;
 			
 			if( isFlatStrategy() ) {
-				if( flatStrategyThreshold < newSize ) return length();
+				// Current strategy is Flat
+				if( flatStrategyThreshold < newSize ) return length(); // Already in flat mode, and newSize is also for flat, no actual resize/revert
 				
-				_version++;
-				long[] _nulls = nulls;
-				
-				initialize( newSize );
-				for( int token = -1; ( token = next1( token, _nulls ) ) != -1; )
-				     add( ( char ) token );
-				
+				// Transition from Flat to Hash
+				long[] _old_nulls = nulls; // Store old nulls
+				initialize( newSize ); // Initialize for hash mode
+				for( int token = -1; ( token = next1( token, _old_nulls ) ) != -1; )
+				     copy( ( char ) token ); // Copy primitive key (which was the index)
 				return length();
 			}
 			
-			_version++;
+			// Current strategy is Hash
 			if( flatStrategyThreshold < newSize ) {
+				// Transition from Hash to Flat
+				long[]         new_nulls   = new long[ NULLS_SIZE ];
+				int            old_lo_Size = _lo_Size; // Capture current sizes before clearing hash structures
+				int            old_hi_Size = _hi_Size;
+				char[] old_keys    = keys; // Capture old keys array
 				
-				long[] nulls = new long[ NULLS_SIZE ];
+				// Iterate old hash entries and set bits in new flat nulls bitset
+				for( int i = 0; i < old_lo_Size; i++ )
+				     exists1( ( char ) old_keys[ i ], new_nulls );
+				for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ )
+				     exists1( ( char ) old_keys[ i ], new_nulls );
 				
-				for( int i = -1; ( i = unsafe_token( i ) ) != -1; )
-				     exists1( ( char ) keys[ i ], nulls );
-				
-				this.nulls = nulls;
-				
+				this.nulls = new_nulls; // Set new nulls bitset
+				flat_count = _count(); // Total count of non-null keys (lo + hi) before clearing hash arrays
+				// Clear hash-specific fields to free memory
 				_buckets = null;
-				nexts    = null;
+				links    = null;
 				keys     = null;
-				
-				_count -= _freeCount;
-				
-				_freeList  = -1;
-				_freeCount = 0;
+				_lo_Size = 0;
+				_hi_Size = 0;
 				return FLAT_ARRAY_SIZE;
 			}
 			
+			// Hash to Hash resize (remain in hash mode)
+			char[] old_keys    = keys;
+			int            old_lo_Size = _lo_Size;
+			int            old_hi_Size = _hi_Size;
+			initialize( newSize ); // Re-initialize with new hash capacity
 			
-			short[]        new_next = Arrays.copyOf( nexts, newSize );
-			char[] new_keys = Arrays.copyOf( keys, newSize );
-			final int      count    = _count;
+			// Copy elements from old hash structure to new hash structure by re-inserting
+			for( int i = 0; i < old_lo_Size; i++ )
+			     copy( ( char ) old_keys[ i ] );
+			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ )
+			     copy( ( char ) old_keys[ i ] );
 			
-			_buckets = new char[ newSize ];
-			for( int i = 0; i < count; i++ )
-				if( -2 < new_next[ i ] ) {
-					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
-					new_next[ i ]           = ( short ) ( _buckets[ bucketIndex ] - 1 ); //relink chain
-					_buckets[ bucketIndex ] = ( char ) ( i + 1 );
-				}
-			
-			nexts = new_next;
-			keys  = new_keys;
 			return length();
 		}
 		
-		
 		/**
-		 * Copies elements from old arrays to the newly initialized arrays during hash mode trimming.
-		 * Re-hashes and re-buckets the elements into the new hash table.
-		 * Assumes the target arrays (`_buckets`, `nexts`, `keys`) are already initialized with the new capacity.
+		 * Internal helper method used during resizing in sparse mode to efficiently copy an
+		 * existing key into the new hash table structure. It re-hashes the key
+		 * and places it into the correct bucket and region (lo or hi) in the new arrays.
+		 * This method does not check for existing keys, assuming all keys are new in the
+		 * target structure during a resize operation.
 		 *
-		 * @param old_nexts the old 'next' pointers array
-		 * @param old_keys  the old keys array
-		 * @param old_count the number of slots used in the old arrays (_count value)
+		 * @param key The primitive key to copy.
 		 */
-		private void copy( short[] old_nexts, char[] old_keys, int old_count ) {
-			int new_count = 0;
-			for( int i = 0; i < old_count; i++ ) {
-				if( old_nexts[ i ] < -1 ) continue;
-				
-				keys[ new_count ] = old_keys[ i ];
-				
-				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ new_count ]      = ( short ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] = ( char ) ( new_count + 1 );
-				new_count++;
+		private void copy( char key ) {
+			int bucketIndex = bucketIndex( Array.hash( key ) );
+			int index       = _buckets[ bucketIndex ] - 1; // 0-based index from the bucket
+			
+			int dst_index; // Destination index for the key
+			
+			if( index == -1 ) { // Bucket is empty: place new entry in {@code hi Region}
+				dst_index = keys.length - 1 - _hi_Size++;
 			}
-			_count     = new_count;
-			_freeCount = 0;
-			_freeList  = -1; // Reset free list
+			else {
+				// Collision occurred. Place new entry in {@code lo Region}
+				if( links.length == _lo_Size ) // If lo_Size exceeds links array capacity
+					links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
+				links[ dst_index = _lo_Size++ ] = ( char ) index; // New entry points to the old head
+			}
+			
+			keys[ dst_index ]       = ( char ) key; // Store the key
+			_buckets[ bucketIndex ] = ( char ) ( dst_index + 1 ); // Update bucket to new head (1-based)
 		}
 		
+		/**
+		 * Creates and returns a deep copy of this read-write set.
+		 * Overrides the base class clone to ensure the correct runtime type is returned.
+		 *
+		 * @return A cloned instance of this RW set.
+		 * @throws InternalError if cloning fails.
+		 */
 		@Override
 		public RW clone() { return ( RW ) super.clone(); }
 		
 		
 		/**
-		 * Sets a key as present in flat mode using the bitset.
+		 * Internal helper method for dense (flat array) strategy: marks a bit in the set's own {@code nulls} bitset
+		 * at the position corresponding to the given primitive key, indicating the key's presence.
+		 *
+		 * @param key The primitive key to mark as present.
 		 */
 		protected final void exists1( char key ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
+		/**
+		 * Internal helper method for dense (flat array) strategy: marks a bit in the provided {@code nulls} bitset
+		 * at the position corresponding to the given primitive key, indicating the key's presence.
+		 * Used during transitions (e.g., hash to flat resize).
+		 *
+		 * @param key   The primitive key to mark as present.
+		 * @param nulls The {@code long[]} bitset array to modify.
+		 */
 		protected static void exists1( char key, long[] nulls ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
 		/**
-		 * Clears a key's presence in flat mode using the bitset.
+		 * Internal helper method for dense (flat array) strategy: clears a bit in the set's own {@code nulls} bitset
+		 * at the position corresponding to the given primitive key, indicating the key's absence.
+		 *
+		 * @param key The primitive key to mark as absent.
 		 */
 		protected final void exists0( char key ) { nulls[ key >>> 6 ] &= ~( 1L << key ); }
 	}

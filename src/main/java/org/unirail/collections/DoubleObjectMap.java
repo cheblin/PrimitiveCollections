@@ -1,894 +1,1189 @@
-//MIT License
-//
-//Copyright © 2020 Chikirev Sirguy, Unirail Group. All rights reserved.
-//For inquiries, please contact:  al8v5C6HU4UtqE9@gmail.com
-//GitHub Repository: https://github.com/AdHoc-Protocol
-//
-//Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-//1. The above copyright notice and this permission notice must be included in all
-//   copies or substantial portions of the Software.
-//
-//2. Users of the Software must provide a clear acknowledgment in their user
-//   documentation or other materials that their solution includes or is based on
-//   this Software. This acknowledgment should be prominent and easily visible,
-//   and can be formatted as follows:
-//   "This product includes software developed by Chikirev Sirguy and the Unirail Group
-//   (https://github.com/AdHoc-Protocol)."
-//
-//3. If you modify the Software and distribute it, you must include a prominent notice
-//   stating that you have changed the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 package org.unirail.collections;
 
 import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
-import java.util.Objects;
 
 /**
- * {@code IntObjectMap} is a generic interface for a map that stores key-value pairs,
- * where keys are primitive integers ({@code int}) and values are objects of a specified type {@code V}.
+ * A specialized map for mapping primitive keys to object values.
+ * This interface defines the contract for such a map.
  * <p>
- * This interface is designed for efficient storage and retrieval of object values based on integer keys.
+ * <p>
+ * - Uses a dual-region approach for key-value storage to minimize memory overhead:
+ * - {@code lo Region}: Stores entries involved in hash collisions. Uses an explicit {@code links} array for chaining.
+ * Occupies low indices (0 to {@code _lo_Size-1}) in key/value arrays.
+ * - {@code hi Region}: Stores entries that do not (initially) require collision links (i.e., no collision at insertion time, or they are terminal nodes of a chain).
+ * Occupies high indices (from {@code keys.length - _hi_Size} to {@code keys.length-1}) in key/value arrays.
+ * - Manages collision-involved ({@code lo Region}) and initially non-collision ({@code hi Region}) entries distinctly.
+ * <p>
+ *
+ * <ul>
+ * <li><b>{@code hi Region}:</b> Occupies high indices in the key (and value) arrays.
+ *     Entries are added at {@code keys[keys.length - 1 - _hi_Size]}, and {@code _hi_Size} is incremented.
+ *     Thus, this region effectively grows downwards from {@code keys.length-1}. Active entries are in indices
+ *     {@code [keys.length - _hi_Size, keys.length - 1]}.
+ *     <ul>
+ *         <li>Stores entries that, at the time of insertion, map to an empty bucket in the {@code _buckets} hash table.</li>
+ *         <li>These entries can also become the terminal entries of collision chains originating in the {@code lo Region}.</li>
+ *         <li>Managed stack-like: new entries are added to what becomes the lowest index of this region if it were viewed as growing from {@code keys.length-1} downwards.</li>
+ *     </ul>
+ * </li>
+ *
+ * <li><b>{@code lo Region}:</b> Occupies low indices in the key (and value) arrays, indices {@code 0} through {@code _lo_Size - 1}. It grows upwards
+ *     (e.g., from {@code 0} towards higher indices, up to a maximum of {@code _lo_Size} elements).
+ *     <ul>
+ *         <li>Stores entries that are part of a collision chain (i.e., multiple keys hash to the same bucket, or an entry that initially was in {@code hi Region} caused a collision upon a new insertion).</li>
+ *         <li>Uses the {@code links} array for managing collision chains. This array is sized dynamically.</li>
+ *         <li>Only entries in this region can have their {@code links} array slot utilized for chaining to another entry in either region.</li>
+ *     </ul>
+ * </li>
+ * </ul>
+ *
+ * <h3>Insertion Algorithm (Hash Mode):</h3>
+ * <ol>
+ * <li>Compute the bucket index using {@code bucketIndex(hash)}.</li>
+ * <li><b>If the bucket is empty ({@code _buckets[bucketIndex] == 0}):</b>
+ *     <ul><li>The new entry is placed in the {@code hi Region} (at index `keys.length - 1 - _hi_Size`, then `_hi_Size` is incremented).
+ *      The bucket {@code _buckets[bucketIndex]} is updated to point to this new entry (using 1-based index: `dst_index + 1`).</li></ul></li>
+ * <li><b>If the bucket is not empty:</b>
+ *     <ul>
+ *         <li>Let `index = _buckets[bucketIndex]-1` be the 0-based index of the current head of the chain.</li>
+ *         <li><b>If `index` is in the {@code hi Region} (`_lo_Size <= index`):</b>
+ *             <ul>
+ *                 <li>If the new key matches the key at `keys[index]`, the value at `values[index]` is updated.</li>
+ *                 <li>If the new key collides with the key at `keys[index]`:
+ *                     <ul>
+ *                         <li>The new entry is placed in the {@code lo Region} (at index `n_idx = _lo_Size`, then `_lo_Size` is incremented).</li>
+ *                         <li>The `links[n_idx]` field of this new {@code lo Region} entry is set to `index` (making it point to the existing {@code hi Region} entry).</li>
+ *                         <li>The bucket {@code _buckets[bucketIndex]} is updated to point to this new {@code lo Region} entry `n_idx` (using 1-based index: `n_idx + 1`), effectively making the new entry the head of the chain.</li>
+ *                     </ul>
+ *                 </li>
+ *             </ul>
+ *         </li>
+ *         <li><b>If `index` is in the {@code lo Region} (part of an existing collision chain):</b>
+ *             <ul>
+ *                 <li>The existing collision chain starting from `index` is traversed.</li>
+ *                 <li>If the key is found in the chain, its value is updated.</li>
+ *                 <li>If the key is not found after traversing the entire chain:
+ *                     <ul>
+ *                         <li>The new entry is placed in the {@code lo Region} (at index `n_idx = _lo_Size`, then `_lo_Size` is incremented).</li>
+ *                         <li>The `links` array is resized if necessary.</li>
+ *                         <li>The `links[n_idx]` field of this new {@code lo Region} entry is set to `index` (pointing to the old head).</li>
+ *                         <li>The bucket {@code _buckets[bucketIndex]} is updated to point to this new {@code lo Region} entry `n_idx` (using 1-based index: `n_idx + 1`), making the new entry the new head.</li>
+ *                     </ul>
+ *                 </li>
+ *             </ul>
+ *         </li>
+ *     </ul>
+ * </li>
+ * </ol>
+ *
+ * <h3>Removal Algorithm (Hash Mode - Simplified):</h3>
+ * Removal involves finding the entry, updating chain links or bucket pointers, and then compacting the
+ * respective region ({@code lo} or {@code hi}) to maintain memory density.
+ *
+ * <ul>
+ * <li>Locate the entry for the target key.</li>
+ * <li>Adjust pointers: If the removed entry was the head of its chain, the bucket pointer is updated. Otherwise,
+ *     the {@code links} pointer of its predecessor in the chain is updated to bypass it.</li>
+ * <li>Clear the value reference at the removed index.</li>
+ * <li>Compact the region:
+ *     <ul>
+ *         <li>If the entry was in the {@code lo Region} (`removeIndex < _lo_Size`), the last logical entry in the
+ *             {@code lo Region} (at index {@code _lo_Size-1}) is moved into the freed slot. {@code _lo_Size} is decremented.</li>
+ *         <li>If the entry was in the {@code hi Region} (`_lo_Size <= removeIndex`), the last logical entry in the
+ *             {@code hi Region} (at index {@code keys.length - _hi_Size - 1}) is moved into the freed slot.
+ *             {@code _hi_Size} is decremented.</li>
+ *     </ul>
+ * </li>
+ * <li>Any bucket or {@code links} references that pointed to the moved entry's *original* position are updated
+ *     to point to its *new* position.</li>
+ * </ul>
+ *
+ * <h3>Iteration ({@code unsafe_token}) (Hash Mode):</h3>
+ * Iteration over non-null key entries proceeds by scanning the {@code lo Region} first, then the {@code hi Region}:
+ * Due to compaction all entries in this ranges are valid and pass very fast.
+ * <ul>
+ *   <li>1. Iterate through indices from `token + 1` up to `_lo_Size - 1` (inclusive).</li>
+ *   <li>2. If the {@code lo Region} scan is exhausted (i.e., `token + 1 >= _lo_Size`), iteration continues by scanning the {@code hi Region} from its logical start (`keys.length - _hi_Size`) up to `keys.length - 1` (inclusive).</li>
+ * </ul>
+ *
+ * <h3>Resizing (Hash to Hash):</h3>
+ * <ul>
+ * <li>Allocate new internal arrays ({@code _buckets}, key array, value array, {@code links}) with the new capacity.</li>
+ * <li>Iterate through all valid entries in the old {@code lo Region} (indices {@code 0} to {@code old_lo_Size - 1}) and
+ * old {@code hi Region} (indices {@code old_keys.length - old_hi_Size} to {@code old_keys.length - 1}).</li>
+ * <li>Re-insert each key-value pair into the new structure using an internal {@code copy} operation, which efficiently re-hashes and re-inserts entries into the new structure, rebuilding the hash table and regions.</li>
+ * </ul>
  */
 public interface DoubleObjectMap {
 	
 	/**
-	 * {@code R} is an abstract, read-only base class that provides the fundamental implementation
-	 * for {@code IntObjectMap}. It manages the core data structures and read operations for the map.
-	 * <p>
-	 * This class is intended to be extended by concrete implementations that require either read-only
-	 * or read-write capabilities. It uses a hash table for efficient key-based lookups and manages
-	 * collisions using separate chaining.
+	 * Abstract base class providing read-only operations for the map.
+	 * depending on the map's current mode.
 	 *
 	 * @param <V> The type of values stored in the map.
 	 */
-	abstract class R< V > implements JsonWriter.Source, Cloneable {
+	abstract class R< V > implements Cloneable, JsonWriter.Source {
+		
 		/**
-		 * Indicates whether the map contains an entry with a null key.
-		 * Null keys are handled separately from integer keys in this implementation.
+		 * Indicates if the map contains a mapping for the null key.
 		 */
-		protected       boolean                hasNullKey;
+		protected boolean hasNullKey;          
 		/**
-		 * Stores the value associated with the null key, if {@link #hasNullKey} is true.
+		 * The value associated with the null key, stored separately from the main map arrays.
 		 */
-		protected       V                      nullKeyValue;
+		protected V nullKeyValue;        
 		/**
-		 * Array of bucket indices for the hash table. Each index corresponds to a hash bucket.
-		 * Stores indices into the {@link #nexts}, {@link #keys}, and {@link #values} arrays,
-		 * or 0 if the bucket is empty.
+		 * Hash table buckets array. Each element stores a 1-based index to the head of a collision chain.
+		 * A value of 0 indicates an empty bucket.
 		 */
-		protected       int[]                  _buckets;
+		protected int[] _buckets;            
 		/**
-		 * Array of 'next' indices for collision chaining in the hash table.
-		 * For each entry, it stores the index of the next entry in the same hash bucket,
-		 * or a special value indicating the end of the chain or a free entry.
+		 * Array used for linking entries in collision chains.
+		 * Specifically, `links[i]` stores the index of the next entry in the chain,
+		 * where `i` is an index in the {@code lo Region}.
 		 */
-		protected       int[]                  nexts;
+		protected int[] links;               
 		/**
-		 * Array of integer keys stored in the map.
+		 * Array for storing the primitive keys of the map entries.
+		 * Keys are stored contiguously in {@code lo Region} and {@code hi Region} segments.
 		 */
-		protected       double[]          keys;
+		protected double[] keys;                
 		/**
-		 * Array of values associated with the keys in the {@link #keys} array.
+		 * Array for storing the object values associated with the keys.
+		 * Values are stored at corresponding indices to their keys.
 		 */
-		protected       V[]                    values;
+		protected V[] values;              
+		
+	
 		/**
-		 * The total number of entries currently in use in the {@link #nexts}, {@link #keys}, and {@link #values} arrays.
-		 * This includes both occupied entries and entries marked as free in the free list.
+		 * Number of entries currently stored in the map's 'lo Region'.
+		 * This region contains entries that are part of collision chains.
 		 */
-		protected       int                    _count;
+		protected int _lo_Size;            
 		/**
-		 * Index of the first free entry in the {@link #nexts}, {@link #keys}, and {@link #values} arrays, forming a free list.
-		 * -1 indicates that there are no free entries available.
+		 * Number of entries currently stored in the map's 'hi Region'.
+		 * This region primarily contains entries that did not initially cause a collision.
 		 */
-		protected       int                    _freeList;
+		protected int _hi_Size;            
+		
 		/**
-		 * The number of free entries available in the free list.
+		 * Returns the total number of non-null key entries currently in the hash map phase.
+		 *
+		 * @return The combined size of the 'lo Region' and 'hi Region'.
 		 */
-		protected       int                    _freeCount;
+		protected int _count() { return _lo_Size + _hi_Size; } 
+		
 		/**
-		 * Version number of the map, incremented on structural modifications.
-		 * Used for invalidating tokens and detecting concurrent modifications.
+		 * Internal version counter for modification detection.
+		 * Incremented on structural modifications (put, remove, resize, clear)
+		 * to detect concurrent operations during iteration.
 		 */
-		protected       int                    _version;
+		protected int _version;            
+		
 		/**
-		 * Strategy for comparing values and calculating their hash codes.
-		 * This allows the map to handle different types of values and equality semantics.
+		 * Number of bits to shift the version component within a token.
+		 * This allows packing both the map version and an entry index into a single long token.
+		 */
+		protected static final int VERSION_SHIFT = 32; 
+		/**
+		 * Special index used in tokens to represent the null key.
+		 * This value is outside valid array index ranges to distinguish it from actual entry indices.
+		 */
+		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF; 
+		
+		/**
+		 * Constant representing an invalid or absent token.
+		 * Used as a sentinel value for methods that return tokens.
+		 */
+		protected static final long INVALID_TOKEN = -1L; 
+		
+		/**
+		 * Strategy for comparing object values and calculating their hash codes.
+		 * This allows custom equality and hashing logic for the map's values.
 		 */
 		protected final Array.EqualHashOf< V > equal_hash_V;
 		
-		/**
-		 * Special value indicating the start of the free list chain in the {@link #nexts} array.
-		 */
-		protected static final int StartOfFreeList = -3;
-		
-		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF;
 		
 		/**
-		 * Number of bits to shift for extracting the version part from a token.
-		 */
-		protected static final int  VERSION_SHIFT = 32;
-		/**
-		 * Represents an invalid token value (-1).
-		 */
-		protected static final long INVALID_TOKEN = -1L;
-		
-		/**
-		 * Constructs a new read-only {@code IntObjectMap.R} with the specified value equality and hash strategy.
+		 * Constructs a new read-only map base with the specified value comparison and hashing strategy.
 		 *
-		 * @param equal_hash_V The strategy for comparing values and calculating their hash codes.
+		 * @param equal_hash_V The strategy for comparing values and calculating hash codes. Must not be null.
 		 */
 		protected R( Array.EqualHashOf< V > equal_hash_V ) {
 			this.equal_hash_V = equal_hash_V;
 		}
 		
+		
 		/**
-		 * Checks if the map is empty (contains no key-value pairs).
+		 * Checks if the map is empty (contains no key-value mappings).
 		 *
-		 * @return {@code true} if the map is empty, {@code false} otherwise.
+		 * @return True if the map contains no mappings.
 		 */
 		public boolean isEmpty() { return size() == 0; }
 		
 		/**
-		 * Returns the number of key-value pairs in the map.
+		 * Returns the total number of key-value mappings in this map.
+		 * This includes the null key mapping if present.
 		 *
-		 * @return The number of key-value pairs in the map.
+		 * @return The total number of mappings.
 		 */
 		public int size() {
-			return _count - _freeCount + (
-					hasNullKey ?
-							1 :
-							0 );
+			return (
+					       
+					       _count() ) + (
+					       hasNullKey ?
+					       1 :
+					       0 );
 		}
 		
+		
 		/**
-		 * Returns the number of key-value pairs in the map. This is an alias for {@link #size()}.
+		 * Returns the total number of key-value mappings in this map. Alias for {@link #size()}.
 		 *
-		 * @return The number of key-value pairs in the map.
+		 * @return The total number of mappings.
 		 */
 		public int count() { return size(); }
 		
 		/**
-		 * Returns the total capacity of the map's internal arrays (number of allocated slots).
-		 * This is not the same as the number of key-value pairs ({@link #size()}).
+		 * Returns the total allocated capacity of the map's internal storage for non-null keys.
+		 * This represents the maximum number of non-null key entries the map can hold
+		 * without requiring a resize operation.
 		 *
-		 * @return The capacity of the map's internal arrays.
+		 * @return The capacity of the internal key and value arrays.
 		 */
 		public int length() {
-			return nexts == null ?
-					0 :
-					nexts.length;
+			return ( keys == null ?
+			         // Use keys.length as that's the total allocated size.
+			         0 :
+			         keys.length );
 		}
 		
 		/**
-		 * Checks if this map contains a mapping for the null key.
+		 * Checks if the map contains a mapping for the specified object key.
 		 *
-		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
+		 * @param key The object key to check (can be null).
+		 * @return True if a mapping for the key exists.
 		 */
-		public boolean hasNullKey() { return hasNullKey; }
-		
-		
-		public V nullKeyValue() { return nullKeyValue; }
+		public boolean containsKey(  Double    key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if the map contains a key-value pair with the specified integer key.
+		 * Checks if the map contains a mapping for the specified primitive key.
 		 *
-		 * @param key The primitive key to search for.
-		 * @return {@code true} if the map contains a key-value pair with the specified key, {@code false} otherwise.
+		 * @param key The primitive key.
+		 * @return True if a mapping for the key exists.
 		 */
 		public boolean containsKey( double key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if the map contains a key-value pair with the specified key (boxed Integer).
-		 * Handles null keys as well.
+		 * Checks if the map contains one or more mappings to the specified value.
+		 * This operation iterates through all entries and can be relatively slow (O(N) where N is the size).
 		 *
-		 * @param key The key (Integer) to search for (can be null).
-		 * @return {@code true} if the map contains a key-value pair with the specified key, {@code false} otherwise.
-		 */
-		public boolean containsKey(  Double    key ) {
-			return key == null ?
-					hasNullKey :
-					tokenOf( key ) != INVALID_TOKEN;
-		}
-		
-		/**
-		 * Checks if the map contains a key-value pair with the specified value.
-		 * This operation iterates through all values in the map and performs an equality check.
-		 *
-		 * @param value The value to search for.
-		 * @return {@code true} if the map contains a key-value pair with the specified value, {@code false} otherwise.
+		 * @param value The value to search for (comparison uses {@code equal_hash_V.equals}). Can be null.
+		 * @return True if the value exists in the map.
 		 */
 		@SuppressWarnings( "unchecked" )
 		public boolean containsValue( Object value ) {
 			V v;
 			try { v = ( V ) value; } catch( Exception e ) { return false; }
 			if( hasNullKey && equal_hash_V.equals( nullKeyValue, v ) ) return true;
-			for( int i = 0; i < _count; i++ )
-				if( -2 < nexts[ i ] && equal_hash_V.equals( values[ i ], v ) ) return true;
+			if( size() == 0 ) return false;
+			for( int i = 0; i < _lo_Size; i++ )
+				if( equal_hash_V.equals( values[ i ], v ) ) return true;
+			
+			for( int i = keys.length - _hi_Size; i < keys.length; i++ )
+				if( equal_hash_V.equals( values[ i ], v ) ) return true;
+			
 			return false;
 		}
 		
 		/**
-		 * Returns a token associated with the specified key (boxed Integer), if present in the map.
-		 * A token is a long value that uniquely identifies a key-value pair within a specific version of the map.
-		 * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
-		 * Handles null keys.
+		 * Returns a token representing the internal location of the specified object key.
+		 * A token combines the map's internal version and the entry's index.
+		 * This token can be used for fast access to the key and its value,
+		 * and helps detect concurrent structural modifications.
 		 *
-		 * @param key The key (Integer) to get the token for (can be null).
-		 * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
+		 * @param key The object key (can be null).
+		 * @return A long token if the key is found, or {@link #INVALID_TOKEN} (-1L) if not found.
+		 * @throws ConcurrentModificationException if a concurrent structural modification is detected while traversing a collision chain.
 		 */
 		public long tokenOf(  Double    key ) {
 			return key == null ?
-					hasNullKey ?
-							token( NULL_KEY_INDEX ) :
-							INVALID_TOKEN :
-					tokenOf( key. doubleValue     () );
+			       ( hasNullKey ?
+			         token( NULL_KEY_INDEX ) :
+			         INVALID_TOKEN ) :
+			       tokenOf( ( double ) ( key + 0 ) );
 		}
 		
 		/**
-		 * Returns a token associated with the specified integer key, if present in the map.
-		 * A token is a long value that uniquely identifies a key-value pair within a specific version of the map.
-		 * Tokens are used for efficient iteration and access, and may become invalid if the map is modified.
+		 * Returns a token representing the internal location of the specified primitive key.
+		 * This token can be used for fast access to the key and its value via {@link #key(long)} and {@link #value(long)}.
+		 * It also includes a version stamp to detect concurrent structural modifications.
 		 *
 		 * @param key The primitive key to get the token for.
-		 * @return A valid token if the key is found, {@code INVALID_TOKEN} (-1) otherwise.
+		 * @return A {@code long} token for the key, or {@link #INVALID_TOKEN} if the key is not found.
+		 * @throws ConcurrentModificationException if a concurrent structural modification is detected while traversing a collision chain.
 		 */
 		public long tokenOf( double key ) {
+			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN;
+			int index = ( _buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1;
+			if( index < 0 ) return INVALID_TOKEN; // Bucket is empty
 			
-			if( _buckets == null ) return INVALID_TOKEN;
-			int hash = Array.hash( key );
-			int i    = ( _buckets[ bucketIndex( hash ) ] ) - 1;
+			if( _lo_Size <= index ) // Current head of chain is in hi-region (must be the key)
+				return keys[ index ] == key ?
+				       token( index ) :
+				       INVALID_TOKEN;
 			
-			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < nexts.length; ) {
-				if( keys[ i ] == key )
-					return token( i );
-				i = nexts[ i ];
-				if( nexts.length <= collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			// Current head of chain is in lo-region, traverse collision chain
+			for( int collisions = 0; ; ) {
+				if( keys[ index ] == key ) return token( index );
+				if( _lo_Size <= index ) break; // Reached terminal node (in hi region), key not found
+				index = links[ index ];
+				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." ); // Safety break
 			}
-			return INVALID_TOKEN;
+			return INVALID_TOKEN; // Key not found in chain
 		}
 		
+		
 		/**
-		 * Returns a token for the "first" key-value pair in the map for iteration purposes.
-		 * The order is not guaranteed to be consistent across different versions or implementations.
-		 * If the map is empty, returns {@code INVALID_TOKEN} (-1). If a null key exists, its token will be returned last by subsequent {@link #token(long)} calls.
+		 * Returns an initial token for iterating through the map's entries.
+		 * The iteration order is first over non-null keys in the 'lo Region', then 'hi Region',
+		 * and finally the null key if present.
+		 * If the map is empty, {@link #INVALID_TOKEN} is returned.
 		 *
-		 * @return A token for the first key-value pair, or {@code INVALID_TOKEN} (-1) if the map is empty.
+		 * @return The first valid token, or {@link #INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
-			for( int i = 0; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return token( i );
-			return hasNullKey ?
-					token( NULL_KEY_INDEX ) :
-					INVALID_TOKEN;
+			int index = unsafe_token( -1 );
+			
+			return index == -1 ?
+			       hasNullKey ?
+			       token( NULL_KEY_INDEX ) :
+			       INVALID_TOKEN :
+			       token( index );
 		}
 		
 		/**
-		 * Returns a token for the "next" key-value pair in the map, following the given token, for iteration purposes.
-		 * If the given token is the last valid token, or is invalid (e.g., due to map modification), returns {@code INVALID_TOKEN} (-1).
-		 * If a null key exists, its token will be returned last.
+		 * Returns the token for the next entry in the iteration sequence.
+		 * The iteration order is first over non-null keys in the 'lo Region', then 'hi Region',
+		 * and finally the null key if present.
 		 *
-		 * @param token The current token.
-		 * @return A token for the next key-value pair, or {@code INVALID_TOKEN} (-1) if there is no next pair or the token is invalid.
+		 * @param token The current token obtained from {@link #token()} or a previous call to this method.
+		 * @return The next valid token, or {@link #INVALID_TOKEN} (-1L) if there are no more entries or if a concurrent modification occurred.
+		 * @throws IllegalArgumentException      if the provided token is {@link #INVALID_TOKEN}.
+		 * @throws ConcurrentModificationException if a concurrent structural modification is detected (map's version differs from token's version).
 		 */
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
 			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			int i = index( token );
-			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
 			
-			if( 0 < _count - _freeCount )
-				for( i++; i < _count; i++ )
-					if( -2 < nexts[ i ] ) return token( i );
+			int index = index( token );
+			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN; // Null key was the last iterated entry
+			index = unsafe_token( index ); // Get next non-null key token
 			
-			return hasNullKey && index( token ) < _count ?
-					token( NULL_KEY_INDEX ) :
-					INVALID_TOKEN;
+			return index == -1 ?
+			       hasNullKey ?
+			       token( NULL_KEY_INDEX ) :
+			       // If no more non-null keys, return null key token if present
+			       INVALID_TOKEN :
+			       token( index ); // Return token for next non-null key
+			
 		}
 		
+		
 		/**
-		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
-		 * skipping concurrency and modification checks.
+		 * Returns the next valid internal array index for iteration, excluding the null key.
+		 * This is a low-level method primarily used internally for iteration logic and
+		 * does not perform version checks.
 		 *
-		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
-		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
-		 * use {@link #nullKeyValue()} to handle it separately.
-		 *
-		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
-		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
-		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
-		 *
-		 * @param token The previous token, or {@code -1} to begin iteration.
-		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
-		 * @see #token(long) For safe iteration including the null key.
-		 * @see #hasNullKey() To check for a null key.
-		 * @see #nullKeyValue() To get the null key’s value.
+		 * @param token The current internal index, or -1 to start from the beginning.
+		 * @return The next valid internal array index, or -1 if no more entries exist in the main map arrays.
 		 */
 		public int unsafe_token( final int token ) {
-			for( int i = token + 1; i < _count; i++ )
-				if( -2 < nexts[ i ] ) return i;
-			return -1;
+			if( _count() == 0 ) return -1; // No entries in hash map arrays
+			
+			int i         = token + 1;
+			int lowest_hi = keys.length - _hi_Size; // Start of hi region
+			
+			// 1. Iterate through lo Region
+			if( i < _lo_Size ) return i;
+			
+			// 2. If lo Region exhausted, start/continue hi Region
+			if( i < lowest_hi ) { // Token was in lo region or before hi region start
+				return _hi_Size == 0 ?
+				       -1 :
+				       // No hi region entries
+				       lowest_hi; // Start of hi region
+			}
+			
+			// 3. Continue hi Region iteration
+			if( i < keys.length ) return i;
+			
+			return -1; // No more entries
 		}
 		
 		/**
-		 * Checks if the key associated with the given token is the null key.
+		 * Checks if the map contains a mapping for the null key.
+		 *
+		 * @return True if the null key is present.
+		 */
+		public boolean hasNullKey() { return hasNullKey; }
+		
+		/**
+		 * Returns the value associated with the null key.
+		 *
+		 * @return The value mapped to the null key, or {@code null} if the null key is not present in the map.
+		 */
+		public V nullKeyValue() {
+			return hasNullKey ?
+			       nullKeyValue :
+			       null;
+		}
+		
+		
+		/**
+		 * Checks if the token represents the null key.
 		 *
 		 * @param token The token to check.
-		 * @return {@code true} if the key for the token is null, {@code false} otherwise.
+		 * @return True if the token represents the null key (i.e., its index component is {@link #NULL_KEY_INDEX}).
 		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Returns the key associated with the given token.  Before calling this method ensure that this token is not point to the isKeyNull
+		 * Retrieves the primitive key associated with a given token.
 		 *
-		 * @param token The token to get the key for.
-		 * @return The primitive key associated with the token, or 0 if the token represents the null key or is invalid.
+		 * @param token The token representing a non-null key-value pair. Must be valid and not for the null key.
+		 * @return The primitive key associated with the token.
 		 */
-		public double key( long token ) { return  ( keys[ index( token ) ] ); }
+		public double key( long token ) { return ( double )  ( keys[ index( token ) ] ); }
+		
 		
 		/**
-		 * Returns the value associated with the given token.
+		 * Retrieves the value associated with a given token.
+		 * Handles both regular tokens (pointing to entries in the internal arrays) and the special token for the null key.
 		 *
-		 * @param token The token to get the value for.
-		 * @return The value associated with the token, or {@code null} if the token is invalid.
+		 * @param token The token representing the key-value pair.
+		 * @return The value associated with the token, or {@code null} if the token refers to the null key and its value is null,
+		 *         or if the token is invalid (though this method assumes a valid token relative to current map state).
+		 * @throws IndexOutOfBoundsException if the token index is invalid for the current mode/state
+		 *                                   (e.g., if the map was structurally modified after token creation without version check).
 		 */
 		public V value( long token ) {
-			return hasNullKey && isKeyNull( token ) ?
+			return
+					isKeyNull( token ) ?
 					nullKeyValue :
 					values[ index( token ) ];
 		}
 		
 		/**
-		 * Returns the value associated with the specified key (boxed Integer), or {@code null} if the key is not found.
-		 * Handles null keys.
+		 * Retrieves the value associated with the specified object key.
+		 * Returns {@code null} if the key is not found or if the key maps to {@code null}.
 		 *
-		 * @param key The key (Integer) to get the value for (can be null).
-		 * @return The value associated with the key, or {@code null} if the key is not found.
+		 * @param key The object key whose associated value is to be returned (can be null).
+		 * @return The associated value, or {@code null} if the key is not found.
 		 */
-		@SuppressWarnings( "unchecked" )
 		public V get(  Double    key ) {
-			long token = tokenOf( (  Double    ) key );
-			return token == INVALID_TOKEN ?
-					null :
-					value( token );
-		}
-		
-		
-		/**
-		 * Returns the value associated with the specified integer key, or {@code defaultValue} if the key is not found.
-		 *
-		 * @param key          The primitive key to get the value for.
-		 * @param defaultValue The default value to return if the key is not found.
-		 * @return The value associated with the key, or {@code defaultValue} if the key is not found.
-		 */
-		public V getOrDefault( double key, V defaultValue ) {
 			long token = tokenOf( key );
 			return token == INVALID_TOKEN ?
-					defaultValue :
-					value( token );
+			       null :
+			       value( token );
 		}
 		
 		/**
-		 * Returns the value associated with the specified key (boxed Integer), or {@code defaultValue} if the key is not found.
-		 * Handles null keys.
+		 * Retrieves the value associated with the specified primitive key.
+		 * Returns {@code null} if the key is not found or if the key maps to {@code null}.
 		 *
-		 * @param key          The key (Integer) to get the value for (can be null).
-		 * @param defaultValue The default value to return if the key is not found.
-		 * @return The value associated with the key, or {@code defaultValue} if the key is not found.
+		 * @param key The primitive key whose associated value is to be returned.
+		 * @return The associated value, or {@code null} if the key is not found.
 		 */
-		public V getOrDefault(  Double    key, V defaultValue ) {
+		public V get( double key ) {
 			long token = tokenOf( key );
 			return token == INVALID_TOKEN ?
-					defaultValue :
-					value( token );
+			       null :
+			       value( token );
 		}
 		
 		/**
-		 * Calculates the hash code for this map. The hash code is based on the keys and values of all entries.
-		 * It iterates through all key-value pairs and combines their hash codes using a mixing function.
+		 * Retrieves the value associated with the specified object key,
+		 * or returns {@code defaultValue} if the key is not found or if the token is invalid.
 		 *
-		 * @return The hash code for this map.
+		 * @param key          The object key whose associated value is to be returned (can be null).
+		 * @param defaultValue The value to return if the key is not found or the token is invalid.
+		 * @return The associated value, or {@code defaultValue} if the key is not found.
+		 */
+		public V get(  Double    key, V defaultValue ) {
+			long token = tokenOf( key );
+			// Must also check version in case entry was removed and re-added at same index
+			return ( token == INVALID_TOKEN || version( token ) != _version ) ?
+			       defaultValue :
+			       value( token );
+		}
+		
+		/**
+		 * Retrieves the value associated with the specified primitive key,
+		 * or returns {@code defaultValue} if the key is not found or if the token is invalid.
+		 *
+		 * @param key          The primitive key whose associated value is to be returned.
+		 * @param defaultValue The value to return if the key is not found or the token is invalid.
+		 * @return The associated value, or {@code defaultValue} if the key is not found.
+		 */
+		public V get( double key, V defaultValue ) {
+			long token = tokenOf( key );
+			// Must also check version in case entry was removed and re-added at same index
+			return ( token == INVALID_TOKEN || version( token ) != _version ) ?
+			       defaultValue :
+			       value( token );
+		}
+		
+		
+		/**
+		 * Computes an order-independent hash code for the map.
+		 * The hash code is calculated by combining hash codes of all key-value pairs,
+		 * including the null key mapping if present.
+		 *
+		 * @return The hash code of the map.
 		 */
 		@Override
 		public int hashCode() {
 			int a = 0, b = 0, c = 1;
+			// Iterate using unsafe_token as it's safe for hashcode calc since no modifications will occur.
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
-				int h = Array.mix( seed, Array.hash( key( token ) ) );
-				h = Array.mix( h, Array.hash( value( token ) == null ?
-						                              seed :
-						                              equal_hash_V.hashCode( value( token ) ) ) );
+				
+				int keyHash = Array.hash( key( token ) );
+				V   val     = value( token );
+				int valueHash = val == null ?
+				                seed :
+				                equal_hash_V.hashCode( val );
+				
+				int h = Array.mix( seed, keyHash );
+				h = Array.mix( h, valueHash );
 				h = Array.finalizeHash( h, 2 );
 				a += h;
 				b ^= h;
 				c *= h | 1;
 			}
+			
 			if( hasNullKey ) {
-				int h = Array.hash( seed );
-				h = Array.mix( h, Array.hash( nullKeyValue != null ?
-						                              equal_hash_V.hashCode( nullKeyValue ) :
-						                              seed ) );
+				int h = Array.hash( seed ); // Hash for null key representation
+				h = Array.mix( h, nullKeyValue == null ?
+				                  seed :
+				                  equal_hash_V.hashCode( nullKeyValue ) );
 				h = Array.finalizeHash( h, 2 );
 				a += h;
 				b ^= h;
 				c *= h | 1;
 			}
+			
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
 		
-		/**
-		 * Seed value used in the hash code calculation.
-		 */
 		private static final int seed = R.class.hashCode();
 		
 		/**
-		 * Compares this map to the specified object for equality.
-		 * Two maps are considered equal if they are of the same class, have the same size,
-		 * contain the same key-value pairs, and have the same null key status and null key value (if applicable).
+		 * Compares this map with the specified object for equality.
+		 * Returns true if the object is also an R instance, has the same size,
+		 * and contains the same key-value mappings. The comparison of values
+		 * uses the {@code equal_hash_V} strategy provided during construction.
 		 *
-		 * @param obj The object to compare to.
-		 * @return {@code true} if the maps are equal, {@code false} otherwise.
+		 * @param obj The object to compare with.
+		 * @return True if the objects are equal.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
-		public boolean equals( Object obj ) {
-			return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj );
-		}
+		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj ); }
 		
 		/**
-		 * Compares this map to another map of the same type for equality.
+		 * Compares this map with another map instance for equality.
+		 * Requires that the other map has the same value type V.
 		 *
-		 * @param other The other map to compare to.
-		 * @return {@code true} if the maps are equal, {@code false} otherwise.
+		 * @param other The other map to compare.
+		 * @return True if the maps are equal.
 		 */
 		public boolean equals( R< V > other ) {
-			if( other == this ) return true;
-			if( other == null || hasNullKey != other.hasNullKey ||
-			    ( hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ) ||
-			    size() != other.size() ) return false;
 			
-			long t;
-			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
-				if( ( t = other.tokenOf( key( token ) ) ) == INVALID_TOKEN ||
-				    !equal_hash_V.equals( value( token ), other.value( t ) ) ) return false;
+			
+			if( other == this ) return true;
+			if( other == null ||
+			    hasNullKey != other.hasNullKey || ( hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ) ||
+			    size() != other.size() )
+				return false;
+			
+			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
+				long t = other.tokenOf( key( token ) );
+				if( t == INVALID_TOKEN || !equal_hash_V.equals( value( token ), other.value( t ) ) ) return false;
+			}
 			return true;
 		}
 		
+		
 		/**
-		 * Creates and returns a shallow copy of this read-only map.
-		 * The copy will contain references to the same keys and values as the original map.
+		 * Creates and returns a deep copy of this map.
+		 * All internal arrays are cloned, ensuring the cloned map is independent of the original.
 		 *
-		 * @return A shallow copy of this map.
+		 * @return A cloned instance of this map.
+		 * @throws InternalError if cloning fails (should not happen as Cloneable is supported).
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
 		public R< V > clone() {
 			try {
 				R< V > dst = ( R< V > ) super.clone();
-				if( _buckets != null ) {
-					dst._buckets = _buckets.clone();
-					dst.nexts    = nexts.clone();
-					dst.keys     = keys.clone();
-					dst.values   = values.clone();
-				}
+				// Ensure equal_hash_V is copied (it's final, so reference is copied, which is ok)
+				if( _buckets != null ) dst._buckets = _buckets.clone();
+				if( links != null ) dst.links = links.clone();
+				if( keys != null ) dst.keys = keys.clone();
+				if( values != null ) dst.values = values.clone();
+				
 				return dst;
 			} catch( CloneNotSupportedException e ) {
-				e.printStackTrace();
-				return null;
+				throw new InternalError( e );
 			}
 		}
 		
 		/**
 		 * Returns a string representation of this map in JSON format.
 		 *
-		 * @return A JSON string representation of this map.
+		 * @return A JSON string representing the map.
 		 */
 		@Override
 		public String toString() { return toJSON(); }
 		
+		
 		/**
-		 * Writes the content of this map as a JSON object to the provided {@link JsonWriter}.
+		 * Appends a JSON representation of this map to the given JsonWriter.
+		 * Outputs a JSON object where keys are primitive keys (represented as numbers or potentially strings)
+		 * and values are the JSON representation of the mapped values.
+		 * The null key, if present, is represented by the JSON key "null".
 		 *
-		 * @param json The {@link JsonWriter} to write the JSON output to.
+		 * @param json The JsonWriter to append to.
 		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
-			json.preallocate( size() * 10 );
-			
+			json.preallocate( size() * 15 ); // Guestimate size increase for object values
 			json.enterObject();
 			
 			if( hasNullKey ) json.name().value( nullKeyValue );
+			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
-			     json.name( String.valueOf( key( token ) ) ).value( value( token ) );
+			     json.name( keys[ token ] ).value( values[ token ] );
 			
 			
 			json.exitObject();
 		}
 		
+		// --- Helper methods ---
+		
 		/**
-		 * Calculates the bucket index in the {@link #_buckets} array for a given hash value.
+		 * Calculates the bucket index for a given hash code in hash map mode.
+		 * Ensures a non-negative index within the bounds of the {@code _buckets} array.
 		 *
-		 * @param hash The hash value to calculate the bucket index for.
+		 * @param hash The hash code of the key.
 		 * @return The bucket index.
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
 		/**
-		 * Creates a token from an index and the current version of the map.
+		 * Creates a token combining the current map version and an entry index.
+		 * This token provides a compact way to refer to a specific entry while
+		 * also allowing detection of concurrent structural modifications.
 		 *
-		 * @param index The index of the entry in the internal arrays.
-		 * @return The generated token.
+		 * @param index The index of the entry (or {@link #NULL_KEY_INDEX} for the null key).
+		 * @return The combined token.
 		 */
-		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | index; }
+		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index ); }
 		
 		/**
-		 * Extracts the index part from a token.
+		 * Extracts the index component from a token.
 		 *
-		 * @param token The token to extract the index from.
-		 * @return The index part of the token.
+		 * @param token The token.
+		 * @return The index encoded in the token.
 		 */
-		protected int index( long token ) { return ( int ) token; }
+		protected int index( long token ) { return ( int ) ( token ); }
 		
 		/**
-		 * Extracts the version part from a token.
+		 * Extracts the version component from a token.
 		 *
-		 * @param token The token to extract the version from.
-		 * @return The version part of the token.
+		 * @param token The token.
+		 * @return The map version encoded in the token.
 		 */
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
+		
 	}
 	
 	/**
-	 * {@code RW} is a read-write implementation of {@code IntObjectMap}, extending the read-only base class {@link R}.
-	 * It provides methods for modifying the map, such as adding, updating, and removing key-value pairs.
-	 * <p>
-	 * This class uses the same underlying hash table structure as {@link R} but adds functionality for write operations,
-	 * including resizing the internal arrays as needed to accommodate new entries.
+	 * Provides read-write functionalities for the map, 
+	 * This class handles operations like adding, removing, and resizing entries,
 	 *
 	 * @param <V> The type of values stored in the map.
 	 */
 	class RW< V > extends R< V > {
 		
 		/**
-		 * Constructs a new read-write {@code IntObjectMap.RW} with a default initial capacity.
+		 * Constructs an empty read-write map with a default initial capacity,
+		 * using the default equality/hash strategy for the value type.
 		 *
-		 * @param clazzV The class of the value type {@code V}. Used for array creation.
+		 * @param clazzV A representation of the value type, used for internal array creation.
 		 */
-		public RW( Class< V > clazzV ) { this( clazzV, 0 ); }
+		public RW( Class< V > clazzV ) { this( Array.get( clazzV ), 0 ); }
 		
 		/**
-		 * Constructs a new read-write {@code IntObjectMap.RW} with the specified initial capacity.
+		 * Constructs an empty read-write map with the specified initial capacity.
+		 * Uses the default equality/hash strategy for the value type.
 		 *
-		 * @param clazzV   The class of the value type {@code V}. Used for array creation.
-		 * @param capacity The initial capacity of the map.
+		 * @param clazzV   A representation of the value type, used for internal array creation.
+		 * @param capacity The initial capacity hint.
 		 */
 		public RW( Class< V > clazzV, int capacity ) { this( Array.get( clazzV ), capacity ); }
 		
 		/**
-		 * Constructs a new read-write {@code IntObjectMap.RW} with a default initial capacity,
-		 * using the provided value equality and hash strategy.
+		 * Constructs an empty read-write map with a default initial capacity,
+		 * using the specified equality/hash strategy for values.
 		 *
-		 * @param equal_hash_V The strategy for comparing values and calculating their hash codes.
+		 * @param equal_hash_V The strategy for comparing values and calculating hash codes.
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V ) { this( equal_hash_V, 0 ); }
 		
 		/**
-		 * Constructs a new read-write {@code IntObjectMap.RW} with the specified initial capacity,
-		 * using the provided value equality and hash strategy.
+		 * Constructs an empty read-write map with specified initial capacity.
+		 * Uses the specified equality/hash strategy for values.
 		 *
-		 * @param equal_hash_V The strategy for comparing values and calculating their hash codes.
-		 * @param capacity     The initial capacity of the map.
+		 * @param equal_hash_V The strategy for comparing values and calculating hash codes.
+		 * @param capacity     The initial capacity hint.
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V, int capacity ) {
 			super( equal_hash_V );
-			if( capacity > 0 )initialize( Array.prime( capacity ) );
+			if( capacity > 0 ) initialize( Array.prime( capacity ) );
 		}
 		
 		
 		/**
-		 * Removes all key-value pairs from this map, making it empty.
+		 * Initializes or re-initializes the internal arrays based on the specified capacity
+		 *
+		 * @param capacity The desired capacity for the new internal arrays.
+		 * @return The actual allocated capacity.
 		 */
-		public void clear() {
+		private int initialize( int capacity ) {
 			_version++;
-			hasNullKey   = false;
-			nullKeyValue = null;
-			if( _count == 0 ) return;
-			Arrays.fill( _buckets, 0 );
-			Arrays.fill( nexts, 0, _count, ( int ) 0 );
-			Arrays.fill( values, 0, _count, null );
-			_count     = 0;
-			_freeList  = -1;
-			_freeCount = 0;
+			
+			_buckets = new int[ capacity ];
+			links    = new int[ Math.min( 16, capacity ) ]; // links array grows as needed for lo_Size
+			keys     = new double[ capacity ];
+			values   = equal_hash_V.copyOf( null, capacity );
+			_lo_Size = 0;
+			_hi_Size = 0;
+			return length();
 		}
 		
-		/**
-		 * Removes the key-value pair with the specified integer key from this map, if present.
-		 *
-		 * @param key The primitive key of the key-value pair to remove.
-		 * @return The value that was associated with the key, or {@code null} if the key was not found.
-		 */
-		public V remove( double key ) {
-			if( _buckets == null || _count == 0 ) return null;
-			
-			int collisionCount = 0;
-			int last           = -1;
-			int hash           = Array.hash( key );
-			int bucketIndex    = bucketIndex( hash );
-			int i              = _buckets[ bucketIndex ] - 1;
-			
-			while( -1 < i ) {
-				int next = nexts[ i ];
-				if( keys[ i ] == key ) {
-					if( last < 0 ) _buckets[ bucketIndex ] = ( next + 1 );
-					else nexts[ last ] = next;
-					
-					nexts[ i ] = ( int ) ( StartOfFreeList - _freeList );
-					V oldValue = values[ i ];
-					values[ i ] = null;
-					_freeList   = i;
-					_freeCount++;
-					_version++;
-					return oldValue;
-				}
-				last = i;
-				i    = next;
-				if( nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			}
-			return null;
-			
-		}
 		
 		/**
-		 * Removes the key-value pair with the specified key (boxed Integer) from this map, if present.
-		 * Handles null keys.
-		 *
-		 * @param key The key (Integer) of the key-value pair to remove (can be null).
-		 * @return The value that was associated with the key, or {@code null} if the key was not found.
-		 */
-		public V remove(  Double    key ) {
-			if( key == null ) {
-				if( !hasNullKey ) return null;
-				hasNullKey = false;
-				V oldValue = nullKeyValue;
-				nullKeyValue = null;
-				_version++;
-				return oldValue;
-			}
-			
-			return remove( key. doubleValue     () );
-		}
-		
-		/**
-		 * Ensures that the capacity of the map's internal arrays is at least the specified capacity.
-		 * If the current capacity is less than the specified capacity, the arrays are resized to a new capacity
-		 * that is a prime number greater than or equal to the specified capacity.
-		 *
-		 * @param capacity The desired minimum capacity.
-		 * @return The new capacity of the map's internal arrays after ensuring capacity.
-		 * @throws IllegalArgumentException if the capacity is negative.
-		 */
-		public int ensureCapacity( int capacity ) {
-			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
-			int currentCapacity = length();
-			if( capacity <= currentCapacity ) return currentCapacity;
-			_version++;
-			if( _buckets == null ) return initialize( Array.prime( capacity ) );
-			int newSize = Array.prime( capacity );
-			resize( newSize );
-			return newSize;
-		}
-		
-		/**
-		 * Trims the capacity of the map's internal arrays to be equal to the current size of the map,
-		 * if the current capacity is larger than the size. This can reduce memory usage.
-		 */
-		public void trim() { trim( count() ); }
-		
-		/**
-		 * Trims the capacity of the map's internal arrays to be at least the specified capacity.
-		 * If the current capacity is larger than the specified capacity, the arrays are resized to a new capacity
-		 * that is a prime number greater than or equal to the specified capacity, but not less than the current size of the map.
-		 *
-		 * @param capacity The desired capacity after trimming. Must be at least the current size of the map.
-		 * @throws IllegalArgumentException if the capacity is less than the current size of the map.
-		 */
-		public void trim( int capacity ) {
-			if( capacity < count() ) throw new IllegalArgumentException( "capacity is less than Count." );
-			int currentCapacity = length();
-			int new_size        = Array.prime( capacity );
-			if( currentCapacity <= new_size ) return;
-			
-			int[]         old_next   = nexts;
-			double[] old_keys   = keys;
-			V[]           old_values = values;
-			int           old_count  = _count;
-			_version++;
-			initialize( new_size );
-			copy( old_next, old_keys, old_values, old_count );
-		}
-		
-		/**
-		 * Associates the specified value with the specified key (boxed Integer) in this map.
+		 * Associates the specified value with the specified object key in this map.
 		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * Handles null keys.
+		 * Handles {@code null} keys by delegating to {@link #putNullKey(Object)}.
 		 *
-		 * @param key   The key (Integer) with which the specified value is to be associated (can be null).
+		 * @param key   The object key with which the specified value is to be associated.
 		 * @param value The value to be associated with the specified key.
-		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
+		 * @return {@code true} if a new key-value pair was added (the key was not previously present), {@code false} if an existing value was updated.
 		 */
 		public boolean put(  Double    key, V value ) {
 			return key == null ?
-					put( value ) :
-					put( key.doubleValue     (), value );
+			       putNullKey( value ) :
+			       put( ( double ) ( key + 0 ), value );
 		}
 		
 		
 		/**
-		 * Tries to insert a value associated with a null key into the map.
+		 * Associates the specified value with the null key in this map.
+		 * If the map previously contained a mapping for the null key, the old value is replaced.
 		 *
-		 * @param value The value to insert.
-		 * @return {@code true} if insertion occurred, {@code false} otherwise (depending on behavior).
-		 * @throws IllegalArgumentException if behavior is 0 and the key already exists.
+		 * @param value The value to be associated with the null key.
+		 * @return {@code true} if the null key was not previously present, {@code false} if its value was updated.
 		 */
-		public boolean put( V value ) {
-			_version++;
-			boolean b = !hasNullKey;
+		public boolean putNullKey( V value ) {
+			boolean ret = !hasNullKey;
 			hasNullKey   = true;
 			nullKeyValue = value;
-			return b;
+			_version++;
+			return ret;
 		}
 		
 		
 		/**
-		 * Tries to insert a key-value pair with the specified integer key and value into the map.
-		 * Handles hash collisions and resizing if necessary.
+		 * Associates the specified value with the specified primitive key in this map.
+		 * If the map previously contained a mapping for the key, the old value is replaced.
+		 * <p>
+		 * <h3>Hash Map Insertion Logic (Sparse Mode):</h3>
+		 * <ol>
+		 * <li><b>Check for existing key:</b> If the key already exists, its value is updated and {@code false} is returned.
+		 *     This involves traversing the collision chain if one exists.</li>
+		 * <li><b>Determine insertion point:</b> If the key is new:
+		 *     <ul>
+		 *         <li>If the target bucket is empty ({@code _buckets[bucketIndex] == 0}), the new entry is placed in the
+		 *             {@code hi Region} (at {@code keys.length - 1 - _hi_Size++}).</li>
+		 *         <li>If the target bucket is not empty (a collision occurs), the new entry is placed in the
+		 *             {@code lo Region} (at {@code _lo_Size++}). The `links` array is resized if necessary.
+		 *             The `links` link of this new entry points to the *previous* head of the chain (which was
+		 *             pointed to by {@code _buckets[bucketIndex]-1}), effectively making the new entry the new head of the chain.</li>
+		 *     </ul>
+		 * </li>
+		 * <li><b>Update structures:</b> The new key and value are stored. The {@code _buckets} array is updated
+		 *     to point to the new entry's index (1-based). The map's version is incremented.</li>
+		 * </ol>
 		 *
-		 * @param key   The primitive key to insert.
-		 * @param value The value to insert.
-		 * @return {@code true} if insertion occurred, {@code false} otherwise (depending on behavior).
-		 * @throws IllegalArgumentException if behavior is 0 and the key already exists.
+		 * @param key   The primitive key with which the specified value is to be associated.
+		 * @param value The value to be associated with the specified key.
+		 * @return {@code true} if a new key-value pair was added (the key was not previously present), {@code false} if an existing value was updated.
+		 * @throws ConcurrentModificationException if an internal state inconsistency is detected during collision chain traversal.
 		 */
 		public boolean put( double key, V value ) {
+			
+			
 			if( _buckets == null ) initialize( 7 );
-			int[] _nexts         = nexts;
-			int   hash           = Array.hash( key );
-			int   collisionCount = 0;
-			int   bucketIndex    = bucketIndex( hash );
-			int   bucket         = _buckets[ bucketIndex ] - 1;
+			else if( _count() == keys.length ) resize( Array.prime( keys.length * 2 ) );
 			
-			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _nexts.length; ) {
-				if( keys[ next ] == key ) {
-					values[ next ] = value;
-					_version++;
-					return false;
-				}
-				
-				next = _nexts[ next ];
-				if( _nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			}
+			int hash        = Array.hash( key );
+			int bucketIndex = bucketIndex( hash );
+			int index       = _buckets[ bucketIndex ] - 1;
+			int dst_index;
 			
-			int index;
-			if( 0 < _freeCount ) {
-				index     = _freeList;
-				_freeList = StartOfFreeList - _nexts[ _freeList ];
-				_freeCount--;
-			}
+			if( index == -1 )  // Bucket is empty: place new entry in {@code hi Region}
+				dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of {@code hi Region}
 			else {
-				if( _count == _nexts.length ) {
-					resize( Array.prime( _count * 2 ) );
-					bucket = ( _buckets[ bucketIndex = bucketIndex( hash ) ] ) - 1;
+				// Bucket is not empty, 'index' points to an existing entry
+				if( _lo_Size <= index ) { // Entry is in {@code hi Region}
+					if( keys[ index ] == ( double ) key ) { // Key matches existing {@code hi Region} entry
+						values[ index ] = value; // Update value
+						_version++;
+						return false; // Key was not new
+					}
 				}
-				index = _count++;
+				else // Entry is in {@code lo Region} (collision chain)
+					for( int next = index, collisions = 0; ; ) {
+						if( keys[ next ] == key ) {
+							values[ next ] = value;// Update value
+							_version++;
+							return false;// Key was not new
+						}
+						if( _lo_Size <= next ) break;
+						next = links[ next ];
+						
+						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+					}
+				
+				if( links.length == ( dst_index = _lo_Size++ ) )
+					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				
+				links[ dst_index ] = ( int ) index;
 			}
 			
-			nexts[ index ]          = ( int ) bucket;
-			keys[ index ]           = ( double ) key;
-			values[ index ]         = value;
-			_buckets[ bucketIndex ] = index + 1;
+			keys[ dst_index ]       = ( double ) key;
+			values[ dst_index ]     = value;
+			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 );
 			_version++;
-			
 			return true;
 		}
 		
 		/**
-		 * Resizes the internal arrays of the map to a new capacity.
-		 * Rehashes existing key-value pairs into the new buckets after resizing.
+		 * Removes the mapping for the specified object key from this map if present.
+		 * Handles {@code null} keys by delegating to {@link #removeNullKey()}.
 		 *
-		 * @param newSize The new capacity for the arrays (should be a prime number).
+		 * @param key The object key whose mapping is to be removed.
+		 * @return The previous value associated with the key, or null if no mapping was found.
 		 */
-		private void resize( int newSize ) {
-			newSize = Math.min( newSize, 0x7FFF_FFFF & -1 >>> 32 -  Double   .BYTES * 8 ); // Limit size to avoid potential issues
-			_version++; // Increment version before and after resize operation to ensure token invalidation
-			int[]         new_next   = Arrays.copyOf( nexts, newSize );
-			double[] new_keys   = Arrays.copyOf( keys, newSize );
-			V[]           new_values = Arrays.copyOf( values, newSize );
-			final int     count      = _count;
-			
-			_buckets = new int[ newSize ];
-			for( int i = 0; i < count; i++ )
-				if( -2 < new_next[ i ] ) {
-					int bucketIndex = bucketIndex( Array.hash( keys[ i ] ) );
-					new_next[ i ]           = ( int ) ( _buckets[ bucketIndex ] - 1 );
-					_buckets[ bucketIndex ] = ( i + 1 );
-				}
-			
-			nexts  = new_next;
-			keys   = new_keys;
-			values = new_values;
+		public V remove(  Double    key ) {
+			return key == null ?
+			       removeNullKey() :
+			       remove( ( double ) ( key + 0 ) );
 		}
 		
 		/**
-		 * Initializes the internal arrays of the map with the specified capacity.
+		 * Removes the mapping for the null key from this map if present.
 		 *
-		 * @param capacity The initial capacity for the arrays (will be adjusted to the next prime number).
-		 * @return The actual capacity after adjusting to a prime number.
+		 * @return The value associated with the null key if it was present and removed, or null otherwise.
 		 */
-		private int initialize( int capacity ) {
+		private V removeNullKey() {
+			if( !hasNullKey ) return null;
+			V oldValue = nullKeyValue;
+			hasNullKey   = false;
+			nullKeyValue = null; // Clear the value reference
 			_version++;
-			_buckets   = new int[ capacity ];
-			nexts      = new int[ capacity ];
-			keys       = new double[ capacity ];
-			values     = equal_hash_V.copyOf( null, capacity );
-			_freeList  = -1;
-			_count     = 0;
-			_freeCount = 0;
-			return capacity;
+			return oldValue;
 		}
 		
 		/**
-		 * Copies key-value pairs from old arrays to the newly resized arrays.
-		 * Used during resizing to preserve existing data.
+		 * Relocates an entry's key and value within the internal arrays.
+		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
+		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
+		 * {@code src} to now correctly reference {@code dst}.
 		 *
-		 * @param old_next   The old 'next' array.
-		 * @param old_keys   The old 'keys' array.
-		 * @param old_values The old 'values' array.
-		 * @param old_count  The number of entries in the old arrays.
+		 * @param src The index of the entry to be moved (its current location).
+		 * @param dst The new index where the entry's data will be placed.
 		 */
-		private void copy( int[] old_next, double[] old_keys, V[] old_values, int old_count ) {
-			int new_count = 0;
-			for( int i = 0; i < old_count; i++ ) {
-				if( old_next[ i ] < -1 ) continue; // Skip free list entries from old array
-				keys[ new_count ]   = old_keys[ i ];
-				values[ new_count ] = old_values[ i ];
-				int bucketIndex = bucketIndex( Array.hash( old_keys[ i ] ) );
-				nexts[ new_count ]      = ( int ) ( _buckets[ bucketIndex ] - 1 );
-				_buckets[ bucketIndex ] = ( new_count + 1 );
-				new_count++;
+		private void move( int src, int dst ) {
+			if( src == dst ) return;
+			int bucketIndex = bucketIndex( Array.hash( keys[ src ] ) );
+			int index       = _buckets[ bucketIndex ] - 1;
+			
+			if( index == src ) _buckets[ bucketIndex ] = ( int ) ( dst + 1 );
+			else {
+				while( links[ index ] != src )
+					index = links[ index ];
+				
+				links[ index ] = ( int ) dst;
 			}
-			_count     = new_count;
-			_freeCount = 0;
+			if( src < _lo_Size ) links[ dst ] = links[ src ];
+			
+			keys[ dst ]   = keys[ src ];
+			values[ dst ] = values[ src ];
 		}
 		
-		@Override public RW< V > clone() { return ( RW< V > ) super.clone(); }
 		
 		/**
-		 * Static instance used for obtaining the {@link Array.EqualHashOf} implementation for {@code RW<V>}.
+		 * Removes the mapping for the specified primitive key from this map if present.
+		 * <p>
+		 * <h3>Hash Map Removal Logic (Sparse Mode - Simplified):</h3>
+		 * Removal involves finding the entry, updating chain links or bucket pointers, and then
+		 * compacting the respective region ({@code lo} or {@code hi}) to maintain memory density.
+		 * <ol>
+		 * <li><b>Find entry:</b> Locate the entry corresponding to the key by traversing the hash bucket's chain.</li>
+		 * <li><b>Adjust Pointers:</b> Update the bucket pointer (if the removed entry was the chain head) or
+		 *     the {@code links} pointer of the preceding entry in the chain to bypass the removed entry.</li>
+		 * <li><b>Clear Value:</b> Set the {@code values} array slot to {@code null} for the removed entry.</li>
+		 * <li><b>Compaction:</b>
+		 *     <ul>
+		 *         <li>If the removed entry was in the {@code lo Region}, the last logical entry in the
+		 *             {@code lo Region} is moved into the freed slot using {@link #move(int, int)}.
+		 *             {@code _lo_Size} is decremented.</li>
+		 *         <li>If the removed entry was in the {@code hi Region}, the last logical entry in the
+		 *             {@code hi Region} is moved into the freed slot using {@link #move(int, int)}.
+		 *             {@code _hi_Size} is decremented.</li>
+		 *     </ul>
+		 * </li>
+		 * </ol>
+		 *
+		 * @param key The primitive key whose mapping is to be removed.
+		 * @return The previous value associated with the key if found and removed, or {@code null} otherwise.
+		 * @throws ConcurrentModificationException if an internal state inconsistency is detected during collision chain traversal.
+		 */
+		public V remove( double key ) {
+			if( _count() == 0 ) return null;
+			int removeBucketIndex = bucketIndex( Array.hash( key ) );
+			int removeIndex       = _buckets[ removeBucketIndex ] - 1;
+			if( removeIndex < 0 ) return null;
+			
+			if( _lo_Size <= removeIndex ) {// Entry is in {@code hi Region}
+				
+				if( keys[ removeIndex ] != key ) return null;
+				V oldValue = values[ removeIndex ];
+				move( keys.length - _hi_Size, removeIndex );
+				_hi_Size--;
+				_buckets[ removeBucketIndex ] = 0;
+				_version++;
+				return oldValue;
+			}
+			
+			V    oldValue;
+			int next = links[ removeIndex ];
+			if( keys[ removeIndex ] == key ) {
+				_buckets[ removeBucketIndex ] = ( int ) ( next + 1 );
+				oldValue                      = values[ removeIndex ];
+			}
+			else {
+				int last = removeIndex;
+				if( keys[ removeIndex = next ] == key )// The key is found at 'SecondNode'
+				{
+					oldValue = values[ removeIndex ];
+					if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];// 'SecondNode' is in 'lo Region', relink to bypasses 'SecondNode'
+					else {  // 'SecondNode' is in the hi Region (it's a terminal node)
+						
+						keys[ removeIndex ]   = keys[ last ]; //  Copies `keys[last]` to `keys[removeIndex]`
+						values[ removeIndex ] = values[ last ]; // Copies `values[last]` to `values[removeIndex]`
+						
+						// Update the bucket for this chain.
+						// 'removeBucketIndex' is the hash bucket for the original 'key' (which was keys[T]).
+						// Since keys[P] and keys[T] share the same bucket index, this is also the bucket for keys[P].
+						// By pointing it to 'removeIndex' (which now contains keys[P]), we make keys[P] the new sole head.
+						_buckets[ removeBucketIndex ] = ( int ) ( removeIndex + 1 );
+						removeIndex                   = last;
+					}
+				}
+				else if( _lo_Size <= removeIndex ) return null;
+				else
+					for( int collisions = 0; ; ) {
+						int prev = last;
+						if( keys[ removeIndex = links[ last = removeIndex ] ] == key ) {
+							{
+								oldValue = values[ removeIndex ];
+								if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
+								else {
+									
+									keys[ removeIndex ]   = keys[ last ];
+									values[ removeIndex ] = values[ last ];
+									links[ prev ]         = ( int ) removeIndex;
+									removeIndex           = last;
+								}
+								break;
+							}
+						}
+						if( _lo_Size <= removeIndex ) return null;
+						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+					}
+			}
+			
+			move( _lo_Size - 1, removeIndex );
+			_lo_Size--;
+			_version++;
+			return oldValue;
+		}
+		
+		/**
+		 * Removes all key-value mappings from this map.
+		 * The map will be empty after this call returns.
+		 * The internal hash table buckets are cleared, and size counters reset.
+		 * Internal arrays for keys, values, and links are not deallocated but their contents
+		 * are effectively marked as unused.
+		 */
+		public void clear() {
+			_version++;
+			
+			hasNullKey   = false;
+			nullKeyValue = null; // Clear null key value reference
+			
+			
+			if( _count() == 0 ) return; // Use _count() to check if map has non-null entries
+			if( _buckets != null ) Arrays.fill( _buckets, ( int ) 0 ); // Clear buckets
+			// links, keys, values arrays are not explicitly filled/cleared for performance,
+			// as their relevant parts will be overwritten or compacted during future operations.
+			_lo_Size = 0;
+			_hi_Size = 0;
+		}
+		
+		/**
+		 * Ensures that this map can hold at least the specified number of entries without excessive resizing.
+		 * If the current capacity is less than the specified capacity, the map is resized to accommodate it.
+		 *
+		 * @param capacity The minimum desired capacity.
+		 * @return The new capacity of the map's internal arrays.
+		 * @throws IllegalArgumentException if the specified capacity is negative.
+		 */
+		public int ensureCapacity( int capacity ) {
+			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
+			if( capacity <= length() ) return length();
+			return _buckets == null ?
+			       initialize( capacity ) :
+			       resize( Array.prime( capacity ) );
+		}
+		
+		/**
+		 * Trims the capacity of the map's internal storage to reduce memory usage.
+		 * The capacity will be reduced to be just large enough to hold the current
+		 * number of elements, or a prime number slightly larger than the size,
+		 * ensuring sufficient space for future additions while minimizing waste.
+		 */
+		public void trim() { trim( size() ); }
+		
+		/**
+		 * Trims the capacity of the map's internal storage to a specified minimum capacity.
+		 * If the current allocated capacity is greater than the specified capacity, and
+		 * also greater than the current number of elements, the map is resized downwards.
+		 * The actual new capacity will be a prime number at least {@code capacity} and
+		 * at least the current number of non-null key elements.
+		 *
+		 * @param capacity The minimum desired capacity after trimming.
+		 * @throws IllegalArgumentException if the specified capacity is less than the current count of non-null key elements.
+		 */
+		public void trim( int capacity ) {
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than the number of non-null key entries." );
+			
+			// Ensure requested capacity is at least the current number of elements (excluding null key)
+			capacity = Array.prime( Math.max( capacity, _count() ) );
+			
+			// If current length is already optimal or smaller than desired capacity, do nothing
+			if( length() <= capacity ) return;
+			
+			resize( capacity );
+		}
+		
+		/**
+		 * Resizes the map's internal storage to a new specified size.
+		 *
+		 * @param newSize The desired new capacity for the internal arrays.
+		 * @return The actual allocated capacity after resize.
+		 */
+		private int resize( int newSize ) {
+			_version++;
+			
+			
+			double[] old_keys    = keys;
+			V[]            old_values  = values;
+			int            old_lo_Size = _lo_Size;
+			int            old_hi_Size = _hi_Size;
+			
+			// Initialize new hash map arrays (this resets _lo_Size, _hi_Size to 0)
+			initialize( newSize );
+			
+			// Re-insert entries from old hash structure into new hash structure
+			for( int i = 0; i < old_lo_Size; i++ )
+			     copy( old_keys[ i ], old_values[ i ] );
+			
+			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ )
+			     copy( old_keys[ i ], old_values[ i ] );
+			
+			return length(); // Return new hash map length
+		}
+		
+		
+		private void copy( double key, V value ) {
+			int bucketIndex = bucketIndex( Array.hash( key ) );
+			int index       = _buckets[ bucketIndex ] - 1; // Current head in the NEW _buckets
+			int dst_index;
+			
+			if( index == -1 ) { // Bucket is empty in the new map: place new entry in {@code hi Region}
+				dst_index = keys.length - 1 - _hi_Size++;
+			}
+			else {
+				// Collision in the new map: place new entry in {@code lo Region}
+				// Ensure links array has enough capacity for the new lo_Size entry
+				if( links.length == _lo_Size ) {
+					links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
+				}
+				links[ dst_index = _lo_Size++ ] = ( int ) ( index ); // New entry links to the old head
+			}
+			
+			keys[ dst_index ]       = key;
+			values[ dst_index ]     = value;
+			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 ); // New entry becomes the head
+		}
+		
+		
+		/**
+		 * Creates and returns a deep copy of this read-write map.
+		 * All internal arrays are cloned, ensuring the cloned map is independent of the original.
+		 *
+		 * @return A cloned instance of this map.
+		 * @throws InternalError if cloning fails (should not happen as Cloneable is supported).
+		 */
+		@Override
+		@SuppressWarnings( "unchecked" )
+		public RW< V > clone() { return ( RW< V > ) super.clone(); }
+		
+		
+		/**
+		 * Static instance for obtaining the `EqualHashOf` strategy for this map type.
 		 */
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 		
 	}
 	
 	/**
-	 * Returns the {@link Array.EqualHashOf} implementation for {@code RW<V>}.
+	 * Returns the `EqualHashOf` implementation for this map type,
+	 * allowing it to be used as a value type in other collections that require
+	 * equality and hashing strategies.
+	 * This is typically used for nesting maps (e.g., Map of Maps).
 	 *
 	 * @param <V> The type of values in the map.
-	 * @return The {@link Array.EqualHashOf} instance for {@code RW<V>}.
+	 * @return The {@link Array.EqualHashOf} instance for map objects of this type.
 	 */
 	@SuppressWarnings( "unchecked" )
 	static < V > Array.EqualHashOf< RW< V > > equal_hash() { return ( Array.EqualHashOf< RW< V > > ) RW.OBJECT; }

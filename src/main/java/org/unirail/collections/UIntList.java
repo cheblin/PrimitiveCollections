@@ -37,15 +37,18 @@ import org.unirail.JsonWriter;
 
 import java.util.Arrays;
 
+/**
+ * Defines a contract for a list specifically designed for primitive values.
+ */
 public interface UIntList {
 	
 	/**
-	 * Read-only base class for a primitive list implementation providing core functionality.
+	 * Read-only base class for a primitive value list implementation providing core functionality.
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
 		/**
 		 * Sentinel value representing uninitialized elements in the list.
-		 * Since primitive ints cannot be null, this value is used to fill new slots when the list expands.
+		 * Since primitive values cannot be null, this value is used to fill new slots when the list expands.
 		 * Choose a value that does not conflict with valid data in your use case.
 		 */
 		public final long default_value;
@@ -83,6 +86,11 @@ public interface UIntList {
 		 */
 		public int size() { return size; }
 		
+		/**
+		 * Returns the total capacity of the internal array backing this list.
+		 *
+		 * @return The current allocated capacity.
+		 */
 		public int length() { return values.length; }
 		
 		/**
@@ -102,13 +110,13 @@ public interface UIntList {
 		
 		/**
 		 * Copies the first `len` elements from the list into the destination array `dst` starting at index `index`.
-		 * If `dst` is null, a new array of size `len` is allocated. If `len > size`, elements beyond the list's size
+		 * If `dst` is null, a new array of size `len` is allocated. If `len > size`, elements beyond the list's current size
 		 * will be copied from the internal array, which may contain uninitialized or invalid data.
 		 *
 		 * @param index Starting index in the destination array.
 		 * @param len   Number of elements to copy from the list.
-		 * @param dst   Destination array; if null, a new array of size `len` is allocated.
-		 * @return TheBib populated array, or null if the list is empty.
+		 * @param dst   Destination array for primitive values; if null, a new array of size `len` is allocated.
+		 * @return The populated array, or null if the list is empty.
 		 */
 		public long[] toArray( int index, int len, long[] dst ) {
 			if( size == 0 ) return null;
@@ -131,7 +139,7 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Retrieves the value at a specific index.
+		 * Retrieves the primitive value at a specific index.
 		 *
 		 * @param index The 0-based index of the element to retrieve.
 		 * @return The primitive value at the specified index.
@@ -139,14 +147,14 @@ public interface UIntList {
 		public long get( int index ) { return  (0xFFFFFFFFL &  values[ index ]); }
 		
 		/**
-		 * Retrieves the last value in the list.
+		 * Retrieves the last primitive value in the list.
 		 *
 		 * @return The primitive value at the end of the list.
 		 */
 		public long get() { return  (0xFFFFFFFFL &  values[ size - 1 ]); }
 		
 		/**
-		 * Copies a range of elements into a destination array with bounds checking.
+		 * Copies a range of elements into a destination array of primitive values with bounds checking.
 		 *
 		 * @param dst       Destination array to copy elements into.
 		 * @param dst_index Starting index in the destination array.
@@ -165,17 +173,17 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Finds the first occurrence of a value in the list.
+		 * Finds the first occurrence of a primitive value in the list.
 		 *
-		 * @param value The value to locate.
+		 * @param value The primitive value to locate.
 		 * @return The 0-based index of the first occurrence, or -1 if not found.
 		 */
 		public int indexOf( long value ) { return Array.indexOf( values, ( int ) value, 0, size ); }
 		
 		/**
-		 * Finds the last occurrence of a value in the list.
+		 * Finds the last occurrence of a primitive value in the list.
 		 *
-		 * @param value The value to locate.
+		 * @param value The primitive value to locate.
 		 * @return The 0-based index of the last occurrence, or -1 if not found.
 		 */
 		public int lastIndexOf( long value ) { return Array.lastIndexOf( values, ( int ) value, 0, size ); }
@@ -254,14 +262,14 @@ public interface UIntList {
 	}
 	
 	/**
-	 * Read-write extension of the R class, adding methods to modify the list.
+	 * Read-write extension of the R class, adding methods to modify the list of primitive values.
 	 */
 	class RW extends R {
 		
 		/**
-		 * Initializes an empty list with a specified initial capacity.
+		 * Initializes an empty list of primitive values with a specified initial capacity.
 		 *
-		 * @param length Initial capacity of the internal array; if 0 or less, uses an empty array.
+		 * @param length Initial capacity of the internal array; if less than 1, uses an empty array.
 		 */
 		public RW( int length ) {
 			super( ( long ) 0 );
@@ -271,9 +279,10 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Initializes the list with a default value and size. If size > 0, creates a list with `size` elements
-		 * initialized to `default_value`. If size == 0, creates an empty list. If size < 0, creates an array with
-		 * capacity `-size` and sets the list size to `-size`, with elements initialized to 0.
+		 * Initializes the list with a default value and size. If size is positive, creates a list with `size` elements
+		 * initialized to `default_value`. If size is zero, creates an empty list. If size is negative, creates an array with
+		 * capacity equal to the absolute value of `size` and sets the list size to this capacity, with all elements
+		 * initialized to the default value.
 		 *
 		 * @param default_value Value used for uninitialized or newly added elements.
 		 * @param size          Initial size (if positive) or capacity (if negative, using absolute value).
@@ -290,18 +299,18 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Appends a value to the end of the list, expanding if necessary.
+		 * Appends a primitive value to the end of the list, expanding if necessary.
 		 *
-		 * @param value The primitive to add.
+		 * @param value The primitive value to add.
 		 * @return This instance for method chaining.
 		 */
 		public RW add1( long value ) { return add1( size, value ); }
 		
 		/**
-		 * Inserts a value at the specified index, shifting elements rightward.
+		 * Inserts a primitive value at the specified index, shifting elements rightward.
 		 *
 		 * @param index 0-based position for insertion.
-		 * @param value The primitive to insert.
+		 * @param value The primitive value to insert.
 		 * @return This instance for method chaining.
 		 */
 		public RW add1( int index, long value ) {
@@ -314,18 +323,18 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Appends multiple values from an array to the end of the list.
+		 * Appends multiple primitive values from an array to the end of the list.
 		 *
-		 * @param src Array of primitives to add.
+		 * @param src Array of primitive values to add.
 		 * @return This instance for method chaining.
 		 */
 		public RW add( int... src ) { return add( size(), src, 0, src.length ); }
 		
 		/**
-		 * Inserts a range of values from an array at a specified index, shifting elements rightward.
+		 * Inserts a range of primitive values from an array at a specified index, shifting elements rightward.
 		 *
 		 * @param index     Starting position in this list.
-		 * @param src       Source array of primitives.
+		 * @param src       Source array of primitive values.
 		 * @param src_index Starting index in the source array.
 		 * @param len       Number of elements to insert.
 		 * @return This instance for method chaining.
@@ -374,18 +383,18 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Sets the value at the end of the list, expanding if necessary with default_value.
+		 * Sets the primitive value at the end of the list, expanding if necessary with default_value.
 		 *
-		 * @param value The primitive to set.
+		 * @param value The primitive value to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set1( long value ) { return set1( size, value ); }
 		
 		/**
-		 * Sets a value at a specific index, expanding the list with default_value if needed.
+		 * Sets a primitive value at a specific index, expanding the list with default_value if needed.
 		 *
 		 * @param index 0-based index to set the value.
-		 * @param value The primitive to set.
+		 * @param value The primitive value to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set1( int index, long value ) {
@@ -401,19 +410,19 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Sets multiple values from an array starting at a specified index.
+		 * Sets multiple primitive values from an array starting at a specified index.
 		 *
 		 * @param index Starting 0-based index in this list.
-		 * @param src   Array of primitives to set.
+		 * @param src   Array of primitive values to set.
 		 * @return This instance for method chaining.
 		 */
 		public RW set( int index, long... src ) { return set( index, src, 0, src.length ); }
 		
 		/**
-		 * Sets a range of values from an array starting at a specified index, expanding if necessary.
+		 * Sets a range of primitive values from an array starting at a specified index, expanding if necessary.
 		 *
 		 * @param index     Starting 0-based index in this list.
-		 * @param src       Source array of primitives.
+		 * @param src       Source array of primitive values.
 		 * @param src_index Starting index in the source array.
 		 * @param len       Number of elements to set.
 		 * @return This instance for method chaining.
@@ -455,9 +464,9 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Removes all occurrences of a specific value.
+		 * Removes all occurrences of a specific primitive value.
 		 *
-		 * @param src Value to remove.
+		 * @param src Primitive value to remove.
 		 * @return Number of elements removed.
 		 */
 		public int removeAll( long src ) {
@@ -467,9 +476,9 @@ public interface UIntList {
 		}
 		
 		/**
-		 * Quickly removes all occurrences of a value, possibly reordering elements.
+		 * Quickly removes all occurrences of a primitive value, possibly reordering elements.
 		 *
-		 * @param src Value to remove.
+		 * @param src Primitive value to remove.
 		 * @return Number of elements removed.
 		 */
 		public int removeAll_fast( long src ) {
@@ -527,7 +536,8 @@ public interface UIntList {
 		public RW fit() { return length( size() ); }
 		
 		/**
-		 * Adjusts the internal array's length, truncating or expanding as needed.
+		 * Adjusts the internal array's capacity, truncating or expanding as needed.
+		 * If the new length is less than the current size, the list will be truncated.
 		 *
 		 * @param length New capacity; if less than 1, clears the list.
 		 * @return This instance for method chaining.

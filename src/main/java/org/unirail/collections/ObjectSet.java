@@ -40,40 +40,76 @@ import java.util.function.Function;
 /**
  * A generic Set implementation providing efficient storage and operations for keys.
  * Supports null keys and provides token-based iteration for safe and unsafe traversal.
- * The implementation uses a hash table with open addressing for efficient key storage.
+ * The implementation uses a hash table with open addressing and a dual-region strategy for efficient key storage
+ * and compaction.
+ *
+ * <ul>
+ * <li><b>{@code hi Region}:</b> Occupies high indices in the {@code keys} array.
+ *     Entries are added at {@code keys[keys.length - 1 - _hi_Size]}, and {@code _hi_Size} is incremented.
+ *     Thus, this region effectively grows downwards from {@code keys.length-1}. Active entries are in indices
+ *     {@code [keys.length - _hi_Size, keys.length - 1]}.
+ *     <ul>
+ *         <li>Stores entries that, at the time of insertion, map to an empty bucket in the {@code _buckets} hash table.</li>
+ *         <li>These entries can also become the terminal entries of collision chains originating in the {@code lo Region}.</li>
+ *         <li>Managed stack-like: new entries are added to what becomes the lowest index of this region if it were viewed as growing from {@code keys.length-1} downwards.</li>
+ *     </ul>
+ * </li>
+ *
+ * <li><b>{@code lo Region}:</b> Occupies low indices in the {@code keys} array, indices {@code 0} through {@code _lo_Size - 1}. It grows upwards
+ *     (e.g., from {@code 0} towards higher indices, up to a maximum of {@code _lo_Size} elements).
+ *     <ul>
+ *         <li>Stores entries that are part of a collision chain (i.e., multiple keys hash to the same bucket, or an entry that initially was in {@code hi Region} caused a collision upon a new insertion).</li>
+ *         <li>Uses the {@code links} array for managing collision chains. This array is sized dynamically.</li>
+ *         <li>Only entries in this region can have their {@code links} array slot utilized for chaining to another entry in either region.</li>
+ *     </ul>
+ * </li>
+ * </ul>
  */
 public interface ObjectSet {
 	
 	/**
 	 * Read-only base class providing core functionality and state management for the set.
 	 * Implements {@link java.util.Set} and {@link JsonWriter.Source} for JSON serialization.
+	 * <p>
+	 * This implementation uses a HYBRID strategy that automatically adapts based on data density,
+	 * dividing active entries into two regions:
+	 * - {@code lo Region}: Stores entries involved in hash collisions. Uses an explicit {@code links} array for chaining.
+	 * Occupies low indices (0 to {@code _lo_Size-1}) in {@code keys}.
+	 * - {@code hi Region}: Stores entries that do not (initially) require {@code links} links (i.e., no collision at insertion time, or they are terminal nodes of a chain).
+	 * Occupies high indices (from {@code keys.length - _hi_Size} to {@code keys.length-1}) in {@code keys}.
+	 * This approach balances memory efficiency for sparse sets with optimal performance for dense sets.
 	 */
 	abstract class R< K > implements java.util.Set< K >, JsonWriter.Source, Cloneable {
-		protected boolean                hasNullKey;    // True if the set contains a null key
-		protected int[]                  _buckets;       // Hash table buckets
-		protected long[]                 hash_nexts;    // Set entries: hashCode | next
-		protected K[]                    keys;             // Set elements (keys)
-		protected int                    _count;           // Number of elements excluding free list
-		protected int                    _freeList;        // Index of the first free list element
-		protected int                    _freeCount;       // Number of free list elements
+		protected boolean hasNullKey;    // True if the set contains a null key
+		protected int[]   _buckets;       // Hash table buckets (1-based indices to chain heads). Stores 0-based indices plus one.
+		protected int[]   hash;           // Stores hash codes for each entry.
+		protected int[]   links;          // Stores the 'next' index in collision chains (0-based indices).
+		protected K[]     keys;             // Set elements (keys)
+		
+		protected int _lo_Size;         // Number of active entries in the low region (0 to _lo_Size-1).
+		protected int _hi_Size;         // Number of active entries in the high region (keys.length - _hi_Size to keys.length-1).
+		
 		protected int                    _version;         // Version for modification detection
 		protected Array.EqualHashOf< K > equal_hash_K; // Equality and hash provider
 		
-		protected static final int  StartOfFreeList = -3;
-		protected static final long HASH_CODE_MASK  = 0xFFFFFFFF00000000L;
-		protected static final long NEXT_MASK       = 0x00000000FFFFFFFFL;
-		protected static final int  NULL_KEY_INDEX  = 0x7FFF_FFFF;
-		protected static final int  VERSION_SHIFT   = 32;
-		protected static final long INVALID_TOKEN   = -1L;
+		protected static final int  NULL_KEY_INDEX = 0x7FFF_FFFF;
+		protected static final int  VERSION_SHIFT  = 32;
+		protected static final long INVALID_TOKEN  = -1L;
 		
 		/**
 		 * Checks if the set contains a null key.
 		 *
 		 * @return {@code true} if the set contains a null key, {@code false} otherwise.
 		 */
-		public boolean hasNullKey() {
-			return hasNullKey;
-		}
+		public boolean hasNullKey() { return hasNullKey; }
+		
+		/**
+		 * Returns the total number of active non-null entries in the set.
+		 * This is the sum of entries in the low and high regions.
+		 *
+		 * @return The current count of non-null entries.
+		 */
+		protected int _count() { return _lo_Size + _hi_Size; }
 		
 		/**
 		 * Returns the number of elements in the set, including the null key if present.
@@ -82,9 +118,9 @@ public interface ObjectSet {
 		 */
 		@Override
 		public int size() {
-			return _count - _freeCount + ( hasNullKey ?
-					1 :
-					0 );
+			return _count() + ( hasNullKey ?
+			                    1 :
+			                    0 );
 		}
 		
 		/**
@@ -92,9 +128,7 @@ public interface ObjectSet {
 		 *
 		 * @return The number of elements in the set.
 		 */
-		public int count() {
-			return size();
-		}
+		public int count() { return size(); }
 		
 		/**
 		 * Checks if the set is empty.
@@ -102,9 +136,7 @@ public interface ObjectSet {
 		 * @return {@code true} if the set contains no elements, {@code false} otherwise.
 		 */
 		@Override
-		public boolean isEmpty() {
-			return size() == 0;
-		}
+		public boolean isEmpty() { return size() == 0; }
 		
 		/**
 		 * Checks if the set contains the specified key.
@@ -114,7 +146,7 @@ public interface ObjectSet {
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
-		public boolean contains( Object key ) {			return tokenOf( ( K ) key ) != INVALID_TOKEN;		}
+		public boolean contains( Object key ) { return tokenOf( ( K ) key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Checks if the set contains the specified key (type-safe version).
@@ -122,7 +154,7 @@ public interface ObjectSet {
 		 * @param key The key to check for.
 		 * @return {@code true} if the set contains the key, {@code false} otherwise.
 		 */
-		public boolean contains_( K key ) {			return tokenOf( key ) != INVALID_TOKEN;		}
+		public boolean contains_( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
 		 * Returns the iteration token for the specified key, or {@link #INVALID_TOKEN} if not found.
@@ -133,20 +165,27 @@ public interface ObjectSet {
 		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
-					token( NULL_KEY_INDEX ) :
-					INVALID_TOKEN;
-			if( _buckets == null ) return INVALID_TOKEN;
+			                         token( NULL_KEY_INDEX ) :
+			                         INVALID_TOKEN;
 			
-			int hash = equal_hash_K.hashCode( key );
-			int i    = _buckets[ bucketIndex( hash ) ] - 1;
+			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN;
 			
-			for( int collisionCount = 0; ( i & 0xFFFF_FFFFL ) < hash_nexts.length; ) {
-				final long hash_next = hash_nexts[ i ];
-				if( hash( hash_next ) == hash && equal_hash_K.equals( keys[ i ], key ) )
-					return token( i );
-				i = next( hash_next );
-				if( hash_nexts.length <= collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			int hash  = equal_hash_K.hashCode( key );
+			int index = ( _buckets[ bucketIndex( hash ) ] ) - 1; // 0-based index from bucket
+			if( index < 0 ) return INVALID_TOKEN; // Bucket is empty
+			
+			if( _lo_Size <= index ) // If the first entry is in the hi Region
+				return ( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) ?
+// Check for direct match (hi Region entries don't have chain)
+                       token( index ) :
+                       INVALID_TOKEN;
+			
+			// Traverse collision chain in lo Region
+			for( int collisions = 0; ; ) {
+				if( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) return token( index );
+				if( _lo_Size <= index ) break; // Reached a terminal node (which is in hi Region, or end of chain)
+				index = links[ index ];
+				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
 			return INVALID_TOKEN;
 		}
@@ -159,11 +198,12 @@ public interface ObjectSet {
 		 * @return The first iteration token, or {@link #INVALID_TOKEN} if the set is empty.
 		 */
 		public long token() {
-			for( int i = 0; i < _count; i++ )
-				if( next( hash_nexts[ i ] ) >= -1 ) return token( i );
-			return hasNullKey ?
-					token( NULL_KEY_INDEX ) :
-					INVALID_TOKEN;
+			int index = unsafe_token( -1 ); // Start unsafe iteration from -1
+			return index == -1 ?
+			       hasNullKey ?
+			       token( NULL_KEY_INDEX ) :
+			       INVALID_TOKEN :
+			       token( index );
 		}
 		
 		/**
@@ -178,15 +218,20 @@ public interface ObjectSet {
 		 */
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
-			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			int i = index( token );
-			if( i == NULL_KEY_INDEX ) return INVALID_TOKEN;
-			if( 0 < _count - _freeCount )
-				for( i++; i < _count; i++ )
-					if( -2 < next( hash_nexts[ i ] ) ) return token( i );
-			return hasNullKey && index( token ) < _count ?
-					token( NULL_KEY_INDEX ) :
-					INVALID_TOKEN;
+			if( version( token ) != _version )
+				throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			
+			int index = index( token );
+			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN; // If current token is null key, no more elements
+			
+			index = unsafe_token( index ); // Get next unsafe token (non-null key)
+			
+			return index == -1 ?
+			       hasNullKey ?
+			       // If no more non-null keys, check for null key
+			       token( NULL_KEY_INDEX ) :
+			       INVALID_TOKEN :
+			       token( index );
 		}
 		
 		/**
@@ -199,6 +244,9 @@ public interface ObjectSet {
 		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
 		 * set is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
 		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 * <p>
+		 * Iteration order: First, entries in the {@code lo Region} (0 to {@code _lo_Size-1}),
+		 * then entries in the {@code hi Region} ({@code keys.length - _hi_Size} to {@code keys.length-1}).
 		 *
 		 * @param token The previous token, or {@code -1} to begin iteration.
 		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
@@ -207,9 +255,25 @@ public interface ObjectSet {
 		 * @see #key(long) To get the key associated with a token.
 		 */
 		public int unsafe_token( int token ) {
-			for( int i = token + 1; i < _count; i++ )
-				if( -2 < next( hash_nexts[ i ] ) ) return i;
-			return -1;
+			if( _buckets == null || _count() == 0 ) return -1;
+			
+			int i         = token + 1;
+			int lowest_hi = keys.length - _hi_Size; // Start of hi region
+			
+			return i < _lo_Size ?
+			       // Check lo region first
+			       i :
+			       i < lowest_hi ?
+			       // If lo region exhausted, check if we're past its end
+			       _hi_Size == 0 ?
+			       // If hi region is empty, no more entries
+			       -1 :
+			       lowest_hi :
+			       // Otherwise, return start of hi region
+			       i < keys.length ?
+			       // Iterate through hi region
+			       i :
+			       -1; // No more entries
 		}
 		
 		/**
@@ -218,9 +282,7 @@ public interface ObjectSet {
 		 * @param token The token to check.
 		 * @return {@code true} if the token represents the null key, {@code false} otherwise.
 		 */
-		public boolean isKeyNull( long token ) {
-			return index( token ) == NULL_KEY_INDEX;
-		}
+		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
 		 * Returns the key associated with the given token.
@@ -230,8 +292,8 @@ public interface ObjectSet {
 		 */
 		public K key( long token ) {
 			return index( token ) == NULL_KEY_INDEX ?
-					null :
-					keys[ index( token ) ];
+			       null :
+			       keys[ index( token ) ];
 		}
 		
 		/**
@@ -267,9 +329,7 @@ public interface ObjectSet {
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
-		public boolean equals( Object obj ) {
-			return obj != null && getClass() == obj.getClass() && equals( ( R< K > ) obj );
-		}
+		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R< K > ) obj ); }
 		
 		/**
 		 * Checks if this set is equal to another set of the same type.
@@ -297,16 +357,25 @@ public interface ObjectSet {
 			try {
 				R< K > dst = ( R< K > ) super.clone();
 				if( _buckets != null ) {
-					dst._buckets   = _buckets.clone();
-					dst.hash_nexts = hash_nexts.clone();
-					dst.keys       = keys.clone();
+					dst._buckets = _buckets.clone();
+					dst.hash     = hash.clone();
+					dst.links    = links.clone();
+					dst.keys     = keys.clone();
 				}
 				return dst;
 			} catch( CloneNotSupportedException e ) {
-				e.printStackTrace();
-				return null;
+				throw new InternalError( e ); // Propagate as InternalError if cloning fails
 			}
 		}
+		
+		/**
+		 * Returns a JSON string representation of the set.
+		 *
+		 * @return The JSON string representation.
+		 */
+		@Override
+		public String toString() { return toJSON(); }
+		
 		
 		/**
 		 * Serializes the set to JSON format.
@@ -320,7 +389,7 @@ public interface ObjectSet {
 				json.enterObject();
 				if( hasNullKey ) json.name().value();
 				if( size > 0 ) {
-					json.preallocate( size * 10 );
+					json.preallocate( size * 10 ); // Heuristic pre-allocation
 					for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 					     json.name( key( token ).toString() ).value();
 				}
@@ -330,21 +399,11 @@ public interface ObjectSet {
 				json.enterArray();
 				if( hasNullKey ) json.value();
 				if( size > 0 ) {
-					json.preallocate( size * 10 );
+					json.preallocate( size * 10 ); // Heuristic pre-allocation
 					for( long t = token(); t != INVALID_TOKEN; t = token( t ) ) json.value( key( t ) );
 				}
 				json.exitArray();
 			}
-		}
-		
-		/**
-		 * Returns a JSON string representation of the set.
-		 *
-		 * @return The JSON string representation.
-		 */
-		@Override
-		public String toString() {
-			return toJSON();
 		}
 		
 		/**
@@ -353,29 +412,7 @@ public interface ObjectSet {
 		 * @param hash The hash code.
 		 * @return The bucket index.
 		 */
-		protected int bucketIndex( int hash ) {
-			return ( hash & 0x7FFF_FFFF ) % _buckets.length;
-		}
-		
-		/**
-		 * Extracts the hash code from a hash_next entry.
-		 *
-		 * @param hash_next The hash_next entry.
-		 * @return The hash code.
-		 */
-		protected static int hash( long hash_next ) {
-			return ( int ) ( hash_next >> 32 );
-		}
-		
-		/**
-		 * Extracts the next index from a hash_next entry.
-		 *
-		 * @param hash_next The hash_next entry.
-		 * @return The next index.
-		 */
-		protected static int next( long hash_next ) {
-			return ( int ) ( hash_next & NEXT_MASK );
-		}
+		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
 		/**
 		 * Creates a token from an index.
@@ -383,9 +420,7 @@ public interface ObjectSet {
 		 * @param index The index.
 		 * @return The token combining the version and index.
 		 */
-		protected long token( int index ) {
-			return ( ( long ) _version << VERSION_SHIFT ) | ( index );
-		}
+		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); }
 		
 		/**
 		 * Extracts the index from a token.
@@ -393,9 +428,7 @@ public interface ObjectSet {
 		 * @param token The token.
 		 * @return The index.
 		 */
-		protected int index( long token ) {
-			return ( int ) ( token );
-		}
+		protected int index( long token ) { return ( int ) ( token ); }
 		
 		/**
 		 * Extracts the version from a token.
@@ -403,9 +436,7 @@ public interface ObjectSet {
 		 * @param token The token.
 		 * @return The version.
 		 */
-		protected int version( long token ) {
-			return ( int ) ( token >>> VERSION_SHIFT );
-		}
+		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 	}
 	
 	/**
@@ -413,17 +444,19 @@ public interface ObjectSet {
 	 * Provides methods to add, remove, and modify elements in the set.
 	 */
 	class RW< K > extends R< K > {
-		private static final int                                                        HashCollisionThreshold = 100;
-		public               Function< Array.EqualHashOf< K >, Array.EqualHashOf< K > > forceNewHashCodes      = null;
+		/**
+		 * Threshold for hash collisions in a bucket before considering rehashing.
+		 */
+		private static final int HashCollisionThreshold = 100;
+		
+		public Function< Array.EqualHashOf< K >, Array.EqualHashOf< K > > forceNewHashCodes = null;
 		
 		/**
 		 * Constructs an empty set for the specified key class.
 		 *
 		 * @param clazzK The class of the keys.
 		 */
-		public RW( Class< K > clazzK ) {
-			this( clazzK, 0 );
-		}
+		public RW( Class< K > clazzK ) { this( clazzK, 0 ); }
 		
 		/**
 		 * Constructs an empty set with the specified initial capacity for the key class.
@@ -431,18 +464,14 @@ public interface ObjectSet {
 		 * @param clazzK   The class of the keys.
 		 * @param capacity The initial capacity.
 		 */
-		public RW( Class< K > clazzK, int capacity ) {
-			this( Array.get( clazzK ), capacity );
-		}
+		public RW( Class< K > clazzK, int capacity ) { this( Array.get( clazzK ), capacity ); }
 		
 		/**
 		 * Constructs an empty set with the specified equality and hash provider.
 		 *
 		 * @param equal_hash_K The equality and hash provider.
 		 */
-		public RW( Array.EqualHashOf< K > equal_hash_K ) {
-			this( equal_hash_K, 0 );
-		}
+		public RW( Array.EqualHashOf< K > equal_hash_K ) { this( equal_hash_K, 0 ); }
 		
 		/**
 		 * Constructs an empty set with the specified equality and hash provider and initial capacity.
@@ -481,41 +510,58 @@ public interface ObjectSet {
 				return true;
 			}
 			
-			if( _buckets == null ) initialize( 7 );
-			long[] _hash_nexts    = hash_nexts;
-			int    hash           = equal_hash_K.hashCode( key );
-			int    collisionCount = 0;
-			int    bucketIndex    = bucketIndex( hash );
-			int    bucket         = _buckets[ bucketIndex ] - 1;
+			if( _buckets == null ) initialize( 7 ); // Initial capacity for hash table
+			else if( _count() == keys.length ) resize( Array.prime( keys.length * 2 ), false ); // Resize if backing array is full
 			
-			for( int next = bucket; ( next & 0x7FFF_FFFF ) < _hash_nexts.length; ) {
-				if( hash( _hash_nexts[ next ] ) == hash && equal_hash_K.equals( keys[ next ], key ) )
-					return false;
-				next = next( _hash_nexts[ next ] );
-				if( _hash_nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
-			}
+			int hash        = equal_hash_K.hashCode( key );
+			int bucketIndex = bucketIndex( hash );
+			int index       = _buckets[ bucketIndex ] - 1; // 0-based index from bucket
+			int dst_index;
 			
-			int index;
-			if( 0 < _freeCount ) {
-				index     = _freeList;
-				_freeList = StartOfFreeList - next( _hash_nexts[ _freeList ] );
-				_freeCount--;
-			}
+			// Bucket is empty: place new entry in hi Region
+			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of hi Region
 			else {
-				if( _count == _hash_nexts.length ) {
-					resize( Array.prime( _count * 2 ), false );
-					bucket = _buckets[ bucketIndex = bucketIndex( hash ) ] - 1;
+				// Bucket is not empty, 'index' points to an existing entry
+				// Entry pointed to by bucket is in lo Region (collision chain)
+				if( _lo_Size <= index ) { // Entry pointed to by bucket is in hi Region
+					if( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) { // Key matches existing hi Region entry
+						_version++;
+						return false; // Key was not new
+					}
 				}
-				index = _count++;
+				else {
+					int collisions = 0;
+					for( int next = index; ; ) {
+						if( this.hash[ next ] == hash && equal_hash_K.equals( keys[ next ], key ) ) {
+							_version++;
+							return false; // Key was not new
+						}
+						if( _lo_Size <= next ) break; // Reached a terminal node (which could be in hi Region)
+						next = links[ next ];
+						
+						// Safety check for endless loop / corrupted state
+						if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+					}
+					// Check for high collision and potential rehashing for string keys, adapted from original put()
+					if( HashCollisionThreshold < collisions && this.forceNewHashCodes != null && key instanceof String ) // Check for high collision and potential rehashing for string keys
+					{
+						resize( keys.length, true ); // Resize to potentially trigger new hash codes
+						hash        = equal_hash_K.hashCode( key );
+						bucketIndex = bucketIndex( hash );
+						index       = _buckets[ bucketIndex ] - 1;
+					}
+				}
+				
+				// Collision occurred and key not found. Place new entry in lo Region
+				// Resize links array if needed, up to keys.length or double current links.length
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				links[ dst_index ] = index; // New entry points to the old head
 			}
 			
-			hash_nexts[ index ]     = hash_next( hash, bucket );
-			keys[ index ]           = key;
-			_buckets[ bucketIndex ] = index + 1;
+			this.hash[ dst_index ]  = hash; // Store hash code
+			keys[ dst_index ]       = key;   // Store key
+			_buckets[ bucketIndex ] = dst_index + 1; // Update bucket to new head (1-based)
 			_version++;
-			if( HashCollisionThreshold < collisionCount && this.forceNewHashCodes != null && key instanceof String )
-				resize( hash_nexts.length, true );
 			return true;
 		}
 		
@@ -527,9 +573,7 @@ public interface ObjectSet {
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
-		public boolean remove( Object key ) {
-			return remove_( ( K ) key );
-		}
+		public boolean remove( Object key ) { return remove_( ( K ) key ); }
 		
 		/**
 		 * Removes the specified key from the set if it is present (type-safe version).
@@ -538,39 +582,109 @@ public interface ObjectSet {
 		 * @return {@code true} if the key was removed, {@code false} if it was not present.
 		 */
 		public boolean remove_( K key ) {
-			if( key == null ) {
-				if( !hasNullKey ) return false;
-				hasNullKey = false;
+			if( key == null ) { // Handle null key removal
+				if( !hasNullKey ) return false; // Null key not present
+				hasNullKey = false;                     // Remove null key flag
+				_version++;                             // Increment version
+				return true;
+			}
+			
+			if( _count() == 0 ) return false; // Map is empty
+			
+			int hash              = equal_hash_K.hashCode( key );
+			int removeBucketIndex = bucketIndex( hash );
+			int removeIndex       = _buckets[ removeBucketIndex ] - 1; // 0-based index from bucket
+			if( removeIndex < 0 ) return false; // Key not in this bucket
+			
+			// Case 1: Entry to be removed is in the hi Region (cannot be part of a chain from _lo_Size)
+			if( _lo_Size <= removeIndex ) {
+				if( this.hash[ removeIndex ] != hash || !equal_hash_K.equals( keys[ removeIndex ], key ) ) return false;
+				
+				// Move the last element of hi region to the removed slot
+				move( keys.length - _hi_Size, removeIndex );
+				
+				_hi_Size--; // Decrement hi_Size
+				_buckets[ removeBucketIndex ] = 0; // Clear the bucket reference (it was the only one)
 				_version++;
 				return true;
 			}
 			
-			if( _buckets == null || _count == 0 ) return false;
 			
-			int collisionCount = 0;
-			int last           = -1;
-			int hash           = equal_hash_K.hashCode( key );
-			int bucketIndex    = bucketIndex( hash );
-			int i              = _buckets[ bucketIndex ] - 1;
-			
-			while( -1 < i ) {
-				long hash_next = hash_nexts[ i ];
-				if( hash( hash_next ) == hash && equal_hash_K.equals( keys[ i ], key ) ) {
-					if( last < 0 ) _buckets[ bucketIndex ] = next( hash_next ) + 1;
-					else next( hash_nexts, last, next( hash_next ) );
-					next( hash_nexts, i, StartOfFreeList - _freeList );
-					keys[ i ] = null;
-					_freeList = i;
-					_freeCount++;
-					_version++;
-					return true;
-				}
-				last = i;
-				i    = next( hash_next );
-				if( hash_nexts.length < collisionCount++ )
-					throw new ConcurrentModificationException( "Concurrent operations not supported." );
+			int next = links[ removeIndex ];
+			if( this.hash[ removeIndex ] == hash && equal_hash_K.equals( keys[ removeIndex ], key ) ) _buckets[ removeBucketIndex ] = ( int ) ( next + 1 );
+			else {
+				int last = removeIndex;
+				if( this.hash[ removeIndex = next ] == hash && equal_hash_K.equals( keys[ removeIndex ], key ) )// The key is found at 'SecondNode'
+					if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];// 'SecondNode' is in 'lo Region', relink to bypasses 'SecondNode'
+					else {  // 'SecondNode' is in the hi Region (it's a terminal node)
+						
+						keys[ removeIndex ]      = keys[ last ]; //  Copies `keys[last]` to `keys[removeIndex]`
+						this.hash[ removeIndex ] = this.hash[ last ];
+						
+						// Update the bucket for this chain.
+						// 'removeBucketIndex' is the hash bucket for the original 'key' (which was keys[T]).
+						// Since keys[P] and keys[T] share the same bucket index, this is also the bucket for keys[P].
+						// By pointing it to 'removeIndex' (which now contains keys[P]), we make keys[P] the new sole head.
+						_buckets[ removeBucketIndex ] = ( int ) ( removeIndex + 1 );
+						removeIndex                   = last;
+					}
+				else if( _lo_Size <= removeIndex ) return false;
+				else
+					for( int collisions = 0; ; ) {
+						int prev = last;
+						
+						if( this.hash[ removeIndex = links[ last = removeIndex ] ] == hash && equal_hash_K.equals( keys[ removeIndex ], key ) ) {
+							if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
+							else {
+								
+								keys[ removeIndex ]      = keys[ last ];
+								this.hash[ removeIndex ] = this.hash[ last ];
+								
+								links[ prev ] = ( int ) removeIndex;
+								removeIndex   = last; // Mark original 'last' (lo-region entry) for removal/compaction
+							}
+							break; // Key found and handled
+						}
+						if( _lo_Size <= removeIndex ) return false; // Reached hi-region terminal node, key not found
+						// Safeguard against excessively long or circular chains (corrupt state)
+						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+					}
 			}
-			return false;
+			
+			move( _lo_Size - 1, removeIndex );
+			_lo_Size--; // Decrement lo-region size
+			_version++; // Structural modification
+			return true;
+		}
+		
+		/**
+		 * Relocates an entry's key, hash, and link from a source index ({@code src}) to a destination index ({@code dst})
+		 * within the internal arrays. This method is crucial for compaction during removal operations.
+		 * <p>
+		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
+		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
+		 * {@code src} to now correctly reference {@code dst}.
+		 *
+		 * @param src The index of the entry to be moved (its current location).
+		 * @param dst The new index where the entry's data will be placed.
+		 */
+		private void move( int src, int dst ) {
+			if( src == dst ) return;
+			int bucketIndex = bucketIndex( Array.hash( keys[ src ] ) );
+			int index       = _buckets[ bucketIndex ] - 1;
+			
+			if( index == src ) _buckets[ bucketIndex ] = ( int ) ( dst + 1 );
+			else {
+				while( links[ index ] != src )
+					index = links[ index ];
+				
+				links[ index ] = ( int ) dst;
+			}
+			if( src < _lo_Size ) links[ dst ] = links[ src ];
+			
+			hash[ dst ] = hash[ src ];
+			keys[ dst ] = keys[ src ];
+			keys[ src ] = null;// Clear source slot for memory management and to prevent stale references
 		}
 		
 		/**
@@ -597,18 +711,17 @@ public interface ObjectSet {
 			Objects.requireNonNull( keys );
 			int v = _version;
 			
-			// Handle non-null keys
+			// Restart iteration after each removal, as indices might have shifted
 			for( int t = -1; ( t = unsafe_token( t ) ) != -1; ) {
-				if( keys.contains( key( t ) ) ) {
-					remove( key( t ) );
-					t = unsafe_token( -1 ); // Reset iteration after removal
+				K currentKey = key( token( t ) );
+				if( keys.contains( currentKey ) ) {
+					remove_( currentKey );
+					t = -1; // Reset iteration after removal
 				}
 			}
 			
 			// Handle null key if present
-			if( hasNullKey && keys.contains( null ) ) {
-				remove( null );
-			}
+			if( hasNullKey && keys.contains( null ) ) remove_( null );
 			
 			return v != _version;
 		}
@@ -624,11 +737,16 @@ public interface ObjectSet {
 			Objects.requireNonNull( keys );
 			int v = _version;
 			
-			for( int t = -1; ( t = unsafe_token( t ) ) != -1; )
-				if( !keys.contains( key( t ) ) ) {
-					remove( key( t ) );
-					t = unsafe_token( -1 );
+			for( int t = -1; ( t = unsafe_token( t ) ) != -1; ) {
+				K currentKey = key( token( t ) );
+				if( !keys.contains( currentKey ) ) {
+					remove_( currentKey );
+					t = -1; // Reset iteration after removal
 				}
+			}
+			
+			// Handle null key separately
+			if( hasNullKey && !keys.contains( null ) ) remove_( null );
 			
 			return v != _version;
 		}
@@ -640,12 +758,13 @@ public interface ObjectSet {
 		public void clear() {
 			_version++;
 			hasNullKey = false;
-			if( _count < 1 ) return;
+			if( _count() == 0 ) return;
 			Arrays.fill( _buckets, 0 );
-			Arrays.fill( hash_nexts, 0, _count, 0L );
-			_count     = 0;
-			_freeList  = -1;
-			_freeCount = 0;
+			Arrays.fill( keys, null );
+			// No explicit clearing of hash/links array elements as they are overwritten on add,
+			// and resetting _lo_Size, _hi_Size effectively marks them as empty.
+			_lo_Size = 0;
+			_hi_Size = 0;
 		}
 		
 		/**
@@ -710,24 +829,17 @@ public interface ObjectSet {
 		
 		/**
 		 * Trims the set's capacity to the specified capacity, which must be at least the current size.
+		 * The actual new capacity will be a prime number at least {@code capacity} and
+		 * at least the current {@link #_count()}.
 		 *
 		 * @param capacity The desired capacity.
-		 * @throws IllegalArgumentException If the capacity is less than the current size.
 		 */
 		public void trim( int capacity ) {
 			if( capacity < count() ) throw new IllegalArgumentException( "capacity is less than Count." );
-			int currentCapacity = hash_nexts != null ?
-					hash_nexts.length :
-					0;
-			int new_size = Array.prime( capacity );
-			if( currentCapacity <= new_size ) return;
+			capacity = Array.prime( Math.max( capacity, _count() ) );
+			if( keys != null && keys.length <= capacity ) return;
 			
-			long[] old_hash_next = hash_nexts;
-			K[]    old_keys      = keys;
-			int    old_count     = _count;
-			_version++;
-			initialize( new_size );
-			copy( old_hash_next, old_keys, old_count );
+			resize( capacity, false );
 		}
 		
 		/**
@@ -738,102 +850,90 @@ public interface ObjectSet {
 		 */
 		private int initialize( int capacity ) {
 			_version++;
-			_buckets   = new int[ capacity ];
-			hash_nexts = new long[ capacity ];
-			keys       = equal_hash_K.copyOf( null, capacity );
-			_freeList  = -1;
-			_count     = 0;
-			_freeCount = 0;
+			_buckets = new int[ capacity ];
+			hash     = new int[ capacity ];
+			links    = new int[ Math.min( 16, capacity ) ]; // Initialize links with a small, reasonable capacity
+			keys     = equal_hash_K.copyOf( null, capacity );
+			_lo_Size = 0;
+			_hi_Size = 0;
 			return capacity;
 		}
 		
 		/**
-		 * Resizes the set to the specified size, optionally forcing new hash codes.
+		 * Resizes the set's internal arrays to a new specified size.
+		 * This method rebuilds the hash table structure based on the new size.
+		 * All existing entries are rehashed and re-inserted into the new, larger structure.
+		 * This operation increments the set's version.
 		 *
-		 * @param new_size          The new size.
-		 * @param forceNewHashCodes Whether to force new hash codes.
+		 * @param newSize The desired new capacity for the internal arrays.
+		 * @return The actual allocated capacity after resize.
 		 */
-		private void resize( int new_size, boolean forceNewHashCodes ) {
+		private int resize( int newSize, boolean forceNewHashCodes ) {
 			_version++;
-			long[]    new_hash_next = Arrays.copyOf( hash_nexts, new_size );
-			K[]       new_keys      = Arrays.copyOf( keys, new_size );
-			final int count         = _count;
 			
-			if( forceNewHashCodes && this.forceNewHashCodes != null ) {
-				equal_hash_K = this.forceNewHashCodes.apply( equal_hash_K );
-				for( int i = 0; i < count; i++ )
-					if( next( new_hash_next[ i ] ) >= -2 )
-						hash( new_hash_next, i, equal_hash_K.hashCode( keys[ i ] ) );
+			// Store old data before re-initializing
+			K[]   old_keys = keys;
+			int[] old_hash = hash;
+			
+			int old_lo_Size = _lo_Size;
+			int old_hi_Size = _hi_Size;
+			// Re-initialize with new capacity (this clears _buckets, resets _lo_Size, _hi_Size)
+			initialize( newSize );
+			
+			
+			// If forceNewHashCodes is set, apply it to the equal_hash_K provider BEFORE re-hashing elements.
+			if( forceNewHashCodes ) {
+				
+				equal_hash_K = this.forceNewHashCodes.apply( equal_hash_K ); // Apply new hashing strategy
+				
+				// Copy elements from old structure to new structure by re-inserting
+				K key;
+				// Iterate through old lo region
+				for( int i = 0; i < old_lo_Size; i++ ) copy( key = old_keys[ i ], equal_hash_K.hashCode( key ) );
+				
+				// Iterate through old hi region
+				for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ ) copy( key = old_keys[ i ], equal_hash_K.hashCode( key ) );
+				
+				return keys.length; // Return actual new capacity
 			}
 			
-			_buckets = new int[ new_size ];
-			for( int i = 0; i < count; i++ )
-				if( next( new_hash_next[ i ] ) > -2 ) {
-					int bucketIndex = bucketIndex( hash( new_hash_next[ i ] ) );
-					next( new_hash_next, i, _buckets[ bucketIndex ] - 1 );
-					_buckets[ bucketIndex ] = i + 1;
-				}
+			// Copy elements from old structure to new structure by re-inserting
 			
-			hash_nexts = new_hash_next;
-			keys       = new_keys;
+			// Iterate through old lo region
+			for( int i = 0; i < old_lo_Size; i++ ) copy( old_keys[ i ], old_hash[ i ] );
+			
+			// Iterate through old hi region
+			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ ) copy( old_keys[ i ], old_hash[ i ] );
+			
+			return keys.length; // Return actual new capacity
 		}
 		
 		/**
-		 * Copies elements from old arrays to new ones, maintaining the set's structure.
+		 * Internal helper method used during resizing to efficiently copy an
+		 * existing key into the new hash table structure. It re-hashes the key
+		 * and places it into the correct bucket and region (lo or hi) in the new arrays.
+		 * This method does not check for existing keys, assuming all keys are new in the
+		 * target structure during a resize operation.
 		 *
-		 * @param old_hash_next The old hash_next array.
-		 * @param old_keys      The old keys array.
-		 * @param old_count     The old count of elements.
+		 * @param key The key to copy.
 		 */
-		private void copy( long[] old_hash_next, K[] old_keys, int old_count ) {
-			int new_count = 0;
-			for( int i = 0; i < old_count; i++ ) {
-				final long hn = old_hash_next[ i ];
-				if( next( hn ) < -1 ) continue;
-				
-				keys[ new_count ] = old_keys[ i ];
-				int h           = hash( hn );
-				int bucketIndex = bucketIndex( h );
-				hash_nexts[ new_count ] = hash_next( h, _buckets[ bucketIndex ] - 1 );
-				
-				_buckets[ bucketIndex ] = new_count + 1;
-				new_count++;
+		private void copy( K key, int hash ) {
+			int bucketIndex = bucketIndex( hash );
+			int index       = _buckets[ bucketIndex ] - 1; // 0-based index from the bucket
+			
+			int dst_index; // Destination index for the key
+			
+			// Bucket is empty: place new entry in hi Region
+			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++;
+			else {
+				// Collision occurred. Place new entry in lo Region
+				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
+				links[ dst_index = _lo_Size++ ] = index; // New entry points to the old head
 			}
-			_count     = new_count;
-			_freeCount = 0;
-		}
-		
-		/**
-		 * Creates a hash_next entry from a hash code and next index.
-		 *
-		 * @param hash The hash code.
-		 * @param next The next index.
-		 * @return The hash_next entry.
-		 */
-		private static long hash_next( int hash, int next ) {
-			return ( ( long ) hash << 32 ) | ( next & NEXT_MASK );
-		}
-		
-		/**
-		 * Sets the next index in a hash_next entry.
-		 *
-		 * @param dst   The hash_next array.
-		 * @param index The index to modify.
-		 * @param next  The new next index.
-		 */
-		private static void next( long[] dst, int index, int next ) {
-			dst[ index ] = ( dst[ index ] & HASH_CODE_MASK ) | ( next & NEXT_MASK );
-		}
-		
-		/**
-		 * Sets the hash code in a hash_next entry.
-		 *
-		 * @param dst   The hash_next array.
-		 * @param index The index to modify.
-		 * @param hash  The new hash code.
-		 */
-		private static void hash( long[] dst, int index, int hash ) {
-			dst[ index ] = ( dst[ index ] & NEXT_MASK ) | ( ( long ) hash << 32 );
+			
+			keys[ dst_index ]       = key; // Store the key
+			this.hash[ dst_index ]  = hash; // Store the hash
+			_buckets[ bucketIndex ] = dst_index + 1; // Update bucket to new head (1-based)
 		}
 		
 		/**
@@ -848,7 +948,7 @@ public interface ObjectSet {
 			Iterator( RW< K > set ) {
 				_set          = set;
 				_version      = set._version;
-				_currentToken = INVALID_TOKEN;
+				_currentToken = INVALID_TOKEN; // Start in an invalid state, hasNext() will fetch the first
 				_currentKey   = null;
 			}
 			
@@ -860,11 +960,12 @@ public interface ObjectSet {
 			 */
 			@Override
 			public boolean hasNext() {
-				if( _version != _set._version ) throw new ConcurrentModificationException( "Collection was modified; enumeration operation may not execute." );
-				_currentToken =
-						_currentToken == INVALID_TOKEN ?
-								_set.token() :
-								_set.token( _currentToken );
+				if( _version != _set._version )
+					throw new ConcurrentModificationException( "Collection was modified; enumeration operation may not execute." );
+				
+				// Check if _currentToken is INVALID_TOKEN (first call or after remove)
+				if( _currentToken == INVALID_TOKEN ) _currentToken = _set.token(); // Get first token
+				else _currentToken = _set.token( _currentToken ); // Get next token
 				return _currentToken != INVALID_TOKEN;
 			}
 			
@@ -880,7 +981,7 @@ public interface ObjectSet {
 				if( _version != _set._version )
 					throw new ConcurrentModificationException( "Collection was modified; enumeration operation may not execute." );
 				if( _currentToken == INVALID_TOKEN ) throw new NoSuchElementException();
-				_currentKey = _set.key( _currentToken );
+				_currentKey = _set.key( _currentToken ); // Get the key for the current token
 				return _currentKey;
 			}
 			
@@ -892,15 +993,22 @@ public interface ObjectSet {
 			 */
 			@Override
 			public void remove() {
-				if( _version != _set._version ) throw new ConcurrentModificationException( "Collection was modified; enumeration operation may not execute." );
+				if( _version != _set._version )
+					throw new ConcurrentModificationException( "Collection was modified; enumeration operation may not execute." );
+				if( _currentKey == null && !_set.hasNullKey && _currentToken == INVALID_TOKEN )
+					throw new IllegalStateException( "No element to remove." );
 				
 				_set.remove_( _currentKey );
-				_currentKey = null;
-				_version    = _set._version;
+				_currentKey   = null; // Clear current key after removal
+				_version      = _set._version; // Update iterator's version to match set's version
+				_currentToken = INVALID_TOKEN; // Invalidate current token to force hasNext() to re-evaluate from start
 			}
 		}
 		
-		@Override public RW< K > clone() { return ( RW< K > ) super.clone(); }
+		@Override
+		public RW< K > clone() {
+			return ( RW< K > ) super.clone();
+		}
 		
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 	}

@@ -94,8 +94,8 @@ public interface ByteUByteMap {
 		 */
 		public char value( long token ) {
 			return (char)( 0xFF &  ( isKeyNull( token ) ?
-					nullKeyValue :
-					values[ ( int ) token >>> KEY_LEN ] ));
+			                    nullKeyValue :
+			                    values[ ( int ) token >>> KEY_LEN ] ));
 		}
 		
 		
@@ -165,7 +165,7 @@ public interface ByteUByteMap {
 		 * Seed value used in hash code calculation.
 		 * It's derived from the class hash code to provide a consistent starting point for mixing.
 		 */
-		private static final int seed = IntIntMap.R.class.hashCode();
+		private static final int seed = R.class.hashCode();
 		
 		/**
 		 * Checks if this {@code ByteIntMap} is equal to another object.
@@ -204,16 +204,16 @@ public interface ByteUByteMap {
 		protected long token( long token, int key ) {
 			return ( long ) _version << VERSION_SHIFT | (
 					values.length == 256 ?
-							( long ) key << KEY_LEN :
-							( token & ( long ) ~KEY_MASK ) + ( 1 << KEY_LEN )
+					( long ) key << KEY_LEN :
+					( token & ( long ) ~KEY_MASK ) + ( 1 << KEY_LEN )
 			) | key;
 		}
 		
 		protected long tokenOf( int key ) {
 			return ( long ) _version << VERSION_SHIFT | (
 					                                            values.length == 256 ?
-							                                            ( long ) key :
-							                                            rank( ( byte ) key ) - 1
+					                                            ( long ) key :
+					                                            rank( ( byte ) key ) - 1
 			                                            ) << KEY_LEN | key;
 		}
 		
@@ -257,15 +257,15 @@ public interface ByteUByteMap {
 				int ret = next1( -1 );
 				
 				return ret == -1 ?
-						-1 :
-						( int ) tokenOf( ret );
+				       -1 :
+				       ( int ) tokenOf( ret );
 			}
 			
 			int next = next1( token & KEY_MASK );
 			
 			return next == -1 ?
-					-1 :
-					( int ) token( token, next );
+			       -1 :
+			       ( int ) token( token, next );
 		}
 		
 		/**
@@ -372,33 +372,38 @@ public interface ByteUByteMap {
 		 * {@code false} if an existing mapping was updated.
 		 */
 		public boolean put( byte key, char value ) {
-			if( get_( ( byte ) key ) ) {
+			if( !set1( ( byte ) key ) ) {
 				values[ values.length == 256 ?
-						key & 0xFF :
-						rank( ( byte ) key ) - 1 ] = ( byte ) value; // Set or update the value at the calculated index
+				        key & 0xFF :
+				        rank( ( byte ) key ) - 1 ] = ( byte ) value; // Set or update the value at the calculated index
 				return false;
 			}
 			
 			if( values.length == 256 ) values[ key & 0xFF ] = ( byte ) value;
 			else if( cardinality == 128 ) {//switch to flat mode
 				byte[] values_ = new byte[ 256 ];
-				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; )
-				     values_[ token & KEY_MASK ] = values[ ii++ ];
+				for( int token = -1, ii = 0; ( token = unsafe_token( token ) ) != -1; ) {
+					int ukey = token & KEY_MASK;
+					
+					values_[ ukey ] = ( byte ) ukey == key ?
+					                  ( byte ) value :
+					                  values[ ii++ ];
+				}
 				
-				( values = values_ )[ key & 0xFF ] = ( byte ) value;
+				values = values_;
 			}
 			else {
 				
-				int r = rank( ( byte ) key ); // Get the rank for the key
+				int r = rank( ( byte ) key ) - 1; // Get the rank for the key
 				
 				Array.resize( values,
-				              cardinality < values.length ?
-						              values :
-						              ( values = new byte[ values.length * 2 ] ), r, cardinality, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
+				              cardinality - 1 < values.length ?
+				              values :
+				              ( values = new byte[ values.length * 2 ] ), r, cardinality - 1, 1 ); // Resize the 'values' array to accommodate the new value at index 'i'
 				values[ r ] = ( byte ) value;
 			}
 			
-			return set1( ( byte ) key );
+			return true;
 		}
 		
 		/**
@@ -409,8 +414,8 @@ public interface ByteUByteMap {
 		 */
 		public boolean remove(  Byte      key ) {
 			return key == null ?
-					_remove() :
-					remove( ( byte ) ( key + 0 ) ); // Handle null key removal
+			       _remove() :
+			       remove( ( byte ) ( key + 0 ) ); // Handle null key removal
 			
 		}
 		

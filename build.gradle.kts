@@ -20,6 +20,7 @@ dependencies {
     testAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
     implementation("androidx.collection:collection:1.4.0")
 
+    implementation("it.unimi.dsi:fastutil:8.5.15")
     implementation("com.github.oshi:oshi-core:6.6.2")
     implementation("org.slf4j:slf4j-nop:2.0.13") // Latest as of March 202
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
