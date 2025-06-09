@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>vs AndroidX Benchmarks Report</title>
+<style>
+body { background-color: #1e1e1e; color: #f8f8f2; font-family: monospace; line-height: 1.6; margin: 0; display: flex; justify-content: center; min-height: 100vh; padding: 20px 0; box-sizing: border-box; }
+.report-body-wrapper { width: 95vw; max-width: 1200px; margin: 0 auto; box-sizing: border-box; }
+header { text-align: center; margin-bottom: 20px; }
+h1 { color: #bd93f9; margin-bottom: 5px; }
+p { color: #f8f8f2; margin: 0 auto 20px auto; text-align: center; }
+.report-section { display: flex; flex-direction: column; gap: 40px; margin-bottom: 40px; }
+.chart-pair-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; width: 100%; margin: 0 auto; }
+.chart-wrapper { flex: 1 1 calc(50% - 10px); min-width: 300px; background: #282a36; padding: 15px; border-radius: 5px; box-sizing: border-box; }
+.chart-wrapper h2 { color: #50fa7b; text-align: center; margin-top: 0; }
+.canvas-container { position: relative; width: 100%; }
+table { width: 100%; border-collapse: collapse; margin-top: 30px; background-color: #282a36; display: none; /* Hide tables, rely on charts */ }
+th, td { border: 1px solid #44475a; padding: 10px; text-align: left; }
+th { background-color: #44475a; color: #f8f8f2; font-weight: bold; }
+.androidx-label { color: #ff79c6; }
+.adhoc-label { color: #8be9fd; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="report-body-wrapper">
+<header>
+<h1>vs AndroidX Benchmarks Report</h1>
+<p>CPU: 13th Gen Intel(R) Core(TM) i9-13900HX, Java VM: Eclipse Adoptium 21.0.7+6-LTS</p>
+<p>This report compares memory usage (in bytes) and performance (ns/op) between <a href="https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:collection/collection/src/commonMain/kotlin/androidx/collection/">Maps from AndroidX Collection</a> and AdHoc maps. Memory measurements show growth at 20 intervals (from 5% to 100% fill). Performance measurements show average time for Insert, Search, Get, and Delete operations.<br><strong>Lower values indicate better efficiency.</strong></p>
+</header>
+<main class="report-section">
+<div class="chart-pair-container">
+<div class="chart-wrapper">
+<h2>Byte Performance</h2>
+<div class="canvas-container"><canvas id="perf-chart-byte"></canvas></div>
+</div>
+<div class="chart-wrapper">
+<h2>Byte Memory Growth</h2>
+<div class="canvas-container"><canvas id="mem-chart-byte"></canvas></div>
+</div>
+</div>
+<div class="chart-pair-container">
+<div class="chart-wrapper">
+<h2>Short Performance</h2>
+<div class="canvas-container"><canvas id="perf-chart-short"></canvas></div>
+</div>
+<div class="chart-wrapper">
+<h2>Short Memory Growth</h2>
+<div class="canvas-container"><canvas id="mem-chart-short"></canvas></div>
+</div>
+</div>
+<div class="chart-pair-container">
+<div class="chart-wrapper">
+<h2>Int Performance</h2>
+<div class="canvas-container"><canvas id="perf-chart-int"></canvas></div>
+</div>
+<div class="chart-wrapper">
+<h2>Int Memory Growth</h2>
+<div class="canvas-container"><canvas id="mem-chart-int"></canvas></div>
+</div>
+</div>
+<div class="chart-pair-container">
+<div class="chart-wrapper">
+<h2>Long Performance</h2>
+<div class="canvas-container"><canvas id="perf-chart-long"></canvas></div>
+</div>
+<div class="chart-wrapper">
+<h2>Long Memory Growth</h2>
+<div class="canvas-container"><canvas id="mem-chart-long"></canvas></div>
+</div>
+</div>
+<div class="chart-pair-container">
+<div class="chart-wrapper">
+<h2>Int-Boolean Performance</h2>
+<div class="canvas-container"><canvas id="perf-chart-int-boolean"></canvas></div>
+</div>
+<div class="chart-wrapper">
+<h2>Int-Boolean Memory Growth</h2>
+<div class="canvas-container"><canvas id="mem-chart-int-boolean"></canvas></div>
+</div>
+</div>
+</main>
+<script>
+new Chart(document.getElementById('perf-chart-byte').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [5309, 765, 826, 1347],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'ByteByteMap',
+data: [2114, 242, 448, 284],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('mem-chart-byte').getContext('2d'), {
+type: 'line',
+data: {
+labels: ['5%','10%','15%','20%','25%','30%','35%','40%','45%','50%','55%','60%','65%','70%','75%','80%','85%','90%','95%','100%'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [168, 240, 384, 672, 672, 1248, 1248, 1248, 1248, 2400, 2400, 2400, 2400, 2400, 2400, 2400, 2400, 4704, 4704, 4704],
+borderColor: '#ff79c6',
+backgroundColor: '#ff79c6',
+fill: false,
+borderWidth: 2
+}, {
+label: 'ByteByteMap',
+data: [112, 112, 128, 160, 160, 224, 224, 224, 224, 224, 352, 352, 352, 352, 352, 352, 352, 352, 352, 352],
+borderColor: '#8be9fd',
+backgroundColor: '#8be9fd',
+fill: false,
+borderWidth: 2
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Memory (bytes) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { title: { display: true, text: 'Fill Percentage', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('perf-chart-short').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [21210, 2708, 3013, 4883],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'ShortShortMap',
+data: [10233, 1332, 1665, 4231],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('mem-chart-short').getContext('2d'), {
+type: 'line',
+data: {
+labels: ['5%','10%','15%','20%','25%','30%','35%','40%','45%','50%','55%','60%','65%','70%','75%','80%','85%','90%','95%','100%'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [168, 672, 1248, 2400, 2400, 4704, 4704, 4704, 4704, 9312, 9312, 9312, 9312, 9312, 9312, 9312, 9312, 18528, 18528, 18528],
+borderColor: '#ff79c6',
+backgroundColor: '#ff79c6',
+fill: false,
+borderWidth: 2
+}, {
+label: 'ShortShortMap',
+data: [56, 704, 1352, 1352, 2744, 2744, 2744, 2744, 5672, 5672, 5672, 5672, 5672, 5672, 5672, 5672, 5672, 11744, 11744, 11744],
+borderColor: '#8be9fd',
+backgroundColor: '#8be9fd',
+fill: false,
+borderWidth: 2
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Memory (bytes) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { title: { display: true, text: 'Fill Percentage', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('perf-chart-int').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [24757, 2697, 2855, 4742],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'IntIntMap',
+data: [11787, 1385, 1659, 3969],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('mem-chart-int').getContext('2d'), {
+type: 'line',
+data: {
+labels: ['5%','10%','15%','20%','25%','30%','35%','40%','45%','50%','55%','60%','65%','70%','75%','80%','85%','90%','95%','100%'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [168, 672, 1248, 2400, 2400, 4704, 4704, 4704, 4704, 9312, 9312, 9312, 9312, 9312, 9312, 9312, 9312, 18528, 18528, 18528],
+borderColor: '#ff79c6',
+backgroundColor: '#ff79c6',
+fill: false,
+borderWidth: 2
+}, {
+label: 'IntIntMap',
+data: [48, 1256, 2552, 2552, 5360, 5360, 5360, 5360, 11216, 11216, 11216, 11216, 11216, 11216, 11216, 11216, 11216, 23360, 23360, 23360],
+borderColor: '#8be9fd',
+backgroundColor: '#8be9fd',
+fill: false,
+borderWidth: 2
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Memory (bytes) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { title: { display: true, text: 'Fill Percentage', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('perf-chart-long').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableLongLongMap',
+data: [29253, 3039, 3319, 5123],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'LongLongMap',
+data: [11852, 1424, 1845, 4231],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('mem-chart-long').getContext('2d'), {
+type: 'line',
+data: {
+labels: ['5%','10%','15%','20%','25%','30%','35%','40%','45%','50%','55%','60%','65%','70%','75%','80%','85%','90%','95%','100%'],
+datasets: [{
+label: 'MutableLongLongMap',
+data: [216, 1168, 2256, 4432, 4432, 8784, 8784, 8784, 8784, 17488, 17488, 17488, 17488, 17488, 17488, 17488, 17488, 34896, 34896, 34896],
+borderColor: '#ff79c6',
+backgroundColor: '#ff79c6',
+fill: false,
+borderWidth: 2
+}, {
+label: 'LongLongMap',
+data: [56, 1968, 4128, 4128, 8808, 8808, 8808, 8808, 18568, 18568, 18568, 18568, 18568, 18568, 18568, 18568, 18568, 38808, 38808, 38808],
+borderColor: '#8be9fd',
+backgroundColor: '#8be9fd',
+fill: false,
+borderWidth: 2
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Memory (bytes) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { title: { display: true, text: 'Fill Percentage', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('perf-chart-int-boolean').getContext('2d'), {
+type: 'bar',
+data: {
+labels: ['Insert', 'Search', 'Get', 'Delete'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [21354, 2661, 2827, 4633],
+backgroundColor: '#ff79c6',
+borderColor: '#ff79c6',
+borderWidth: 1
+}, {
+label: 'IntBitsMap',
+data: [13906, 1357, 2792, 6026],
+backgroundColor: '#8be9fd',
+borderColor: '#8be9fd',
+borderWidth: 1
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Time (ns/op) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+new Chart(document.getElementById('mem-chart-int-boolean').getContext('2d'), {
+type: 'line',
+data: {
+labels: ['5%','10%','15%','20%','25%','30%','35%','40%','45%','50%','55%','60%','65%','70%','75%','80%','85%','90%','95%','100%'],
+datasets: [{
+label: 'MutableIntIntMap',
+data: [168, 672, 1248, 2400, 2400, 4704, 4704, 4704, 4704, 9312, 9312, 9312, 9312, 9312, 9312, 9312, 9312, 18528, 18528, 18528],
+borderColor: '#ff79c6',
+backgroundColor: '#ff79c6',
+fill: false,
+borderWidth: 2
+}, {
+label: 'IntBitsMap',
+data: [200, 960, 1856, 1856, 3784, 3784, 3784, 3784, 7808, 7808, 7808, 7808, 7808, 7808, 7808, 7808, 7808, 16160, 16160, 16160],
+borderColor: '#8be9fd',
+backgroundColor: '#8be9fd',
+fill: false,
+borderWidth: 2
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: true, /* Chart.js default: let it manage height based on width */
+scales: {
+y: { beginAtZero: true, title: { display: true, text: 'Memory (bytes) - Lower is Better', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } },
+x: { title: { display: true, text: 'Fill Percentage', color: '#f8f8f2' }, ticks: { color: '#f8f8f2' }, grid: { color: '#44475a' } }
+},
+plugins: {
+legend: { labels: { color: '#f8f8f2' } },
+title: { display: false }
+}
+}
+});
+</script>
+</div>
+</body>
+</html>
