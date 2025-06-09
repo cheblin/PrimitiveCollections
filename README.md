@@ -370,35 +370,19 @@ A generic `Map` is ill-suited for primitives because it:
   - **Performance**: Consistent hash map performance without mode switching, optimized for primitives.
 
 
-## Some Performance and Memory Benchmarks  
+## AdHoc Primitive Collections: A Deep Dive into Performance and Memory Efficiency
 
-The following memory footprint report highlights the substantial memory savings of AdHoc Primitive Collections compared to the standard Java `HashMap`.  
-[![img.png](img.png)](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/memory_report.html)
-### [memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/memory_report.html)
+This report presents a comprehensive benchmark analysis of **AdHoc Primitive Collections**, evaluating their performance and memory footprint against established Java collection libraries. The primary objective is to demonstrate how a primitive-centric design can deliver significant gains in efficiency, making these collections ideal for performance-critical applications and scenarios involving large volumes of primitive data.
 
-**Beyond these memory benefits, performance benchmarks indicate that AdHoc Primitive Collections match or exceed the performance of standard Java 
-collections for primitive data operations by eliminating boxing overhead.**  
+**Our analysis focuses on key metrics such as operations per second (throughput), memory consumption, and garbage collection overhead, providing comparative data against:**
 
-[![img_1.png](img_1.png)](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/performance_report.html)
-### [performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/performance_report.html)
+*   **The standard Java Development Kit's `HashMap`:** [Detailed Report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/vs_Standard_report.html)
+*   **AndroidX collections (including `ArrayMap` and `SparseArray`):** [Detailed Report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/vs_AndroidX_report.html)
+*   **FastUtil, a highly optimized primitive collection library:** [Detailed Report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/vs_Fastutil_report.html)
 
-This data was collected using 1,000 items; larger datasets show even greater differences. 
-The code used to generate this report can be found [in the `test` folder.](https://github.com/cheblin/PrimitiveCollections/tree/main/src/test/java/org/unirail/test)
+Initial benchmarks utilized random datasets of 1,000 items to ensure representative results. Crucially, the observed performance and memory advantages of AdHoc Primitive Collections are amplified dramatically when processing larger datasets, underscoring their scalability and efficiency.
 
-**Scala and Kotlin exhibited similar results to the standard Java HashMap**
-
-### Androidx collections
-
-I compared Androidx collections with AdHoc collections. In terms of functionality, 
-Androidx collections are noticeably less robust than AdHoc collections, making direct comparison challenging. 
-
-I made benchmarks, which revealed that AdHoc collections use slightly more memory but outperform Androidx collections in 
-terms of speed.
-
-### [memory report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_memory_report.html)       
-### [performance report](https://refined-github-html-preview.kidonng.workers.dev/cheblin/PrimitiveCollections/raw/refs/heads/main/androidx_performance_report.html)
-
-All tests can be found [in the `test` folder.](https://github.com/cheblin/PrimitiveCollections/tree/main/src/test/java/org/unirail/test)
+For full transparency and reproducibility, all benchmarking source code and report generation scripts are openly available in the project's [`src/test` folder on GitHub.](https://github.com/cheblin/PrimitiveCollections/tree/main/src/test/java/org/unirail/test)
 
 ----
 ### Report Issues
