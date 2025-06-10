@@ -34,8 +34,8 @@ import java.util.NoSuchElementException;
  * nested abstract class R and its concrete implementation RW.
  */
 public interface LongBitsMap {
-
-
+	
+	
 	/**
 	 * An abstract base class for a specialized map designed for mapping 2-byte primitive keys
 	 * to primitive values (1-7 bits, determined by {@code bits_per_item}).
@@ -169,15 +169,15 @@ public interface LongBitsMap {
 	 * </ul>
 	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
-
+		
 		/**
 		 * Indicates whether a special mapping for the null key exists in the map.
 		 */
-		protected boolean        hasNullKey;
+		protected boolean       hasNullKey;
 		/**
 		 * The value associated with the null key, if {@link #hasNullKey} is true.
 		 */
-		protected byte           nullKeyValue;
+		protected byte          nullKeyValue;
 		/**
 		 * The hash table buckets. Each entry stores a 1-based index into the internal storage arrays
 		 * representing the head of a collision chain, or 0 if the bucket is empty.
@@ -196,11 +196,9 @@ public interface LongBitsMap {
 		 * Stores the primitive values (1-7 bits). Shared by both {@code lo Region} and {@code hi Region}.
 		 * Values are managed by an efficient list structure to optimize memory usage.
 		 */
-		protected BitsList.RW    values;
-
-
+		protected BitsList.RW   values;
 		
-
+		
 		/**
 		 * Returns the total number of non-null key-value mappings currently stored in the map's
 		 * {@code lo Region} and {@code hi Region} arrays.
@@ -208,13 +206,13 @@ public interface LongBitsMap {
 		 * @return The combined count of entries in the {@code lo Region} and {@code hi Region}.
 		 */
 		protected int _count() { return _lo_Size + _hi_Size; }
-
+		
 		/**
 		 * A version counter that increments on every structural modification to the map.
 		 * Used to detect concurrent modifications during iteration or token-based access.
 		 */
 		protected int _version;
-
+		
 		/**
 		 * The current number of entries in the {@code lo Region}.
 		 * This region grows from index 0 upwards.
@@ -225,31 +223,31 @@ public interface LongBitsMap {
 		 * This region grows from `keys.length - 1` downwards.
 		 */
 		protected int _hi_Size;
-
+		
 		/**
 		 * The bit shift used to encode the map's version into the higher bits of a token.
 		 */
 		protected static final int VERSION_SHIFT = 32;
-
+		
 		/**
 		 * A special index value used within a token to represent the null key.
 		 * It is chosen to be distinct from any valid array index.
 		 */
 		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF;
-
+		
 		/**
 		 * A special token value indicating that a key was not found or that iteration has ended.
 		 */
 		protected static final long INVALID_TOKEN = -1L;
-
-
+		
+		
 		/**
 		 * Checks if the map is empty.
 		 *
 		 * @return {@code true} if the map contains no key-value mappings (including the null key), {@code false} otherwise.
 		 */
 		public boolean isEmpty() { return size() == 0; }
-
+		
 		/**
 		 * Returns the total number of key-value mappings in this map.
 		 * This includes the null key if present.
@@ -262,7 +260,7 @@ public interface LongBitsMap {
 					1 :
 					0 );
 		}
-
+		
 		/**
 		 * Returns the number of bits allocated for each value item in the map.
 		 * This value is set during construction of the map.
@@ -270,7 +268,7 @@ public interface LongBitsMap {
 		 * @return The number of bits per value item (1-7).
 		 */
 		public int bits_per_value() { return values.bits_per_item; }
-
+		
 		/**
 		 * Returns the total number of key-value mappings in this map.
 		 * This is an alias for {@link #size()}.
@@ -278,7 +276,7 @@ public interface LongBitsMap {
 		 * @return The number of entries in the map.
 		 */
 		public int count() { return size(); }
-
+		
 		/**
 		 * Returns the current capacity of the internal storage arrays.
 		 * This represents the allocated size of the keys array.
@@ -291,8 +289,8 @@ public interface LongBitsMap {
 					  0 :
 					  keys.length );
 		}
-
-
+		
+		
 		/**
 		 * Checks if the map contains a mapping for the specified boxed key.
 		 * This method handles {@code null} keys.
@@ -302,7 +300,7 @@ public interface LongBitsMap {
 		 * @see #tokenOf(Integer)
 		 */
 		public boolean containsKey(  Long      key ) { return tokenOf( key ) != INVALID_TOKEN; }
-
+		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
 		 *
@@ -311,8 +309,8 @@ public interface LongBitsMap {
 		 * @see #tokenOf(int)
 		 */
 		public boolean containsKey( long key ) { return tokenOf( key ) != INVALID_TOKEN; }
-
-
+		
+		
 		/**
 		 * Checks if the map contains the specified primitive value.
 		 * This method iterates through all map entries.
@@ -322,21 +320,21 @@ public interface LongBitsMap {
 		 */
 		public boolean containsValue( long value ) {
 			if( size() == 0 ) return false;
-
+			
 			if( hasNullKey && nullKeyValue == value ) return true;
-
+			
 			// Iterate lo region
 			for( int i = 0; i < _lo_Size; i++ )
 				if( values.get( i ) == value ) return true;
-
+			
 			// Iterate hi region
 			for( int i = keys.length - _hi_Size; i < keys.length; i++ )
 				if( values.get( i ) == value ) return true;
-
+			
 			return false;
 		}
-
-
+		
+		
 		/**
 		 * Returns a "token" representing the internal location of the specified boxed key.
 		 * This token can be used for fast access to the key and its value via {@link #key(long)} and {@link #value(long)}.
@@ -352,8 +350,8 @@ public interface LongBitsMap {
 			         INVALID_TOKEN ) :
 			       tokenOf( ( long ) ( key + 0 ) );
 		}
-
-
+		
+		
 		/**
 		 * Returns a "token" representing the internal location of the specified primitive key.
 		 * This token can be used for fast access to the key and its value via {@link #key(long)} and {@link #value(long)}.
@@ -365,28 +363,22 @@ public interface LongBitsMap {
 		 *                                         a collision chain, indicating potential data corruption or unexpected behavior.
 		 */
 		public long tokenOf( long key ) {
-
-
+			
+			
 			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN;
 			int index = (_buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1;
 			if( index < 0 ) return INVALID_TOKEN;
-
-			if( _lo_Size <= index ) // Key is in hi Region (or it's the only one in the bucket)
-				return keys[ index ] == key ?
-				       token( index ) :
-				       INVALID_TOKEN;
-
-
+			
+			
 			for( int collisions = 0; ; ) { // Traverse lo Region collision chain
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break; // Reached a terminal node in hi Region
+				if( _lo_Size <= index ) return INVALID_TOKEN; // Reached a terminal node in hi Region
 				index = links[ index ];
 				if( _lo_Size + 1 < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
 		}
-
-
+		
+		
 		/**
 		 * Returns the first valid token for iterating over map entries (excluding the null key initially, it's last).
 		 * Call the next token method subsequently to get the next token.
@@ -396,15 +388,15 @@ public interface LongBitsMap {
 		 */
 		public long token() {
 			int index = unsafe_token( -1 );
-
+			
 			return index == -1 ?
 			       hasNullKey ?
 			       token( NULL_KEY_INDEX ) :
 			       INVALID_TOKEN :
 			       token( index );
 		}
-
-
+		
+		
 		/**
 		 * Returns the next valid token for iterating over map entries.
 		 * This method is designed to be used in a loop:
@@ -423,19 +415,19 @@ public interface LongBitsMap {
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
 			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-
+			
 			int index = index( token );
 			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN; // Null key was the last iterated
 			index = unsafe_token( index ); // Get next internal index
-
+			
 			return index == -1 ?
 			       hasNullKey ?
 			       token( NULL_KEY_INDEX ) :
 			       INVALID_TOKEN :
 			       token( index );
 		}
-
-
+		
+		
 		/**
 		 * Returns the next valid internal array index for iteration over non-null keys.
 		 * This method is faster than {@link #token(long)} as it bypasses version checks and is designed for internal use.
@@ -452,26 +444,31 @@ public interface LongBitsMap {
 			if( _count() == 0 ) return -1;
 			int i         = token + 1;
 			int lowest_hi = keys.length - _hi_Size;
-			return i < _lo_Size ? // Still in lo Region?
+			return i < _lo_Size ?
+			       // Still in lo Region?
 			       i :
-			       i < lowest_hi ? // Transition from lo to hi Region
-			       _hi_Size == 0 ? // If hi Region is empty, no more non-null keys
+			       i < lowest_hi ?
+			       // Transition from lo to hi Region
+			       _hi_Size == 0 ?
+			       // If hi Region is empty, no more non-null keys
 			       -1 :
-			       lowest_hi : // Start of hi Region
-			       i < keys.length ? // Still in hi Region?
+			       lowest_hi :
+			       // Start of hi Region
+			       i < keys.length ?
+			       // Still in hi Region?
 			       i :
 			       -1; // All non-null keys iterated
 		}
-
-
+		
+		
 		/**
 		 * Checks if the map contains a special mapping for the null key.
 		 *
 		 * @return {@code true} if a null key mapping exists, {@code false} otherwise.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
-
-
+		
+		
 		/**
 		 * Returns the primitive value associated with the null key.
 		 *
@@ -479,8 +476,8 @@ public interface LongBitsMap {
 		 * @throws NoSuchElementException if {@link #hasNullKey()} is {@code false}.
 		 */
 		public long nullKeyValue() { return nullKeyValue; }
-
-
+		
+		
 		/**
 		 * Checks if the given token represents the null key.
 		 *
@@ -488,19 +485,19 @@ public interface LongBitsMap {
 		 * @return {@code true} if the token represents the null key, {@code false} otherwise.
 		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
-
+		
 		/**
 		 * Returns the key associated with the given token.
 		 *
 		 * @param token The token obtained from token retrieval methods or iteration methods.
 		 *              Must not be the invalid token value or represent the null key.
 		 * @return The key value.
-		 * @throws IllegalArgumentException if the token is invalid or represents the null key.
+		 * @throws IllegalArgumentException        if the token is invalid or represents the null key.
 		 * @throws ConcurrentModificationException if the map has been structurally modified since the token was issued.
 		 */
 		public long key( long token ) { return ( long )  ( keys[ index( token ) ] ); }
-
-
+		
+		
 		/**
 		 * Returns the value associated with the given token.
 		 * The value is returned as a long to accommodate the internal list structure's return type,
@@ -509,7 +506,7 @@ public interface LongBitsMap {
 		 * @param token The token obtained from token retrieval methods or iteration methods.
 		 *              Must not be the invalid token value.
 		 * @return The primitive value.
-		 * @throws IllegalArgumentException if the token is invalid.
+		 * @throws IllegalArgumentException        if the token is invalid.
 		 * @throws ConcurrentModificationException if the map has been structurally modified since the token was issued.
 		 */
 		public byte value( long token ) {
@@ -518,7 +515,7 @@ public interface LongBitsMap {
 					nullKeyValue :
 					values.get( index( token ) );
 		}
-
+		
 		/**
 		 * Computes a hash code for this map.
 		 * The hash code is calculated based on all key-value pairs, including the null key if present.
@@ -538,7 +535,7 @@ public interface LongBitsMap {
 				b ^= h;
 				c *= h | 1;
 			}
-
+			
 			if( hasNullKey ) {
 				// Hash for the null key-value pair
 				int h = Array.hash( seed ); // Use seed for null key's hash
@@ -548,16 +545,16 @@ public interface LongBitsMap {
 				b ^= h;
 				c *= h | 1;
 			}
-
+			
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
-
+		
 		/**
 		 * A seed used for hash code calculations to prevent collisions with other types of objects
 		 * and to ensure a unique hash for this specific map implementation.
 		 */
 		private static final int seed = R.class.hashCode();
-
+		
 		/**
 		 * Compares this map with the specified object for equality.
 		 * Returns {@code true} if the given object is of the same concrete class, and the two maps
@@ -569,8 +566,8 @@ public interface LongBitsMap {
 		 */
 		@Override
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R ) obj ); }
-
-
+		
+		
 		/**
 		 * Compares this map with another R instance for equality.
 		 * This method assumes the {@code other} object is already cast to R.
@@ -584,15 +581,15 @@ public interface LongBitsMap {
 			    hasNullKey != other.hasNullKey ||
 			    ( hasNullKey && nullKeyValue != other.nullKeyValue ) || size() != other.size() )
 				return false;
-
+			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );
 				if( t == INVALID_TOKEN || value( token ) != other.value( t ) ) return false;
 			}
 			return true;
 		}
-
-
+		
+		
 		/**
 		 * Creates and returns a deep copy of this map.
 		 * All internal arrays are cloned,
@@ -606,19 +603,19 @@ public interface LongBitsMap {
 		public R clone() {
 			try {
 				R cloned = ( R ) super.clone();
-
+				
 				if( _buckets != null ) cloned._buckets = _buckets.clone();
 				if( links != null ) cloned.links = links.clone();
 				if( keys != null ) cloned.keys = keys.clone();
 				if( values != null ) cloned.values = values.clone();
-
+				
 				return cloned;
 			} catch( CloneNotSupportedException e ) {
 				// This should technically not happen as R implements Cloneable
 				throw new InternalError( e );
 			}
 		}
-
+		
 		/**
 		 * Returns a string representation of this map in JSON format.
 		 *
@@ -627,7 +624,7 @@ public interface LongBitsMap {
 		 */
 		@Override
 		public String toString() { return toJSON(); }
-
+		
 		/**
 		 * Writes the content of this map to a JsonWriter in JSON object format.
 		 * The null key, if present, is represented as a JSON "null" key.
@@ -640,15 +637,15 @@ public interface LongBitsMap {
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 10 ); // Preallocate space for efficiency
 			json.enterObject();
-
-			if( hasNullKey ) json.name("null").value( nullKeyValue ); // Represent null key as "null" string
-
+			
+			if( hasNullKey ) json.name( "null" ).value( nullKeyValue ); // Represent null key as "null" string
+			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 			     json.name( keys[ token ] ).value( values.get( token ) ); // Write non-null key-value pairs
-
+			
 			json.exitObject();
 		}
-
+		
 		/**
 		 * Calculates the bucket index for a given hash value within the buckets array.
 		 * Uses bitwise AND with 0x7FFF_FFFF to handle potential negative hash values (e.g., from `Integer.hashCode()`)
@@ -658,8 +655,8 @@ public interface LongBitsMap {
 		 * @return The calculated bucket index (a non-negative integer within the bounds of the buckets array).
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
-
-
+		
+		
 		/**
 		 * Packs an internal array index and the current map version into a single token.
 		 * The version is stored in the higher 32 bits, and the index in the lower 32 bits.
@@ -668,8 +665,8 @@ public interface LongBitsMap {
 		 * @return A token representing the entry and its associated version.
 		 */
 		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index ); }
-
-
+		
+		
 		/**
 		 * Extracts the 0-based internal array index from a given token.
 		 *
@@ -677,8 +674,8 @@ public interface LongBitsMap {
 		 * @return The 0-based index of the entry, or {@link #NULL_KEY_INDEX} if the token represents the null key.
 		 */
 		protected int index( long token ) { return ( int ) ( token ); }
-
-
+		
+		
 		/**
 		 * Extracts the version stamp from a given token.
 		 * This version stamp is used to detect structural modifications to the map
@@ -688,11 +685,11 @@ public interface LongBitsMap {
 		 * @return The version stamp.
 		 */
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
-
-
+		
+		
 	}
-
-
+	
+	
 	/**
 	 * Concrete implementation of a specialized map providing read-write functionalities.
 	 * This class manages key-value mappings for 2-byte keys to 1-7 bit values.
@@ -711,18 +708,18 @@ public interface LongBitsMap {
 		public RW( int bits_per_item ) {
 			this( bits_per_item, 0 );
 		}
-
+		
 		/**
 		 * Constructs an empty map with a specified initial capacity and bits per value item.
 		 * The provided capacity will be rounded up to the nearest prime number to optimize hash distribution.
 		 *
 		 * @param bits_per_item The number of bits to allocate for each item's value; must be between 1 and 7 (inclusive).
 		 * @param capacity      The initial capacity of the map. It will be rounded up to the nearest prime number.
-		 * @throws IllegalArgumentException if {@code bits_per_item} is not within the valid range (1-7).
+		 * @throws IllegalArgumentException   if {@code bits_per_item} is not within the valid range (1-7).
 		 * @throws NegativeArraySizeException if the provided capacity is negative.
 		 */
 		public RW( int bits_per_item, int capacity ) { this( bits_per_item, capacity, 0 ); }
-
+		
 		/**
 		 * Constructs an empty map with a specified initial capacity, bits per value item, and a default value.
 		 * The provided capacity will be rounded up to the nearest prime number.
@@ -731,21 +728,20 @@ public interface LongBitsMap {
 		 * @param bits_per_item The number of bits to allocate for each item's value; must be between 1 and 7 (inclusive).
 		 * @param capacity      The initial capacity of the map. Rounded up to the nearest prime number.
 		 * @param defaultValue  The default value used when initializing the internal value list and for reset operations.
-		 * @throws IllegalArgumentException if {@code bits_per_item} is not within the valid range (1-7).
+		 * @throws IllegalArgumentException   if {@code bits_per_item} is not within the valid range (1-7).
 		 * @throws NegativeArraySizeException if the provided capacity is negative.
 		 */
 		public RW( int bits_per_item, int capacity, int defaultValue ) {
 			if( bits_per_item < 1 || bits_per_item > 7 ) throw new IllegalArgumentException( "bits_per_item must be between 1 and 7." );
 			if( capacity < 0 ) throw new NegativeArraySizeException( "capacity cannot be negative." );
-			 initialize( Array.prime( capacity ) );
+			initialize( Array.prime( capacity ) );
 			values = new BitsList.RW( bits_per_item, defaultValue, capacity );
 		}
-
-
-	
+		
+		
 		private int initialize( int capacity ) {
 			_version++; // Increment version to invalidate old tokens
-
+			
 			_buckets = new int[ capacity ];
 			// links array starts smaller, grows on demand for lo Region
 			links    = new int[ Math.min( 16, capacity ) ];
@@ -756,8 +752,8 @@ public interface LongBitsMap {
 			_hi_Size = 0; // Reset hi Region size
 			return length();
 		}
-
-
+		
+		
 		/**
 		 * Associates the specified primitive value with the specified boxed key in this map.
 		 * If the map previously contained a mapping for the key, the old value is replaced.
@@ -772,8 +768,8 @@ public interface LongBitsMap {
 			       put( value ) :
 			       put( ( long ) ( key + 0 ), value );
 		}
-
-
+		
+		
 		/**
 		 * Associates the specified primitive value with the null key in this map.
 		 * If the map previously contained a mapping for the null key, the old value is replaced.
@@ -788,8 +784,8 @@ public interface LongBitsMap {
 			_version++; // Increment version due to structural modification
 			return ret;
 		}
-
-
+		
+		
 		/**
 		 * Associates the specified primitive value with the specified primitive key in this map.
 		 * If the map previously contained a mapping for the key, the old value is replaced.
@@ -806,56 +802,43 @@ public interface LongBitsMap {
 		 * @see R for detailed insertion algorithm
 		 */
 		public boolean put( long key, long value ) {
-
+			
 			if( _buckets == null ) initialize( 7 ); // Initialize with a small prime capacity if first put
 			else if( _count() == keys.length ) resize( Array.prime( keys.length * 2 ) ); // Resize if capacity reached
-
-			int hash        = Array.hash( key );
-			int bucketIndex = bucketIndex( hash );
+			
+			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1; // 0-based index from bucket (or -1 if empty)
 			int dst_index;
 			
 			// Bucket is empty: place new entry in {@code hi Region}
 			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of {@code hi Region} and increment counter
 			else {
-				// Bucket is not empty, 'index' points to an existing entry
-				if( _lo_Size <= index ) { // Existing entry is in {@code hi Region}
-					if( keys[ index ] == ( long ) key ) { // Key matches existing {@code hi Region} entry
-						values.set1( index, value ); // Update value
-						_version++;
-						return false; // Key was not new
+				for( int next = index, collisions = 0; ; ) {
+					if( keys[ next ] == ( long ) key ) {
+						values.set1( next, value );// Update value
+						_version++; // Increment version as value was modified
+						return false;// Key was not new
 					}
+					if( _lo_Size <= next ) break; // Reached a terminal node in hi Region
+					next = links[ next ]; // Move to next in chain
+					// Safeguard against excessively long or circular chains (corrupt state)
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else  // Existing entry is in {@code lo Region} (collision chain)
-					for( int next = index, collisions = 0; ; ) {
-						if( keys[ next ] == key ) {
-							values.set1( next, value );// Update value
-							_version++; // Increment version as value was modified
-							return false;// Key was not new
-						}
-						if( _lo_Size <= next ) break; // Reached a terminal node in hi Region
-						next = links[ next ]; // Move to next in chain
-						// Safeguard against excessively long or circular chains (corrupt state)
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
 				
-
 				// Key is new, and a collision occurred (bucket was not empty). Place new entry in {@code lo Region}.
-				if( links.length == ( dst_index = _lo_Size++ ) ) // If links array needs resize, and assign new index
-					// Resize links array, cap at keys.length to avoid unnecessary large array
-					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				
 				links[ dst_index ] = ( int ) index; // Link new entry to the previous head of the chain
 			}
-
+			
 			keys[ dst_index ] = ( long ) key;
 			values.set1( dst_index, value );
 			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 );
 			_version++;
 			return true;
 		}
-
-
+		
+		
 		/**
 		 * Removes the mapping for the specified boxed key from this map if present.
 		 * Handles {@code null} boxed keys by delegating to the method for removing the null key.
@@ -868,8 +851,8 @@ public interface LongBitsMap {
 			       removeNullKey() :
 			       remove( ( long ) ( key + 0 ) );
 		}
-
-
+		
+		
 		/**
 		 * Removes the mapping for the null key from this map if present.
 		 *
@@ -881,12 +864,12 @@ public interface LongBitsMap {
 			_version++;
 			return true;
 		}
-
-	
+		
+		
 		private void move( int src, int dst ) {
-
+			
 			if( src == dst ) return; // No move needed
-
+			
 			// Find and update the pointer that points to src
 			int bucketIndex = bucketIndex( Array.hash( keys[ src ] ) );
 			int index       = _buckets[ bucketIndex ] - 1;
@@ -899,17 +882,17 @@ public interface LongBitsMap {
 					index = links[ index ];
 				links[ index ] = ( int ) dst; // Update the link to bypass src and point to dst
 			}
-
+			
 			// If the source was in the lo Region, copy its link to the destination's link slot
 			// hi Region entries do not have meaningful links in their slots.
 			if( src < _lo_Size ) links[ dst ] = links[ src ];
-
+			
 			// Move key and value data
 			keys[ dst ] = keys[ src ];
 			values.set1( dst, values.get( src ) );
 		}
-
-
+		
+		
 		/**
 		 * Removes the mapping for the specified primitive key from this map if present.
 		 * <p>
@@ -924,16 +907,16 @@ public interface LongBitsMap {
 		 * @see R for detailed removal algorithm
 		 */
 		public boolean remove( long key ) {
-
+			
 			if( _count() == 0 ) return false;
 			int removeBucketIndex = bucketIndex( Array.hash( key ) );
 			int removeIndex       = _buckets[ removeBucketIndex ] - 1; // 0-based index from bucket (or -1 if empty)
 			if( removeIndex < 0 ) return false; // Key not found in this bucket/chain
-
+			
 			if( _lo_Size <= removeIndex ) {// Entry is in {@code hi Region}
-
+				
 				if( keys[ removeIndex ] != key ) return false; // Key at index does not match
-
+				
 				// Move the last element of the hi-region to the removed spot for compaction
 				move( keys.length - _hi_Size, removeIndex );
 				_hi_Size--; // Decrement hi-region size
@@ -941,7 +924,7 @@ public interface LongBitsMap {
 				_version++; // Structural modification
 				return true;
 			}
-
+			
 			int next = links[ removeIndex ];
 			if( keys[ removeIndex ] == key ) _buckets[ removeBucketIndex ] = ( int ) ( next + 1 );
 			else {
@@ -949,10 +932,10 @@ public interface LongBitsMap {
 				if( keys[ removeIndex = next ] == key )// The key is found at 'SecondNode'
 					if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];// 'SecondNode' is in 'lo Region', relink to bypasses 'SecondNode'
 					else {  // 'SecondNode' is in the hi Region (it's a terminal node)
-
+						
 						keys[ removeIndex ] = keys[ last ]; //  Copies `keys[last]` to `keys[removeIndex]`
 						values.set1( removeIndex, values.get( last ) ); // Copies `values[last]` to `values[removeIndex]`
-
+						
 						// Update the bucket for this chain.
 						// 'removeBucketIndex' is the hash bucket for the original 'key' (which was keys[T]).
 						// Since keys[P] and keys[T] share the same bucket index, this is also the bucket for keys[P].
@@ -964,11 +947,11 @@ public interface LongBitsMap {
 				else
 					for( int collisions = 0; ; ) {
 						int prev = last;
-
+						
 						if( keys[ removeIndex = links[ last = removeIndex ] ] == key ) {
 							if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
 							else {
-
+								
 								keys[ removeIndex ] = keys[ last ];
 								values.set1( removeIndex, values.get( last ) ); // Copies `values[last]` to `values[removeIndex]`
 								
@@ -981,15 +964,15 @@ public interface LongBitsMap {
 						// Safeguard against excessively long or circular chains (corrupt state)
 						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 					}
-				}
-
+			}
+			
 			move( _lo_Size - 1, removeIndex );
 			_lo_Size--; // Decrement lo-region size
 			_version++; // Structural modification
 			return true;
 		}
-
-
+		
+		
 		/**
 		 * Removes all mappings from this map.
 		 * The map will be empty after this call returns.
@@ -999,15 +982,15 @@ public interface LongBitsMap {
 		public void clear() {
 			_version++; // Structural modification
 			hasNullKey = false; // Clear null key presence
-
+			
 			if( _count() == 0 ) return; // Already empty (no non-null keys)
 			if( _buckets != null ) Arrays.fill( _buckets, ( int ) 0 ); // Clear all bucket pointers
 			_lo_Size = 0; // Reset lo region size
 			_hi_Size = 0; // Reset hi region size
 			// keys and values arrays are not explicitly cleared as their content will be overwritten on new insertions
 		}
-
-
+		
+		
 		/**
 		 * Ensures that this map can hold at least the specified number of entries without resizing.
 		 * If the current capacity is less than the specified capacity, the map is resized to
@@ -1020,18 +1003,19 @@ public interface LongBitsMap {
 		public int ensureCapacity( int capacity ) {
 			if( capacity <= length() ) return length(); // Already has enough capacity
 			return _buckets == null ?
-			       initialize( Array.prime( capacity ) ) : // Initialize if not already
+			       initialize( Array.prime( capacity ) ) :
+			       // Initialize if not already
 			       resize( Array.prime( capacity ) ); // Resize to new prime capacity
 		}
-
-
+		
+		
 		/**
 		 * Trims the capacity of the map's internal arrays to reduce memory usage.
 		 * The capacity will be reduced to the current size of the map, or a prime number
 		 * slightly larger than the size, ensuring sufficient space for future additions.
 		 */
 		public void trim() { trim( size() ); }
-
+		
 		/**
 		 * Trims the capacity of the map's internal arrays to a specified minimum capacity.
 		 * If the current capacity is greater than the specified capacity, the map is resized.
@@ -1043,11 +1027,11 @@ public interface LongBitsMap {
 		public void trim( int capacity ) {
 			// Only trim if current length is greater than the target prime capacity
 			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
-
+			
 			resize( capacity ); // Perform the resize operation
 		}
-
-
+		
+		
 		/**
 		 * Resizes the map's internal arrays to a new specified size. This is a structural modification.
 		 * All existing entries are re-hashed and re-inserted into the new, larger or smaller, structure.
@@ -1059,44 +1043,44 @@ public interface LongBitsMap {
 		 */
 		private int resize( int newSize ) {
 			_version++; // Structural modification, increment version
-
+			
 			// Store old array references and sizes before re-initialization
 			long[] old_keys    = keys;
-			BitsList.RW    old_values  = values;
-			int            old_lo_Size = _lo_Size;
-			int            old_hi_Size = _hi_Size;
-
+			BitsList.RW   old_values  = values;
+			int           old_lo_Size = _lo_Size;
+			int           old_hi_Size = _hi_Size;
+			
 			initialize( newSize ); // Re-initialize map with new capacity, resetting counters and buckets
-
+			
 			// Copy existing entries from old structure to new structure
 			for( int i = 0; i < old_lo_Size; i++ )
 			     copy( old_keys[ i ], old_values.get( i ) ); // Re-hash and insert lo-region entries
-
+			
 			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ )
 			     copy( old_keys[ i ], old_values.get( i ) ); // Re-hash and insert hi-region entries
-
+			
 			return length();
 		}
-
-	
+		
+		
 		private void copy( long key, long value ) {
 			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1; // 0-based index from bucket (or -1 if empty)
 			int dst_index;
-
+			
 			if( index == -1 ) // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++;
-			 else { // Collision: place new entry in {@code lo Region}
+			else { // Collision: place new entry in {@code lo Region}
 				// Resize links array if needed, cap at keys.length
 				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
 				links[ dst_index = _lo_Size++ ] = ( int ) ( index ); // Link to previous head and increment lo_Size
 			}
-
+			
 			keys[ dst_index ] = key; // Store key
 			values.set1( dst_index, value ); // Store value
 			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 ); // Update bucket to point to new entry
 		}
-
+		
 		/**
 		 * Creates and returns a deep copy of this RW map.
 		 * Delegates to the base class's clone method to handle the core cloning logic.

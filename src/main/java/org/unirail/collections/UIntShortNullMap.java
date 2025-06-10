@@ -247,9 +247,9 @@ public interface UIntShortNullMap {
 			
 			if( _hi_Size == 0 ) return false;
 			
-			int hi_start  = keys.length - _hi_Size;
-			int nulls_idx = hi_start >> 6;
-			long bits = nulls[ nulls_idx ];
+			int  hi_start  = keys.length - _hi_Size;
+			int  nulls_idx = hi_start >> 6;
+			long bits      = nulls[ nulls_idx ];
 			
 			int bit = hi_start & 63;
 			if( 0 < bit ) bits &= -1L << bit;
@@ -324,19 +324,12 @@ public interface UIntShortNullMap {
 			int index = _buckets[ bucketIndex( Array.hash( key ) ) ] - 1;
 			if( index < 0 ) return INVALID_TOKEN;
 			
-			if( _lo_Size <= index )
-				return keys[ index ] == key ?
-				       token( index ) :
-				       INVALID_TOKEN;
-			
-			
 			for( int collisions = 0; ; ) {
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break;
+				if( _lo_Size <= index ) return INVALID_TOKEN;
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
 		}
 		
 		
@@ -482,7 +475,7 @@ public interface UIntShortNullMap {
 		 */
 		public short value( long token ) {
 			return (short)( isKeyNull( token ) ?
-			                 nullKeyValue :
+			                   nullKeyValue :
 			                   values[ index( token ) ] );
 		}
 		
@@ -844,49 +837,32 @@ public interface UIntShortNullMap {
 			if( _buckets == null ) initialize( 7 );
 			else if( _count() == keys.length ) resize( Array.prime( keys.length * 2 ) );
 			
-			int hash        = Array.hash( key );
-			int bucketIndex = bucketIndex( hash );
+			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
 			else {
-				if( _lo_Size <= index ) {
-					if( keys[ index ] == ( int ) key ) {
+				for( int i = index, collisions = 0; ; ) {
+					if( keys[ i ] == ( int ) key ) {
 						if( hasValue ) {
-							values[ index ] = ( short ) value;
-							nulls[ index >> 6 ] |= 1L << index;
+							values[ i ] = ( short ) value;
+							nulls[ i >> 6 ] |= 1L << i;
 						}
 						else
-							nulls[ index >> 6 ] &= ~( 1L << index );
-						
+							nulls[ i >> 6 ] &= ~( 1L << i );
 						
 						_version++;
 						return false;
 					}
+					if( _lo_Size <= i ) break;
+					i = links[ i ];
+					
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else
-					for( int next = index, collisions = 0; ; ) {
-						if( keys[ next ] == key ) {
-							if( hasValue ) {
-								values[ next ] = ( short ) value;
-								nulls[ next >> 6 ] |= 1L << next;
-							}
-							else
-								nulls[ next >> 6 ] &= ~( 1L << next );
-							
-							_version++;
-							return false;
-						}
-						if( _lo_Size <= next ) break;
-						next = links[ next ];
-						
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) )
-					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
 				
 				links[ dst_index ] = ( int ) index;
 			}

@@ -446,19 +446,12 @@ public interface ShortByteNullMap {
 			int index = (_buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1;
 			if( index < 0 ) return INVALID_TOKEN;
 			
-			if( _lo_Size <= index )
-				return keys[ index ] == key ?
-				       token( index ) :
-				       INVALID_TOKEN;
-			
-			
 			for( int collisions = 0; ; ) {
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break; //terminal node
+				if( _lo_Size <= index ) return INVALID_TOKEN; //terminal node
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
 		}
 		
 		
@@ -1071,48 +1064,31 @@ public interface ShortByteNullMap {
 				if( isFlatStrategy() ) return put( key, value, hasValue );
 			}
 			
-			int hash        = Array.hash( key );
-			int bucketIndex = bucketIndex( hash );
+			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
 			if( index == -1 )  // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of {@code hi Region}
 			else {
-				// Bucket is not empty, 'index' points to an existing entry
-				if( _lo_Size <= index ) { // Entry is in {@code hi Region}
-					if( keys[ index ] == ( short ) key ) { // Key matches existing {@code hi Region} entry
+				for( int i = index, collisions = 0; ; ) {
+					if( keys[ i ] == key ) {
 						if( hasValue ) {// Update value
-							values[ index ] = ( byte ) value;
-							nullsVal[ index >> 6 ] |= 1L << index;
+							values[ i ] = ( byte ) value;
+							nullsVal[ i >> 6 ] |= 1L << i;
 						}
 						else
-							nullsVal[ index >> 6 ] &= ~( 1L << index );
-						
+							nullsVal[ i >> 6 ] &= ~( 1L << i );
 						_version++;
-						return false; // Key was not new
+						return false;// Key was not new
 					}
+					if( _lo_Size <= i ) break;
+					i = links[ i ];
+					
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else // Entry is in {@code lo Region} (collision chain)
-					for( int next = index, collisions = 0; ; ) {
-						if( keys[ next ] == key ) {
-							if( hasValue ) {// Update value
-								values[ next ] = ( byte ) value;
-								nullsVal[ next >> 6 ] |= 1L << next;
-							}
-							else
-								nullsVal[ next >> 6 ] &= ~( 1L << next );
-							_version++;
-							return false;// Key was not new
-						}
-						if( _lo_Size <= next ) break;
-						next = links[ next ];
-						
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) )
-					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
 				
 				links[ dst_index ] = ( char ) index;
 			}
@@ -1465,11 +1441,23 @@ public interface ShortByteNullMap {
 				
 				values   = new byte[ FLAT_ARRAY_SIZE ];
 				nullsVal = new long[ FLAT_ARRAY_SIZE + 63 >> 6 ];
-				long[] nullsKey = new long[ NULLS_SIZE ];
+				nullsKey = new long[ NULLS_SIZE ];
 				
-				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) {
+				// Iterate old hash entries and set bits in new flat nulls bitset
+				for( int i = 0; i < _lo_Size; i++ ) {
 					char key = ( char ) keys[ i ];
-					exists1( key, nullsKey );
+					exists1( key );
+					
+					if( ( old_nullsVal[ i >> 6 ] & 1L << i ) != 0 ) { // If `last` has a non-null value.
+						values[ key ] = old_values[ i ];
+						nullsVal[ key >> 6 ] |= 1L << key; // Set bit for new location.
+					}
+					else
+						nullsVal[ key >> 6 ] &= ~( 1L << key ); // Clear bit for new location.
+				}
+				for( int i = keys.length - _hi_Size; i < keys.length; i++ ) {
+					char key = ( char ) keys[ i ];
+					exists1( key );
 					
 					if( ( old_nullsVal[ i >> 6 ] & 1L << i ) != 0 ) { // If `last` has a non-null value.
 						values[ key ] = old_values[ i ];
@@ -1480,13 +1468,16 @@ public interface ShortByteNullMap {
 					
 					
 				}
-				flat_count    = _count();
-				this.nullsKey = nullsKey;
-				_buckets      = null;
-				links         = null;
-				keys          = null;
-				_lo_Size      = 0;
-				_hi_Size      = 0;
+				
+				flat_count = _count(); // Total count of non-null keys (lo + hi) before clearing hash arrays
+				// Clear hash-specific fields to free memory
+				_buckets = null;
+				links    = null;
+				keys     = null;
+				_lo_Size = 0;
+				_hi_Size = 0;
+				
+				
 				return FLAT_ARRAY_SIZE;
 			}
 			
@@ -1564,14 +1555,6 @@ public interface ShortByteNullMap {
 		@Override
 		public RW clone() { return ( RW ) super.clone(); }
 		
-		/**
-		 * Internal helper method for dense (flat array) strategy: marks a bit in the provided bitset
-		 * at the position corresponding to the given primitive key, indicating the key's presence.
-		 *
-		 * @param key   The primitive key to mark as present.
-		 * @param nulls The bitset array to modify.
-		 */
-		protected final void exists1( char key, long[] nulls ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
 		/**
 		 * Internal helper method for dense (flat array) strategy: marks a bit in the map's own presence bitset

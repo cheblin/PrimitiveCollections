@@ -158,20 +158,13 @@ public interface ObjectSet {
 			int index = ( _buckets[ bucketIndex( hash ) ] ) - 1; // 0-based index from bucket
 			if( index < 0 ) return INVALID_TOKEN; // Bucket is empty
 			
-			if( _lo_Size <= index ) // If the first entry is in the hi Region
-				return ( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) ?
-// Check for direct match (hi Region entries don't have chain)
-                       token( index ) :
-                       INVALID_TOKEN;
-			
 			// Traverse collision chain in lo Region
 			for( int collisions = 0; ; ) {
 				if( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) return token( index );
-				if( _lo_Size <= index ) break; // Reached a terminal node (which is in hi Region, or end of chain)
+				if( _lo_Size <= index ) return INVALID_TOKEN; // Reached a terminal node (which is in hi Region, or end of chain)
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
 		}
 		
 		/**
@@ -506,34 +499,23 @@ public interface ObjectSet {
 			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of hi Region
 			else {
 				// Bucket is not empty, 'index' points to an existing entry
-				// Entry pointed to by bucket is in lo Region (collision chain)
-				if( _lo_Size <= index ) { // Entry pointed to by bucket is in hi Region
-					if( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) { // Key matches existing hi Region entry
-						_version++;
-						return false; // Key was not new
-					}
+				int collisions = 0;
+				for( int i = index; ; ) {
+					if( this.hash[ i ] == hash && equal_hash_K.equals( keys[ i ], key ) ) return false; // Key was not new
+					
+					if( _lo_Size <= i ) break; // Reached a terminal node (which could be in hi Region)
+					i = links[ i ];
+					
+					// Safety check for endless loop / corrupted state
+					if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else {
-					int collisions = 0;
-					for( int next = index; ; ) {
-						if( this.hash[ next ] == hash && equal_hash_K.equals( keys[ next ], key ) ) {
-							_version++;
-							return false; // Key was not new
-						}
-						if( _lo_Size <= next ) break; // Reached a terminal node (which could be in hi Region)
-						next = links[ next ];
-						
-						// Safety check for endless loop / corrupted state
-						if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
-					// Check for high collision and potential rehashing for string keys, adapted from original put()
-					if( HashCollisionThreshold < collisions && this.forceNewHashCodes != null && key instanceof String ) // Check for high collision and potential rehashing for string keys
-					{
-						resize( keys.length, true ); // Resize to potentially trigger new hash codes
-						hash        = equal_hash_K.hashCode( key );
-						bucketIndex = bucketIndex( hash );
-						index       = _buckets[ bucketIndex ] - 1;
-					}
+				// Check for high collision and potential rehashing for string keys, adapted from original put()
+				if( HashCollisionThreshold < collisions && this.forceNewHashCodes != null && key instanceof String ) // Check for high collision and potential rehashing for string keys
+				{
+					resize( keys.length, true ); // Resize to potentially trigger new hash codes
+					hash        = equal_hash_K.hashCode( key );
+					bucketIndex = bucketIndex( hash );
+					index       = _buckets[ bucketIndex ] - 1;
 				}
 				
 				// Collision occurred and key not found. Place new entry in lo Region

@@ -179,7 +179,7 @@ public interface ShortSet {
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
-		protected boolean        hasNullKey;          // Indicates if the set contains a null key.
+		protected boolean hasNullKey;          // Indicates if the set contains a null key.
 		
 		protected char[]         _buckets;            // Hash table buckets array (1-based indices to chain heads). Stores 0-based indices plus one.
 		protected short[] keys;                // Stores the primitive keys in the set.
@@ -329,24 +329,19 @@ public interface ShortSet {
 				       token( ( char ) key ) :
 				       INVALID_TOKEN;
 			
-			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN; // Use _count()
+			if( _count() == 0 ) return INVALID_TOKEN; // Use _count()
 			
 			int index = ( _buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1; // 0-based index
 			if( index < 0 ) return INVALID_TOKEN; // Bucket is empty
 			
-			if( _lo_Size <= index ) // If the first entry is in the hi Region
-				return keys[ index ] == key ?
-				       token( index ) :
-				       INVALID_TOKEN; // If key doesn't match, it's not here as hi entries are non-colliding heads unless moved
 			
 			// Traverse collision chain in lo Region
 			for( int collisions = 0; ; ) {
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break; // Reached a terminal node (which is in hi Region, or end of chain)
+				if( _lo_Size <= index ) return INVALID_TOKEN; // Reached a terminal node (which is in hi Region, or end of chain)
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." ); // Max _lo_Size collisions
 			}
-			return INVALID_TOKEN;
 		}
 		
 		
@@ -781,35 +776,23 @@ public interface ShortSet {
 				if( isFlatStrategy() ) return add( key );
 			}
 			
-			int hash        = Array.hash( key );
-			int bucketIndex = bucketIndex( hash );
+			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
 			if( index == -1 )  // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of {@code hi Region}
 			else {
-				// Bucket is not empty, 'index' points to an existing entry
-				if( _lo_Size <= index ) { // Entry is in {@code hi Region}
-					if( keys[ index ] == ( short ) key ) { // Key matches existing {@code hi Region} entry
-						_version++;
-						return false; // Key was not new
-					}
+				for( int i = index, collisions = 0; ; ) {
+					if( keys[ i ] == key ) return false;// Key was not new
+					
+					if( _lo_Size <= i ) break;
+					i = links[ i ];
+					
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else // Entry is in {@code lo Region} (collision chain)
-					for( int next = index, collisions = 0; ; ) {
-						if( keys[ next ] == key ) {
-							_version++;
-							return false;// Key was not new
-						}
-						if( _lo_Size <= next ) break;
-						next = links[ next ];
-						
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) )
-					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
 				
 				links[ dst_index ] = ( char ) index;
 			}
@@ -1128,20 +1111,14 @@ public interface ShortSet {
 			}
 			
 			// Current strategy is Hash
-			if( flatStrategyThreshold < newSize ) {
-				// Transition from Hash to Flat
-				long[]         new_nulls   = new long[ NULLS_SIZE ];
-				int            old_lo_Size = _lo_Size; // Capture current sizes before clearing hash structures
-				int            old_hi_Size = _hi_Size;
-				short[] old_keys    = keys; // Capture old keys array
+			if( flatStrategyThreshold < newSize ) {// Transition from Hash to Flat
+				
+				nulls = new long[ NULLS_SIZE ];
 				
 				// Iterate old hash entries and set bits in new flat nulls bitset
-				for( int i = 0; i < old_lo_Size; i++ )
-				     exists1( ( char ) old_keys[ i ], new_nulls );
-				for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ )
-				     exists1( ( char ) old_keys[ i ], new_nulls );
+				for( int i = 0; i < _lo_Size; i++ ) exists1( ( char ) keys[ i ] );
+				for( int i = keys.length - _hi_Size; i < keys.length; i++ ) exists1( ( char ) keys[ i ] );
 				
-				this.nulls = new_nulls; // Set new nulls bitset
 				flat_count = _count(); // Total count of non-null keys (lo + hi) before clearing hash arrays
 				// Clear hash-specific fields to free memory
 				_buckets = null;
@@ -1159,10 +1136,8 @@ public interface ShortSet {
 			initialize( newSize ); // Re-initialize with new hash capacity
 			
 			// Copy elements from old hash structure to new hash structure by re-inserting
-			for( int i = 0; i < old_lo_Size; i++ )
-			     copy( ( short ) old_keys[ i ] );
-			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ )
-			     copy( ( short ) old_keys[ i ] );
+			for( int i = 0; i < old_lo_Size; i++ ) copy( ( short ) old_keys[ i ] );
+			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ ) copy( ( short ) old_keys[ i ] );
 			
 			return length();
 		}
@@ -1187,8 +1162,7 @@ public interface ShortSet {
 			}
 			else {
 				// Collision occurred. Place new entry in {@code lo Region}
-				if( links.length == _lo_Size ) // If lo_Size exceeds links array capacity
-					links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
+				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
 				links[ dst_index = _lo_Size++ ] = ( char ) index; // New entry points to the old head
 			}
 			
@@ -1215,15 +1189,6 @@ public interface ShortSet {
 		 */
 		protected final void exists1( char key ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
-		/**
-		 * Internal helper method for dense (flat array) strategy: marks a bit in the provided {@code nulls} bitset
-		 * at the position corresponding to the given primitive key, indicating the key's presence.
-		 * Used during transitions (e.g., hash to flat resize).
-		 *
-		 * @param key   The primitive key to mark as present.
-		 * @param nulls The {@code long[]} bitset array to modify.
-		 */
-		protected static void exists1( char key, long[] nulls ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
 		/**
 		 * Internal helper method for dense (flat array) strategy: clears a bit in the set's own {@code nulls} bitset

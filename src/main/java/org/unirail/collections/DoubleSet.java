@@ -245,24 +245,17 @@ public interface DoubleSet {
 		 */
 		public long tokenOf( double key ) {
 			
-			
 			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN;
 			
 			int index = ( _buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1;
 			if( index < 0 ) return INVALID_TOKEN;
 			
-			if( _lo_Size <= index )
-				return keys[ index ] == key ?
-				       token( index ) :
-				       INVALID_TOKEN;
-			
 			for( int collisions = 0; ; ) {
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break;
+				if( _lo_Size <= index ) return INVALID_TOKEN;
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
 		}
 		
 		
@@ -571,31 +564,23 @@ public interface DoubleSet {
 			if( _buckets == null ) initialize( 7 );
 			else if( _count() == keys.length ) resize( Array.prime( keys.length * 2 ) );
 			
-			int hash        = Array.hash( key );
-			int bucketIndex = bucketIndex( hash );
+			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
 			else {
-				if( _lo_Size <= index ) {
-					if( keys[ index ] == ( double ) key ) {
+				for( int i = index, collisions = 0; ; ) {
+					if( keys[ i ] == key ) {
 						_version++;
 						return false;
 					}
+					if( _lo_Size <= i ) break;
+					i = links[ i ];
+					
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else
-					for( int next = index, collisions = 0; ; ) {
-						if( keys[ next ] == key ) {
-							_version++;
-							return false;
-						}
-						if( _lo_Size <= next ) break;
-						next = links[ next ];
-						
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
 				
 				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
 				
@@ -702,7 +687,7 @@ public interface DoubleSet {
 						keys[ removeIndex ] = keys[ last ];
 						
 						_buckets[ removeBucketIndex ] = ( int ) ( removeIndex + 1 );
-						removeIndex = last;
+						removeIndex                   = last;
 					}
 				else if( _lo_Size <= removeIndex ) return false;
 				else
@@ -858,12 +843,10 @@ public interface DoubleSet {
 			
 			int dst_index;
 			
-			
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
 			else {
-				if( links.length == _lo_Size )
-					links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
+				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
 				links[ dst_index = _lo_Size++ ] = ( int ) index;
 			}
 			

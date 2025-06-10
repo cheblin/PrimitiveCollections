@@ -222,19 +222,13 @@ public interface ObjectDoubleMap {
 			int index = _buckets[ bucketIndex( hash ) ] - 1; // 0-based index from bucket
 			if( index < 0 ) return INVALID_TOKEN; // Bucket is empty
 			
-			// If the first entry is in the hi Region (it's the only one for this bucket)
-			if( _lo_Size <= index ) return ( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) ?
-			                               token( index ) :
-			                               INVALID_TOKEN;
-			
 			// Traverse collision chain (entry is in lo Region)
 			for( int collisions = 0; ; ) {
 				if( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) return token( index );
-				if( _lo_Size <= index ) break; // Reached a terminal node that might be in hi Region (no more links)
+				if( _lo_Size <= index ) return INVALID_TOKEN; // Reached a terminal node that might be in hi Region (no more links)
 				index = links[ index ];
 				if( _lo_Size + 1 < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
 		}
 		
 		/**
@@ -388,7 +382,7 @@ public interface ObjectDoubleMap {
 		 *
 		 * @param obj The object to be compared for equality with this map.
 		 * @return {@code true} if the specified object is also a map and the two maps represent
-		 *         the same mappings, {@code false} otherwise.
+		 * the same mappings, {@code false} otherwise.
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
@@ -499,7 +493,7 @@ public interface ObjectDoubleMap {
 		 * @param index The internal index of the entry.
 		 * @return A long token combining the version and index.
 		 */
-		protected long token( int index )     { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); }
+		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); }
 		
 		/**
 		 * Extracts the internal index from a token.
@@ -815,42 +809,29 @@ public interface ObjectDoubleMap {
 			// If bucket is empty, new entry goes into hi Region
 			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++; // Calculate new position in hi region
 			else {
-				// Bucket is not empty, 'index' points to an existing entry
-				if( _lo_Size <= index ) { // Existing entry is in {@code hi Region}
-					if( this.hash[ index ] == hash && equal_hash_K.equals( keys[ index ], key ) ) { // Key matches existing {@code hi Region} entry
-						values[ index ] = ( double ) value; // Update value
-						_version++;
-						return false; // Key was not new
-					}
-				}
-				else  // Existing entry is in {@code lo Region} (collision chain)
-				{
-					int collisions = 0;
-					for( int next = index; ; ) {
-						if( this.hash[ next ] == hash && equal_hash_K.equals( keys[ next ], key ) ) {
-							values[ next ] = ( double ) value; // Update value
-							return false;// Key was not new
-						}
-						if( _lo_Size <= next ) break; // Reached a terminal node in hi Region
-						next = links[ next ]; // Move to next in chain
-						// Safeguard against excessively long or circular chains (corrupt state)
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
-					// Check for high collision and potential rehashing for string keys, adapted from original put()
-					if( HashCollisionThreshold < collisions && this.forceNewHashCodes != null && key instanceof String ) // Check for high collision and potential rehashing for string keys
-					{
-						resize( keys.length, true ); // Resize to potentially trigger new hash codes
-						hash        = equal_hash_K.hashCode( key );
-						bucketIndex = bucketIndex( hash );
-						index       = _buckets[ bucketIndex ] - 1;
-					}
-				}
 				
+				int collisions = 0;
+				for( int i = index; ; ) {
+					if( this.hash[ i ] == hash && equal_hash_K.equals( keys[ i ], key ) ) {
+						values[ i ] = ( double ) value; // Update value
+						return false;// Key was not new
+					}
+					if( _lo_Size <= i ) break; // Reached a terminal node in hi Region
+					i = links[ i ]; // Move to next in chain
+					// Safeguard against excessively long or circular chains (corrupt state)
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
+				}
+				// Check for high collision and potential rehashing for string keys, adapted from original put()
+				if( HashCollisionThreshold < collisions && this.forceNewHashCodes != null && key instanceof String ) // Check for high collision and potential rehashing for string keys
+				{
+					resize( keys.length, true ); // Resize to potentially trigger new hash codes
+					hash        = equal_hash_K.hashCode( key );
+					bucketIndex = bucketIndex( hash );
+					index       = _buckets[ bucketIndex ] - 1;
+				}
 				
 				// Key is new, and a collision occurred (bucket was not empty). Place new entry in {@code lo Region}.
-				if( links.length == ( dst_index = _lo_Size++ ) ) // If links array needs resize, and assign new index
-					// Resize links array, cap at keys.length to avoid unnecessary large array
-					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
 				
 				links[ dst_index ] = ( int ) index; // Link new entry to the previous head of the chain
 			}
@@ -954,15 +935,13 @@ public interface ObjectDoubleMap {
 				dst_index = keys.length - 1 - _hi_Size++;
 			else {
 				// Collision occurred. Place new entry in {@code lo Region}
-				if( links.length == _lo_Size ) // If lo_Size exceeds links array capacity
-					links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
-				
+				if( links.length == _lo_Size )	links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
 				links[ dst_index = _lo_Size++ ] = index; // New entry points to the old head
 			}
 			
 			keys[ dst_index ]       = key; // Store the key
 			this.hash[ dst_index ]  = hash; // Store the hash
-			values[ dst_index ]     = (double)value; // Store the value
+			values[ dst_index ]     = ( double ) value; // Store the value
 			_buckets[ bucketIndex ] = dst_index + 1; // Update bucket to new head (1-based)
 		}
 		

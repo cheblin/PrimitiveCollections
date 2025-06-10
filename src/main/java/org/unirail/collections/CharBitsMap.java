@@ -32,7 +32,7 @@ import java.util.ConcurrentModificationException;
  * - Uses a dual-region approach for keys/values storage to minimize memory overhead:
  * - {@code lo Region}: Stores entries involved in hash collisions. Uses an explicit {@code links} array for chaining.
  * Occupies low indices (0 to {@code _lo_Size-1}) in key and value storage.
- *   - {@code hi Region}: Stores entries that do not (initially) require explicit {@code links} (i.e., no collision at insertion time, or they are terminal nodes of a chain).
+ * - {@code hi Region}: Stores entries that do not (initially) require explicit {@code links} (i.e., no collision at insertion time, or they are terminal nodes of a chain).
  * Occupies high indices (from {@code keys.length - _hi_Size} to {@code keys.length-1}) in key and value storage.
  * - Manages collision-involved ({@code lo Region}) and initially non-collision ({@code hi Region}) entries distinctly.
  * <p>
@@ -401,23 +401,16 @@ public interface CharBitsMap {
 				       token( ( char ) key ) :
 				       INVALID_TOKEN;
 			
-			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN;
+			if( _count() == 0 ) return INVALID_TOKEN;
 			int index = (_buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1;
 			if( index < 0 ) return INVALID_TOKEN;
 			
-			if( _lo_Size <= index )
-				return keys[ index ] == key ?
-				       token( index ) :
-				       INVALID_TOKEN;
-			
-			
 			for( int collisions = 0; ; ) {
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break; //terminal node
+				if( _lo_Size <= index ) return INVALID_TOKEN; //terminal node
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
 		}
 		
 		
@@ -476,7 +469,7 @@ public interface CharBitsMap {
 		 * Iteration order:
 		 * 1. First, it iterates through entries in the {@code lo Region} (indices from 0 up to {@code _lo_Size - 1}).
 		 * 2. If the {@code lo Region} is exhausted, it then proceeds to iterate through entries in the {@code hi Region}
-		 *    (indices from {@code keys.length - _hi_Size} up to {@code keys.length - 1}).
+		 * (indices from {@code keys.length - _hi_Size} up to {@code keys.length - 1}).
 		 *
 		 * @param token The current internal index. Use -1 to begin iteration.
 		 * @return The next valid internal array index for a non-null key, or -1 if no more entries exist in the main map arrays.
@@ -513,7 +506,7 @@ public interface CharBitsMap {
 		 * @return The value associated with the null key.
 		 * @throws java.util.NoSuchElementException if {@link #hasNullKey()} is {@code false}.
 		 */
-		public long nullKeyValue() { return  nullKeyValue; }
+		public long nullKeyValue() { return nullKeyValue; }
 		
 		
 		/**
@@ -932,37 +925,26 @@ public interface CharBitsMap {
 				if( isFlatStrategy() ) return put( key, value );
 			}
 			
-			int hash        = Array.hash( key );
-			int bucketIndex = bucketIndex( hash );
+			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
 			if( index == -1 )  // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of {@code hi Region} 
 			else {
-				// Bucket is not empty, 'index' points to an existing entry
-				if( _lo_Size <= index ) { // Entry is in {@code hi Region}
-					if( keys[ index ] == ( char ) key ) { // Key matches existing {@code hi Region} entry
-						values.set1( index, value ); // Update value
+				for( int i = index, collisions = 0; ; ) {
+					if( keys[ i ] == key ) {
+						values.set1( i, value );// Update value
 						_version++;
-						return false; // Key was not new
+						return false;// Key was not new
 					}
+					if( _lo_Size <= i ) break;
+					i = links[ i ];
+					
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else // Entry is in {@code lo Region} (collision chain)
-					for( int next = index, collisions = 0; ; ) {
-						if( keys[ next ] == key ) {
-							values.set1( next, value );// Update value
-							_version++;
-							return false;// Key was not new
-						}
-						if( _lo_Size <= next ) break;
-						next = links[ next ];
-						
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) )
-					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
 				
 				links[ dst_index ] = ( char ) index;
 			}
@@ -1024,7 +1006,7 @@ public interface CharBitsMap {
 			int bucketIndex = bucketIndex( Array.hash( keys[ src ] ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			
-			if( index == src ) _buckets[ bucketIndex ] = ( char ) ( dst + 1);
+			if( index == src ) _buckets[ bucketIndex ] = ( char ) ( dst + 1 );
 			else {
 				while( links[ index ] != src )
 					index = links[ index ];
@@ -1255,24 +1237,32 @@ public interface CharBitsMap {
 			}
 			
 			if( flatStrategyThreshold < newSize ) {
+				
 				BitsList.RW _values = values;
 				
 				values = new BitsList.RW( values.bits_per_item, FLAT_ARRAY_SIZE );
+				nulls  = new long[ NULLS_SIZE ];
 				
-				long[] nulls = new long[ NULLS_SIZE ];
-				
-				for( int i = -1; ( i = unsafe_token( i ) ) != -1; ) {
+				// Iterate old hash entries and set bits in new flat nulls bitset
+				for( int i = 0; i < _lo_Size; i++ ) {
 					char key = ( char ) keys[ i ];
-					exists1( key, nulls );
+					exists1( key );
 					values.set1( key, _values.get( i ) );
 				}
-				flat_count = _count();
-				this.nulls = nulls;
-				_buckets   = null;
-				links      = null;
-				keys       = null;
-				_lo_Size   = 0;
-				_hi_Size   = 0;
+				for( int i = keys.length - _hi_Size; i < keys.length; i++ ) {
+					char key = ( char ) keys[ i ];
+					exists1( key );
+					values.set1( key, _values.get( i ) );
+				}
+				
+				flat_count = _count(); // Total count of non-null keys (lo + hi) before clearing hash arrays
+				// Clear hash-specific fields to free memory
+				_buckets = null;
+				links    = null;
+				keys     = null;
+				_lo_Size = 0;
+				_hi_Size = 0;
+				
 				return FLAT_ARRAY_SIZE;
 			}
 			
@@ -1330,14 +1320,6 @@ public interface CharBitsMap {
 		@Override
 		public RW clone() { return ( RW ) super.clone(); }
 		
-		/**
-		 * Internal helper method for dense (flat array) strategy: marks a bit in the provided {@code nulls} bitset
-		 * at the position corresponding to the given primitive key, indicating the key's presence.
-		 *
-		 * @param key   The primitive key to mark as present.
-		 * @param nulls The bitset array to modify.
-		 */
-		protected final void exists1( char key, long[] nulls ) { nulls[ key >>> 6 ] |= 1L << key; }
 		
 		/**
 		 * Internal helper method for dense (flat array) strategy: marks a bit in the map's own {@code nulls} bitset

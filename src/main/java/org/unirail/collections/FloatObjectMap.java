@@ -92,21 +92,21 @@ public interface FloatObjectMap {
 		/**
 		 * Tracks whether the map contains a mapping for the null key.
 		 */
-		protected boolean hasNullKey;
+		protected boolean       hasNullKey;
 		/**
 		 * The value associated with the null key, stored separately.
 		 */
-		protected V nullKeyValue;
+		protected V             nullKeyValue;
 		/**
 		 * The hash table. Stores 1-based indices into the `keys` array, where `_buckets[i] - 1`
 		 * is the 0-based index of the head of a collision chain. A value of `0` indicates an empty bucket.
 		 */
-		protected int[] _buckets;
+		protected int[]         _buckets;
 		/**
 		 * An array used for collision chaining. For an entry at index `i` in the `lo Region`,
 		 * `links[i]` stores the 0-based index of the next element in the same collision chain.
 		 */
-		protected int[] links;
+		protected int[]         links;
 		/**
 		 * Stores the primitive keys of the map. This array is logically divided into a `lo Region`
 		 * (for collision-involved entries) and a `hi Region` (for non-colliding entries).
@@ -115,9 +115,9 @@ public interface FloatObjectMap {
 		/**
 		 * Stores the object values corresponding to the keys at the same indices.
 		 */
-		protected V[] values;
+		protected V[]           values;
 		
-	
+		
 		/**
 		 * The number of active entries in the `lo Region`, which occupies indices from `0` to `_lo_Size - 1`.
 		 */
@@ -145,7 +145,7 @@ public interface FloatObjectMap {
 		/**
 		 * The number of bits to shift the version value when packing it into a `long` token.
 		 */
-		protected static final int VERSION_SHIFT = 32;
+		protected static final int VERSION_SHIFT  = 32;
 		/**
 		 * A special index value used in tokens to represent the null key. This value is outside
 		 * the valid range of array indices.
@@ -286,18 +286,12 @@ public interface FloatObjectMap {
 			int index = ( _buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1;
 			if( index < 0 ) return INVALID_TOKEN;
 			
-			if( _lo_Size <= index )
-				return keys[ index ] == key ?
-				       token( index ) :
-				       INVALID_TOKEN;
-			
 			for( int collisions = 0; ; ) {
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break;
+				if( _lo_Size <= index ) return INVALID_TOKEN;
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
-			return INVALID_TOKEN;
 		}
 		
 		
@@ -362,11 +356,9 @@ public interface FloatObjectMap {
 			
 			if( i < _lo_Size ) return i;
 			
-			if( i < lowest_hi ) {
-				return _hi_Size == 0 ?
-				       -1 :
-				       lowest_hi;
-			}
+			if( i < lowest_hi ) return _hi_Size == 0 ?
+			                           -1 :
+			                           lowest_hi;
 			
 			if( i < keys.length ) return i;
 			
@@ -415,7 +407,7 @@ public interface FloatObjectMap {
 		 *
 		 * @param token A valid token obtained from iteration or `tokenOf`.
 		 * @return The value at the token's location. If the token represents the null key,
-		 *         returns the value mapped to the null key.
+		 * returns the value mapped to the null key.
 		 */
 		public V value( long token ) {
 			return
@@ -762,36 +754,26 @@ public interface FloatObjectMap {
 			if( _buckets == null ) initialize( 7 );
 			else if( _count() == keys.length ) resize( Array.prime( keys.length * 2 ) );
 			
-			int hash        = Array.hash( key );
-			int bucketIndex = bucketIndex( hash );
+			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
 			else {
-				if( _lo_Size <= index ) {
-					if( keys[ index ] == ( float ) key ) {
-						values[ index ] = value;
+				for( int i = index, collisions = 0; ; ) {
+					if( keys[ i ] == ( float ) key ) {
+						values[ i ] = value;
 						_version++;
 						return false;
 					}
+					if( _lo_Size <= i ) break;
+					i = links[ i ];
+					
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else
-					for( int next = index, collisions = 0; ; ) {
-						if( keys[ next ] == key ) {
-							values[ next ] = value;
-							_version++;
-							return false;
-						}
-						if( _lo_Size <= next ) break;
-						next = links[ next ];
-						
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) )
-					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
 				
 				links[ dst_index ] = ( int ) index;
 			}
@@ -886,7 +868,7 @@ public interface FloatObjectMap {
 				return oldValue;
 			}
 			
-			V    oldValue;
+			V   oldValue;
 			int next = links[ removeIndex ];
 			if( keys[ removeIndex ] == key ) {
 				_buckets[ removeBucketIndex ] = ( int ) ( next + 1 );
@@ -894,8 +876,7 @@ public interface FloatObjectMap {
 			}
 			else {
 				int last = removeIndex;
-				if( keys[ removeIndex = next ] == key )
-				{
+				if( keys[ removeIndex = next ] == key ) {
 					oldValue = values[ removeIndex ];
 					if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
 					else {
@@ -912,18 +893,16 @@ public interface FloatObjectMap {
 					for( int collisions = 0; ; ) {
 						int prev = last;
 						if( keys[ removeIndex = links[ last = removeIndex ] ] == key ) {
-							{
-								oldValue = values[ removeIndex ];
-								if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
-								else {
-									
-									keys[ removeIndex ]   = keys[ last ];
-									values[ removeIndex ] = values[ last ];
-									links[ prev ]         = ( int ) removeIndex;
-									removeIndex           = last;
-								}
-								break;
+							oldValue = values[ removeIndex ];
+							if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
+							else {
+								
+								keys[ removeIndex ]   = keys[ last ];
+								values[ removeIndex ] = values[ last ];
+								links[ prev ]         = ( int ) removeIndex;
+								removeIndex           = last;
 							}
+							break;
 						}
 						if( _lo_Size <= removeIndex ) return null;
 						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -1006,9 +985,9 @@ public interface FloatObjectMap {
 			
 			
 			float[] old_keys    = keys;
-			V[]            old_values  = values;
-			int            old_lo_Size = _lo_Size;
-			int            old_hi_Size = _hi_Size;
+			V[]           old_values  = values;
+			int           old_lo_Size = _lo_Size;
+			int           old_hi_Size = _hi_Size;
 			
 			initialize( newSize );
 			
@@ -1035,13 +1014,9 @@ public interface FloatObjectMap {
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
-			if( index == -1 ) {
-				dst_index = keys.length - 1 - _hi_Size++;
-			}
+			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++;
 			else {
-				if( links.length == _lo_Size ) {
-					links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				}
+				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
 				links[ dst_index = _lo_Size++ ] = ( int ) ( index );
 			}
 			

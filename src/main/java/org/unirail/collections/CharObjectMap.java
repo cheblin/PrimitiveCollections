@@ -156,7 +156,7 @@ import java.util.ConcurrentModificationException;
  * </ul>
  */
 public interface CharObjectMap {
-
+	
 	/**
 	 * Abstract base class providing read-only operations for the map.
 	 * Handles the underlying structure which can be either a hash map or a flat array,
@@ -165,40 +165,40 @@ public interface CharObjectMap {
 	 * @param <V> The type of values stored in the map.
 	 */
 	abstract class R< V > implements Cloneable, JsonWriter.Source {
-
+		
 		protected boolean        hasNullKey;          // Indicates if the map contains a null key
 		protected V              nullKeyValue;        // Value for the null key, stored separately.
 		protected char[]         _buckets;            // Hash table buckets array (indices to collision chain heads).
 		protected char[]         links;               // Links within collision chains for entries in the low region.
 		protected char[] keys;                // Array for storing keys.
 		protected V[]            values;              // Array for storing values.
-
+		
 		protected int flat_count;          // Number of entries when operating in flat array mode.
 		protected int _lo_Size;            // Number of entries in the map's low region (hash mode).
 		protected int _hi_Size;            // Number of entries in the map's high region (hash mode).
-
+		
 		protected int _count() { return _lo_Size + _hi_Size; } // Actual entries in hash mode.
-
+		
 		protected int _version;            // Internal version counter for modification detection.
-
+		
 		protected static final int VERSION_SHIFT  = 32; // Number of bits to shift the version component within a token.
 		// Special index used in tokens to represent the null key. Outside valid array index ranges.
 		protected static final int NULL_KEY_INDEX = 0x1_FFFF; // 65537
-
+		
 		protected static final long INVALID_TOKEN = -1L; // Constant representing an invalid or absent token.
-
+		
 		/**
 		 * Strategy for comparing object values and calculating their hash codes.
 		 */
 		protected final Array.EqualHashOf< V > equal_hash_V;
-
+		
 		/**
 		 * Indicates if the map is currently operating in the dense (flat array) strategy.
 		 *
 		 * @return {@code true} if in flat strategy, {@code false} if in hash map strategy.
 		 */
 		protected boolean isFlatStrategy() { return nulls != null; }
-
+		
 		// --- Flat Array Mode Fields & Constants ---
 		/**
 		 * Bitset used in flat array mode to track the presence of primitive keys. Null in hash map mode.
@@ -212,8 +212,8 @@ public interface CharObjectMap {
 		 * Size of the {@link #nulls} array.
 		 */
 		protected static final int    NULLS_SIZE      = FLAT_ARRAY_SIZE / 64; // 1024
-
-
+		
+		
 		/**
 		 * Constructs a new read-only map base with the specified value comparison and hashing strategy.
 		 *
@@ -222,15 +222,15 @@ public interface CharObjectMap {
 		protected R( Array.EqualHashOf< V > equal_hash_V ) {
 			this.equal_hash_V = equal_hash_V;
 		}
-
-
+		
+		
 		/**
 		 * Checks if the map is empty (contains no key-value mappings).
 		 *
 		 * @return True if the map contains no mappings.
 		 */
 		public boolean isEmpty() { return size() == 0; }
-
+		
 		/**
 		 * Returns the total number of key-value mappings in this map.
 		 *
@@ -245,13 +245,13 @@ public interface CharObjectMap {
 					       1 :
 					       0 );
 		}
-
-
+		
+		
 		/**
 		 * Returns the total number of key-value mappings in this map. Alias for {@link #size()}.
 		 */
 		public int count() { return size(); }
-
+		
 		/**
 		 * Returns the total allocated capacity of the map's internal storage.
 		 *
@@ -265,7 +265,7 @@ public interface CharObjectMap {
 			         0 :
 			         keys.length );
 		}
-
+		
 		/**
 		 * Checks if the map contains a mapping for the specified object key.
 		 *
@@ -273,7 +273,7 @@ public interface CharObjectMap {
 		 * @return True if a mapping for the key exists.
 		 */
 		public boolean containsKey(  Character key ) { return tokenOf( key ) != INVALID_TOKEN; }
-
+		
 		/**
 		 * Checks if the map contains a mapping for the specified primitive key.
 		 *
@@ -281,7 +281,7 @@ public interface CharObjectMap {
 		 * @return True if a mapping for the key exists.
 		 */
 		public boolean containsKey( char key ) { return tokenOf( key ) != INVALID_TOKEN; }
-
+		
 		/**
 		 * Checks if the map contains one or more mappings to the specified value.
 		 * This operation iterates through all entries and can be relatively slow (O(N) where N is the size).
@@ -296,20 +296,17 @@ public interface CharObjectMap {
 			if( hasNullKey && equal_hash_V.equals( nullKeyValue, v ) ) return true;
 			if( size() == 0 ) return false;
 			if( isFlatStrategy() ) {
-				for( int i = -1; ( i = next1( i ) ) != -1; ) {
+				for( int i = -1; ( i = next1( i ) ) != -1; )
 					if( equal_hash_V.equals( values[ i ], v ) ) return true;
-				}
+				return false;
 			}
-			else { // Hash map strategy: iterate lo region then hi region
-				for( int i = 0; i < _lo_Size; i++ )
-					if( equal_hash_V.equals( values[ i ], v ) ) return true;
-
-				for( int i = keys.length - _hi_Size; i < keys.length; i++ )
-					if( equal_hash_V.equals( values[ i ], v ) ) return true;
-			}
+			// Hash map strategy: iterate lo region then hi region
+			for( int i = 0; i < _lo_Size; i++ ) if( equal_hash_V.equals( values[ i ], v ) ) return true;
+			for( int i = keys.length - _hi_Size; i < keys.length; i++ ) if( equal_hash_V.equals( values[ i ], v ) ) return true;
+			
 			return false;
 		}
-
+		
 		/**
 		 * Returns a token representing the location of the specified object key.
 		 * A token combines the map's version and the entry's index.
@@ -324,7 +321,7 @@ public interface CharObjectMap {
 			         INVALID_TOKEN ) :
 			       tokenOf( ( char ) ( key + 0 ) );
 		}
-
+		
 		/**
 		 * Returns a token representing the internal location of the specified primitive key.
 		 * This token can be used for fast access to the key and its value via {@link #key(long)} and {@link #value(long)}.
@@ -339,27 +336,20 @@ public interface CharObjectMap {
 				return exists( ( char ) key ) ?
 				       token( ( char ) key ) :
 				       INVALID_TOKEN;
-
+			
 			if( _buckets == null || _count() == 0 ) return INVALID_TOKEN;
 			int index = ( _buckets[ bucketIndex( Array.hash( key ) ) ] ) - 1;
 			if( index < 0 ) return INVALID_TOKEN; // Bucket is empty
-
-			if( _lo_Size <= index ) // Current head of chain is in hi-region (must be the key)
-				return keys[ index ] == key ?
-				       token( index ) :
-				       INVALID_TOKEN;
-
-			// Current head of chain is in lo-region, traverse collision chain
+			
 			for( int collisions = 0; ; ) {
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break; // Reached terminal node (in hi region), key not found
+				if( _lo_Size <= index ) return INVALID_TOKEN; // Reached terminal node (in hi region), key not found
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." ); // Safety break
 			}
-			return INVALID_TOKEN; // Key not found in chain
 		}
-
-
+		
+		
 		/**
 		 * Returns an initial token for iterating through the map's entries.
 		 * If the map is empty, {@link #INVALID_TOKEN} is returned.
@@ -368,14 +358,14 @@ public interface CharObjectMap {
 		 */
 		public long token() {
 			int index = unsafe_token( -1 );
-
+			
 			return index == -1 ?
 			       hasNullKey ?
 			       token( NULL_KEY_INDEX ) :
 			       INVALID_TOKEN :
 			       token( index );
 		}
-
+		
 		/**
 		 * Returns the token for the next entry in the iteration sequence.
 		 *
@@ -385,21 +375,21 @@ public interface CharObjectMap {
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
 			if( version( token ) != _version ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-
+			
 			int index = index( token );
 			if( index == NULL_KEY_INDEX ) return INVALID_TOKEN; // Null key was last
 			index = unsafe_token( index ); // Get next non-null key token
-
+			
 			return index == -1 ?
 			       hasNullKey ?
 			       token( NULL_KEY_INDEX ) :
 			       // If no more non-null keys, return null key token if present
 			       INVALID_TOKEN :
 			       token( index ); // Return token for next non-null key
-
+			
 		}
-
-
+		
+		
 		/**
 		 * Returns the next valid internal index for iteration, excluding the null key.
 		 * This is a low-level method primarily used internally for iteration logic.
@@ -410,34 +400,33 @@ public interface CharObjectMap {
 		public int unsafe_token( final int token ) {
 			if( isFlatStrategy() ) return next1( token );
 			if( _count() == 0 ) return -1; // No entries in hash map arrays
-
+			
 			int i         = token + 1;
 			int lowest_hi = keys.length - _hi_Size; // Start of hi region
-
+			
 			// 1. Iterate through lo Region
 			if( i < _lo_Size ) return i;
-
+			
 			// 2. If lo Region exhausted, start/continue hi Region
-			if( i < lowest_hi ) { // Token was in lo region or before hi region start
-				return _hi_Size == 0 ?
-				       -1 :
-				       // No hi region entries
-				       lowest_hi; // Start of hi region
-			}
-
+			// Token was in lo region or before hi region start
+			if( i < lowest_hi ) return _hi_Size == 0 ?
+			                           -1 :
+			                           // No hi region entries
+			                           lowest_hi; // Start of hi region
+			
 			// 3. Continue hi Region iteration
 			if( i < keys.length ) return i;
-
+			
 			return -1; // No more entries
 		}
-
+		
 		/**
 		 * Checks if the map contains a mapping for the null key.
 		 *
 		 * @return True if the null key is present.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
-
+		
 		/**
 		 * Returns the value associated with the null key.
 		 *
@@ -448,8 +437,8 @@ public interface CharObjectMap {
 			       nullKeyValue :
 			       null;
 		}
-
-
+		
+		
 		/**
 		 * Checks if the token represents the null key.
 		 *
@@ -457,7 +446,7 @@ public interface CharObjectMap {
 		 * @return True if the token represents the null key.
 		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
-
+		
 		/**
 		 * Retrieves the primitive key associated with a given token.
 		 *
@@ -470,8 +459,8 @@ public interface CharObjectMap {
 					index( token ) :
 					keys[ index( token ) ] );
 		}
-
-
+		
+		
 		/**
 		 * Retrieves the value associated with a given token.
 		 * Handles both regular tokens and the special token for the null key.
@@ -486,7 +475,7 @@ public interface CharObjectMap {
 					nullKeyValue :
 					values[ index( token ) ];
 		}
-
+		
 		/**
 		 * Retrieves the value associated with the specified object key.
 		 * Returns {@code null} if the key is not found or if the key maps to {@code null}.
@@ -500,7 +489,7 @@ public interface CharObjectMap {
 			       null :
 			       value( token );
 		}
-
+		
 		/**
 		 * Retrieves the value associated with the specified primitive key.
 		 * Returns {@code null} if the key is not found or if the key maps to {@code null}.
@@ -514,7 +503,7 @@ public interface CharObjectMap {
 			       null :
 			       value( token );
 		}
-
+		
 		/**
 		 * Retrieves the value associated with the specified object key,
 		 * or returns {@code defaultValue} if the key is not found.
@@ -530,7 +519,7 @@ public interface CharObjectMap {
 			       defaultValue :
 			       value( token );
 		}
-
+		
 		/**
 		 * Retrieves the value associated with the specified primitive key,
 		 * or returns {@code defaultValue} if the key is not found.
@@ -546,8 +535,8 @@ public interface CharObjectMap {
 			       defaultValue :
 			       value( token );
 		}
-
-
+		
+		
 		/**
 		 * Computes an order-independent hash code for the map.
 		 *
@@ -558,13 +547,13 @@ public interface CharObjectMap {
 			int a = 0, b = 0, c = 1;
 			// Iterate using unsafe_token as it's safe for hashcode calc since no modifications will occur.
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
-
+				
 				int keyHash = Array.hash( key( token ) );
 				V   val     = value( token );
 				int valueHash = val == null ?
 				                seed :
 				                equal_hash_V.hashCode( val );
-
+				
 				int h = Array.mix( seed, keyHash );
 				h = Array.mix( h, valueHash );
 				h = Array.finalizeHash( h, 2 );
@@ -572,7 +561,7 @@ public interface CharObjectMap {
 				b ^= h;
 				c *= h | 1;
 			}
-
+			
 			if( hasNullKey ) {
 				int h = Array.hash( seed ); // Hash for null key representation
 				h = Array.mix( h, nullKeyValue == null ?
@@ -583,12 +572,12 @@ public interface CharObjectMap {
 				b ^= h;
 				c *= h | 1;
 			}
-
+			
 			return Array.finalizeHash( Array.mixLast( Array.mix( Array.mix( seed, a ), b ), c ), size() );
 		}
-
+		
 		private static final int seed = R.class.hashCode();
-
+		
 		/**
 		 * Compares this map with the specified object for equality.
 		 * Returns true if the object is also a R, has the same size,
@@ -600,7 +589,7 @@ public interface CharObjectMap {
 		@Override
 		@SuppressWarnings( "unchecked" )
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R< V > ) obj ); }
-
+		
 		/**
 		 * Compares this map with another map instance for equality.
 		 * Requires that the other map has the same value type V.
@@ -609,22 +598,22 @@ public interface CharObjectMap {
 		 * @return True if the maps are equal.
 		 */
 		public boolean equals( R< V > other ) {
-
-
+			
+			
 			if( other == this ) return true;
 			if( other == null ||
 			    hasNullKey != other.hasNullKey || ( hasNullKey && !equal_hash_V.equals( nullKeyValue, other.nullKeyValue ) ) ||
 			    size() != other.size() )
 				return false;
-
+			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );
 				if( t == INVALID_TOKEN || !equal_hash_V.equals( value( token ), other.value( t ) ) ) return false;
 			}
 			return true;
 		}
-
-
+		
+		
 		/**
 		 * Creates and returns a deep copy of this map.
 		 * All internal arrays are cloned, ensuring the cloned map is independent of the original.
@@ -653,11 +642,11 @@ public interface CharObjectMap {
 				throw new InternalError( e );
 			}
 		}
-
+		
 		@Override
 		public String toString() { return toJSON(); }
-
-
+		
+		
 		/**
 		 * Appends a JSON representation of this map to the given JsonWriter.
 		 * Outputs a JSON object where keys are codes (represented as numbers or potentially strings depending on JsonWriter)
@@ -670,22 +659,22 @@ public interface CharObjectMap {
 		public void toJSON( JsonWriter json ) {
 			json.preallocate( size() * 15 ); // Guestimate size increase for object values
 			json.enterObject();
-
+			
 			if( hasNullKey ) json.name().value( nullKeyValue );
-
+			
 			if( isFlatStrategy() )
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.name( token ).value( values[ token ] );
 			else
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.name( keys[ token ] ).value( values[ token ] );
-
-
+			
+			
 			json.exitObject();
 		}
-
+		
 		// --- Helper methods ---
-
+		
 		/**
 		 * Calculates the bucket index for a given hash code in hash map mode.
 		 * Ensures a non-negative index within the bounds of the {@code _buckets} array.
@@ -694,7 +683,7 @@ public interface CharObjectMap {
 		 * @return The bucket index.
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
-
+		
 		/**
 		 * Creates a token combining the current map version and an entry index.
 		 *
@@ -702,7 +691,7 @@ public interface CharObjectMap {
 		 * @return The combined token.
 		 */
 		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | ( index ); }
-
+		
 		/**
 		 * Extracts the index component from a token.
 		 *
@@ -710,7 +699,7 @@ public interface CharObjectMap {
 		 * @return The index encoded in the token.
 		 */
 		protected int index( long token ) { return ( int ) ( token ); }
-
+		
 		/**
 		 * Extracts the version component from a token.
 		 *
@@ -718,8 +707,8 @@ public interface CharObjectMap {
 		 * @return The map version encoded in the token.
 		 */
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
-
-
+		
+		
 		/**
 		 * Checks if a primitive key is present in flat array mode.
 		 *
@@ -727,8 +716,8 @@ public interface CharObjectMap {
 		 * @return True if the bit corresponding to the key is set.
 		 */
 		protected final boolean exists( char key ) { return ( nulls[ key >>> 6 ] & 1L << key ) != 0; }
-
-
+		
+		
 		/**
 		 * Finds the index of the next set bit representing an existing key in flat array mode.
 		 *
@@ -736,22 +725,22 @@ public interface CharObjectMap {
 		 * @return The index of the next set bit, or -1 if no set bit is found at or after {@code fromBitIndex}.
 		 */
 		protected int next1( int bit ) { return next1( bit, nulls ); }
-
+		
 		protected static int next1( int bit, long[] nulls ) {
-
+			
 			if( 0xFFFF < ++bit ) return -1;
 			int  index = bit >>> 6;
 			long value = nulls[ index ] & -1L << ( bit & 63 );
-
+			
 			while( value == 0 )
 				if( ++index == NULLS_SIZE ) return -1;
 				else value = nulls[ index ];
-
+			
 			return ( index << 6 ) + Long.numberOfTrailingZeros( value );
 		}
-
+		
 	}
-
+	
 	/**
 	 * Provides read-write functionalities for the map, including management of sparse and dense storage strategies.
 	 *
@@ -764,7 +753,7 @@ public interface CharObjectMap {
 		 * exceeds this value, the map transitions to flat mode.
 		 */
 		protected static final int flatStrategyThreshold = 0x7FFF; // ~32k
-
+		
 		/**
 		 * Constructs an empty RW with a default initial capacity,
 		 * using the default equality/hash strategy for V.
@@ -772,7 +761,7 @@ public interface CharObjectMap {
 		 * @param clazzV Class object for value type V, used for array creation.
 		 */
 		public RW( Class< V > clazzV ) { this( Array.get( clazzV ), 0 ); }
-
+		
 		/**
 		 * Constructs an empty RW with the specified initial capacity.
 		 * If capacity exceeds the threshold, starts in flat mode.
@@ -782,7 +771,7 @@ public interface CharObjectMap {
 		 * @param capacity The initial capacity of the map.
 		 */
 		public RW( Class< V > clazzV, int capacity ) { this( Array.get( clazzV ), capacity ); }
-
+		
 		/**
 		 * Constructs an empty RW with a default initial capacity,
 		 * using the specified equality/hash strategy for V.
@@ -790,7 +779,7 @@ public interface CharObjectMap {
 		 * @param equal_hash_V The strategy for comparing values and calculating hash codes.
 		 */
 		public RW( Array.EqualHashOf< V > equal_hash_V ) { this( equal_hash_V, 0 ); }
-
+		
 		/**
 		 * Constructs an empty RW with specified initial capacity.
 		 * If capacity exceeds the threshold, starts in flat mode.
@@ -803,8 +792,8 @@ public interface CharObjectMap {
 			super( equal_hash_V );
 			if( capacity > 0 ) initialize( Array.prime( capacity ) );
 		}
-
-
+		
+		
 		/**
 		 * Initializes or re-initializes the internal arrays based on the specified capacity
 		 * and the current storage strategy. This method updates the map's version.
@@ -815,7 +804,7 @@ public interface CharObjectMap {
 		private int initialize( int capacity ) {
 			_version++;
 			flat_count = 0; // Reset flat count for new initialization
-
+			
 			if( flatStrategyThreshold < capacity ) {
 				nulls    = new long[ NULLS_SIZE ];
 				values   = equal_hash_V.copyOf( null, FLAT_ARRAY_SIZE );
@@ -836,8 +825,8 @@ public interface CharObjectMap {
 			_hi_Size = 0;
 			return length();
 		}
-
-
+		
+		
 		/**
 		 * Associates the specified value with the specified object key in this map.
 		 * If the map previously contained a mapping for the key, the old value is replaced.
@@ -852,8 +841,8 @@ public interface CharObjectMap {
 			       putNullKey( value ) :
 			       put( ( char ) ( key + 0 ), value );
 		}
-
-
+		
+		
 		/**
 		 * Associates the specified value with the null key in this map.
 		 * If the map previously contained a mapping for the null key, the old value is replaced.
@@ -868,8 +857,8 @@ public interface CharObjectMap {
 			_version++;
 			return ret;
 		}
-
-
+		
+		
 		/**
 		 * Associates the specified value with the specified primitive key in this map.
 		 * If the map previously contained a mapping for the key, the old value is replaced.
@@ -898,7 +887,7 @@ public interface CharObjectMap {
 		 * @throws ConcurrentModificationException if an internal state inconsistency is detected during collision chain traversal.
 		 */
 		public boolean put( char key, V value ) {
-
+			
 			if( isFlatStrategy() ) {
 				boolean ret = !exists( ( char ) key );
 				if( ret ) {
@@ -909,58 +898,47 @@ public interface CharObjectMap {
 				_version++;
 				return ret;
 			}
-
+			
 			if( _buckets == null ) initialize( 7 );
 			else if( _count() == keys.length ) {
 				int i = Array.prime( keys.length * 2 );
 				if( flatStrategyThreshold < i && keys.length < flatStrategyThreshold ) i = flatStrategyThreshold;
-
+				
 				resize( i );
 				if( isFlatStrategy() ) return put( key, value );
 			}
-
-			int hash        = Array.hash( key );
-			int bucketIndex = bucketIndex( hash );
+			
+			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
-
+			
 			if( index == -1 )  // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of {@code hi Region}
 			else {
-				// Bucket is not empty, 'index' points to an existing entry
-				if( _lo_Size <= index ) { // Entry is in {@code hi Region}
-					if( keys[ index ] == ( char ) key ) { // Key matches existing {@code hi Region} entry
-						values[ index ] = value; // Update value
+				for( int i = index, collisions = 0; ; ) {
+					if( keys[ i ] == ( char ) key ) {
+						values[ i ] = value;// Update value
 						_version++;
-						return false; // Key was not new
+						return false;// Key was not new
 					}
+					if( _lo_Size <= i ) break;
+					i = links[ i ];
+					
+					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
-				else // Entry is in {@code lo Region} (collision chain)
-					for( int next = index, collisions = 0; ; ) {
-						if( keys[ next ] == key ) {
-							values[ next ] = value;// Update value
-							_version++;
-							return false;// Key was not new
-						}
-						if( _lo_Size <= next ) break;
-						next = links[ next ];
-
-						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
-					}
-
-				if( links.length == ( dst_index = _lo_Size++ ) )
-					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-
+				
+				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
+				
 				links[ dst_index ] = ( char ) index;
 			}
-
+			
 			keys[ dst_index ]       = ( char ) key;
 			values[ dst_index ]     = value;
 			_buckets[ bucketIndex ] = ( char ) ( dst_index + 1 );
 			_version++;
 			return true;
 		}
-
+		
 		/**
 		 * Removes the mapping for the specified object key from this map if present.
 		 * Handles {@code null} keys.
@@ -973,7 +951,7 @@ public interface CharObjectMap {
 			       removeNullKey() :
 			       remove( ( char ) ( key + 0 ) );
 		}
-
+		
 		/**
 		 * Removes the mapping for the null key from this map if present.
 		 *
@@ -987,7 +965,7 @@ public interface CharObjectMap {
 			_version++;
 			return oldValue;
 		}
-
+		
 		/**
 		 * Relocates an entry's key and value within the internal arrays.
 		 * This method is crucial for compaction during removal operations in sparse mode.
@@ -1002,21 +980,21 @@ public interface CharObjectMap {
 			if( src == dst ) return;
 			int bucketIndex = bucketIndex( Array.hash( keys[ src ] ) );
 			int index       = _buckets[ bucketIndex ] - 1;
-
-			if( index == src ) _buckets[ bucketIndex ] = ( char ) ( dst + 1);
+			
+			if( index == src ) _buckets[ bucketIndex ] = ( char ) ( dst + 1 );
 			else {
 				while( links[ index ] != src )
 					index = links[ index ];
-
+				
 				links[ index ] = ( char ) dst;
 			}
 			if( src < _lo_Size ) links[ dst ] = links[ src ];
-
+			
 			keys[ dst ]   = keys[ src ];
 			values[ dst ] = values[ src ];
 		}
-
-
+		
+		
 		/**
 		 * Removes the mapping for the specified primitive key from this map if present.
 		 * <p>
@@ -1045,9 +1023,9 @@ public interface CharObjectMap {
 		 * @throws ConcurrentModificationException if an internal state inconsistency is detected during collision chain traversal.
 		 */
 		public V remove( char key ) {
-
+			
 			if( isFlatStrategy() ) {
-
+				
 				if( flat_count == 0 || !exists( ( char ) key ) ) return null;
 				V oldValue = values[ key ];
 				values[ key ] = null; // Clear value reference
@@ -1056,14 +1034,14 @@ public interface CharObjectMap {
 				_version++;
 				return oldValue;
 			}
-
+			
 			if( _count() == 0 ) return null;
 			int removeBucketIndex = bucketIndex( Array.hash( key ) );
 			int removeIndex       = _buckets[ removeBucketIndex ] - 1;
 			if( removeIndex < 0 ) return null;
-
+			
 			if( _lo_Size <= removeIndex ) {// Entry is in {@code hi Region}
-
+				
 				if( keys[ removeIndex ] != key ) return null;
 				V oldValue = values[ removeIndex ];
 				move( keys.length - _hi_Size, removeIndex );
@@ -1072,7 +1050,7 @@ public interface CharObjectMap {
 				_version++;
 				return oldValue;
 			}
-
+			
 			V    oldValue;
 			char next = links[ removeIndex ];
 			if( keys[ removeIndex ] == key ) {
@@ -1086,10 +1064,10 @@ public interface CharObjectMap {
 					oldValue = values[ removeIndex ];
 					if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];// 'SecondNode' is in 'lo Region', relink to bypasses 'SecondNode'
 					else {  // 'SecondNode' is in the hi Region (it's a terminal node)
-
+						
 						keys[ removeIndex ]   = keys[ last ]; //  Copies `keys[last]` to `keys[removeIndex]`
 						values[ removeIndex ] = values[ last ]; // Copies `values[last]` to `values[removeIndex]`
-
+						
 						// Update the bucket for this chain.
 						// 'removeBucketIndex' is the hash bucket for the original 'key' (which was keys[T]).
 						// Since keys[P] and keys[T] share the same bucket index, this is also the bucket for keys[P].
@@ -1103,30 +1081,28 @@ public interface CharObjectMap {
 					for( int collisions = 0; ; ) {
 						int prev = last;
 						if( keys[ removeIndex = links[ last = removeIndex ] ] == key ) {
-							{
-								oldValue = values[ removeIndex ];
-								if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
-								else {
-
-									keys[ removeIndex ]   = keys[ last ];
-									values[ removeIndex ] = values[ last ];
-									links[ prev ]         = ( char ) removeIndex;
-									removeIndex           = last;
-								}
-								break;
+							oldValue = values[ removeIndex ];
+							if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
+							else {
+								
+								keys[ removeIndex ]   = keys[ last ];
+								values[ removeIndex ] = values[ last ];
+								links[ prev ]         = ( char ) removeIndex;
+								removeIndex           = last;
 							}
+							break;
 						}
 						if( _lo_Size <= removeIndex ) return null;
 						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 					}
 			}
-
+			
 			move( _lo_Size - 1, removeIndex );
 			_lo_Size--;
 			_version++;
 			return oldValue;
 		}
-
+		
 		/**
 		 * Removes all key-value mappings from this map.
 		 * The map will be empty after this call returns.
@@ -1134,10 +1110,10 @@ public interface CharObjectMap {
 		 */
 		public void clear() {
 			_version++;
-
+			
 			hasNullKey   = false;
 			nullKeyValue = null; // Clear null key value reference
-
+			
 			if( isFlatStrategy() ) {
 				if( flat_count == 0 ) return; // Use flat_count
 				flat_count = 0; // Use flat_count
@@ -1145,7 +1121,7 @@ public interface CharObjectMap {
 				// Values array is not cleared explicitly, will be overwritten on new puts
 				return;
 			}
-
+			
 			// Hash map strategy
 			if( _count() == 0 ) return; // Use _count()
 			if( _buckets != null ) Arrays.fill( _buckets, ( char ) 0 );
@@ -1154,7 +1130,7 @@ public interface CharObjectMap {
 			_lo_Size = 0;
 			_hi_Size = 0;
 		}
-
+		
 		/**
 		 * Ensures that this map can hold at least the specified number of entries without excessive resizing.
 		 * If the current capacity is less than the specified capacity, the map is resized.
@@ -1169,7 +1145,7 @@ public interface CharObjectMap {
 			       initialize( capacity ) :
 			       resize( Array.prime( capacity ) );
 		}
-
+		
 		/**
 		 * Trims the capacity of the map's internal storage to reduce memory usage.
 		 * The capacity will be reduced to the current size of the map, or a prime number
@@ -1177,7 +1153,7 @@ public interface CharObjectMap {
 		 * This method maintains the current strategy (sparse or dense).
 		 */
 		public void trim() { trim( size() ); }
-
+		
 		/**
 		 * Trims the capacity of the map's internal storage to a specified minimum capacity.
 		 * If the current capacity is greater than the specified capacity, the map is resized.
@@ -1191,13 +1167,13 @@ public interface CharObjectMap {
 			capacity = Array.prime( Math.max( capacity, size() - ( hasNullKey ?
 			                                                       1 :
 			                                                       0 ) ) );
-
+			
 			// If current length is already optimal or smaller than desired capacity, do nothing
 			if( length() <= capacity ) return;
-
+			
 			resize( capacity );
 		}
-
+		
 		/**
 		 * Resizes the map's internal storage to a new specified size.
 		 * This method handles transitions between sparse and dense strategies based on {@code newSize}
@@ -1211,72 +1187,73 @@ public interface CharObjectMap {
 		private int resize( int newSize ) {
 			newSize = Math.min( newSize, FLAT_ARRAY_SIZE );
 			_version++;
-
+			
 			if( isFlatStrategy() ) {
 				// Current strategy is Flat.
 				if( newSize > flatStrategyThreshold ) return length(); // Still in Flat mode, no change to length.
-
+				
 				// Transition from Flat to Hash
 				V[]    _old_values = values;
 				long[] _old_nulls  = nulls;
-
+				
 				// Initialize as hash map (this clears current arrays and sets _lo_Size, _hi_Size to 0)
 				initialize( newSize );
-
+				
 				// Re-insert existing flat entries into the new hash map
 				for( int token = -1; ( token = next1( token, _old_nulls ) ) != -1; )
 				     copy( ( char ) token, _old_values[ token ] );
-
+				
 				return length(); // Return new hash map length
 			}
-
+			
 			// Current strategy is Hash.
 			if( flatStrategyThreshold < newSize ) {
 				// Transition from Hash to Flat
-				V[]    _old_values  = values; // Old values array (hash mode)
-				char [] _old_keys    = keys;   // Old keys array (hash mode)
-				int    _old_lo_Size = _lo_Size;
-				int    _old_hi_Size = _hi_Size;
-
-				// Initialize as flat array (this clears current arrays and sets up nulls, values for flat mode)
-				initialize( newSize );
-
-				// Copy entries from old hash structure to new flat structure
-				for( int i = 0; i < _old_lo_Size; i++ ) {
-					char key = (char)_old_keys[ i ];
-					exists1( key, nulls );
+				V[] _old_values = values; // Old values array (hash mode)
+				values = equal_hash_V.copyOf( null, FLAT_ARRAY_SIZE );
+				nulls  = new long[ NULLS_SIZE ];
+				
+				// Iterate old hash entries and set bits in new flat nulls bitset
+				for( int i = 0; i < _lo_Size; i++ ) {
+					char key = ( char ) keys[ i ];
+					exists1( key );
 					values[ key ] = _old_values[ i ];
 				}
-				for( int i = _old_keys.length - _old_hi_Size; i < _old_keys.length; i++ ) {
-					char key = (char)_old_keys[ i ];
-					exists1( key, nulls );
+				for( int i = keys.length - _hi_Size; i < keys.length; i++ ) {
+					char key = ( char ) keys[ i ];
+					exists1( key );
 					values[ key ] = _old_values[ i ];
 				}
-
-				flat_count = _old_lo_Size + _old_hi_Size; // Set flat_count based on total entries copied
-
+				
+				flat_count = _count(); // Total count of non-null keys (lo + hi) before clearing hash arrays
+				// Clear hash-specific fields to free memory
+				_buckets = null;
+				links    = null;
+				keys     = null;
+				_lo_Size = 0;
+				_hi_Size = 0;
 				return FLAT_ARRAY_SIZE; // Return fixed flat array size
 			}
-
+			
 			// Current strategy is Hash, new strategy is also Hash (resize hash map to new capacity)
 			char[] old_keys    = keys;
 			V[]            old_values  = values;
 			int            old_lo_Size = _lo_Size;
 			int            old_hi_Size = _hi_Size;
-
+			
 			// Initialize new hash map arrays (this resets _lo_Size, _hi_Size to 0)
 			initialize( newSize );
-
+			
 			// Re-insert entries from old hash structure into new hash structure
 			for( int i = 0; i < old_lo_Size; i++ )
 			     copy( old_keys[ i ], old_values[ i ] );
-
+			
 			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ )
 			     copy( old_keys[ i ], old_values[ i ] );
-
+			
 			return length(); // Return new hash map length
 		}
-
+		
 		/**
 		 * Internal helper method used during resizing in sparse mode to efficiently copy an
 		 * existing key-value pair. It re-hashes the key and places it into the correct bucket and region (lo or hi)
@@ -1290,59 +1267,46 @@ public interface CharObjectMap {
 			int bucketIndex = bucketIndex( Array.hash( key ) );
 			int index       = _buckets[ bucketIndex ] - 1; // Current head in the NEW _buckets
 			int dst_index;
-
-			if( index == -1 ) { // Bucket is empty in the new map: place new entry in {@code hi Region}
-				dst_index = keys.length - 1 - _hi_Size++;
-			}
+			
+			// Bucket is empty in the new map: place new entry in {@code hi Region}
+			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++;
 			else {
-				// Collision in the new map: place new entry in {@code lo Region}
-				// Ensure links array has enough capacity for the new lo_Size entry
-				if( links.length == _lo_Size ) {
-					links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				}
+				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
 				links[ dst_index = _lo_Size++ ] = ( char ) ( index ); // New entry links to the old head
 			}
-
+			
 			keys[ dst_index ]       = key;
 			values[ dst_index ]     = value;
 			_buckets[ bucketIndex ] = ( char ) ( dst_index + 1 ); // New entry becomes the head
 		}
-
-
+		
+		
 		@Override
 		@SuppressWarnings( "unchecked" )
 		public RW< V > clone() { return ( RW< V > ) super.clone(); }
-
+		
 		/**
 		 * Internal helper method for flat array mode: marks a primitive key as present in the map's bitset.
 		 *
 		 * @param key The primitive key to mark as present.
 		 */
 		protected final void exists1( char key ) { nulls[ key >>> 6 ] |= 1L << key; }
-
-		/**
-		 * Internal helper method for flat array mode: marks a primitive key as present in a provided bitset.
-		 * Used during transitions.
-		 *
-		 * @param key   The primitive key to mark as present.
-		 * @param nulls The {@code long[]} bitset array to modify.
-		 */
-		protected static void exists1( char key, long[] nulls ) { nulls[ key >>> 6 ] |= 1L << key; }
-
+		
+		
 		/**
 		 * Internal helper method for flat array mode: marks a primitive key as absent in the map's bitset.
 		 *
 		 * @param key The primitive key to mark as absent.
 		 */
 		protected final void exists0( char key ) { nulls[ key >>> 6 ] &= ~( 1L << key ); }
-
+		
 		/**
 		 * Static instance for obtaining the `EqualHashOf` strategy for this map type.
 		 */
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
-
+		
 	}
-
+	
 	/**
 	 * Returns the `EqualHashOf` implementation for this map type.
 	 * This is typically used for nesting maps.
