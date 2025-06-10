@@ -1,35 +1,19 @@
-//MIT License
+// Copyright 2025 Chikirev Sirguy, Unirail Group
 //
-//Copyright © 2020 Chikirev Sirguy, Unirail Group. All rights reserved.
-//For inquiries, please contact: al8v5C6HU4UtqE9@gmail.com
-//GitHub Repository: https://github.com/AdHoc-Protocol
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//1. The above copyright notice and this permission notice must be included in all
-//   copies or substantial portions of the Software.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
-//2. Users of the Software must provide a clear acknowledgment in their user
-//   documentation or other materials that their solution includes or is based on
-//   this Software. This acknowledgment should be prominent and easily visible,
-//   and can be formatted as follows:
-//   "This product includes software developed by Chikirev Sirguy and the Unirail Group
-//   (https://github.com/AdHoc-Protocol)."
-//
-//3. If you modify the Software and distribute it, you must include a prominent notice
-//   stating that you have changed the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// For inquiries, please contact: al8v5C6HU4UtqE9@gmail.com
+// GitHub Repository: https://github.com/AdHoc-Protocol
 package org.unirail.collections;
 
 import org.unirail.JsonWriter;
@@ -39,48 +23,99 @@ import java.util.ConcurrentModificationException;
 import java.util.function.Function;
 
 /**
- * A generic Map implementation for storing key-value pairs with efficient operations.
- * Implements a hash table with separate chaining for collision resolution and dynamic resizing.
- *
- * <p>Supports null keys and values, designed for high-performance and customization.</p>
+ * A generic, high-performance map implementation that stores object keys and primitive integer values.
+ * This map is built on a hash table with an optimized collision resolution strategy that separates
+ * entries into two regions: a "low" region for entries that are part of collision chains and a "high"
+ * region for entries that are the sole occupants of their hash bucket. This design improves insertion
+ * and iteration performance.
  *
  * <p><b>Key Features:</b></p>
  * <ul>
- *     <li><b>Generic Keys:</b> Supports any object type as keys.</li>
- *     <li><b>Integer Values:</b> Optimized for storing primitive values.</li>
- *     <li><b>Separate Chaining:</b> Efficiently handles hash collisions.</li>
- *     <li><b>Dynamic Resizing:</b> Maintains performance as the map grows.</li>
- *     <li><b>Null Key Support:</b> Allows a single null key.</li>
- *     <li><b>Customizable Equality and Hashing:</b> Uses {@link Array.EqualHashOf} for key handling.</li>
- *     <li><b>Token-Based Iteration:</b> Safe and efficient traversal, even with concurrent reads.</li>
- *     <li><b>Cloneable:</b> Implements {@link Cloneable} for shallow copies.</li>
+ *     <li><b>Object Keys, Integer Values:</b> Maps generic keys of type {@code K} to primitive {@code int} values.</li>
+ *     <li><b>Optimized Collision Handling:</b> Uses a hybrid approach with separate chaining for collisions
+ *         and direct access for non-colliding entries, managed via "low" and "high" regions.</li>
+ *     <li><b>Dynamic Resizing:</b> The internal hash table automatically grows to maintain performance as more
+ *         elements are added. Capacity can also be manually managed with {@link RW#ensureCapacity} and {@link RW#trim}.</li>
+ *     <li><b>Null Key Support:</b> Allows a single null key to be mapped to a value.</li>
+ *     <li><b>Customizable Hashing/Equality:</b> Key hashing and equality checks are delegated to a
+ *         pluggable {@link Array.EqualHashOf} strategy.</li>
+ *     <li><b>Fail-Fast Token-Based Iteration:</b> Provides a safe and efficient token-based mechanism for
+ *         traversing the map. An unsafe, higher-performance iteration mode is also available for specific use cases.</li>
+ *     <li><b>Cloning:</b> Supports shallow cloning of the map structure.</li>
  * </ul>
  */
 public interface ObjectUByteMap {
 	
 	/**
-	 * Read-only base class providing core functionality and state management for the map.
+	 * A read-only base class that provides the core data structures and access methods for the map.
+	 * It manages the internal arrays, state, and the token-based iteration system.
 	 */
 	abstract class R< K > implements JsonWriter.Source, Cloneable {
-		protected boolean                hasNullKey;        // Indicates if the Map contains a null key
-		protected byte            nullKeyValue;      // Value for the null key
-		protected int[]                  _buckets;         // Hash table buckets array
-		protected int[]                  hash;             // Array of entries: hashCode
-		protected int[]                  links;            // Array of entries: next index in collision chain (0-based)
-		protected K[]                    keys;            // Array of keys
-		protected byte[]          values;          // Array of values
-		protected int                    _lo_Size;         // Number of active entries in the low region (0 to _lo_Size-1).
-		protected int                    _hi_Size;         // Number of active entries in the high region (keys.length - _hi_Size to keys.length-1).
-		protected int                    _version;        // Version for modification detection
-		protected Array.EqualHashOf< K > equal_hash_K;    // Key equality and hash strategy
+		/**
+		 * Flag indicating whether a mapping for a null key exists.
+		 */
+		protected boolean                hasNullKey;
+		/**
+		 * The value associated with the null key. Only valid if {@link #hasNullKey} is true.
+		 */
+		protected byte            nullKeyValue;
+		/**
+		 * The hash table, storing 1-based indices into the {@link #keys}, {@link #values}, etc., arrays.
+		 * An index of 0 indicates an empty bucket.
+		 */
+		protected int[]                  _buckets;
+		/**
+		 * An array storing the cached hash code for each corresponding key in the {@link #keys} array.
+		 */
+		protected int[]                  hash;
+		/**
+		 * An array for storing collision chain links. For an entry at index {@code i} in the "low" region,
+		 * {@code links[i]} stores the 0-based index of the next entry in the same bucket's chain.
+		 */
+		protected int[]                  links;
+		/**
+		 * An array storing the keys of the map.
+		 */
+		protected K[]                    keys;
+		/**
+		 * An array storing the values of the map, corresponding to the keys in the {@link #keys} array.
+		 */
+		protected byte[]          values;
+		/**
+		 * The number of active entries stored in the "low" region of the internal arrays (from index 0 to {@code _lo_Size - 1}).
+		 * These entries are part of collision chains.
+		 */
+		protected int                    _lo_Size;
+		/**
+		 * The number of active entries stored in the "high" region of the internal arrays (from index {@code keys.length - _hi_Size}
+		 * to {@code keys.length - 1}). These entries are unique occupants of their hash buckets.
+		 */
+		protected int                    _hi_Size;
+		/**
+		 * A version counter, incremented on each structural modification to the map. Used for fail-fast iteration.
+		 */
+		protected int                    _version;
+		/**
+		 * The strategy object used for computing hash codes and checking equality for keys.
+		 */
+		protected Array.EqualHashOf< K > equal_hash_K;
 		
+		/**
+		 * A special index used in tokens to represent the null key.
+		 */
 		protected static final int  NULL_KEY_INDEX = 0x7FFF_FFFF;
+		/**
+		 * The number of bits to shift the version number when creating a token.
+		 */
 		protected static final int  VERSION_SHIFT  = 32;
+		/**
+		 * A constant representing an invalid or non-existent token, typically returned when a key is not found.
+		 */
 		protected static final long INVALID_TOKEN  = -1L;
 		
 		/**
-		 * Returns the total number of active non-null entries in the map.
-		 * This is the sum of entries in the low and high regions.
+		 * Returns the total number of non-null key-value mappings in the map.
+		 * This is the sum of entries in both the low and high regions.
 		 *
 		 * @return The current count of non-null entries.
 		 */
@@ -94,9 +129,10 @@ public interface ObjectUByteMap {
 		public boolean isEmpty() { return size() == 0; }
 		
 		/**
-		 * Returns the number of key-value mappings in the map.
+		 * Returns the total number of key-value mappings in this map.
+		 * This count includes the mapping for the null key, if it exists.
 		 *
-		 * @return The number of key-value mappings, including the null key if present.
+		 * @return The number of key-value mappings in the map.
 		 */
 		public int size() {
 			return _count() + ( hasNullKey ?
@@ -112,9 +148,10 @@ public interface ObjectUByteMap {
 		public int count() { return size(); }
 		
 		/**
-		 * Returns the capacity of the internal arrays.
+		 * Returns the current capacity of the internal arrays. This is the maximum number of
+		 * entries the map can hold without resizing.
 		 *
-		 * @return The length of the internal arrays, or 0 if uninitialized.
+		 * @return The length of the internal arrays, or 0 if the map is uninitialized.
 		 */
 		public int length() {
 			return keys == null ?
@@ -125,16 +162,16 @@ public interface ObjectUByteMap {
 		/**
 		 * Checks if the map contains a mapping for the specified key.
 		 *
-		 * @param key The key to check.
-		 * @return {@code true} if the map contains the key, {@code false} otherwise.
+		 * @param key The key whose presence in this map is to be tested.
+		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
 		public boolean containsKey( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if the map contains the specified value.
+		 * Checks if this map maps one or more keys to the specified value.
 		 *
-		 * @param value The value to check.
-		 * @return {@code true} if the map contains the value, {@code false} otherwise.
+		 * @param value The value whose presence in this map is to be tested.
+		 * @return {@code true} if this map maps one or more keys to the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue( char value ) {
 			
@@ -152,23 +189,27 @@ public interface ObjectUByteMap {
 		/**
 		 * Checks if the map contains a mapping for the null key.
 		 *
-		 * @return {@code true} if the map contains a mapping for the null key, {@code false} otherwise.
+		 * @return {@code true} if a mapping for the null key exists, {@code false} otherwise.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		/**
-		 * Returns the value associated with the null key.
+		 * Returns the value to which the null key is mapped. This method should only be
+		 * called if {@link #hasNullKey()} returns {@code true}.
 		 *
-		 * @return The value associated with the null key, or undefined if no null key exists.
+		 * @return The value associated with the null key.
 		 */
 		public char nullKeyValue() { return (char)( 0xFF &  nullKeyValue); }
 		
 		/**
-		 * Returns the token associated with the specified key.
+		 * Returns a token representing the mapping for the specified key. A token is a
+		 * long value that encodes the entry's internal index and the map's current version,
+		 * allowing for safe, fail-fast access and iteration.
 		 *
-		 * @param key The key to look up.
-		 * @return A token for iteration, or {@link #INVALID_TOKEN} if the key is not found.
-		 * @throws ConcurrentModificationException if excessive collisions are detected.
+		 * @param key The key to find.
+		 * @return A valid token if the key is found, or {@link #INVALID_TOKEN} if the key is not in the map.
+		 * @throws ConcurrentModificationException if the hash chain for the key's bucket is excessively long,
+		 *                                         suggesting a potential concurrent modification issue or poor hash distribution.
 		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
@@ -197,9 +238,12 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Returns the first valid token for iteration.
+		 * Returns the first token for starting an iteration over the map.
+		 * The iteration order is not guaranteed. If the map contains non-null keys, a token for
+		 * the first non-null key is returned. Otherwise, if the map contains only a null key,
+		 * its token is returned.
 		 *
-		 * @return A token for iteration, or {@link #INVALID_TOKEN} if the map is empty.
+		 * @return The first token for iteration, or {@link #INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
 			int index = unsafe_token( -1 ); // Get the first non-null key token
@@ -212,12 +256,14 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Returns the next valid token for iteration.
+		 * Returns the next token in the iteration sequence.
+		 * The iteration order is not guaranteed. It will traverse all non-null keys first,
+		 * and if a null key exists, its token will be returned last.
 		 *
-		 * @param token The current token.
-		 * @return The next token, or {@link #INVALID_TOKEN} if no further entries exist or the token is invalid.
-		 * @throws IllegalArgumentException        if the token is {@link #INVALID_TOKEN}.
-		 * @throws ConcurrentModificationException if the map was modified since the token was issued.
+		 * @param token The current token from a previous call to {@link #token()} or {@link #token(long)}.
+		 * @return The next token in the sequence, or {@link #INVALID_TOKEN} if the iteration is complete.
+		 * @throws IllegalArgumentException        if the provided {@code token} is {@link #INVALID_TOKEN}.
+		 * @throws ConcurrentModificationException if the map has been structurally modified since the token was issued.
 		 */
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
@@ -238,17 +284,19 @@ public interface ObjectUByteMap {
 		
 		/**
 		 * Returns the next token for fast, <b>unsafe</b> iteration over <b>non-null keys only</b>.
+		 * <p>
+		 * This method provides direct access to the internal indices of the map's entries.
+		 * To start an iteration, call with {@code -1}. Subsequent calls should pass the previously
+		 * returned value. The iteration is finished when this method returns {@code -1}.
+		 * </p>
+		 * <p>The null key is <b>not</b> included in this iteration. Check for it separately using {@link #hasNullKey()}.</p>
+		 * <p><b>WARNING:</b> This method is "unsafe" because it does not perform version checks. If the map
+		 * is structurally modified (e.g., by adding or removing elements) during iteration, the behavior is
+		 * undefined and may lead to missed entries, repeated entries, or exceptions. Use only in single-threaded
+		 * contexts where no modifications occur during the loop.</p>
 		 *
-		 * <p>Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
-		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
-		 * use {@link #key(long)} to handle it separately.</p>
-		 *
-		 * <p><b>WARNING: UNSAFE.</b> This method is faster than {@link #token(long)} but risky if the map is
-		 * structurally modified during iteration. Such changes may cause skipped entries, exceptions, or undefined
-		 * behavior. Use only when no modifications will occur.</p>
-		 *
-		 * @param token The previous token, or {@code -1} to begin iteration.
-		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @param token The previous token (internal index), or {@code -1} to start the iteration.
+		 * @return The next token (internal index), or {@code -1} if there are no more non-null entries.
 		 */
 		public int unsafe_token( int token ) {
 			if( _buckets == null || _count() == 0 ) return -1;
@@ -274,18 +322,18 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Checks if the token corresponds to the null key.
+		 * Checks if the given token represents the null key mapping.
 		 *
 		 * @param token The token to check.
-		 * @return {@code true} if the token represents the null key, {@code false} otherwise.
+		 * @return {@code true} if the token corresponds to the null key, {@code false} otherwise.
 		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Returns the key associated with the given token.
+		 * Returns the key corresponding to the given token.
 		 *
-		 * @param token The token to query.
-		 * @return The key, or {@code null} if the token corresponds to the null key entry.
+		 * @param token The token representing the entry.
+		 * @return The key for the entry. Returns {@code null} if the token represents the null key mapping.
 		 */
 		public K key( long token ) {
 			return isKeyNull( token ) ?
@@ -294,10 +342,10 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Returns the value associated with the given token.
+		 * Returns the value corresponding to the given token.
 		 *
-		 * @param token The token to query.
-		 * @return The value associated with the token.
+		 * @param token The token representing the entry.
+		 * @return The value for the entry.
 		 */
 		public char value( long token ) {
 			return (char)( 0xFF & ( index( token ) == NULL_KEY_INDEX ?
@@ -306,9 +354,10 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Computes the hash code for the map based on its key-value pairs.
+		 * Computes the hash code for this map. The hash code is derived from the hash codes
+		 * of its key-value pairs.
 		 *
-		 * @return The hash code for the map.
+		 * @return The hash code value for this map.
 		 */
 		@Override
 		public int hashCode() {
@@ -335,10 +384,11 @@ public interface ObjectUByteMap {
 		private static final int seed = R.class.hashCode();
 		
 		/**
-		 * Checks if this map is equal to another object.
+		 * Compares the specified object with this map for equality.
 		 *
-		 * @param obj The object to compare with.
-		 * @return {@code true} if the object is a map with the same key-value mappings, {@code false} otherwise.
+		 * @param obj The object to be compared for equality with this map.
+		 * @return {@code true} if the specified object is also a map and the two maps represent
+		 *         the same mappings, {@code false} otherwise.
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
@@ -347,10 +397,11 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Checks if this map is equal to another map of the same type.
+		 * Compares the specified map with this map for equality. Two maps are equal if they
+		 * have the same size and contain the same key-value mappings.
 		 *
-		 * @param other The other map to compare with.
-		 * @return {@code true} if the maps have the same key-value mappings, {@code false} otherwise.
+		 * @param other The map to be compared for equality with this map.
+		 * @return {@code true} if the specified map is equal to this map, {@code false} otherwise.
 		 */
 		public boolean equals( R< K > other ) {
 			if( other == this ) return true;
@@ -366,9 +417,9 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Creates a shallow copy of this map.
+		 * Creates and returns a shallow copy of this map. The keys and values themselves are not cloned.
 		 *
-		 * @return A new map with the same key-value mappings, or {@code null} if cloning fails.
+		 * @return A shallow copy of this map instance.
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
@@ -391,14 +442,16 @@ public interface ObjectUByteMap {
 		/**
 		 * Returns a JSON string representation of this map.
 		 *
-		 * @return A JSON string representing the map's contents.
+		 * @return A string containing the JSON representation of the map.
 		 */
 		public String toString() { return toJSON(); }
 		
 		/**
-		 * Serializes the map's contents to JSON.
+		 * Serializes the contents of this map into a {@link JsonWriter}.
+		 * If the keys are strings, the map is written as a JSON object.
+		 * Otherwise, it is written as a JSON array of key-value objects.
 		 *
-		 * @param json The {@link JsonWriter} to write to.
+		 * @param json The {@link JsonWriter} to write the JSON output to.
 		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
@@ -432,53 +485,86 @@ public interface ObjectUByteMap {
 			}
 		}
 		
+		/**
+		 * Calculates the bucket index for a given hash code.
+		 *
+		 * @param hash The hash code.
+		 * @return The index in the {@link #_buckets} array.
+		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
+		/**
+		 * Creates a fail-fast token from an internal index and the current version.
+		 *
+		 * @param index The internal index of the entry.
+		 * @return A long token combining the version and index.
+		 */
 		protected long token( int index )     { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); }
 		
+		/**
+		 * Extracts the internal index from a token.
+		 *
+		 * @param token The token.
+		 * @return The internal index.
+		 */
 		protected int index( long token ) {
 			return ( int ) token;
 		}
 		
+		/**
+		 * Extracts the version number from a token.
+		 *
+		 * @param token The token.
+		 * @return The version number encoded in the token.
+		 */
 		protected int version( long token ) {
 			return ( int ) ( token >>> VERSION_SHIFT );
 		}
 	}
 	
 	/**
-	 * Read-write implementation extending the read-only base class, providing methods to modify the map.
+	 * A read-write implementation of the map, providing methods to add, remove, and modify mappings.
 	 */
 	class RW< K > extends R< K > {
+		/**
+		 * The threshold for the number of collisions in a single bucket chain that, for String keys,
+		 * can trigger a resize with a new hash function to mitigate hash-flooding attacks.
+		 */
 		private static final int                                                        HashCollisionThreshold = 100;
+		/**
+		 * An optional function that, when set, provides a new hashing strategy during a resize operation.
+		 * This is primarily used to counter high-collision scenarios (e.g., hash-flooding attacks on String keys).
+		 * The function receives the current {@link Array.EqualHashOf} instance and should return a new one.
+		 */
 		public               Function< Array.EqualHashOf< K >, Array.EqualHashOf< K > > forceNewHashCodes      = null;
 		
 		/**
-		 * Constructs an empty map for the specified key class.
+		 * Constructs an empty map for keys of the specified class with a default initial capacity.
 		 *
-		 * @param clazzK The class of the keys.
+		 * @param clazzK The runtime class of the keys to be stored in the map.
 		 */
 		public RW( Class< K > clazzK ) { this( Array.get( clazzK ), 0 ); }
 		
 		/**
-		 * Constructs an empty map for the specified key class with the given initial capacity.
+		 * Constructs an empty map for keys of the specified class with the given initial capacity.
 		 *
-		 * @param clazzK   The class of the keys.
-		 * @param capacity The initial capacity.
+		 * @param clazzK   The runtime class of the keys to be stored in the map.
+		 * @param capacity The initial capacity of the map.
 		 */
 		public RW( Class< K > clazzK, int capacity ) { this( Array.get( clazzK ), capacity ); }
 		
 		/**
-		 * Constructs an empty map with the specified equality and hash strategy.
+		 * Constructs an empty map using a custom key equality and hashing strategy.
 		 *
-		 * @param equal_hash_K The equality and hash strategy for keys.
+		 * @param equal_hash_K The strategy for comparing and hashing keys.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K ) { this( equal_hash_K, 0 ); }
 		
 		/**
-		 * Constructs an empty map with the specified equality and hash strategy and initial capacity.
+		 * Constructs an empty map with a custom key equality and hashing strategy, and a specified initial capacity.
 		 *
-		 * @param equal_hash_K The equality and hash strategy for keys.
-		 * @param capacity     The initial capacity.
+		 * @param equal_hash_K The strategy for comparing and hashing keys.
+		 * @param capacity     The initial capacity of the map.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K, int capacity ) {
 			this.equal_hash_K = equal_hash_K;
@@ -486,7 +572,8 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Removes all mappings from the map.
+		 * Removes all mappings from this map. The map will be empty after this call returns,
+		 * but the internal arrays will retain their current capacity.
 		 */
 		public void clear() {
 			_version++;
@@ -500,11 +587,12 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Removes the mapping for the specified key, if present.
+		 * Removes the mapping for a key from this map if it is present.
 		 *
-		 * @param key The key to remove.
-		 * @return true if remove entry or false no mapping was found for the key.
-		 * @throws ConcurrentModificationException if excessive collisions are detected.
+		 * @param key The key whose mapping is to be removed from the map.
+		 * @return {@code true} if a mapping was removed, {@code false} if the key was not found.
+		 * @throws ConcurrentModificationException if an excessively long collision chain is encountered,
+		 *                                         which may indicate a data corruption issue.
 		 */
 		public boolean remove( K key ) {
 			if( key == null ) { // Handle null key removal
@@ -598,15 +686,12 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Relocates an entry's key, hash, link, and value from a source index ({@code src}) to a destination index ({@code dst})
-		 * within the internal arrays. This method is crucial for compaction during removal operations.
-		 * <p>
-		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
-		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
-		 * {@code src} to now correctly reference {@code dst}.
+		 * Relocates an entry's data from a source index to a destination index and updates all internal
+		 * pointers (from buckets or chain links) to reflect the move. This is a key part of the compaction
+		 * process during element removal.
 		 *
-		 * @param src The index of the entry to be moved (its current location).
-		 * @param dst The new index where the entry's data will be placed.
+		 * @param src The source index of the entry to move.
+		 * @param dst The destination index for the entry.
 		 */
 		private void move( int src, int dst ) {
 			if( src == dst ) return;
@@ -637,13 +722,13 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Ensures the hash table can hold at least the specified capacity without resizing.
-		 * <p>
-		 * Resizes to the next prime number >= capacity if needed.
+		 * Ensures that the map has enough capacity to hold at least the specified number of elements
+		 * without needing to resize. If the current capacity is insufficient, the map is resized to a
+		 * larger, prime-based capacity.
 		 *
 		 * @param capacity The desired minimum capacity.
-		 * @return The new capacity after resizing, or current capacity if sufficient.
-		 * @throws IllegalArgumentException If capacity is negative.
+		 * @return The new capacity of the map (which may be larger than the requested capacity).
+		 * @throws IllegalArgumentException if the specified capacity is negative.
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity < 0 ) throw new IllegalArgumentException( "capacity < 0" );
@@ -657,18 +742,16 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Reduces the hash table capacity to the current number of mappings.
-		 * <p>
-		 * Uses a prime number >= current count.
+		 * Reduces the capacity of the map to be closer to its actual size. This can be used to
+		 * minimize the memory footprint of the map after a large number of elements have been removed.
 		 */
 		public void trim() { trim( _count() ); } // Uses _count()
 		
 		/**
-		 * Reduces the hash table capacity to at least the specified capacity.
-		 * <p>
-		 * Uses a prime number >= capacity. No action if current capacity is already <= specified capacity.
+		 * Reduces the capacity of the map to the specified capacity, if it's smaller than the current capacity.
+		 * The final capacity will be a prime number at least as large as the map's current size.
 		 *
-		 * @param capacity The desired capacity (>= current count).
+		 * @param capacity The target capacity. Must not be less than the current number of elements.
 		 */
 		public void trim( int capacity ) {
 			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
@@ -680,10 +763,11 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Sets or updates the value for the null key.
+		 * Associates the specified value with the null key. If the map previously contained a
+		 * mapping for the null key, the old value is replaced.
 		 *
-		 * @param value The value for the null key.
-		 * @return {@code true} if the null key was newly set or updated, {@code false} if unchanged.
+		 * @param value The value to be associated with the null key.
+		 * @return {@code true} if a new mapping for the null key was created, {@code false} if an existing mapping was updated.
 		 */
 		public boolean putNullKeyValue( char value ) {
 			boolean b = !hasNullKey;
@@ -694,10 +778,11 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Puts all key-value mappings from the given source map into this map.
-		 * Existing keys will have their values updated.
+		 * Copies all of the mappings from the specified source map to this map.
+		 * These mappings will replace any mappings that this map had for any of the
+		 * keys currently in the specified map.
 		 *
-		 * @param src The source map whose mappings are to be put into this map.
+		 * @param src The map whose mappings are to be placed in this map.
 		 */
 		public void putAll( RW< ? extends K > src ) {
 			for( int token = -1; ( token = src.unsafe_token( token ) ) != -1; )
@@ -705,14 +790,14 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Associates the specified value with the specified key.
-		 * <p>
-		 * Replaces the old value if the key exists; otherwise, adds a new mapping.
+		 * Associates the specified value with the specified key in this map.
+		 * If the map previously contained a mapping for the key, the old value is replaced by the specified value.
+		 * If the key is new, it's added to either the "high" region (if no hash collision) or the "low" region (if a collision occurs).
 		 *
-		 * @param key   The key to map.
-		 * @param value The value to associate.
-		 * @return {@code true} if a new mapping was added, {@code false} if an existing value was updated.
-		 * @throws ConcurrentModificationException If concurrent modifications are detected.
+		 * @param key   The key with which the specified value is to be associated.
+		 * @param value The value to be associated with the specified key.
+		 * @return {@code true} if the key was not already in the map, {@code false} if the key existed and its value was updated.
+		 * @throws ConcurrentModificationException if a very high number of collisions is detected, which might indicate concurrent modification.
 		 */
 		public boolean put( K key, char value ) {
 			if( key == null ) return putNullKeyValue( value );
@@ -782,13 +867,13 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Resizes the hash table to the specified capacity.
-		 * This method rebuilds the hash table structure based on the new size.
-		 * All existing entries are rehashed and re-inserted into the new, larger structure.
-		 * This operation increments the set's version.
+		 * Resizes the internal data structures to a new capacity. All existing entries are re-hashed
+		 * and re-inserted into the new arrays. This is a structural modification.
 		 *
-		 * @param newSize The desired new capacity for the internal arrays.
-		 * @return The actual allocated capacity after resize.
+		 * @param newSize           The new capacity for the internal arrays.
+		 * @param forceNewHashCodes If true, and {@link #forceNewHashCodes} is set, a new hashing strategy
+		 *                          will be applied during the re-hashing process.
+		 * @return The new capacity of the map.
 		 */
 		private int resize( int newSize, boolean forceNewHashCodes ) {
 			_version++;
@@ -832,10 +917,11 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Initializes the hash table with the specified capacity.
+		 * Initializes the internal data structures with a given capacity.
+		 * This is a structural modification.
 		 *
-		 * @param capacity The initial capacity (adjusted to next prime).
-		 * @return The actual capacity used.
+		 * @param capacity The initial capacity for the map.
+		 * @return The allocated capacity.
 		 */
 		private int initialize( int capacity ) {
 			_version++;
@@ -850,14 +936,13 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Internal helper method used during resizing to efficiently copy an
-		 * existing key-value pair into the new hash table structure. It re-hashes the key
-		 * and places it into the correct bucket and region (lo or hi) in the new arrays.
-		 * This method does not check for existing keys, assuming all keys are new in the
-		 * target structure during a resize operation.
+		 * An internal helper method for inserting an element during a resize operation.
+		 * It performs a simplified `put` operation, assuming the key is new to the
+		 * target arrays and does not check for duplicates.
 		 *
-		 * @param key   The key to copy.
-		 * @param value The value associated with the key.
+		 * @param key   The key to insert.
+		 * @param hash  The pre-computed hash of the key.
+		 * @param value The value to insert.
 		 */
 		private void copy( K key, int hash, byte value ) {
 			int bucketIndex = bucketIndex( hash );
@@ -882,7 +967,7 @@ public interface ObjectUByteMap {
 		}
 		
 		/**
-		 * Default {@link Array.EqualHashOf} instance for {@link RW}.
+		 * A default, shared {@link Array.EqualHashOf} instance for {@link RW} map types.
 		 */
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 		

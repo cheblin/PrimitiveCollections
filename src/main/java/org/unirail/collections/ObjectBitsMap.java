@@ -1,35 +1,19 @@
-//MIT License
+// Copyright 2025 Chikirev Sirguy, Unirail Group
 //
-//Copyright © 2020 Chikirev Sirguy, Unirail Group. All rights reserved.
-//For inquiries, please contact:  al8v5C6HU4UtqE9@gmail.com
-//GitHub Repository: https://github.com/AdHoc-Protocol
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//1. The above copyright notice and this permission notice must be included in all
-//   copies or substantial portions of the Software.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
-//2. Users of the Software must provide a clear acknowledgment in their user
-//   documentation or other materials that their solution includes or is based on
-//   this Software. This acknowledgment should be prominent and easily visible,
-//   and can be formatted as follows:
-//   "This product includes software developed by Chikirev Sirguy and the Unirail Group
-//   (https://github.com/AdHoc-Protocol)."
-//
-//3. If you modify the Software and distribute it, you must include a prominent notice
-//   stating that you have changed the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// For inquiries, please contact: al8v5C6HU4UtqE9@gmail.com
+// GitHub Repository: https://github.com/AdHoc-Protocol
 package org.unirail.collections;
 
 import org.unirail.JsonWriter;
@@ -39,149 +23,108 @@ import java.util.ConcurrentModificationException;
 import java.util.function.Function;
 
 /**
+ * A generic, high-performance map that stores object keys and memory-efficient, bit-packed integer values.
+ * Values are stored in a {@link BitsList}, allowing each value to occupy only 1 to 7 bits, making this
+ * implementation ideal for applications with memory constraints or those mapping to small integer ranges or flags.
  * <p>
- * **ObjectBitsMap: A Memory-Efficient and Versatile Map Implementation**
- * </p>
- * <p>
- * This interface defines a generic map designed for storing key-value pairs where values are compactly stored as bits.
- * It uses a hash table with separate chaining for efficient collision handling and dynamic resizing to adapt to varying data sizes.
- * </p>
- * <p>
- * **Core Features:**
- * </p>
+ * This map is built on a hash table with an optimized collision resolution strategy that separates
+ * entries into a "low" region (for collision chains) and a "high" region (for non-colliding entries)
+ * to enhance performance.
+ *
+ * <p><b>Key Features:</b></p>
  * <ul>
- *     <li>**Generic Keys:** Supports any object type as keys, offering flexibility in key selection.</li>
- *     <li>**Bit-Packed Values:** Utilizes {@link BitsList} for value storage, significantly reducing memory usage, ideal for small primitive values or flags.</li>
- *     <li>**Hash Table with Separate Chaining:** Efficiently resolves hash collisions, maintaining performance under high load factors.</li>
- *     <li>**Dynamic Resizing:** Automatically adjusts internal capacity to ensure optimal performance as the map grows or shrinks.</li>
- *     <li>**Null Key Support:** Allows a single null key for representing default or absent values.</li>
- *     <li>**Customizable Key Handling:** Employs {@link Array.EqualHashOf} for key equality and hash code generation, enabling custom comparison logic.</li>
- *     <li>**Token-Based Iteration:** Provides safe and efficient iteration using tokens, protecting against concurrent modification issues.</li>
- *     <li>**Cloneable:** Implements {@link Cloneable} for creating shallow copies of the map.</li>
- * </ul>
- * <p>
- * **Implementation Details:**
- * </p>
- * <p>
- * The {@link ObjectBitsMap} interface is implemented by the {@link RW} (Read-Write) class, which extends the abstract {@link R} (Read-Only) base class.
- * This separation of read and write operations enhances code clarity and enables potential optimizations.
- * </p>
- * <p>
- * **Use Cases:**
- * </p>
- * <p>
- * This map is well-suited for memory-constrained environments, including:
- * </p>
- * <ul>
- *     <li>Caching systems requiring compact storage.</li>
- *     <li>Data structures in embedded systems.</li>
- *     <li>Representation of sparse data.</li>
- *     <li>Applications with many small primitive values tied to keys.</li>
+ *     <li><b>Generic Keys:</b> Supports any object type as keys.</li>
+ *     <li><b>Bit-Packed Values:</b> Uses {@link BitsList} to store values compactly (1-7 bits per value),
+ *         significantly reducing memory footprint.</li>
+ *     <li><b>Optimized Collision Handling:</b> Employs a hybrid strategy with separate chaining for collisions
+ *         and direct access for non-colliding entries.</li>
+ *     <li><b>Dynamic Resizing:</b> The internal hash table automatically grows to maintain performance as more
+ *         elements are added. Capacity can also be managed with {@link RW#ensureCapacity} and {@link RW#trim}.</li>
+ *     <li><b>Null Key Support:</b> Allows a single null key to be mapped to a value.</li>
+ *     <li><b>Customizable Hashing/Equality:</b> Key hashing and equality checks are delegated to a
+ *         pluggable {@link Array.EqualHashOf} strategy.</li>
+ *     <li><b>Fail-Fast Token-Based Iteration:</b> Provides a safe and efficient token-based mechanism for
+ *         traversing the map, with an unsafe, higher-performance option available.</li>
+ *     <li><b>Cloning:</b> Supports shallow cloning of the map structure.</li>
  * </ul>
  */
 public interface ObjectBitsMap {
 	
 	/**
-	 * <p>
-	 * **Abstract Read-Only Base Class (R):** Core Functionality and State Management
-	 * </p>
-	 * <p>
-	 * This abstract class provides the foundation for {@link ObjectBitsMap} implementations, offering read-only operations and managing internal data structures.
-	 * It encapsulates shared state and read-related functionality, promoting code reuse and separation of concerns.
-	 * </p>
-	 * <p>
-	 * **Key Responsibilities:**
-	 * </p>
-	 * <ul>
-	 *     <li>Maintains the hash table structure (buckets, hash, links, keys, values).</li>
-	 *     <li>Implements read operations such as {@link #size()}, {@link #containsKey(Object)}, {@link #tokenOf(Object)}, {@link #key(long)}, and {@link #value(long)}.</li>
-	 *     <li>Supports token-based iteration for safe and efficient traversal.</li>
-	 *     <li>Provides {@link #hashCode()}, {@link #equals(Object)}, {@link #clone()}, and {@link #toJSON(JsonWriter)} for standard operations.</li>
-	 * </ul>
-	 * <p>
-	 * **State Variables:**
-	 * </p>
-	 * <ul>
-	 *     <li>{@code hasNullKey}: Indicates whether a null key is present.</li>
-	 *     <li>{@code nullKeyValue}: Stores the value associated with the null key (as a byte).</li>
-	 *     <li>{@code _buckets}: Hash table bucket array, holding entry indices (1-based) or 0 if empty.</li>
-	 *     <li>{@code hash}: Array storing hash codes for each entry.</li>
-	 *     <li>{@code links}: Array storing the 'next' index in collision chains (0-based indices).</li>
-	 *     <li>{@code keys}: Array of keys corresponding to entries.</li>
-	 *     <li>{@code values}: A {@link BitsList.RW} instance for bit-packed value storage.</li>
-	 *     <li>{@code _lo_Size}: Number of active entries in the low region (0 to {@code _lo_Size}-1).</li>
-	 *     <li>{@code _hi_Size}: Number of active entries in the high region ({@code keys.length} - {@code _hi_Size} to {@code keys.length}-1).</li>
-	 *     <li>{@code _version}: Version counter for detecting structural modifications during iteration.</li>
-	 *     <li>{@code equal_hash_K}: {@link Array.EqualHashOf} strategy for key equality and hashing.</li>
-	 * </ul>
+	 * A read-only base class that provides the core data structures and access methods for the map.
+	 * It manages the internal arrays, state, and the token-based iteration system.
 	 *
-	 * @param <K> The type of keys.
+	 * @param <K> The type of keys maintained by this map.
 	 */
 	abstract class R< K > implements JsonWriter.Source, Cloneable {
 		/**
-		 * Indicates if the map contains a null key.
+		 * Flag indicating whether a mapping for a null key exists.
 		 */
 		protected boolean     hasNullKey;
 		/**
-		 * Value for the null key, stored as a byte for consistency with {@link BitsList}.
+		 * The value associated with the null key, stored as a byte. Only valid if {@link #hasNullKey} is true.
 		 */
 		protected byte        nullKeyValue;
 		/**
-		 * Hash table buckets array, where each bucket holds an entry index (1-based) or 0 if empty.
+		 * The hash table, storing 1-based indices into the {@link #keys}, {@link #values}, etc., arrays.
+		 * An index of 0 indicates an empty bucket.
 		 */
 		protected int[]       _buckets;
 		/**
-		 * Array of hash codes for each entry.
+		 * An array storing the cached hash code for each corresponding key in the {@link #keys} array.
 		 */
 		protected int[]       hash;
 		/**
-		 * Array storing the 'next' index in collision chains (0-based indices).
+		 * An array for storing collision chain links. For an entry at index {@code i} in the "low" region,
+		 * {@code links[i]} stores the 0-based index of the next entry in the same bucket's chain.
 		 */
 		protected int[]       links;
 		/**
-		 * Array of keys, aligned with entries.
+		 * An array storing the keys of the map.
 		 */
 		protected K[]         keys;
 		/**
-		 * Bit-packed values stored in a {@link BitsList.RW} instance.
+		 * A {@link BitsList} instance that stores all values in a bit-packed format.
 		 */
 		protected BitsList.RW values;
 		
 		/**
-		 * Number of active entries in the low region (0 to _lo_Size-1).
+		 * The number of active entries stored in the "low" region of the internal arrays (from index 0 to {@code _lo_Size - 1}).
+		 * These entries are part of collision chains.
 		 */
 		protected int _lo_Size;
 		/**
-		 * Number of active entries in the high region (keys.length - _hi_Size to keys.length-1).
+		 * The number of active entries stored in the "high" region of the internal arrays (from index {@code keys.length - _hi_Size}
+		 * to {@code keys.length - 1}). These entries are unique occupants of their hash buckets.
 		 */
 		protected int _hi_Size;
 		
 		/**
-		 * Version counter for detecting structural modifications during iteration.
+		 * A version counter, incremented on each structural modification to the map. Used for fail-fast iteration.
 		 */
 		protected int                    _version;
 		/**
-		 * Strategy for key equality and hash code computation.
+		 * The strategy object used for computing hash codes and checking equality for keys.
 		 */
 		protected Array.EqualHashOf< K > equal_hash_K;
 		
 		/**
-		 * Index used to represent the null key in tokens.
+		 * A special index used in tokens to represent the null key.
 		 */
 		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF;
 		
 		/**
-		 * Number of bits to shift the version in a token's high bits.
+		 * The number of bits to shift the version number when creating a token.
 		 */
 		protected static final int  VERSION_SHIFT = 32;
 		/**
-		 * Represents an invalid token value.
+		 * A constant representing an invalid or non-existent token, typically returned when a key is not found.
 		 */
 		protected static final long INVALID_TOKEN = -1L;
 		
 		/**
-		 * Returns the total number of active non-null entries in the map.
-		 * This is the sum of entries in the low and high regions.
+		 * Returns the total number of non-null key-value mappings in the map.
+		 * This is the sum of entries in both the low and high regions.
 		 *
 		 * @return The current count of non-null entries.
 		 */
@@ -190,14 +133,15 @@ public interface ObjectBitsMap {
 		/**
 		 * Checks if the map is empty.
 		 *
-		 * @return {@code true} if the map has no key-value mappings, {@code false} otherwise.
+		 * @return {@code true} if the map contains no key-value mappings, {@code false} otherwise.
 		 */
 		public boolean isEmpty() { return size() == 0; }
 		
 		/**
-		 * Returns the number of key-value mappings in the map.
+		 * Returns the total number of key-value mappings in this map.
+		 * This count includes the mapping for the null key, if it exists.
 		 *
-		 * @return The number of key-value mappings.
+		 * @return The number of key-value mappings in the map.
 		 */
 		public int size() {
 			return _count() + (
@@ -209,14 +153,15 @@ public interface ObjectBitsMap {
 		/**
 		 * Alias for {@link #size()}.
 		 *
-		 * @return The number of key-value mappings.
+		 * @return The number of key-value mappings in the map.
 		 */
 		public int count() { return size(); }
 		
 		/**
-		 * Returns the current capacity of the hash table (length of {@code keys} array).
+		 * Returns the current capacity of the internal arrays. This is the maximum number of
+		 * entries the map can hold without resizing.
 		 *
-		 * @return The hash table capacity.
+		 * @return The length of the internal arrays, or 0 if the map is uninitialized.
 		 */
 		public int length() {
 			return keys == null ?
@@ -227,41 +172,44 @@ public interface ObjectBitsMap {
 		/**
 		 * Checks if the map contains a mapping for the specified key.
 		 *
-		 * @param key The key to check for.
-		 * @return {@code true} if the key is mapped, {@code false} otherwise.
+		 * @param key The key whose presence in this map is to be tested.
+		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
 		 */
 		public boolean containsKey( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if the map contains the specified value.
+		 * Checks if this map maps one or more keys to the specified value.
+		 * This operation can be efficient as it delegates the check to the underlying {@link BitsList}.
 		 *
-		 * @param value The value to check for.
-		 * @return {@code true} if the value is mapped to one or more keys, {@code false} otherwise.
+		 * @param value The value whose presence in this map is to be tested.
+		 * @return {@code true} if this map maps one or more keys to the specified value, {@code false} otherwise.
 		 */
 		public boolean containsValue( int value ) { return hasNullKey && nullKeyValue == value || 0 < _count() && values.contains( value ); }
 		
 		/**
-		 * Checks if the map contains a null key.
+		 * Checks if the map contains a mapping for the null key.
 		 *
-		 * @return {@code true} if a null key is present, {@code false} otherwise.
+		 * @return {@code true} if a mapping for the null key exists, {@code false} otherwise.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		/**
-		 * Returns the value associated with the null key.
+		 * Returns the value to which the null key is mapped. This method should only be
+		 * called if {@link #hasNullKey()} returns {@code true}.
 		 *
-		 * @return The value for the null key, or undefined if no null key exists.
+		 * @return The value associated with the null key.
 		 */
 		public int nullKeyValue() { return nullKeyValue; }
 		
 		/**
-		 * Returns a token for the specified key, or {@link #INVALID_TOKEN} if not found.
-		 * <p>
-		 * Tokens combine an entry index and map version for safe iteration. Tokens may become invalid after structural modifications.
+		 * Returns a token representing the mapping for the specified key. A token is a
+		 * long value that encodes the entry's internal index and the map's current version,
+		 * allowing for safe, fail-fast access and iteration.
 		 *
 		 * @param key The key to find.
-		 * @return A token for the key, or {@link #INVALID_TOKEN} if absent.
-		 * @throws ConcurrentModificationException If concurrent modifications are detected.
+		 * @return A valid token if the key is found, or {@link #INVALID_TOKEN} if the key is not in the map.
+		 * @throws ConcurrentModificationException if the hash chain for the key's bucket is excessively long,
+		 *                                         suggesting a potential concurrent modification issue or poor hash distribution.
 		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
@@ -290,11 +238,12 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Returns the first valid token for iteration.
-		 * <p>
-		 * Begins iteration from the start of the hash table. Returns {@link #INVALID_TOKEN} if the map is empty.
+		 * Returns the first token for starting an iteration over the map.
+		 * The iteration order is not guaranteed. If the map contains non-null keys, a token for
+		 * the first non-null key is returned. Otherwise, if the map contains only a null key,
+		 * its token is returned.
 		 *
-		 * @return The first token, or {@link #INVALID_TOKEN} if empty.
+		 * @return The first token for iteration, or {@link #INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
 			int index = unsafe_token( -1 ); // Get the first non-null key token
@@ -307,13 +256,14 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Returns the next valid token for iteration.
-		 * <p>
-		 * Continues iteration from the given token. Returns {@link #INVALID_TOKEN} if no further entries exist or if the token is invalid.
+		 * Returns the next token in the iteration sequence.
+		 * The iteration order is not guaranteed. It will traverse all non-null keys first,
+		 * and if a null key exists, its token will be returned last.
 		 *
-		 * @param token The current token.
-		 * @return The next token, or {@link #INVALID_TOKEN} if none remain or token is invalid.
-		 * @throws ConcurrentModificationException If the map was modified since the token was issued.
+		 * @param token The current token from a previous call to {@link #token()} or {@link #token(long)}.
+		 * @return The next token in the sequence, or {@link #INVALID_TOKEN} if the iteration is complete.
+		 * @throws IllegalArgumentException        if the provided {@code token} is {@link #INVALID_TOKEN}.
+		 * @throws ConcurrentModificationException if the map has been structurally modified since the token was issued.
 		 */
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
@@ -333,24 +283,20 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Returns the next token for fast, <strong>unsafe</strong> iteration over <strong>non-null keys only</strong>,
-		 * skipping concurrency and modification checks.
-		 * Start iteration with {@code unsafe_token(-1)}, then pass the returned token back to get the next one.
-		 * Iteration ends when {@code -1} is returned. The null key is excluded; check {@link #hasNullKey()} and
-		 * use {@link #key(long)} to handle it separately.
-		 *
-		 * <p><strong>WARNING: UNSAFE.</strong> This method is faster than {@link #token(long)} but risky if the
-		 * set is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
-		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
+		 * Returns the next token for fast, <b>unsafe</b> iteration over <b>non-null keys only</b>.
 		 * <p>
-		 * Iteration order: First, entries in the {@code lo Region} (0 to {@code _lo_Size-1}),
-		 * then entries in the {@code hi Region} ({@code keys.length - _hi_Size} to {@code keys.length-1}).
+		 * This method provides direct access to the internal indices of the map's entries.
+		 * To start an iteration, call with {@code -1}. Subsequent calls should pass the previously
+		 * returned value. The iteration is finished when this method returns {@code -1}.
+		 * </p>
+		 * <p>The null key is <b>not</b> included in this iteration. Check for it separately using {@link #hasNullKey()}.</p>
+		 * <p><b>WARNING:</b> This method is "unsafe" because it does not perform version checks. If the map
+		 * is structurally modified (e.g., by adding or removing elements) during iteration, the behavior is
+		 * undefined and may lead to missed entries, repeated entries, or exceptions. Use only in single-threaded
+		 * contexts where no modifications occur during the loop.</p>
 		 *
-		 * @param token The previous token, or {@code -1} to begin iteration.
-		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
-		 * @see #token(long) For safe iteration including the null key.
-		 * @see #hasNullKey() To check for a null key.
-		 * @see #key(long) To get the key associated with a token.
+		 * @param token The previous token (internal index), or {@code -1} to start the iteration.
+		 * @return The next token (internal index), or {@code -1} if there are no more non-null entries.
 		 */
 		public int unsafe_token( int token ) {
 			if( _buckets == null || _count() == 0 ) return -1;
@@ -376,18 +322,18 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Checks if the token represents the null key.
+		 * Checks if the given token represents the null key mapping.
 		 *
 		 * @param token The token to check.
-		 * @return {@code true} if the token is for the null key, {@code false} otherwise.
+		 * @return {@code true} if the token corresponds to the null key, {@code false} otherwise.
 		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Retrieves the key for the given token.
+		 * Returns the key corresponding to the given token.
 		 *
-		 * @param token The token representing an entry.
-		 * @return The associated key, or null if the token is for the null key.
+		 * @param token The token representing the entry.
+		 * @return The key for the entry. Returns {@code null} if the token represents the null key mapping.
 		 */
 		public K key( long token ) {
 			return isKeyNull( token ) ?
@@ -396,17 +342,17 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Returns the number of bits used per value in the {@link BitsList}.
+		 * Returns the number of bits used to store each value in the underlying {@link BitsList}.
 		 *
-		 * @return The number of bits per value (1 to 7).
+		 * @return The number of bits per value, typically between 1 and 7.
 		 */
 		public int bits_per_value() { return values.bits_per_item; }
 		
 		/**
-		 * Retrieves the value for the given token.
+		 * Returns the value corresponding to the given token.
 		 *
-		 * @param token The token representing an entry.
-		 * @return The associated value.
+		 * @param token The token representing the entry.
+		 * @return The value for the entry, as a {@code byte}.
 		 */
 		public byte value( long token ) {
 			return isKeyNull( token ) ?
@@ -415,11 +361,10 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Computes a hash code for the map based on its key-value mappings.
-		 * <p>
-		 * Consistent with {@link #equals(Object)}.
+		 * Computes the hash code for this map. The hash code is derived from the hash codes
+		 * of its key-value pairs.
 		 *
-		 * @return The map's hash code.
+		 * @return The hash code value for this map.
 		 */
 		@Override
 		public int hashCode() {
@@ -450,12 +395,11 @@ public interface ObjectBitsMap {
 		private static final int seed = R.class.hashCode();
 		
 		/**
-		 * Checks if this map equals another object.
-		 * <p>
-		 * Returns {@code true} if the object is a {@link R} instance with identical key-value mappings.
+		 * Compares the specified object with this map for equality.
 		 *
-		 * @param obj The object to compare.
-		 * @return {@code true} if equal, {@code false} otherwise.
+		 * @param obj The object to be compared for equality with this map.
+		 * @return {@code true} if the specified object is also a map and the two maps represent
+		 *         the same mappings, {@code false} otherwise.
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
@@ -464,10 +408,11 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Checks if this map equals another {@link R} map.
+		 * Compares the specified map with this map for equality. Two maps are equal if they
+		 * have the same size and contain the same key-value mappings.
 		 *
-		 * @param other The map to compare.
-		 * @return {@code true} if equal, {@code false} otherwise.
+		 * @param other The map to be compared for equality with this map.
+		 * @return {@code true} if the specified map is equal to this map, {@code false} otherwise.
 		 */
 		public boolean equals( R< K > other ) {
 			if( other == this ) return true; // Same instance check
@@ -482,11 +427,10 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Creates a shallow copy of the map.
-		 * <p>
-		 * Keys and values are not cloned.
+		 * Creates and returns a shallow copy of this map. The keys are not cloned, and the
+		 * internal {@link BitsList} is also shallow-copied.
 		 *
-		 * @return A shallow copy of the map.
+		 * @return A shallow copy of this map instance.
 		 */
 		@SuppressWarnings( "unchecked" )
 		@Override
@@ -507,18 +451,18 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Returns a JSON string representation of the map.
+		 * Returns a JSON string representation of this map.
 		 *
-		 * @return A JSON string of the map's contents.
+		 * @return A string containing the JSON representation of the map.
 		 */
 		public String toString() { return toJSON(); }
 		
 		/**
-		 * Writes the map's contents to a {@link JsonWriter}.
-		 * <p>
-		 * Outputs a JSON object for string keys or an array of key-value objects for other key types.
+		 * Serializes the contents of this map into a {@link JsonWriter}.
+		 * If the keys are strings, the map is written as a JSON object.
+		 * Otherwise, it is written as a JSON array of key-value objects.
 		 *
-		 * @param json The {@link JsonWriter} to write to.
+		 * @param json The {@link JsonWriter} to write the JSON output to.
 		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
@@ -552,23 +496,23 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Computes the bucket index for a hash code.
+		 * Calculates the bucket index for a given hash code.
 		 *
 		 * @param hash The hash code.
-		 * @return The bucket index in {@code _buckets}.
+		 * @return The index in the {@link #_buckets} array.
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; } // Ensure positive index within bucket array bounds
 		
 		/**
-		 * Creates a token from an entry index and current version.
+		 * Creates a fail-fast token from an internal index and the current version.
 		 *
-		 * @param index The entry index in {@code keys} or {@link #NULL_KEY_INDEX}.
-		 * @return The token (version << 32 | index).
+		 * @param index The internal index of the entry.
+		 * @return A long token combining the version and index.
 		 */
 		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); } // Combine version and index into a token
 		
 		/**
-		 * Extracts the entry index from a token.
+		 * Extracts the internal index from a token.
 		 *
 		 * @param token the token value
 		 * @return the extracted entry index.
@@ -576,75 +520,63 @@ public interface ObjectBitsMap {
 		protected int index( long token ) { return ( int ) token; }
 		
 		/**
-		 * Extracts the version from a token.
+		 * Extracts the version number from a token.
 		 *
 		 * @param token The token.
-		 * @return The version.
+		 * @return The version number encoded in the token.
 		 */
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 	}
 	
 	/**
-	 * <p>
-	 * **Read-Write Implementation (RW):** Mutable Extension of Read-Only Base Class
-	 * </p>
-	 * <p>
-	 * This class implements a mutable {@link ObjectBitsMap}, extending {@link R} to add modification operations.
-	 * It supports adding, updating, and removing key-value pairs, with dynamic resizing to maintain performance.
-	 * </p>
-	 * <p>
-	 * **Key Features:**
-	 * </p>
-	 * <ul>
-	 *     <li>**Mutable Operations:** Supports {@link #put(Object, long)}, {@link #remove(Object)}, {@link #clear()}, and capacity management.</li>
-	 *     <li>**Dynamic Resizing:** Adjusts hash table size based on load, using prime numbers for optimal bucket counts.</li>
-	 *     <li>**Hash Collision Handling:** Monitors collisions and supports rehashing with updated hash functions for string keys via {@code forceNewHashCodes}.</li>
-	 *     <li>**Null Key Support:** Allows setting a value for the null key with a dedicated {@link #put(long)} method.</li>
-	 * </ul>
+	 * A read-write implementation of the map, providing methods to add, remove, and modify mappings.
 	 *
-	 * @param <K> The type of keys.
+	 * @param <K> The type of keys maintained by this map.
 	 */
 	class RW< K > extends R< K > {
 		/**
-		 * Threshold for hash collisions in a bucket before considering rehashing.
+		 * The threshold for the number of collisions in a single bucket chain that, for String keys,
+		 * can trigger a resize with a new hash function to mitigate hash-flooding attacks.
 		 */
 		private static final int                                                        HashCollisionThreshold = 100;
 		/**
-		 * Optional function to update the hashing strategy, used to mitigate collisions for string keys.
+		 * An optional function that, when set, provides a new hashing strategy during a resize operation.
+		 * This is primarily used to counter high-collision scenarios (e.g., hash-flooding attacks on String keys).
+		 * The function receives the current {@link Array.EqualHashOf} instance and should return a new one.
 		 */
 		public               Function< Array.EqualHashOf< K >, Array.EqualHashOf< K > > forceNewHashCodes      = null;
 		
 		/**
-		 * Constructs an empty map with the specified key class, bits per value, and default capacity.
+		 * Constructs an empty map with a specified key class and number of bits per value.
 		 *
-		 * @param clazzK        The key class.
-		 * @param bits_per_item Number of bits per value (1 to 7).
+		 * @param clazzK        The runtime class of the keys.
+		 * @param bits_per_item The number of bits (1-7) to use for storing each value.
 		 */
 		public RW( Class< K > clazzK, int bits_per_item ) { this( clazzK, bits_per_item, 0 ); }
 		
 		/**
-		 * Constructs an empty map with the specified key class, bits per value, and initial capacity.
+		 * Constructs an empty map with a specified key class, bits per value, and initial capacity.
 		 *
-		 * @param clazzK        The key class.
-		 * @param bits_per_item Number of bits per value (1 to 7).
-		 * @param capacity      Initial hash table capacity.
+		 * @param clazzK        The runtime class of the keys.
+		 * @param bits_per_item The number of bits (1-7) to use for storing each value.
+		 * @param capacity      The initial capacity of the map.
 		 */
 		public RW( Class< K > clazzK, int bits_per_item, int capacity ) { this( Array.get( clazzK ), bits_per_item, capacity ); }
 		
 		/**
-		 * Constructs an empty map with the specified key equality/hashing strategy, bits per value, and default capacity.
+		 * Constructs an empty map with a custom key strategy and number of bits per value.
 		 *
-		 * @param equal_hash_K  The key equality and hashing strategy.
-		 * @param bits_per_item Number of bits per value (1 to 7).
+		 * @param equal_hash_K  The strategy for comparing and hashing keys.
+		 * @param bits_per_item The number of bits (1-7) to use for storing each value.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K, int bits_per_item ) { this( equal_hash_K, bits_per_item, 0 ); }
 		
 		/**
-		 * Constructs an empty map with the specified key equality/hashing strategy, bits per value, and initial capacity.
+		 * Constructs an empty map with a custom key strategy, bits per value, and initial capacity.
 		 *
-		 * @param equal_hash_K  The key equality and hashing strategy.
-		 * @param bits_per_item Number of bits per value (1 to 7).
-		 * @param capacity      Initial hash table capacity.
+		 * @param equal_hash_K  The strategy for comparing and hashing keys.
+		 * @param bits_per_item The number of bits (1-7) to use for storing each value.
+		 * @param capacity      The initial capacity of the map.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K, int bits_per_item, int capacity ) {
 			this.equal_hash_K = equal_hash_K;
@@ -653,12 +585,12 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Constructs an empty map with the specified key equality/hashing strategy, bits per value, initial capacity, and default value.
+		 * Constructs an empty map with a custom key strategy, bits per value, initial capacity, and a default value.
 		 *
-		 * @param equal_hash_K  The key equality and hashing strategy.
-		 * @param bits_per_item Number of bits per value (1 to 7).
-		 * @param capacity      Initial hash table capacity.
-		 * @param defaultValue  Default value for new entries in {@link BitsList}.
+		 * @param equal_hash_K  The strategy for comparing and hashing keys.
+		 * @param bits_per_item The number of bits (1-7) to use for storing each value.
+		 * @param capacity      The initial capacity of the map.
+		 * @param defaultValue  The default value to use for new entries in the underlying {@link BitsList}.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K, int bits_per_item, int capacity, byte defaultValue ) {
 			this.equal_hash_K = equal_hash_K;
@@ -667,7 +599,8 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Removes all mappings from the map, leaving it empty.
+		 * Removes all mappings from this map. The map will be empty after this call returns,
+		 * but the internal arrays will retain their current capacity.
 		 */
 		public void clear() {
 			_version++;                               // Increment version for modification detection
@@ -675,18 +608,19 @@ public interface ObjectBitsMap {
 			if( _count() == 0 ) return; // Already empty
 			Arrays.fill( _buckets, 0 ); // Reset buckets
 			Arrays.fill( keys, null ); // clear refs
-			// hash, links, and keys arrays are implicitly cleared by resetting _lo_Size and _hi_Size
+			// hash and links arrays are implicitly cleared by resetting _lo_Size and _hi_Size
 			_lo_Size = 0;
 			_hi_Size = 0;
 			values.clear();                           // Clear values in BitsList
 		}
 		
 		/**
-		 * Removes the mapping for the specified key, if present.
+		 * Removes the mapping for a key from this map if it is present.
 		 *
-		 * @param key The key to remove.
-		 * @return true if remove entry or false no mapping was found for the key.
-		 * @throws ConcurrentModificationException If concurrent modifications are detected.
+		 * @param key The key whose mapping is to be removed from the map.
+		 * @return {@code true} if a mapping was removed, {@code false} if the key was not found.
+		 * @throws ConcurrentModificationException if an excessively long collision chain is encountered,
+		 *                                         which may indicate a data corruption issue.
 		 */
 		public boolean remove( K key ) {
 			if( key == null ) { // Handle null key removal
@@ -768,15 +702,12 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Relocates an entry's key, hash, link, and value from a source index ({@code src}) to a destination index ({@code dst})
-		 * within the internal arrays. This method is crucial for compaction during removal operations.
-		 * <p>
-		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
-		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
-		 * {@code src} to now correctly reference {@code dst}.
+		 * Relocates an entry's data from a source index to a destination index and updates all internal
+		 * pointers (from buckets or chain links) to reflect the move. This is a key part of the compaction
+		 * process during element removal.
 		 *
-		 * @param src The index of the entry to be moved (its current location).
-		 * @param dst The new index where the entry's data will be placed.
+		 * @param src The source index of the entry to move.
+		 * @param dst The destination index for the entry.
 		 */
 		private void move( int src, int dst ) {
 			if( src == dst ) return;
@@ -803,13 +734,13 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Ensures the hash table can hold at least the specified capacity without resizing.
-		 * <p>
-		 * Resizes to the next prime number >= capacity if needed.
+		 * Ensures that the map has enough capacity to hold at least the specified number of elements
+		 * without needing to resize. If the current capacity is insufficient, the map is resized to a
+		 * larger, prime-based capacity.
 		 *
 		 * @param capacity The desired minimum capacity.
-		 * @return The new capacity after resizing, or current capacity if sufficient.
-		 * @throws IllegalArgumentException If capacity is negative.
+		 * @return The new capacity of the map (which may be larger than the requested capacity).
+		 * @throws IllegalArgumentException if the specified capacity is negative.
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity < 0 ) throw new IllegalArgumentException( "capacity < 0" );
@@ -823,18 +754,16 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Reduces the hash table capacity to the current number of mappings.
-		 * <p>
-		 * Uses a prime number >= current count.
+		 * Reduces the capacity of the map to be closer to its actual size. This can be used to
+		 * minimize the memory footprint of the map after a large number of elements have been removed.
 		 */
 		public void trim() { trim( _count() ); }
 		
 		/**
-		 * Reduces the hash table capacity to at least the specified capacity.
-		 * <p>
-		 * Uses a prime number >= capacity. No action if current capacity is already <= specified capacity.
+		 * Reduces the capacity of the map to the specified capacity, if it's smaller than the current capacity.
+		 * The final capacity will be a prime number at least as large as the map's current size.
 		 *
-		 * @param capacity The desired capacity (>= current count).
+		 * @param capacity The target capacity. Must not be less than the current number of elements.
 		 */
 		public void trim( int capacity ) {
 			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
@@ -846,10 +775,11 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Sets or updates the value for the null key.
+		 * Associates the specified value with the <b>null key</b>. If the map previously contained a
+		 * mapping for the null key, the old value is replaced.
 		 *
-		 * @param value The value for the null key (masked to fit {@link BitsList} bits).
-		 * @return {@code true} if the null key was newly set or updated, {@code false} if unchanged.
+		 * @param value The value to be associated with the null key. The value will be masked to fit the configured bit size.
+		 * @return {@code true} if a new mapping for the null key was created, {@code false} if an existing mapping was updated.
 		 */
 		public boolean put( long value ) {
 			boolean b = !hasNullKey;
@@ -859,20 +789,27 @@ public interface ObjectBitsMap {
 			return b;
 		}
 		
+		/**
+		 * Copies all of the mappings from the specified source map to this map.
+		 * These mappings will replace any mappings that this map had for any of the
+		 * keys currently in the specified map.
+		 *
+		 * @param src The map whose mappings are to be placed in this map.
+		 */
 		public void putAll( ObjectBitsMap.RW< ? extends K > src ) {
 			for( int token = -1; ( token = src.unsafe_token( token ) ) != -1; )
 			     put( src.key( token ), src.value( token ) );
 		}
 		
 		/**
-		 * Associates the specified value with the specified key.
-		 * <p>
-		 * Replaces the old value if the key exists; otherwise, adds a new mapping.
+		 * Associates the specified value with the specified key in this map.
+		 * If the map previously contained a mapping for the key, the old value is replaced by the specified value.
+		 * If the key is new, it's added to either the "high" region (if no hash collision) or the "low" region (if a collision occurs).
 		 *
-		 * @param key   The key to map.
-		 * @param value The value to associate (masked to fit {@link BitsList} bits).
-		 * @return {@code true} if a new mapping was added, {@code false} if an existing value was updated.
-		 * @throws ConcurrentModificationException If concurrent modifications are detected.
+		 * @param key   The key with which the specified value is to be associated.
+		 * @param value The value to be associated with the key. The value will be masked to fit the configured bit size.
+		 * @return {@code true} if the key was not already in the map, {@code false} if the key existed and its value was updated.
+		 * @throws ConcurrentModificationException if a very high number of collisions is detected, which might indicate concurrent modification.
 		 */
 		public boolean put( K key, long value ) {
 			if( key == null ) return put( value );
@@ -941,13 +878,13 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Resizes the hash table to the specified capacity.
-		 * This method rebuilds the hash table structure based on the new size.
-		 * All existing entries are rehashed and re-inserted into the new, larger structure.
-		 * This operation increments the set's version.
+		 * Resizes the internal data structures to a new capacity. All existing entries are re-hashed
+		 * and re-inserted into the new arrays. This is a structural modification.
 		 *
-		 * @param newSize The desired new capacity for the internal arrays.
-		 * @return The actual allocated capacity after resize.
+		 * @param newSize           The new capacity for the internal arrays.
+		 * @param forceNewHashCodes If true, and {@link #forceNewHashCodes} is set, a new hashing strategy
+		 *                          will be applied during the re-hashing process.
+		 * @return The new capacity of the map.
 		 */
 		private int resize( int newSize, boolean forceNewHashCodes ) {
 			_version++;
@@ -991,10 +928,11 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Initializes the hash table with the specified capacity.
+		 * Initializes the internal data structures with a given capacity.
+		 * This is a structural modification.
 		 *
-		 * @param capacity The initial capacity (adjusted to next prime).
-		 * @return The actual capacity used.
+		 * @param capacity The initial capacity for the map.
+		 * @return The allocated capacity.
 		 */
 		private int initialize( int capacity ) {
 			_version++;
@@ -1008,14 +946,13 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Internal helper method used during resizing to efficiently copy an
-		 * existing key-value pair into the new hash table structure. It re-hashes the key
-		 * and places it into the correct bucket and region (lo or hi) in the new arrays.
-		 * This method does not check for existing keys, assuming all keys are new in the
-		 * target structure during a resize operation.
+		 * An internal helper method for inserting an element during a resize operation.
+		 * It performs a simplified `put` operation, assuming the key is new to the
+		 * target arrays and does not check for duplicates.
 		 *
-		 * @param key   The key to copy.
-		 * @param value The value associated with the key.
+		 * @param key   The key to insert.
+		 * @param hash  The pre-computed hash of the key.
+		 * @param value The value to insert.
 		 */
 		private void copy( K key, int hash, byte value ) {
 			int bucketIndex = bucketIndex( hash );
@@ -1040,7 +977,7 @@ public interface ObjectBitsMap {
 		}
 		
 		/**
-		 * Default {@link Array.EqualHashOf} instance for {@link RW}.
+		 * A default, shared {@link Array.EqualHashOf} instance for {@link RW} map types.
 		 */
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 		
@@ -1048,10 +985,10 @@ public interface ObjectBitsMap {
 	}
 	
 	/**
-	 * Returns a default {@link Array.EqualHashOf} for {@link RW}.
+	 * Returns a default {@link Array.EqualHashOf} strategy for maps of this type.
 	 *
 	 * @param <K> The key type.
-	 * @return The default {@link Array.EqualHashOf} for {@link RW}.
+	 * @return A singleton {@link Array.EqualHashOf} instance for the map.
 	 */
 	@SuppressWarnings( "unchecked" )
 	static < K > Array.EqualHashOf< RW< K > > equal_hash() { return ( Array.EqualHashOf< RW< K > > ) RW.OBJECT; }

@@ -1,3 +1,20 @@
+// Copyright 2025 Chikirev Sirguy, Unirail Group
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// For inquiries, please contact: al8v5C6HU4UtqE9@gmail.com
+// GitHub Repository: https://github.com/AdHoc-Protocol
+
 package org.unirail.collections;
 
 import org.unirail.JsonWriter;
@@ -6,198 +23,159 @@ import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 
 /**
- * A specialized map for mapping primitive keys to primitive values.
+ * A specialized map for mapping primitive `int` keys to primitive `int` values,
+ * with built-in support for mapping keys to a conceptual "null" value.
  * <p>
- * This map uses an internal hash table structure optimized for performance and memory
- * efficiency, particularly when dealing with non-negative primitive keys. It distinguishes
- * between two primary regions for storing entries:
+ * This implementation uses a memory-efficient, dual-region open-addressing hash
+ * table. It distinguishes between entries based on their collision status to
+ * optimize performance and memory usage. A `long[]` bitset is used to track
+ * which entries hold a meaningful value versus a conceptual null.
  *
  * <ul>
- * <li><b>{@code lo Region}:</b> Stores entries involved in hash collisions.
- *     Occupies low indices (0 to {@code _lo_Size-1}) in the internal key and value arrays.
- *     Uses an explicit {@code links} array for chaining collision entries.
- *     Entries in this region can be the head or part of a collision chain.</li>
+ * <li><b>{@code lo Region}:</b> Stores entries that are part of a hash collision chain.
+ *     It occupies the low-indexed start of the internal `keys`, `values`, and `nulls`
+ *     arrays (from `0` to `_lo_Size - 1`). An explicit `links` array is used for chaining.</li>
  *
- * <li><b>{@code hi Region}:</b> Stores entries that do not (initially) require explicit chain links.
- *     These are typically entries inserted into an empty hash bucket, or they serve as terminal nodes of collision chains.
- *     Occupies high indices (from {@code keys.length - _hi_Size} to {@code keys.length-1}) in the internal key and value arrays.
- *     This region effectively grows downwards from {@code keys.length-1}.</li>
+ * <li><b>{@code hi Region}:</b> Stores entries that, at insertion time, do not cause a collision.
+ *     It occupies the high-indexed end of the internal arrays (from `keys.length - _hi_Size`
+ *     to `keys.length - 1`). Entries in this region do not require an initial `links` slot.
+ *     They can, however, become the terminal node of a collision chain originating in the `lo Region`.</li>
  * </ul>
  *
- * <h3>Insertion Algorithm (Hash Mode):</h3>
+ * <h3>Insertion</h3>
+ * When a new key-value pair is added:
  * <ol>
- * <li>Compute the bucket index using the key's hash.</li>
- * <li><b>If the target bucket is empty:</b>
- *     <ul><li>The new entry is placed in the {@code hi Region}. The bucket is updated to point to this new entry.</li></ul></li>
- * <li><b>If the target bucket is not empty:</b>
+ * <li>If the key already exists, its value and null-status are updated.</li>
+ * <li>If the key is new:
  *     <ul>
- *         <li>The map checks if the new key matches the key of the existing entry at the head of the chain. If so, the value is updated.</li>
- *         <li>If the new key collides (does not match) with the existing entry:
- *             <ul>
- *                 <li>The new entry is placed in the {@code lo Region}.</li>
- *                 <li>This new {@code lo Region} entry becomes the new head of the chain, pointing to the previous head.</li>
- *                 <li>If the previous head was in the {@code hi Region}, it now becomes a terminal node in a {@code lo Region} chain.</li>
- *                 <li>If the previous head was already in the {@code lo Region}, the existing chain is traversed. If the key is found, its value is updated. Otherwise, the new entry is added to the {@code lo Region} and becomes the new head of the chain.</li>
- *             </ul>
- *         </li>
+ *     <li><b>If its hash maps to an empty bucket:</b> The new entry is added to the {@code hi Region}.</li>
+ *     <li><b>If its hash maps to an occupied bucket (a collision):</b> The new entry is added to the
+ *         {@code lo Region} and becomes the new head of the collision chain.</li>
  *     </ul>
  * </li>
  * </ol>
  *
- * <h3>Removal Algorithm (Hash Mode):</h3>
- * Removal involves finding the entry, updating chain links or bucket pointers, and then compacting the
- * respective region ({@code lo} or {@code hi}) to maintain memory density.
+ * <h3>Removal</h3>
+ * When an entry is removed:
+ * <ol>
+ * <li>The entry is located and its collision chain is repaired by updating pointers in `_buckets` or `links`.</li>
+ * <li>To maintain density for fast iteration, the affected region (`lo` or `hi`) is compacted. The last
+ *     logical entry from that region is moved into the vacated slot. All pointers to the moved entry are updated.</li>
+ * <li>A special optimization handles removing a `hi Region` entry that terminates a `lo Region` chain,
+ *     by efficiently moving the predecessor `lo Region` entry into the vacated `hi Region` slot.</li>
+ * </ol>
  *
- * <ul>
- * <li><b>Removing an entry from the {@code hi Region}:</b>
- *     <ul>
- *         <li>If the entry is found, the bucket pointing to it is cleared.</li>
- *         <li>To compact the {@code hi Region}, the entry from the lowest-addressed slot in the {@code hi Region}
- *             is moved into the vacated slot.</li>
- *         <li>The size of the {@code hi Region} is decremented.</li>
- *     </ul>
- * </li>
- * <li><b>Removing an entry from the {@code lo Region}:</b>
- *     <ul>
- *         <li><b>Case 1: Entry is the head of its collision chain:</b> The bucket is updated to point to the next entry in the chain.</li>
- *         <li><b>Case 2: Entry is within or at the end of its collision chain (not the head):</b>
- *             <ul><li>The link of the preceding entry in the chain is updated to bypass the removed entry.</li>
- *                 <li><b>Special Optimization:</b> If a {@code lo Region} chain terminates at a {@code hi Region} entry, and that {@code hi Region} entry is being removed, the {@code lo Region} entry that pointed to it is effectively "moved" into the {@code hi Region} slot. This optimizes compaction and chain restructuring.</li>
- *             </ul>
- *         </li>
- *         <li>After chain adjustments, the {@code lo Region} is compacted:
- *             The data from the last logical entry in the {@code lo Region} is moved into the freed slot.
- *             Any pointers (bucket or links from other entries) to the moved entry's original location are updated to its new location.
- *             The size of the {@code lo Region} is decremented. This ensures the {@code lo Region} remains dense.
- *         </li>
- *     </ul>
- * </li>
- * </ul>
- *
- * <h3>Iteration ({@code unsafe_token}) (Hash Mode):</h3>
- * Iteration over non-null key entries proceeds by scanning the {@code lo Region} first, then the {@code hi Region}:
- * Due to compaction, all entries in these ranges are valid and can be accessed very quickly.
- * <ul>
- *   <li>1. Iterate through indices from `token + 1` up to `_lo_Size - 1` (inclusive).</li>
- *   <li>2. If the {@code lo Region} scan is exhausted (i.e., `token + 1 >= _lo_Size`), iteration continues by scanning the {@code hi Region} from its logical start (`keys.length - _hi_Size`) up to `keys.length - 1` (inclusive).</li>
- * </ul>
- *
- * <h3>Resizing (Hash to Hash):</h3>
- * <ul>
- * <li>Allocate new internal arrays ({@code _buckets}, {@code keys}, {@code values}, {@code links}) with the new capacity.</li>
- * <li>Iterate through all valid entries in the old {@code lo Region} and old {@code hi Region}.</li>
- * <li>Re-insert each key-value pair into the new structure, efficiently re-hashing and re-inserting entries to rebuild the hash table and regions.</li>
- * </ul>
+ * <h3>Iteration</h3>
+ * Iteration is highly efficient because both regions are kept dense. The iterator first
+ * scans the `lo Region` and then the `hi Region`.
  */
 public interface DoubleLongNullMap {
 	
-	// Inner abstract class for read-only map operations and common fields.
-	// This design allows sharing common logic and state between read-only and read-write implementations.
+	/**
+	 * An abstract base class providing read-only operations for the dual-region hash map.
+	 * It implements the core functionalities and state management, offering methods for
+	 * querying the map, iteration, and serialization without allowing modification.
+	 *
+	 * @see IntIntNullMap for a detailed explanation of the internal strategy.
+	 */
 	abstract class R implements Cloneable, JsonWriter.Source {
 		
 		/**
-		 * Flag indicating if the conceptual null key is currently present in the map.
+		 * `true` if the map contains a mapping for the conceptual null key.
 		 */
 		protected boolean                hasNullKey;
 		/**
-		 * Flag indicating if the conceptual null key maps to a non-null value.
-		 * If `false`, the null key maps to a conceptual null value.
+		 * `true` if the conceptual null key maps to a non-null value. This is only meaningful
+		 * if {@link #hasNullKey} is `true`.
 		 */
 		protected boolean                nullKeyHasValue;
 		/**
-		 * Stores the primitive value associated with the conceptual null key.
-		 * This value is only meaningful if {@link #nullKeyHasValue} is {@code true}.
+		 * The primitive value associated with the conceptual null key. This is only meaningful
+		 * if {@link #nullKeyHasValue} is `true`.
 		 */
 		protected long            nullKeyValue;
 		/**
-		 * Hash table buckets. Each element stores a 1-based index (or 0 if empty)
-		 * pointing to the entry in the hi region or  head of a collision chain in the lo region.
-		 * An index of 0 means the bucket is empty.
+		 * The hash table. Stores 1-based indices into the `keys` array, where `_buckets[i] - 1`
+		 * is the 0-based index of the head of a collision chain. A value of `0` indicates an empty bucket.
 		 */
 		protected int[]                  _buckets;
 		/**
-		 * Stores collision chain links for entries in the {@code lo Region}.
-		 * {@code links[i]} contains the index of the next entry in the chain that can be in the {@code hi Region} if it is a terminal entry
+		 * An array for collision chaining. For an entry at index `i` in the `lo Region`,
+		 * `links[i]` stores the 0-based index of the next element in its collision chain.
 		 */
 		protected int[]                  links;
 		/**
-		 * Array storing the actual primitive keys of the map entries.
-		 * Keys for the  lo Region are stored from index 0 up to {@code _lo_Size-1}.
-		 * Keys for the  hi Region are stored from {@code keys.length - _hi_Size} up to {@code keys.length-1}.
+		 * Stores the primitive keys of the map. This array is logically divided into a `lo Region`
+		 * (for collision-involved entries) and a `hi Region` (for non-colliding entries).
 		 */
 		protected double[]          keys;
 		
 		/**
-		 * Array storing the actual primitive values of the map entries.
-		 * Values are stored at the same indices as their corresponding keys.
+		 * Stores the primitive values corresponding to the keys at the same indices. If an entry's
+		 * value is conceptually null, the content of this array at that index is undefined.
 		 */
 		protected long[] values;
 		/**
-		 * Bitset array indicating whether a value at a given index is non-null.
-		 * Each bit corresponds to an entry index in `keys` and `values` arrays.
-		 * If `nulls[i / 64]` has the `(i % 64)`-th bit set, the value at `values[i]` is non-null.
-		 * Otherwise, it is conceptually null (i.e., values[i] holds a default primitive value).
+		 * A bitset used to track whether an entry has a non-null value. For an entry at index `i`,
+		 * if the `i`-th bit is set in this bitset, `values[i]` holds a meaningful value. Otherwise,
+		 * the entry's value is conceptually null.
 		 */
 		protected long[]        nulls;
 		
 		
 		/**
-		 * Returns the total number of non-null key-value mappings in the map's internal data structures.
-		 * This count excludes the conceptual null key, if present.
+		 * Returns the total number of non-null key entries currently stored in the map.
+		 * This is the sum of entries in the `lo` and `hi` regions.
 		 *
-		 * @return The number of entries for non-null keys.
+		 * @return The current count of non-null key entries.
 		 */
 		protected int _count() { return _lo_Size + _hi_Size; }
 		
 		/**
-		 * Version counter for detecting concurrent structural modifications to the map.
-		 * Incremented on operations that change the map's structure (e.g., put, remove, resize, clear).
-		 * Used by iterators to ensure consistency.
+		 * A version counter used for fail-fast iteration. It is incremented upon any
+		 * structural modification to the map (put, remove, clear, resize).
 		 */
 		protected int _version;
 		
 		/**
-		 * The current number of entries stored in the {@code lo Region} (collision-involved entries).
-		 * These entries are stored at indices from 0 up to {@code _lo_Size-1}.
+		 * The number of active entries in the `lo Region`, which occupies indices from `0` to `_lo_Size - 1`.
 		 */
 		protected int _lo_Size;
 		/**
-		 * The current number of entries stored in the {@code hi Region} (non-collision entries or terminal chain nodes).
-		 * These entries are stored at indices from {@code keys.length - _hi_Size} up to {@code keys.length-1}.
+		 * The number of active entries in the `hi Region`, which occupies indices from `keys.length - _hi_Size`
+		 * to `keys.length - 1`.
 		 */
 		protected int _hi_Size;
 		
 		/**
-		 * Shift amount for encoding the version into the higher bits of a {@code long} token.
-		 * This allows packing both the version and the index into a single long.
+		 * The number of bits to shift the version value when packing it into a `long` token.
 		 */
 		protected static final int VERSION_SHIFT = 32;
 		
 		/**
-		 * A special internal index used to represent the conceptual null key within tokens.
-		 * This index is outside the valid range of `keys` array indices.
+		 * A special index value used in tokens to represent the conceptual null key. This value is outside
+		 * the valid range of array indices.
 		 */
 		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF;
 		
 		/**
-		 * A constant representing an invalid or non-existent token.
-		 * Used as a sentinel value for methods returning tokens.
+		 * A constant representing an invalid or non-existent token, returned when a key is not found
+		 * or at the end of an iteration.
 		 */
 		protected static final long INVALID_TOKEN = -1L;
 		
 		
 		/**
-		 * Checks if the map is empty.
+		 * Returns `true` if this map contains no key-value mappings.
 		 *
-		 * @return {@code true} if the map contains no key-value mappings (including the null key), {@code false} otherwise.
+		 * @return `true` if this map is empty.
 		 */
 		public boolean isEmpty() { return size() == 0; }
 		
 		/**
-		 * Returns the total number of key-value mappings in this map.
-		 * This includes the conceptual null key if present.
+		 * Returns the total number of key-value mappings in this map, including the conceptual null key if present.
 		 *
-		 * @return The number of entries in the map.
+		 * @return The number of mappings in this map.
 		 */
 		public int size() {
 			return _count() + (
@@ -207,17 +185,18 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * Returns the total number of key-value mappings in this map.
-		 * This is an alias for {@link #size()}.
+		 * Returns the total number of key-value mappings in this map. Alias for {@link #size()}.
 		 *
-		 * @return The number of entries in the map.
+		 * @return The number of mappings.
 		 */
 		public int count() { return size(); }
 		
 		/**
-		 * Returns the current capacity of the internal storage arrays for keys and values.
+		 * Returns the total allocated capacity of the map's internal arrays.
+		 * This represents the maximum number of non-null key entries the map can hold
+		 * before a resize is triggered.
 		 *
-		 * @return The current capacity of the map's internal arrays. Returns 0 if the map is uninitialized.
+		 * @return The current capacity.
 		 */
 		public int length() {
 			return
@@ -228,77 +207,68 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Checks if the map contains a mapping for the specified boxed key.
-		 * This method handles {@code null} keys.
+		 * Returns `true` if this map contains a mapping for the specified boxed key.
 		 *
-		 * @param key The boxed key whose presence in this map is to be tested.
-		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
+		 * @param key The key to check for (can be null).
+		 * @return `true` if a mapping for the key exists.
 		 */
 		public boolean containsKey(  Double    key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if the map contains a mapping for the specified primitive key.
+		 * Returns `true` if this map contains a mapping for the specified primitive key.
 		 *
-		 * @param key The primitive key whose presence in this map is to be tested.
-		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
+		 * @param key The primitive key to check for.
+		 * @return `true` if a mapping for the key exists.
 		 */
 		public boolean containsKey( double key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		
 		/**
-		 * Checks if this map contains one or more keys mapped to the specified boxed value.
-		 * This method handles searching for both non-null values and conceptual null values.
+		 * Returns `true` if this map maps one or more keys to the specified boxed value.
+		 * A `null` argument will search for keys mapped to a conceptual null value.
 		 *
-		 * @param value The boxed value to search for (can be null, representing a conceptual null value).
-		 * @return {@code true} if the value is found, {@code false} otherwise.
+		 * @param value The value to search for (can be null).
+		 * @return `true` if the value is found in the map.
 		 */
 		public boolean containsValue(  Long      value ) {
-			// If `value` is not null, perform a direct search for the primitive value
-			// Check the conceptual null key first if it has a non-null value
 			if( value != null ) return containsValue( ( long ) ( value + 0 ) );
 			
-			// Special check for conceptual null key mapping to conceptual null value
 			if( hasNullKey && !nullKeyHasValue ) return true;
 			
-			// Scan lo region (indices 0 to _lo_Size-1) for unset bits (null values)
 			if( 0 < _lo_Size )
 				for( int nulls_idx = 0; ; nulls_idx++ ) {
 					int remaining = _lo_Size - ( nulls_idx << 6 );
 					if( remaining < 64 )
-						if( ( nulls[ nulls_idx ] | -1L << remaining ) == -1 ) break;  // Set bits beyond _lo_Size to 1
+						if( ( nulls[ nulls_idx ] | -1L << remaining ) == -1 ) break;
 						else return true;
 					
-					if( nulls[ nulls_idx ] != -1L ) return true; // Found an unset bit (null value)
+					if( nulls[ nulls_idx ] != -1L ) return true;
 				}
 			
-			// Skip hi region if empty
 			if( _hi_Size == 0 ) return false;
 			
-			// Scan hi region (indices keys.length - _hi_Size to keys.length-1)
 			int hi_start  = keys.length - _hi_Size;
 			int nulls_idx = hi_start >> 6;
-			long bits = nulls[ nulls_idx ]; // Get the first 64-bit segment
+			long bits = nulls[ nulls_idx ];
 			
-			int bit = hi_start & 63; // Starting bit in the first segment
-			if( 0 < bit ) bits &= -1L << bit; // Clear bits before hi_start
+			int bit = hi_start & 63;
+			if( 0 < bit ) bits &= -1L << bit;
 			
-			// Process all hi region segments, including the first
 			for( int remaining; ; bits = nulls[ ++nulls_idx ] ) {
-				// Mask bits beyond keys.length in the last partial segment
 				if( nulls_idx == nulls.length )
-					if( 0 < ( remaining = keys.length & 63 ) ) // Bits in the last segment (0 if keys.length is 64-bit aligned)
-						return ( nulls[ nulls_idx ] | -1L << remaining ) != -1;  // Set bits beyond _lo_Size to 1
+					if( 0 < ( remaining = keys.length & 63 ) )
+						return ( nulls[ nulls_idx ] | -1L << remaining ) != -1;
 				
-				if( bits != -1L ) return true; // Found an unset bit (null value)
+				if( bits != -1L ) return true;
 			}
 		}
 		
 		/**
-		 * Checks if the map contains one or more keys mapped to the specified primitive value.
-		 * Checks both non-null key mappings and the null key mapping (if present and has a non-null value).
+		 * Returns `true` if this map maps one or more keys to the specified primitive value.
+		 * This method only searches for non-null values.
 		 *
 		 * @param value The primitive value to search for.
-		 * @return {@code true} if the value is found, {@code false} otherwise.
+		 * @return `true` if the value is found.
 		 */
 		public boolean containsValue( long value ) {
 			if( hasNullKey && nullKeyHasValue && nullKeyValue == value ) return true;
@@ -308,13 +278,11 @@ public interface DoubleLongNullMap {
 			int  nulls_idx = 0;
 			long bits      = 0;
 			
-			// Scan lo region (0 to _lo_Size-1)
 			for( int i = 0; i < _lo_Size; i++ ) {
 				if( nulls_idx != i >> 6 ) bits = nulls[ nulls_idx = i >> 6 ];
 				if( ( bits & 1L << i ) != 0 && values[ i ] == value ) return true;
 			}
 			
-			// Scan hi region (keys.length - _hi_Size to keys.length-1)
 			for( int i = keys.length - _hi_Size; i < keys.length; i++ ) {
 				if( nulls_idx != i >> 6 ) bits = nulls[ nulls_idx = i >> 6 ];
 				if( ( bits & 1L << i ) != 0 && values[ i ] == value ) return true;
@@ -325,12 +293,11 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Returns a "token" representing the internal location of the specified boxed key.
-		 * This token can be used for fast access to the key and its value via {@link #key(long)} and {@link #value(long)}.
-		 * It also includes a version stamp to detect concurrent modifications.
+		 * Returns a token representing the location of the specified boxed key.
+		 * If the key is not found, returns {@link #INVALID_TOKEN}. The null key is handled correctly.
 		 *
-		 * @param key The boxed key to get the token for. Handles {@code null} keys.
-		 * @return A {@code long} token for the key, or {@link #INVALID_TOKEN} if the key is not found.
+		 * @param key The boxed key to find (can be null).
+		 * @return A valid token if the key is in the map, otherwise {@link #INVALID_TOKEN}.
 		 */
 		public long tokenOf(  Double    key ) {
 			return key == null ?
@@ -342,13 +309,14 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Returns a "token" representing the internal location of the specified primitive key.
-		 * This token can be used for fast access to the key and its value via {@link #key(long)} and {@link #value(long)}.
-		 * It also includes a version stamp to detect concurrent modifications.
+		 * Returns a "token" representing the location of the specified primitive key.
+		 * This token can be used for fast access to the key and value, and includes a
+		 * version stamp to detect concurrent modifications.
 		 *
-		 * @param key The primitive key to get the token for.
-		 * @return A {@code long} token for the key, or {@link #INVALID_TOKEN} if the key is not found.
-		 * @throws ConcurrentModificationException if a concurrent structural modification is detected while traversing a collision chain, leading to an unexpectedly long chain traversal.
+		 * @param key The primitive key to find.
+		 * @return A `long` token for the key, or {@link #INVALID_TOKEN} if the key is not found.
+		 * @throws ConcurrentModificationException if a potential infinite loop is detected while
+		 *                                         traversing a collision chain.
 		 */
 		public long tokenOf( double key ) {
 			
@@ -364,7 +332,7 @@ public interface DoubleLongNullMap {
 			
 			for( int collisions = 0; ; ) {
 				if( keys[ index ] == key ) return token( index );
-				if( _lo_Size <= index ) break; //terminal node
+				if( _lo_Size <= index ) break;
 				index = links[ index ];
 				if( _lo_Size < ++collisions ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 			}
@@ -373,10 +341,8 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Returns the first valid token for iterating over map entries.
-		 * <p>
-		 * Iteration order prioritizes non-null keys (from {@code lo Region} then {@code hi Region}),
-		 * followed by the conceptual null key if present.
+		 * Returns the token for the first entry in the iteration order.
+		 * Subsequent entries can be accessed by passing the returned token to {@link #token(long)}.
 		 *
 		 * @return The token for the first entry, or {@link #INVALID_TOKEN} if the map is empty.
 		 */
@@ -392,19 +358,16 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Returns the next valid token for iterating over map entries.
-		 * This method is designed to be used in a loop:
-		 * {@code for (long token = map.token(); token != INVALID_TOKEN; token = map.token(token))}
+		 * Returns the token for the entry that follows the one specified by the given token.
+		 * This method is used to iterate through the map.
 		 * <p>
-		 * Iteration order: First, entries in the {@code lo Region} (0 to {@code _lo_Size-1}),
-		 * then entries in the {@code hi Region} ({@code keys.length - _hi_Size} to {@code keys.length-1}),
-		 * and finally the null key if it exists.
+		 * Iteration order is: all entries in the `lo Region`, then all entries in the `hi Region`,
+		 * and finally the conceptual null key mapping, if present.
 		 *
-		 * @param token The current token obtained from a previous call to {@link #token()} or {@link #token(long)}.
-		 *              Must not be {@link #INVALID_TOKEN}.
-		 * @return The token for the next entry, or {@link #INVALID_TOKEN} if no more entries exist.
+		 * @param token The current token from a previous call to {@link #token()} or {@link #token(long)}.
+		 * @return The token for the next entry, or {@link #INVALID_TOKEN} if there are no more entries.
 		 * @throws IllegalArgumentException        if the input token is {@link #INVALID_TOKEN}.
-		 * @throws ConcurrentModificationException if the map has been structurally modified since the token was issued.
+		 * @throws ConcurrentModificationException if the map was structurally modified after the token was issued.
 		 */
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
@@ -423,23 +386,17 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Returns the index of the next non-null key for fast, **unsafe** iteration, bypassing concurrency checks.
+		 * Returns the next valid internal array index for fast, unsafe iteration.
+		 * This method scans the dense `lo` and `hi` regions, bypassing concurrency checks.
+		 * It **excludes** the conceptual null key.
 		 *
-		 * <p><b>Usage:</b> Start iteration by calling {@code unsafe_token(-1)}. Subsequent calls should pass the previously returned index
-		 * to get the next index. Iteration stops when this method returns {@code -1}.
+		 * <p><strong>⚠️ WARNING: UNSAFE ⚠️</strong>
+		 * This method is for performance-critical use where no concurrent modifications are guaranteed.
+		 * Structural changes to the map during iteration can lead to undefined behavior. For safe
+		 * iteration, use the standard `token()` and `token(long)` methods.
 		 *
-		 * <p><b>Excludes Null Key:</b> This iteration method **only** covers non-null keys. Check for the null key separately using
-		 * {@link #hasNullKey()} and access its value via {@link #nullKeyValue()}.
-		 *
-		 * <p><strong>⚠️ WARNING: UNSAFE ⚠️</strong> This method offers higher performance than {@link #token(long)} by omitting version checks.
-		 * However, if the map is structurally modified (e.g., keys added or removed, resizing) during an iteration using this method,
-		 * the behavior is undefined. It may lead to missed entries, incorrect results, infinite loops, or runtime exceptions
-		 * (like {@code ArrayIndexOutOfBoundsException}). **Only use this method when you can guarantee that no modifications
-		 * will occur to the map during the iteration.**
-		 *
-		 * @param token The index returned by the previous call to this method, or {@code -1} to start iteration.
-		 * @return The index of the next non-null key, or {@code -1} if no more non-null keys exist.
-		 * @see #token(long) For safe iteration that includes the null key and checks for concurrent modifications.
+		 * @param token The index from the previous call, or `-1` to start iteration.
+		 * @return The index of the next entry, or `-1` if iteration is complete.
 		 */
 		public int unsafe_token( final int token ) {
 			if( _count() == 0 || keys == null || keys.length - 1 <= token ) return -1;
@@ -458,59 +415,54 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Checks if the map contains a special mapping for the conceptual null key.
+		 * Returns `true` if this map contains a mapping for the conceptual null key.
 		 *
-		 * @return {@code true} if a null key mapping exists, {@code false} otherwise.
+		 * @return `true` if the null key is present.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
 		/**
-		 * Checks if the conceptual null key currently maps to a non-null value.
-		 * Returns {@code false} if the null key is not present or if it maps to a conceptual null value.
+		 * Returns `true` if the conceptual null key is present and maps to a non-null value.
 		 *
-		 * @return {@code true} if the null key exists and has a non-null value, {@code false} otherwise.
+		 * @return `true` if the null key maps to a non-null value.
 		 */
 		public boolean nullKeyHasValue() { return hasNullKey && nullKeyHasValue; }
 		
 		/**
-		 * Returns the primitive value associated with the conceptual null key.
+		 * Returns the primitive value to which the conceptual null key is mapped.
 		 * <p>
-		 * <b>Precondition:</b> This method should only be called if {@link #hasNullKey()} returns {@code true}
-		 * and preferably {@link #nullKeyHasValue()} returns {@code true}.
-		 * If {@link #nullKeyHasValue()} is {@code false}, the returned value is conceptually null
-		 * (often 0 for primitive values) and should be interpreted as such.
+		 * <b>Precondition:</b> Callers should first check {@link #nullKeyHasValue()} to ensure
+		 * this method returns a meaningful value. If the null key maps to a conceptual null,
+		 * the returned primitive value is undefined (typically `0`).
 		 *
-		 * @return The primitive value associated with the null key.
+		 * @return The primitive value for the null key.
 		 */
 		public long nullKeyValue() { return  nullKeyValue; }
 		
 		
 		/**
-		 * Checks if the given token represents the conceptual null key.
+		 * Returns `true` if the given token represents the conceptual null key.
 		 *
 		 * @param token The token to check.
-		 * @return {@code true} if the token represents the null key, {@code false} otherwise.
+		 * @return `true` if the token represents the null key.
 		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
 		 * Returns the primitive key associated with the given token.
 		 *
-		 * @param token The token obtained from {@link #tokenOf} or iteration methods.
-		 *              Must not be {@link #INVALID_TOKEN} or represent the conceptual null key.
-		 * @return The primitive key.
-		 * @throws IllegalArgumentException if the token is invalid or represents the null key.
+		 * @param token The token for a non-null key entry. Must be valid.
+		 * @return The primitive key at the token's location.
 		 */
 		public double key( long token ) {
 			return ( double )  keys[ index( token ) ];
 		}
 		
 		/**
-		 * Checks if the entry associated with the given token has a non-null value.
-		 * Handles both regular tokens and the special null key token.
+		 * Returns `true` if the entry associated with the given token has a non-null value.
 		 *
-		 * @param token The token to check (can be for the conceptual null key).
-		 * @return {@code true} if the token is valid and the corresponding entry maps to a non-null value, {@code false} otherwise (including if the value is conceptually null or the token is invalid/expired).
+		 * @param token The token to check, which can represent a non-null key or the conceptual null key.
+		 * @return `true` if the entry's value is not conceptually null.
 		 */
 		public boolean hasValue( long token ) {
 			return isKeyNull( token ) ?
@@ -521,9 +473,9 @@ public interface DoubleLongNullMap {
 		/**
 		 * Returns the primitive value associated with the specified token.
 		 * <p>
-		 * <b>Precondition:</b> This method should only be called if {@link #hasValue(long)} returns {@code true} for the given token.
-		 * <p>
-		 * The result is undefined if the token is {@link #INVALID_TOKEN} or has expired due to structural modification.
+		 * <b>Precondition:</b> Callers should first check {@link #hasValue(long)} for the given
+		 * token to ensure this method returns a meaningful value. If the entry's value is
+		 * conceptually null, the returned primitive value is undefined (typically `0`).
 		 *
 		 * @param token The token for which to retrieve the value.
 		 * @return The primitive value associated with the token.
@@ -536,12 +488,10 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Computes a hash code for this map.
-		 * The hash code is calculated based on all key-value pairs, including the conceptual null key if present.
-		 * The order of iteration for hash code calculation is consistent, ensuring that
-		 * two equal maps will have the same hash code.
+		 * Computes the hash code for this map. The hash code is the sum of the hash codes
+		 * of each key-value entry in the map, including the conceptual null key if present.
 		 *
-		 * @return A hash code for this map.
+		 * @return The hash code value for this map.
 		 */
 		@Override
 		public int hashCode() {
@@ -568,28 +518,27 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * A seed used for hash code calculations to prevent collisions with other types of objects.
+		 * A static seed used in `hashCode` calculation to improve hash distribution.
 		 */
 		private static final int seed = R.class.hashCode();
 		
 		/**
-		 * Compares this map with the specified object for equality.
-		 * Returns {@code true} if the given object has the same type, and the two maps
-		 * contain the same number of mappings, and each mapping in this map is also present in the
-		 * other map (i.e., the same key maps to the same value).
+		 * Compares this map with the specified object for equality. Returns `true` if the
+		 * object is also an `IntIntNullMap.R`, the two maps have the same size, and every
+		 * mapping in this map is equal to a mapping in the other map.
 		 *
-		 * @param obj The object to be compared for equality with this map.
-		 * @return {@code true} if the specified object is equal to this map.
+		 * @param obj the object to be compared for equality with this map.
+		 * @return `true` if the specified object is equal to this map.
 		 */
 		@Override
 		public boolean equals( Object obj ) { return obj != null && getClass() == obj.getClass() && equals( ( R ) obj ); }
 		
 		
 		/**
-		 * Compares this map with another R instance for equality.
+		 * Compares this map with another `IntIntNullMap.R` for equality.
 		 *
-		 * @param other The other map to compare with.
-		 * @return {@code true} if this map is equal to the specified map.
+		 * @param other the other map to compare against.
+		 * @return `true` if the maps contain the exact same key-value mappings, respecting null values.
 		 */
 		public boolean equals( R other ) {
 			if( other == this ) return true;
@@ -607,11 +556,11 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Creates and returns a deep copy of this map.
-		 * All internal arrays are cloned, ensuring the cloned map is independent of the original.
+		 * Creates and returns a deep copy of this map. The internal arrays are cloned,
+		 * making the new map independent of the original.
 		 *
-		 * @return A cloned instance of this map.
-		 * @throws InternalError if cloning fails (should not happen as Cloneable is supported).
+		 * @return A deep copy of this map.
+		 * @throws InternalError if cloning fails, which should not happen.
 		 */
 		@Override
 		public R clone() {
@@ -631,7 +580,7 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * Returns a string representation of this map in JSON format.
+		 * Returns a string representation of the map in JSON object format (e.g., `{"1":10, "42":null}`).
 		 *
 		 * @return A JSON string representing the map.
 		 */
@@ -639,11 +588,11 @@ public interface DoubleLongNullMap {
 		public String toString() { return toJSON(); }
 		
 		/**
-		 * Writes the content of this map to a {@link JsonWriter} in JSON object format.
-		 * The conceptual null key is represented as "null" key.
-		 * Primitive keys are represented as their direct value.
+		 * Writes the contents of this map to a {@link JsonWriter} as a JSON object.
+		 * The conceptual null key is written as the JSON string `"null"`. Keys mapped to
+		 * a conceptual null value are written as JSON `null`.
 		 *
-		 * @param json The {@code JsonWriter} to write to.
+		 * @param json The {@link JsonWriter} to write to.
 		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
@@ -662,37 +611,37 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * Calculates the bucket index for a given hash value within the {@code _buckets} array.
+		 * Computes the bucket index for a given key's hash code.
 		 *
-		 * @param hash The hash value of a key.
-		 * @return The calculated bucket index.
+		 * @param hash The hash code of a key.
+		 * @return The index in the `_buckets` array.
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
 		
 		/**
-		 * Packs an internal array index and the current map version into a single {@code long} token.
-		 * The version is stored in the higher 32 bits, and the index in the lower 32 bits.
+		 * Packs an internal array index and the current map version into a single `long` token.
+		 * The version is stored in the high 32 bits and the index in the low 32 bits.
 		 *
-		 * @param index The 0-based index of the entry in the internal arrays (or {@link #NULL_KEY_INDEX} for the null key).
-		 * @return A {@code long} token representing the entry.
+		 * @param index The 0-based index of the entry (or {@link #NULL_KEY_INDEX} for the null key).
+		 * @return A versioned `long` token representing the entry.
 		 */
 		protected long token( int index ) { return ( long ) _version << VERSION_SHIFT | index; }
 		
 		
 		/**
-		 * Extracts the 0-based internal array index from a given {@code long} token.
+		 * Extracts the 0-based internal array index from a token.
 		 *
-		 * @param token The {@code long} token.
+		 * @param token The `long` token.
 		 * @return The 0-based index.
 		 */
 		protected int index( long token ) { return ( int ) token; }
 		
 		
 		/**
-		 * Extracts the version stamp from a given {@code long} token.
+		 * Extracts the version stamp from a token.
 		 *
-		 * @param token The {@code long} token.
+		 * @param token The `long` token.
 		 * @return The version stamp.
 		 */
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
@@ -702,22 +651,24 @@ public interface DoubleLongNullMap {
 	
 	
 	/**
-	 * Concrete implementation providing read-write functionalities for the map.
-	 * This class allows modification of the map's contents.
+	 * A read-write implementation of the dual-region hash map, extending the read-only base class {@link R}.
+	 * It provides methods for modifying the map, such as adding and removing entries, clearing the map,
+	 * and managing its capacity.
 	 */
 	class RW extends R {
 		
 		
 		/**
-		 * Constructs an empty RW map with a default initial capacity.
+		 * Constructs an empty map with a default initial capacity.
 		 */
 		public RW() { this( 0 ); }
 		
 		
 		/**
-		 * Constructs an empty RW map with the specified initial capacity.
+		 * Constructs an empty map with a specified initial capacity hint.
 		 *
-		 * @param capacity The initial capacity of the map. If 0, the map starts uninitialized.
+		 * @param capacity The initial capacity. The map will be able to hold at least this many
+		 *                 elements before needing to resize.
 		 */
 		public RW( int capacity ) {
 			if( capacity > 0 ) initialize( Array.prime( capacity ) );
@@ -725,7 +676,8 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Initializes or re-initializes the internal arrays based on the specified capacity
+		 * Initializes or re-initializes the internal hash map arrays with the given capacity.
+		 * This is a structural modification and increments the version counter.
 		 *
 		 * @param capacity The desired capacity for the new internal arrays.
 		 * @return The actual allocated capacity.
@@ -746,10 +698,10 @@ public interface DoubleLongNullMap {
 		
 		/**
 		 * Associates the conceptual null key with a conceptual null value.
-		 * If the conceptual null key was not previously present, it is added.
-		 * If it was present and had a non-null value, that value is cleared (set to conceptual null).
+		 * If the null key was not present, it is added. If it was present with a non-null
+		 * value, its value is changed to be conceptually null.
 		 *
-		 * @return {@code true} if the map was structurally modified (e.g., null key added, or its value status changed), {@code false} otherwise.
+		 * @return `true` if the map's state changed (key added or value status changed).
 		 */
 		public boolean put() {
 			
@@ -770,12 +722,11 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * Associates the specified boxed value with the conceptual null key in this map.
-		 * If the map previously contained a mapping for the null key, the old value is replaced.
-		 * Handles null boxed values gracefully (associates the null key with a conceptual null value if input `value` is null).
+		 * Associates the conceptual null key with the specified boxed value.
+		 * A `null` value will map the key to a conceptual null.
 		 *
-		 * @param value The boxed value to associate with the conceptual null key (can be null).
-		 * @return {@code true} if the map state was changed (insert or update), {@code false} otherwise.
+		 * @param value The value to associate with the null key (can be null).
+		 * @return `true` if the map's state changed.
 		 */
 		public boolean put(  Long      value ) {
 			return value == null ?
@@ -784,13 +735,12 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * Associates the specified boxed value with the specified boxed key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * Handles {@code null} keys and {@code null} values.
+		 * Associates the specified boxed value with the specified boxed key.
+		 * Handles `null` for both key and value.
 		 *
-		 * @param key   The boxed key (can be null).
-		 * @param value The boxed value (can be null).
-		 * @return {@code true} if the map state was changed (new key added or existing key's value updated to a different value status).
+		 * @param key   The key to map (can be null).
+		 * @param value The value to map (can be null).
+		 * @return `true` if the map's state changed (key added or value updated).
 		 */
 		public boolean put(  Double    key,  Long      value ) {
 			return key == null ?
@@ -803,13 +753,11 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * Associates the specified boxed value with the specified primitive key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * Handles null boxed values.
+		 * Associates the specified boxed value with the specified primitive key.
 		 *
-		 * @param key   The primitive key.
-		 * @param value The boxed value to associate with the key (can be null).
-		 * @return {@code true} if the map state was changed (new key added or existing key's value updated to a different value status).
+		 * @param key   The primitive key to map.
+		 * @param value The value to map (can be null).
+		 * @return `true` if the map's state changed.
 		 */
 		public boolean put( double key,  Long      value ) {
 			return value == null ?
@@ -819,11 +767,10 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Associates the specified primitive value with the conceptual null key in this map.
-		 * If the map previously contained a mapping for the null key, the old value is replaced.
+		 * Associates the specified primitive value with the conceptual null key.
 		 *
-		 * @param value The primitive value to associate.
-		 * @return {@code true} if the map was structurally modified (e.g., null key added), {@code false} otherwise.
+		 * @param value The value to associate.
+		 * @return `true` if a new mapping for the null key was created.
 		 */
 		public boolean put( long value ) {
 			_version++;
@@ -831,25 +778,23 @@ public interface DoubleLongNullMap {
 			
 			if( hasNullKey ) {
 				nullKeyValue = ( long ) value;
-				return false; // Key was not new, only value updated.
+				return false;
 			}
 			
 			nullKeyValue = ( long ) value;
-			return hasNullKey = true; // Null key was added.
+			return hasNullKey = true;
 		}
 		
 		
 		/**
-		 * Associates a value with the conceptual null key in this map.
-		 * <p>
-		 * If the map previously contained a mapping for the null key, the old value is replaced.
+		 * Private helper to associate a value with the conceptual null key.
 		 *
-		 * @param value    The primitive value to be associated with the null key.
-		 * @param hasValue {@code true} if `value` is a non-null value, {@code false} if it represents a conceptual null value.
-		 * @return {@code true} if the map was structurally modified as a result of this operation (e.g., null key added), {@code false} otherwise.
+		 * @param value    The primitive value.
+		 * @param hasValue `true` to map to a non-null value, `false` for conceptual null.
+		 * @return `true` if the null key was newly added.
 		 */
 		private boolean put( long value, boolean hasValue ) {
-			boolean b = !hasNullKey; // Check if the null key is being added for the first time.
+			boolean b = !hasNullKey;
 			
 			hasNullKey = true;
 			if( nullKeyHasValue = hasValue ) nullKeyValue = ( long ) value;
@@ -858,40 +803,40 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * Associates the specified primitive value with the conceptual null key in this map.
+		 * Associates the specified primitive value with the conceptual null key.
 		 *
 		 * @param value The primitive value to associate.
-		 * @return {@code true} if the map state was changed (insert or update).
+		 * @return `true` if the map's state changed.
 		 */
 		public boolean putNullKey( long  value ) { return put( value, true ); }
 		
 		/**
 		 * Associates a conceptual null value with the specified primitive key.
-		 * If the key already exists, its value is set to conceptual null. If not, the key is added with a conceptual null value.
 		 *
 		 * @param key The primitive key.
-		 * @return {@code true} if the map state was changed (new key added or existing key's value status changed).
+		 * @return `true` if the map's state changed (key added or value status changed).
 		 */
 		public boolean putNullValue( double key ) { return put( key, ( long ) 0, false ); }
 		
 		/**
-		 * Associates the specified primitive value with the specified primitive key in this map.
-		 * If the map previously contained a mapping for the key, the old value is replaced.
+		 * Associates the specified primitive value with the specified primitive key.
 		 *
 		 * @param key   The primitive key.
-		 * @param value The primitive value to associate.
-		 * @return {@code true} if the map state was changed (new key added or existing key's value updated to a different value).
+		 * @param value The primitive value.
+		 * @return `true` if a new mapping was created.
 		 */
 		public boolean put( double key, long value ) { return put( key, value, true ); }
 		
 		/**
-		 * Core insertion/update logic for non-null keys.
+		 * The core method for adding or updating a key-value pair. It handles the
+		 * dual-region hashing logic and updates the `keys`, `values`, and `nulls` arrays.
 		 *
-		 * @param key      The primitive key to insert or update.
-		 * @param value    The primitive value to associate with the key.
-		 * @param hasValue {@code true} if `value` represents a non-null value, {@code false} if it represents a conceptual null value.
-		 * @return {@code true} if the map was structurally modified (new key added), {@code false} if an existing key was updated.
-		 * @throws ConcurrentModificationException If potential hash chain corruption is detected.
+		 * @param key      The primitive key.
+		 * @param value    The primitive value.
+		 * @param hasValue `true` if mapping to a non-null value, `false` for conceptual null.
+		 * @return `true` if a new key was added, `false` if an existing key's value was updated.
+		 * @throws ConcurrentModificationException if a potential infinite loop is detected during
+		 *                                         collision chain traversal.
 		 */
 		private boolean put( double key, long value, boolean hasValue ) {
 			
@@ -904,13 +849,12 @@ public interface DoubleLongNullMap {
 			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
-			if( index == -1 )  // Bucket is empty: place new entry in {@code hi Region}
-				dst_index = keys.length - 1 - _hi_Size++; // Add to the "bottom" of {@code hi Region}
+			if( index == -1 )
+				dst_index = keys.length - 1 - _hi_Size++;
 			else {
-				// Bucket is not empty, 'index' points to an existing entry
-				if( _lo_Size <= index ) { // Entry is in {@code hi Region}
-					if( keys[ index ] == ( double ) key ) { // Key matches existing {@code hi Region} entry
-						if( hasValue ) {// Update value
+				if( _lo_Size <= index ) {
+					if( keys[ index ] == ( double ) key ) {
+						if( hasValue ) {
 							values[ index ] = ( long ) value;
 							nulls[ index >> 6 ] |= 1L << index;
 						}
@@ -919,13 +863,13 @@ public interface DoubleLongNullMap {
 						
 						
 						_version++;
-						return false; // Key was not new
+						return false;
 					}
 				}
-				else // Entry is in {@code lo Region} (collision chain)
+				else
 					for( int next = index, collisions = 0; ; ) {
 						if( keys[ next ] == key ) {
-							if( hasValue ) {// Update value
+							if( hasValue ) {
 								values[ next ] = ( long ) value;
 								nulls[ next >> 6 ] |= 1L << next;
 							}
@@ -933,9 +877,9 @@ public interface DoubleLongNullMap {
 								nulls[ next >> 6 ] &= ~( 1L << next );
 							
 							_version++;
-							return false;// Key was not new
+							return false;
 						}
-						if( _lo_Size <= next ) break; // Found terminal node (might be in hi or lo region)
+						if( _lo_Size <= next ) break;
 						next = links[ next ];
 						
 						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
@@ -944,29 +888,28 @@ public interface DoubleLongNullMap {
 				if( links.length == ( dst_index = _lo_Size++ ) )
 					links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
 				
-				links[ dst_index ] = ( int ) index; // Link the new entry to the previous head of the chain
+				links[ dst_index ] = ( int ) index;
 			}
 			
 			keys[ dst_index ] = ( double ) key;
-			if( hasValue ) {// Update value
+			if( hasValue ) {
 				values[ dst_index ] = ( long ) value;
 				nulls[ dst_index >> 6 ] |= 1L << dst_index;
 			}
 			else
 				nulls[ dst_index >> 6 ] &= ~( 1L << dst_index );
 			
-			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 ); // Update bucket to point to the new head (1-based index)
+			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 );
 			_version++;
-			return true; // Key was new
+			return true;
 		}
 		
 		
 		/**
 		 * Removes the mapping for the specified boxed key from this map if present.
-		 * Handles {@code null} boxed keys by delegating to {@link #removeNullKey()}.
 		 *
-		 * @param key The boxed key whose mapping is to be removed.
-		 * @return {@code true} if the map contained a mapping for the specified key, {@code false} otherwise.
+		 * @param key The key whose mapping is to be removed (can be null).
+		 * @return `true` if a mapping was removed.
 		 */
 		public boolean remove(  Double    key ) {
 			return key == null ?
@@ -978,26 +921,24 @@ public interface DoubleLongNullMap {
 		/**
 		 * Removes the mapping for the conceptual null key from this map if present.
 		 *
-		 * @return {@code true} if the null key was present and removed, {@code false} otherwise.
+		 * @return `true` if the null key mapping was removed.
 		 */
 		public boolean removeNullKey() {
 			if( !hasNullKey ) return false;
 			hasNullKey      = false;
-			nullKeyHasValue = false; // Also reset nullKeyHasValue as the null key is no longer present.
+			nullKeyHasValue = false;
 			_version++;
 			return true;
 		}
 		
 		/**
-		 * Relocates an entry's data (key and value) from a source index ({@code src}) to a destination index ({@code dst})
-		 * within the internal {@code keys} and {@code values} arrays.
-		 * <p>
-		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
-		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
-		 * {@code src} to now correctly reference {@code dst}.
+		 * Moves an entry (key, value, and null-status bit) from a source index to a destination index.
+		 * This is a core part of the compaction process during removal. After moving the data,
+		 * it finds the pointer (in `_buckets` or `links`) that referenced `src` and updates
+		 * it to point to `dst`, maintaining hash chain integrity.
 		 *
-		 * @param src The index of the entry to be moved (its current location).
-		 * @param dst The new index where the entry's data will be placed.
+		 * @param src The source index of the entry to move.
+		 * @param dst The destination index for the entry.
 		 */
 		private void move( int src, int dst ) {
 			
@@ -1005,19 +946,16 @@ public interface DoubleLongNullMap {
 			int bucketIndex = bucketIndex( Array.hash( keys[ src ] ) );
 			int index       = _buckets[ bucketIndex ] - 1;
 			
-			if( index == src ) _buckets[ bucketIndex ] = ( int ) ( dst + 1 ); // If src was the head of a chain
-			else { // Find the preceding entry in the chain and update its link
+			if( index == src ) _buckets[ bucketIndex ] = ( int ) ( dst + 1 );
+			else {
 				while( links[ index ] != src )
 					index = links[ index ];
 				
 				links[ index ] = ( int ) dst;
 			}
 			
-			// If the source was in the lo region, its link might be important for the new position.
-			// Copy the link from `src` to `dst`.
 			if( src < _lo_Size ) links[ dst ] = links[ src ];
 			
-			// Copy the key and value data from `src` to `dst`.
 			keys[ dst ] = keys[ src ];
 			
 			if( ( nulls[ src >> 6 ] & 1L << src ) != 0 ) {
@@ -1030,54 +968,18 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Removes the mapping for the specified primitive key from this map if present.
+		 * Removes the mapping for the specified primitive key from this map if it is present.
 		 * <p>
-		 * <h3>Hash Map Removal Logic (Sparse Mode):</h3>
-		 * Removal involves finding the entry, updating chain links or bucket pointers, and then
-		 * compacting the respective region ({@code lo} or {@code hi}) to maintain memory density.
-		 * <ol>
-		 * <li><b>Find entry:</b> Locate the entry corresponding to the key by traversing the hash bucket's chain.</li>
-		 * <li><b>Handle 'hi region' removal:</b>
-		 *     <ul>
-		 *         <li>If the found entry is in the {@code hi Region} and is the head of its bucket (meaning no collision chain),
-		 *             the bucket pointer is cleared (set to 0).</li>
-		 *         <li>To compact the {@code hi Region}, the entry from the "bottom" of the {@code hi Region}
-		 *             (at {@code keys[keys.length - _hi_Size]}) is moved into the freed {@code removeIndex} slot using {@link #move(int, int)}.
-		 *             {@code _hi_Size} is then decremented.</li>
-		 *     </ul>
-		 * </li>
-		 * <li><b>Handle 'lo region' removal (and associated 'hi region' entries):</b>
-		 *     <ul>
-		 *         <li><b>Case A: Entry is the head of its chain:</b> The bucket pointer {@code _buckets[removeBucketIndex]}
-		 *             is updated to point to the next entry in the chain ({@code links[removeIndex]}).</li>
-		 *         <li><b>Case B: Entry is within or at the end of its chain:</b> The {@code links} link of the
-		 *             preceding entry in the chain is updated to bypass the removed entry.</li>
-		 *         <li><b>Special Optimization:</b>
-		 *             If the key to be removed (`T`) is found at an index `T_idx` in the {@code hi Region}, and `T` is
-		 *             a terminal node of a collision chain whose preceding entry `P` is in the {@code lo Region} (i.e., `links[P_idx] == T_idx`):
-		 *             <ul>
-		 *                 <li>The data (key/value) from `P` (at `P_idx`) is copied into `T_idx`'s slot in the {@code hi Region}.
-		 *                     This effectively "moves" `P`'s entry into the {@code hi Region} and makes it the new terminal node for its chain.</li>
-		 *                 <li>The main bucket pointer for this chain (which is for `P`) is updated to now point to `T_idx`
-		 *                     (which now contains `P`'s data). This makes `P`'s new location the head of the chain.</li>
-		 *                 <li>`P`'s original slot (`P_idx` in the {@code lo Region}) is then treated as the index to be
-		 *                     compacted, and the last logical `lo` entry is moved into it.</li>
-		 *             </ul>
-		 *             This avoids a separate {@code hi} region compaction for the removed {@code hi} entry and
-		 *             optimizes the movement of the {@code lo} entry into the freed {@code hi} slot.
-		 *         </li>
-		 *         <li><b>Compaction:</b> After chain adjustments, the {@code lo Region} is compacted:
-		 *             The data from the last logical entry in {@code lo Region} (at index {@code _lo_Size-1})
-		 *             is moved into the freed {@code removeIndex} slot using {@link #move(int, int)}.
-		 *             All pointers (bucket or {@code links} links) to the moved entry's original position
-		 *             are updated to its new location. {@code _lo_Size} is decremented.</li>
-		 *     </ul>
-		 * </li>
-		 * </ol>
+		 * After unlinking the entry from its collision chain, the data region (`lo` or `hi`)
+		 * is compacted by moving the last logical element from that region into the vacated slot.
+		 * The {@link #move(int, int)} helper ensures all pointers to the moved element are updated correctly.
+		 * This method also handles a special optimization for removing a `hi Region` entry that
+		 * terminates a `lo Region` chain.
 		 *
 		 * @param key The primitive key whose mapping is to be removed.
-		 * @return {@code true} if the map contained a mapping for the specified key, {@code false} otherwise.
-		 * @throws ConcurrentModificationException if an internal state inconsistency is detected during collision chain traversal (e.g., an unexpectedly long chain or malformed links).
+		 * @return `true` if a mapping was removed.
+		 * @throws ConcurrentModificationException if a potential infinite loop is detected during
+		 *                                         collision chain traversal.
 		 */
 		public boolean remove( double key ) {
 			
@@ -1087,7 +989,7 @@ public interface DoubleLongNullMap {
 			int removeIndex       = _buckets[ removeBucketIndex ] - 1;
 			if( removeIndex < 0 ) return false;
 			
-			if( _lo_Size <= removeIndex ) {// Entry is in {@code hi Region}
+			if( _lo_Size <= removeIndex ) {
 				
 				if( keys[ removeIndex ] != key ) return false;
 				
@@ -1099,31 +1001,26 @@ public interface DoubleLongNullMap {
 			}
 			
 			int next = links[ removeIndex ];
-			if( keys[ removeIndex ] == key ) _buckets[ removeBucketIndex ] = ( int ) ( next + 1 ); // If removed entry was head, update bucket
+			if( keys[ removeIndex ] == key ) _buckets[ removeBucketIndex ] = ( int ) ( next + 1 );
 			else {
 				int last = removeIndex;
-				if( keys[ removeIndex = next ] == key )// The key is found at 'SecondNode'
-					if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];// 'SecondNode' is in 'lo Region', relink to bypass 'SecondNode'
-					else {  // 'SecondNode' is in the hi Region (it's a terminal node)
-						// This is the special optimization case: moving a lo entry to a hi slot
-						keys[ removeIndex ] = keys[ last ]; // Copies the key from `last` to `removeIndex`
+				if( keys[ removeIndex = next ] == key )
+					if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
+					else {
+						keys[ removeIndex ] = keys[ last ];
 						
-						if( ( nulls[ last >> 6 ] & 1L << last ) != 0 ) { // If `last` has a non-null value.
+						if( ( nulls[ last >> 6 ] & 1L << last ) != 0 ) {
 							values[ removeIndex ] = values[ last ];
-							nulls[ removeIndex >> 6 ] |= 1L << removeIndex; // Set bit for new location.
+							nulls[ removeIndex >> 6 ] |= 1L << removeIndex;
 						}
 						else
-							nulls[ removeIndex >> 6 ] &= ~( 1L << removeIndex ); // Clear bit for new location.
+							nulls[ removeIndex >> 6 ] &= ~( 1L << removeIndex );
 						
 						
-						// Update the bucket for this chain.
-						// 'removeBucketIndex' is the hash bucket for the original 'key' (which was keys[T]).
-						// Since keys[P] and keys[T] share the same bucket index, this is also the bucket for keys[P].
-						// By pointing it to 'removeIndex' (which now contains keys[P]), we make keys[P] the new sole head.
 						_buckets[ removeBucketIndex ] = ( int ) ( removeIndex + 1 );
-						removeIndex                   = last; // Mark `last` (the original lo entry's position) for compaction
+						removeIndex                   = last;
 					}
-				else if( _lo_Size <= removeIndex ) return false; // Not found, and reached end of hi-region chain
+				else if( _lo_Size <= removeIndex ) return false;
 				else
 					for( int collisions = 0; ; ) {
 						int prev = last;
@@ -1131,26 +1028,24 @@ public interface DoubleLongNullMap {
 						if( keys[ removeIndex = links[ last = removeIndex ] ] == key ) {
 							if( removeIndex < _lo_Size ) links[ last ] = links[ removeIndex ];
 							else {
-								// Another special optimization case: moving a lo entry to a hi slot, not head of chain
 								keys[ removeIndex ] = keys[ last ];
-								if( ( nulls[ last >> 6 ] & 1L << last ) != 0 ) { // If `last` has a non-null value.
+								if( ( nulls[ last >> 6 ] & 1L << last ) != 0 ) {
 									values[ removeIndex ] = values[ last ];
-									nulls[ removeIndex >> 6 ] |= 1L << removeIndex; // Set bit for new location.
+									nulls[ removeIndex >> 6 ] |= 1L << removeIndex;
 								}
 								else
-									nulls[ removeIndex >> 6 ] &= ~( 1L << removeIndex ); // Clear bit for new location.
+									nulls[ removeIndex >> 6 ] &= ~( 1L << removeIndex );
 								
 								links[ prev ] = ( int ) removeIndex;
-								removeIndex   = last; // Mark original lo entry's position for compaction
+								removeIndex   = last;
 							}
 							break;
 						}
-						if( _lo_Size <= removeIndex ) return false; // Not found, reached end of hi-region chain
+						if( _lo_Size <= removeIndex ) return false;
 						if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 					}
 			}
 			
-			// Compact the lo region by moving the last entry into the freed slot
 			move( _lo_Size - 1, removeIndex );
 			_lo_Size--;
 			_version++;
@@ -1159,19 +1054,17 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Removes all mappings from this map.
-		 * The map will be empty after this call returns.
-		 * The internal arrays are reset to their initial state or cleared, but not deallocated,
-		 * maintaining their allocated capacity.
+		 * Removes all mappings from this map. The map will be empty after this call, but its
+		 * allocated capacity will remain unchanged. This is a structural modification.
 		 */
 		public void clear() {
 			_version++;
 			
 			hasNullKey      = false;
-			nullKeyHasValue = false; // Ensure null key status is reset
+			nullKeyHasValue = false;
 			
-			if( _count() == 0 ) return; // If already empty, no structural change needed
-			if( _buckets != null ) Arrays.fill( _buckets, ( int ) 0 ); // Clear buckets
+			if( _count() == 0 ) return;
+			if( _buckets != null ) Arrays.fill( _buckets, ( int ) 0 );
 			_lo_Size = 0;
 			_hi_Size = 0;
 			Arrays.fill( nulls, 0 );
@@ -1179,12 +1072,11 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Ensures that this map can hold at least the specified number of entries without immediate resizing.
-		 * If the current capacity is less than the specified capacity, the map is resized to accommodate it.
-		 * If the map is uninitialized (i.e., `_buckets` is null), it will be initialized.
+		 * Ensures that this map can hold at least the specified number of non-null entries
+		 * without needing to resize. If necessary, the internal arrays are resized.
 		 *
 		 * @param capacity The minimum desired capacity.
-		 * @return The new actual capacity of the map's internal arrays.
+		 * @return The new capacity of the map.
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity <= length() ) return length();
@@ -1195,19 +1087,17 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Trims the capacity of the map's internal arrays to reduce memory usage.
-		 * The capacity will be reduced to the current size of the map, or a prime number
-		 * slightly larger than the size, ensuring sufficient space for future additions.
+		 * Trims the capacity of this map's internal arrays to be the map's current size.
+		 * This can be used to minimize the memory footprint of the map. This is a structural
+		 * modification if the capacity is reduced.
 		 */
 		public void trim() { trim( size() ); }
 		
 		/**
-		 * Trims the capacity of the map's internal arrays to a specified minimum capacity.
-		 * If the current capacity is greater than the specified capacity (after accounting for actual size),
-		 * the map is resized. The actual new capacity will be a prime number at least {@code capacity} and
-		 * at least the current {@link #size()}.
+		 * Trims the capacity of this map's internal arrays to the specified capacity,
+		 * provided it is not less than the current size.
 		 *
-		 * @param capacity The minimum desired capacity after trimming.
+		 * @param capacity The desired capacity, which must be at least the current size.
 		 */
 		public void trim( int capacity ) {
 			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
@@ -1216,11 +1106,11 @@ public interface DoubleLongNullMap {
 		
 		
 		/**
-		 * Resizes the map's internal arrays to a new specified size.
-		 * This involves creating new arrays and re-hashing all existing entries into the new structure.
+		 * Resizes the internal hash map arrays to a new capacity. All existing entries are
+		 * rehashed and inserted into the new arrays, rebuilding the `lo` and `hi` regions.
 		 *
 		 * @param newSize The desired new capacity for the internal arrays.
-		 * @return The actual allocated capacity after resize.
+		 * @return The actual allocated capacity after resizing.
 		 */
 		private int resize( int newSize ) {
 			_version++;
@@ -1230,13 +1120,12 @@ public interface DoubleLongNullMap {
 			long[] old_values  = values;
 			int           old_lo_Size = _lo_Size;
 			int           old_hi_Size = _hi_Size;
-			initialize( newSize ); // Initialize new arrays with the new size
+			initialize( newSize );
 			
 			long bits = 0;
 			int  b    = 0;
 			
 			
-			// Copy entries from the old lo Region to the new structure
 			for( int i = 0; i < old_lo_Size; i++ )
 				if( ( ( i < b << 6 ?
 				        bits :
@@ -1246,7 +1135,6 @@ public interface DoubleLongNullMap {
 					copy( ( double ) old_keys[ i ], ( long ) 0, false );
 			
 			
-			// Copy entries from the old hi Region to the new structure
 			for( int i = old_keys.length - old_hi_Size; i < old_keys.length; i++ )
 				if( ( ( i < b << 6 ?
 				        bits :
@@ -1259,40 +1147,40 @@ public interface DoubleLongNullMap {
 		}
 		
 		/**
-		 * Copies a key-value pair into the new hash table structure during a resize operation.
-		 * This method handles the re-hashing and placement of the entry into the appropriate bucket
-		 * and region ({@code hi Region} or {@code lo Region} with linking) within the newly sized arrays.
+		 * An internal helper for efficiently copying an entry into the new hash table
+		 * structure during a resize operation. It performs the insertion logic without
+		 * checking for duplicates, as it assumes all keys from the old map are unique.
 		 *
-		 * @param key      The key to copy.
-		 * @param value    The value to copy.
-		 * @param hasValue {@code true} if `value` represents a non-null value, {@code false} if it represents a conceptual null value.
+		 * @param key      The primitive key to copy.
+		 * @param value    The primitive value to copy.
+		 * @param hasValue `true` if mapping to a non-null value, `false` for conceptual null.
 		 */
 		private void copy( double key, long value, boolean hasValue ) {
 			int bucketIndex = bucketIndex( Array.hash( key ) );
-			int index       = _buckets[ bucketIndex ] - 1; // Get the current head of the chain (1-based to 0-based)
+			int index       = _buckets[ bucketIndex ] - 1;
 			int dst_index;
 			
-			if( index == -1 ) // Bucket is empty in the new structure
-				dst_index = keys.length - 1 - _hi_Size++; // Place in hi Region
-			else { // Collision in the new structure
+			if( index == -1 )
+				dst_index = keys.length - 1 - _hi_Size++;
+			else {
 				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				links[ dst_index = _lo_Size++ ] = ( int ) index; // Place in lo Region and link to previous head
+				links[ dst_index = _lo_Size++ ] = ( int ) index;
 			}
 			
 			keys[ dst_index ] = key;
 			if( hasValue ) {
 				values[ dst_index ] = value;
-				nulls[ dst_index >> 6 ] |= 1L << ( dst_index & 63 ); // Set bit for non-null value
+				nulls[ dst_index >> 6 ] |= 1L << ( dst_index & 63 );
 			}
 			
-			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 ); // Update bucket to point to the new head
+			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 );
 		}
 		
 		/**
-		 * Creates and returns a deep copy of this {@code RW} map.
+		 * Creates and returns a deep copy of this read-write map.
 		 *
 		 * @return A cloned instance of this map.
-		 * @throws InternalError if cloning fails (should not happen as Cloneable is supported).
+		 * @throws InternalError if cloning fails.
 		 */
 		@Override
 		public RW clone() { return ( RW ) super.clone(); }

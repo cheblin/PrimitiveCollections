@@ -1,35 +1,19 @@
-//MIT License
+// Copyright 2025 Chikirev Sirguy, Unirail Group
 //
-//Copyright © 2020 Chikirev Sirguy, Unirail Group. All rights reserved.
-//For inquiries, please contact:  al8v5C6HU4UtqE9@gmail.com
-//GitHub Repository: https://github.com/AdHoc-Protocol
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-//1. The above copyright notice and this permission notice must be included in all
-//   copies or substantial portions of the Software.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
-//2. Users of the Software must provide a clear acknowledgment in their user
-//   documentation or other materials that their solution includes or is based on
-//   this Software. This acknowledgment should be prominent and easily visible,
-//   and can be formatted as follows:
-//   "This product includes software developed by Chikirev Sirguy and the Unirail Group
-//   (https://github.com/AdHoc-Protocol)."
-//
-//3. If you modify the Software and distribute it, you must include a prominent notice
-//   stating that you have changed the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// For inquiries, please contact: al8v5C6HU4UtqE9@gmail.com
+// GitHub Repository: https://github.com/AdHoc-Protocol
 package org.unirail.collections;
 
 import org.unirail.JsonWriter;
@@ -39,26 +23,31 @@ import java.util.ConcurrentModificationException;
 import java.util.function.Function;
 
 /**
- * <p>
- * A generic Map implementation providing key-value pair storage with efficient retrieval, insertion, and deletion operations.
- * This Map uses a hash table with separate chaining for collision resolution and dynamic resizing to maintain performance as the number of entries grows.
+ * <p>A high-performance, generic map implementation that stores object keys and primitive {@code int} values,
+ * with explicit support for {@code null} values. It is built on a hash table that uses a specialized
+ * collision handling strategy to optimize memory layout and performance.</p>
+ *
+ * <p>This map divides its internal storage into two regions:
+ * <ul>
+ *     <li><b>Hi Region:</b> Stores entries that do not cause hash collisions upon insertion.
+ *     It grows from the end of the internal arrays inward.</li>
+ *     <li><b>Lo Region:</b> Stores entries that cause hash collisions. These entries form collision chains
+ *     using a separate {@code links} array. This region grows from the start of the arrays forward.</li>
+ * </ul>
+ * This design aims to keep non-colliding entries compact and separate from chained entries, improving cache efficiency.
  * </p>
- * <p>
- * Supports null keys and values, optimized for primitive values with explicit null value handling. The Map is designed for high-performance, customizable use cases where flexibility in key types and null handling is required.
- * </p>
- * <p>
- * <b>Key Features:</b>
+ *
+ * <p><b>Key Features:</b></p>
  * <ul>
  *     <li><b>Generic Keys:</b> Supports any object type as keys, with customizable equality and hashing via {@link Array.EqualHashOf}.</li>
- *     <li><b>Integer Values with Null Support:</b> Stores primitive values, with explicit support for null values using {@link IntNullList}, ideal for use cases where null is a valid value.</li>
- *     <li><b>Hash Table with Separate Chaining:</b> Resolves hash collisions by chaining entries in buckets, ensuring efficient performance even with high load factors.</li>
- *     <li><b>Dynamic Resizing:</b> Automatically adjusts hash table capacity based on entry count, with support for collision-driven rehashing using a customizable {@code forceNewHashCodes} function.</li>
- *     <li><b>Null Key Support:</b> Allows a single null key, with dedicated methods to check and access its value.</li>
- *     <li><b>Token-Based Iteration:</b> Provides safe iteration using tokens, which act as stable pointers to entries, reducing overhead compared to iterators. Includes an <b>unsafe</b> iteration method ({@link R#unsafe_token(int)}) for faster traversal of non-null keys, with caveats for concurrent modifications.</li>
- *     <li><b>Memory Management:</b> Supports capacity trimming ({@link RW#trim()}) and minimum capacity enforcement ({@link RW#ensureCapacity(int)}) to optimize memory usage.</li>
- *     <li><b>Cloneable:</b> Implements {@link Cloneable} for creating shallow copies of the map. Keys and values are not deep-copied.</li>
+ *     <li><b>Primitive Int Values with Null Support:</b> Stores primitive {@code int} values efficiently, using an {@link IntNullList} to explicitly track which entries are {@code null}.</li>
+ *     <li><b>Optimized Collision Handling:</b> Uses a hybrid approach of open addressing (for the first entry in a bucket) and separate chaining for subsequent collisions, managed through distinct "lo" and "hi" memory regions.</li>
+ *     <li><b>Dynamic Resizing:</b> Automatically grows capacity and can be manually trimmed. It supports collision-driven rehashing with a custom function to mitigate poor hash distributions.</li>
+ *     <li><b>Null Key Support:</b> Allows a single {@code null} key with dedicated methods for access.</li>
+ *     <li><b>Token-Based Iteration:</b> Provides a safe and efficient iteration mechanism using tokens, which are stable handles to map entries. An {@link R#unsafe_token(int) unsafe} method is also available for high-performance iteration when no concurrent modifications are expected.</li>
+ *     <li><b>Memory Management:</b> Includes methods to {@link RW#trim()} and {@link RW#ensureCapacity(int)} to control memory usage.</li>
+ *     <li><b>Cloneable:</b> Supports creating a shallow copy of the map structure.</li>
  * </ul>
- * </p>
  */
 public interface ObjectLongNullMap {
 	
@@ -88,24 +77,24 @@ public interface ObjectLongNullMap {
 		// HashCollisionThreshold is only used in RW, moving it there
 		
 		/**
-		 * Returns the total number of active non-null entries in the map.
-		 * This is the sum of entries in the low and high regions.
+		 * Returns the number of non-null key-value mappings in this map.
+		 * This count excludes the null key, if present.
 		 *
-		 * @return The current count of non-null entries.
+		 * @return The number of non-null key entries.
 		 */
 		protected int _count() { return _lo_Size + _hi_Size; }
 		
 		/**
-		 * Checks if the map is empty.
+		 * Returns {@code true} if this map contains no key-value mappings.
 		 *
-		 * @return true if the map contains no key-value mappings, false otherwise.
+		 * @return {@code true} if this map is empty.
 		 */
 		public boolean isEmpty() { return size() == 0; }
 		
 		/**
-		 * Returns the number of key-value mappings in this map.
+		 * Returns the total number of key-value mappings in this map, including the null key if present.
 		 *
-		 * @return The number of key-value mappings in this map.
+		 * @return The total number of entries in the map.
 		 */
 		public int size() {
 			return _count() + ( hasNullKey ?
@@ -114,17 +103,16 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Returns the number of key-value mappings in this map.
-		 * Alias for {@link #size()}.
+		 * Returns the total number of key-value mappings in this map. Alias for {@link #size()}.
 		 *
-		 * @return The number of key-value mappings in this map.
+		 * @return The total number of entries in the map.
 		 */
 		public int count() { return size(); }
 		
 		/**
-		 * Returns the current capacity of the hash map (the length of the internal arrays).
+		 * Returns the current capacity of the internal arrays.
 		 *
-		 * @return The capacity of the hash map. Returns 0 if not initialized.
+		 * @return The current capacity.
 		 */
 		public int length() {
 			return keys == null ?
@@ -133,19 +121,19 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Checks if this map contains a mapping for the specified key.
+		 * Returns {@code true} if this map contains a mapping for the specified key.
 		 *
-		 * @param key key whose presence in this map is to be tested
-		 * @return true if this map contains a mapping for the specified key, false otherwise.
+		 * @param key The key whose presence in this map is to be tested.
+		 * @return {@code true} if this map contains a mapping for the specified key.
 		 */
 		public boolean containsKey( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if this map contains the specified value.
-		 * Note: This operation is less efficient than {@link #containsKey(Object)} as it requires iterating through the values.
+		 * Returns {@code true} if this map maps one or more keys to the specified value.
+		 * This operation may be slow as it requires a full scan of all values.
 		 *
-		 * @param value value whose presence in this map is to be tested (can be null)
-		 * @return true if this map contains a mapping with the specified value, false otherwise.
+		 * @param value The value whose presence in this map is to be tested. Can be {@code null}.
+		 * @return {@code true} if one or more keys are mapped to the specified value.
 		 */
 		public boolean containsValue(  Long      value ) {
 			return
@@ -158,20 +146,19 @@ public interface ObjectLongNullMap {
 		
 		
 		/**
-		 * Checks if this map contains the specified int value.
-		 * Note: This operation is less efficient than {@link #containsKey(Object)} as it requires iterating through the values.
+		 * Returns {@code true} if this map maps one or more keys to the specified primitive value.
+		 * This operation may be slow as it requires a full scan of all values.
 		 *
-		 * @param value int value whose presence in this map is to be tested
-		 * @return true if this map contains a mapping with the specified value, false otherwise.
+		 * @param value The primitive {@code int} value whose presence in this map is to be tested.
+		 * @return {@code true} if one or more keys are mapped to the specified value.
 		 */
 		public boolean containsValue( long value ) { return tokenOfValue( value ) != -1; }
 		
 		/**
-		 * Returns a token associated with the specified value, if the value exists in the map.
-		 * Supports null values. Tokens are used for efficient iteration and access.
+		 * Returns the token for the first occurrence of the specified value.
 		 *
-		 * @param value the value to find the token for (can be null)
-		 * @return a valid token if the value is found, -1 otherwise
+		 * @param value The value to find. Can be {@code null}.
+		 * @return A token for the entry, or {@link #INVALID_TOKEN} if the value is not found.
 		 */
 		public long tokenOfValue(  Long      value ) {
 			if( value != null )
@@ -185,11 +172,10 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Returns a token associated with the specified int value, if the value exists in the map.
-		 * Tokens are used for efficient iteration and access.
+		 * Returns the token for the first occurrence of the specified primitive value.
 		 *
-		 * @param value the int value to find the token for
-		 * @return a valid token if the value is found, -1 otherwise
+		 * @param value The primitive {@code int} value to find.
+		 * @return A token for the entry, or {@link #INVALID_TOKEN} if the value is not found.
 		 */
 		public long tokenOfValue( long value ) {
 			if( hasNullKey && nullKeyValue == value ) return token( NULL_KEY_INDEX );
@@ -198,22 +184,34 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Checks if this map contains a mapping for the null key.
+		 * Returns {@code true} if this map contains a mapping for the null key.
 		 *
-		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
+		 * @return {@code true} if the null key is present.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
+		/**
+		 * Returns {@code true} if the null key exists and has a non-null value.
+		 *
+		 * @return {@code true} if the null key has a non-null value.
+		 */
 		public boolean nullKeyHasValue() { return nullKeyHasValue; }
 		
+		/**
+		 * Returns the value to which the null key is mapped.
+		 * <p><b>Precondition:</b> This method should be called only if {@link #nullKeyHasValue()} is {@code true}.</p>
+		 *
+		 * @return The value of the null key entry.
+		 */
 		public long nullKeyValue() { return  nullKeyValue; }
 		
 		/**
-		 * Returns a token associated with the given key, if the key exists in the map.
-		 * Tokens are used for efficient and safe iteration.
+		 * Returns a stable token for the specified key, or {@link #INVALID_TOKEN} if the key is not in the map.
+		 * A token is a long value that encodes both the entry's index and a version snapshot,
+		 * ensuring safe access even if the map is modified.
 		 *
-		 * @param key the key to find the token for
-		 * @return a valid token if the key is found, {@link #INVALID_TOKEN} (-1) otherwise
+		 * @param key The key to find.
+		* @return A valid token if the key is found, otherwise {@link #INVALID_TOKEN}.
 		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
@@ -243,9 +241,10 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Returns the first valid token for iteration.
+		 * Returns the first token for iterating through the map.
+		 * The iteration order is not guaranteed. It will start with non-null keys and end with the null key, if present.
 		 *
-		 * @return A token for iteration, or {@link #INVALID_TOKEN} if the map is empty.
+		 * @return The first token, or {@link #INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
 			int index = unsafe_token( -1 ); // Get the first non-null key token
@@ -258,12 +257,12 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Returns the next valid token for iteration.
+		 * Returns the next token for iteration, given the current token.
 		 *
-		 * @param token The current token.
-		 * @return The next token, or {@link #INVALID_TOKEN} if no further entries exist or the token is invalid.
-		 * @throws IllegalArgumentException        if the token is {@link #INVALID_TOKEN}.
-		 * @throws ConcurrentModificationException if the map was modified since the token was issued.
+		 * @param token The current valid token.
+		 * @return The next token, or {@link #INVALID_TOKEN} if this is the last entry.
+		 * @throws IllegalArgumentException if the token is invalid.
+		 * @throws ConcurrentModificationException if the map was structurally modified after the token was obtained.
 		 */
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
@@ -326,13 +325,19 @@ public interface ObjectLongNullMap {
 			return -1; // No more entries
 		}
 		
+		/**
+		 * Checks if the given token corresponds to the null key.
+		 *
+		 * @param token The token to check.
+		 * @return {@code true} if the token represents the null key.
+		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Returns the key associated with the given token.
+		 * Returns the key corresponding to the given token.
 		 *
-		 * @param token The token
-		 * @return The key associated with the token, or null if the token represents the null key or is invalid
+		 * @param token A valid token.
+		 * @return The key for the entry. Returns {@code null} if the token represents the null key.
 		 */
 		public K key( long token ) {
 			return isKeyNull( token ) ?
@@ -341,10 +346,10 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Checks if the entry associated with the given token has a value (not null in null-value context).
+		 * Checks if the entry for the given token has a non-null value.
 		 *
-		 * @param token The token
-		 * @return true if the entry has a value, false if it represents a null value or the token is invalid
+		 * @param token A valid token.
+		 * @return {@code true} if the entry has a non-null value.
 		 */
 		public boolean hasValue( long token ) {
 			return index( token ) == NULL_KEY_INDEX ?
@@ -353,14 +358,14 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Returns the value associated with the given token.
+		 * Returns the value for the given token.
 		 * <p>
 		 * <b>Precondition:</b> This method should only be called if {@link #hasValue(long)} returns {@code true} for the given token.
-		 * Calling it for a token associated with a {@code null} value results in undefined behavior.
-		 * <p>
+		 * Calling it for an entry with a {@code null} value will result in undefined behavior.
+		 * </p>
 		 *
-		 * @param token The token
-		 * @return The value associated with the token, or 0 if the value is null or the token is invalid
+		 * @param token A valid token for an entry with a non-null value.
+		 * @return The primitive {@code int} value for the entry.
 		 */
 		public long value( long token ) {
 			return  ( index( token ) == NULL_KEY_INDEX ?
@@ -404,10 +409,11 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Compares this map to the specified R for equality.
+		 * Compares the specified map with this map for equality.
+		 * Two maps are equal if they have the same size and contain the same key-value mappings.
 		 *
-		 * @param other The other R to compare to.
-		 * @return true if the maps are equal, false otherwise.
+		 * @param other The map to be compared for equality with this map.
+		 * @return {@code true} if the specified map is equal to this map.
 		 */
 		public boolean equals( R< K > other ) {
 			if( other == this ) return true;
@@ -502,38 +508,43 @@ public interface ObjectLongNullMap {
 	
 	class RW< K > extends R< K > {
 		private static final int                                                        HashCollisionThreshold = 100; // Moved from R
+		/**
+		 * A function that, when provided, can generate a new hashing strategy for keys.
+		 * This is invoked during a resize operation triggered by a high number of hash collisions (see {@link #HashCollisionThreshold}),
+		 * allowing the map to adapt to problematic key distributions (e.g., by using a different seed for String hashing).
+		 * If null, the hashing strategy is never changed.
+		 */
 		public               Function< Array.EqualHashOf< K >, Array.EqualHashOf< K > > forceNewHashCodes      = null;
 		
 		/**
-		 * Constructs an empty RW with the default initial capacity.
-		 * Uses the default {@link Array.EqualHashOf} for key equality and hashing based on the class K.
+		 * Constructs an empty map with an initial capacity of 0.
+		 * The map will be initialized on the first insertion.
 		 *
-		 * @param clazzK The class of the keys.
+		 * @param clazzK The class of the keys, used to select a default {@link Array.EqualHashOf}.
 		 */
 		public RW( Class< K > clazzK ) { this( clazzK, 0 ); }
 		
 		/**
-		 * Constructs an empty RW with the specified initial capacity.
-		 * Uses the default {@link Array.EqualHashOf} for key equality and hashing based on the class K.
+		 * Constructs an empty map with the specified initial capacity.
 		 *
-		 * @param clazzK   The class of the keys.
-		 * @param capacity The initial capacity of the hash map.
+		 * @param clazzK   The class of the keys, used to select a default {@link Array.EqualHashOf}.
+		 * @param capacity The initial capacity. The actual capacity will be the next prime number greater than or equal to this value.
 		 */
 		public RW( Class< K > clazzK, int capacity ) { this( Array.get( clazzK ), capacity ); }
 		
 		/**
-		 * Constructs an empty RW with the default initial capacity.
-		 * Uses the provided {@link Array.EqualHashOf} for key equality and hashing.
+		 * Constructs an empty map with a custom key handler and an initial capacity of 0.
+		 * The map will be initialized on the first insertion.
 		 *
-		 * @param equal_hash_K Custom implementation of {@link Array.EqualHashOf} for keys of type K.
+		 * @param equal_hash_K The custom provider for key hashing and equality checks.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K ) { this( equal_hash_K, 0 ); }
 		
 		/**
-		 * Constructs an empty RW with the specified initial capacity and custom key equality and hashing.
+		 * Constructs an empty map with a custom key handler and the specified initial capacity.
 		 *
-		 * @param equal_hash_K Custom implementation of {@link Array.EqualHashOf} for keys of type K.
-		 * @param capacity     The initial capacity of the hash map.
+		 * @param equal_hash_K The custom provider for key hashing and equality checks.
+		 * @param capacity     The initial capacity. The actual capacity will be the next prime number greater than or equal to this value.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K, int capacity ) {
 			this.equal_hash_K = equal_hash_K;
@@ -542,23 +553,20 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Sets the threshold that determines when to switch the values collection from
-		 * <b>Compressed Strategy</b> to <b>Flat Strategy</b>.
-		 * <p>
-		 * The switch is typically based on the density of null values. The default value is 1024.
+		 * Sets the threshold that determines when the underlying {@link IntNullList}
+		 * should switch its storage strategy to optimize for dense or sparse null values.
 		 *
-		 * @param interleavedBits the threshold value for switching strategies.
+		 * @param interleavedBits The threshold value.
 		 */
 		public void valuesFlatStrategyThreshold( int interleavedBits ) { values.flatStrategyThreshold = interleavedBits; }
 		
 		/**
 		 * Associates the specified value with the specified key in this map.
 		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * Supports null values, which are stored explicitly to distinguish from unset values.
 		 *
-		 * @param key   key with which the specified value is to be associated
-		 * @param value value to be associated with the specified key (can be null)
-		 * @return true if the key was newly inserted, false if an existing key was updated
+		 * @param key   The key with which the specified value is to be associated.
+		 * @param value The value to be associated with the specified key. Can be {@code null}.
+		 * @return {@code true} if a new key-value pair was inserted, {@code false} if an existing key's value was updated.
 		 */
 		public boolean put( K key,  Long      value ) {
 			return value == null ?
@@ -567,8 +575,8 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Removes all mappings from this map.
-		 * The map will be empty after this call.
+		 * Removes all of the mappings from this map. The map will be empty after this call returns.
+		 * This operation does not shrink the underlying arrays; use {@link #trim()} for that.
 		 */
 		public void clear() {
 			_version++;
@@ -583,10 +591,10 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Removes the mapping for the specified key from this map if present.
+		 * Removes the mapping for a key from this map if it is present.
 		 *
-		 * @param key key whose mapping is to be removed from the map
-		 * @return true if remove entry or false no mapping was found for the  key.
+		 * @param key The key whose mapping is to be removed from the map.
+		 * @return {@code true} if an entry was removed, {@code false} if no mapping was found for the key.
 		 */
 		public boolean remove( K key ) {
 			if( key == null ) { // Handle null key removal
@@ -694,15 +702,12 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Relocates an entry's key, hash, link, and value from a source index ({@code src}) to a destination index ({@code dst})
-		 * within the internal arrays. This method is crucial for compaction during removal operations.
-		 * <p>
-		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
-		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
-		 * {@code src} to now correctly reference {@code dst}.
+		 * Relocates an entry's data from a source index to a destination index and updates
+		 * all internal pointers (from buckets or collision chain links) to reflect the move.
+		 * This is a key internal operation for compacting storage after a removal.
 		 *
-		 * @param src The index of the entry to be moved (its current location).
-		 * @param dst The new index where the entry's data will be placed.
+		 * @param src The source index of the entry to move.
+		 * @param dst The destination index.
 		 */
 		private void move( int src, int dst ) {
 			if( src == dst ) return;
@@ -737,13 +742,12 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Ensures the map's capacity is at least the specified value.
-		 * If the current capacity is less than the specified capacity, it is increased to the next prime number
-		 * greater than or equal to the specified capacity, optimizing memory usage and performance.
+		 * Ensures that the map has at least the specified capacity. If the current capacity is smaller,
+		 * the map is resized, and all existing entries are rehashed.
 		 *
-		 * @param capacity the desired minimum capacity
-		 * @return the new capacity after ensuring the minimum capacity
-		 * @throws IllegalArgumentException if capacity is negative
+		 * @param capacity The desired minimum capacity.
+		 * @return The new capacity of the map.
+		 * @throws IllegalArgumentException if capacity is negative.
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
@@ -757,17 +761,17 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Trims the map's capacity to match its current size.
-		 * Reduces memory usage by removing unused capacity.
+		 * Trims the capacity of the map to be its current size, minimizing memory usage.
+		 * This operation rehashes all entries.
 		 */
 		public void trim() { trim( _count() ); } // Uses _count()
 		
 		/**
-		 * Trims the map's capacity to be at least its current size but no larger than the specified capacity.
-		 * Reduces memory usage if the current capacity exceeds the specified capacity.
+		 * Trims the capacity of the map to the specified value, if it's smaller than the current capacity.
+		 * The final capacity will be at least the current number of entries. This operation rehashes all entries.
 		 *
-		 * @param capacity the desired maximum capacity, must be at least the current size
-		 * @throws IllegalArgumentException if capacity is less than the current size
+		 * @param capacity The desired maximum capacity.
+		 * @throws IllegalArgumentException if capacity is less than the current number of entries.
 		 */
 		public void trim( int capacity ) {
 			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
@@ -779,17 +783,17 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Associates the specified int value with the specified key in this map.
+		 * Associates the specified key with the specified value. This is the core insertion method.
 		 * If the map previously contained a mapping for the key, the old value is replaced.
-		 * The hasValue parameter indicates whether the value is a valid integer or represents a null value.
+		 * <p>
+		 * If a high number of collisions is detected (exceeding {@link #HashCollisionThreshold}) and a
+		 * {@code forceNewHashCodes} function is provided, this method may trigger a full rehash of the map
+		 * with a new hashing strategy to improve performance.
 		 *
-		 * <p>If high collision rates are detected and {@code forceNewHashCodes} is set, the map may rehash keys
-		 * to improve performance, particularly for String keys.</p>
-		 *
-		 * @param key      key with which the specified value is to be associated
-		 * @param value    int value to be associated with the specified key
-		 * @param hasValue true if the value is a valid integer, false if it represents a null value
-		 * @return true if the key was newly inserted, false if an existing key was updated
+		 * @param key      The key to insert or update.
+		 * @param value    The primitive {@code int} value to associate with the key.
+		 * @param hasValue {@code true} if the value is a valid integer, {@code false} if it represents a {@code null} value.
+		 * @return {@code true} if a new key-value pair was inserted, {@code false} if an existing key's value was updated.
 		 */
 		public boolean put( K key, long value, boolean hasValue ) {
 			if( key == null ) {
@@ -873,13 +877,12 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Resizes the hash table to the specified capacity.
-		 * This method rebuilds the hash table structure based on the new size.
-		 * All existing entries are rehashed and re-inserted into the new, larger structure.
-		 * This operation increments the set's version.
+		 * Resizes the internal arrays to the specified new size and rehashes all existing entries.
+		 * This is a structural modification that invalidates all previously obtained tokens.
 		 *
-		 * @param newSize The desired new capacity for the internal arrays.
-		 * @return The actual allocated capacity after resize.
+		 * @param newSize           The new capacity for the map.
+		 * @param forceNewHashCodes If {@code true}, attempts to use a new hashing strategy via the {@link #forceNewHashCodes} function.
+		 * @return The new capacity of the map.
 		 */
 		private int resize( int newSize, boolean forceNewHashCodes ) {
 			_version++;
@@ -931,10 +934,10 @@ public interface ObjectLongNullMap {
 		}
 		
 		/**
-		 * Initializes the hash table with the specified capacity.
+		 * Initializes or re-initializes the internal data structures to the specified capacity.
 		 *
-		 * @param capacity The initial capacity (adjusted to next prime).
-		 * @return The actual capacity used.
+		 * @param capacity The desired capacity for the internal arrays.
+		 * @return The provided capacity.
 		 */
 		private int initialize( int capacity ) {
 			_version++;

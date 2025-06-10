@@ -1,35 +1,19 @@
-// MIT License
+// Copyright 2025 Chikirev Sirguy, Unirail Group
 //
-// Copyright © 2020 Chikirev Sirguy, Unirail Group. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 // For inquiries, please contact: al8v5C6HU4UtqE9@gmail.com
 // GitHub Repository: https://github.com/AdHoc-Protocol
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// 1. The above copyright notice and this permission notice must be included in all
-//    copies or substantial portions of the Software.
-//
-// 2. Users of the Software must provide a clear acknowledgment in their user
-//    documentation or other materials that their solution includes or is based on
-//    this Software. This acknowledgment should be prominent and easily visible,
-//    and can be formatted as follows:
-//    "This product includes software developed by Chikirev Sirguy and the Unirail Group
-//    (https://github.com/AdHoc-Protocol)."
-//
-// 3. If you modify the Software and distribute it, you must include a prominent notice
-//    stating that you have changed the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 package org.unirail.collections;
 
@@ -39,115 +23,123 @@ import java.util.*;
 import java.util.function.Function;
 
 /**
- * {@code ObjectObjectMap} is a generic interface for a hash map that stores key-value pairs where both keys and values are objects.
- * It provides efficient methods for common map operations, supporting both read-only and read-write implementations.
- * The map supports null keys and provides token-based access for efficient iteration and lookup.
+ * A generic interface for a hash map that stores object-to-object key-value pairs.
+ * It provides efficient methods for common map operations and supports token-based access
+ * for high-performance iteration and lookups. The interface accommodates both read-only
+ * and read-write implementations and supports {@code null} keys.
  */
 public interface ObjectObjectMap {
 	
 	/**
-	 * {@code R} is an abstract read-only base class for {@code ObjectObjectMap} implementations.
-	 * It provides core functionalities for map operations without modification capabilities.
-	 * Subclasses can extend this class to implement specific read-only or read-write map behaviors.
+	 * An abstract read-only base class for {@code ObjectObjectMap} implementations.
+	 * <p>
+	 * This class provides the core, non-modifying functionality for a hash map. It uses a
+	 * specialized internal structure with two distinct regions for storing entries to optimize
+	 * memory layout and access patterns. It serves as the foundation for both read-only and
+	 * read-write map implementations.
 	 *
-	 * @param <K> The type of keys in the map.
-	 * @param <V> The type of values in the map.
+	 * @param <K> The type of keys maintained by this map.
+	 * @param <V> The type of mapped values.
 	 */
 	abstract class R< K, V > implements java.util.Map< K, V >, JsonWriter.Source, Cloneable {
 		/**
-		 * Indicates whether the map contains a null key.
+		 * A flag indicating whether the map contains a mapping for the {@code null} key.
 		 */
 		protected boolean hasNullKey;
 		
 		/**
-		 * Stores the value associated with the null key, if present.
+		 * The value associated with the {@code null} key, if {@link #hasNullKey} is true.
 		 */
 		protected V nullKeyValue;
 		
 		/**
-		 * Array of buckets for the hash table, used for efficient key lookups.
+		 * An array of buckets for the hash table. Each element stores a 1-based index
+		 * pointing to the head of a collision chain in the {@link #keys} array. A value of 0
+		 * indicates an empty bucket.
 		 */
 		protected int[] _buckets;
 		
 		/**
-		 * Array storing hash codes for each entry. (Replaces part of hash_nexts)
+		 * An array storing the cached hash code for each entry, parallel to the {@link #keys} array.
 		 */
 		protected int[] hash;
 		
 		/**
-		 * Array storing the 'next' index in collision chains (0-based indices). (Replaces part of hash_nexts)
+		 * An array storing 0-based indices to link entries in a collision chain. This array is used
+		 * for entries in the "low" region of the map.
 		 */
 		protected int[] links;
 		
 		/**
-		 * Array of keys stored in the map.
+		 * The array storing the keys of the map entries.
 		 */
 		protected K[] keys;
 		
 		/**
-		 * Array of values corresponding to the keys in the map.
+		 * The array storing the values of the map entries, parallel to the {@link #keys} array.
 		 */
 		protected V[] values;
 		
-		// Replaced _count, _freeList, _freeCount
 		/**
-		 * Number of active entries in the low region (0 to _lo_Size-1).
+		 * The number of active entries stored in the "low" region of the backing arrays,
+		 * occupying indices from {@code 0} to {@code _lo_Size - 1}.
 		 */
 		protected int _lo_Size;
 		/**
-		 * Number of active entries in the high region (keys.length - _hi_Size to keys.length-1).
+		 * The number of active entries stored in the "high" region of the backing arrays,
+		 * occupying indices from {@code keys.length - _hi_Size} to {@code keys.length - 1}.
 		 */
 		protected int _hi_Size;
 		
 		/**
-		 * Version number used for detecting concurrent modifications. Incremented on structural changes.
+		 * A version counter used to detect concurrent modifications. It is incremented
+		 * on every structural change to the map, ensuring fail-fast behavior for iterators.
 		 */
 		protected int _version;
 		
 		/**
-		 * Strategy for determining equality and hash code of keys.
+		 * The strategy object used for calculating hash codes and checking equality of keys.
 		 */
 		protected Array.EqualHashOf< K > equal_hash_K;
 		
 		/**
-		 * Strategy for determining equality and hash code of values.
+		 * The strategy object used for calculating hash codes and checking equality of values.
 		 */
 		protected final Array.EqualHashOf< V > equal_hash_V;
 		
 		/**
-		 * Lazily initialized set view of the keys contained in this map.
+		 * A lazily initialized set view of the keys contained in this map.
 		 */
 		protected KeyCollection _keys;
 		
 		/**
-		 * Lazily initialized collection view of the values contained in this map.
+		 * A lazily initialized collection view of the values contained in this map.
 		 */
 		protected ValueCollection _values;
 		
 		/**
-		 * Lazily initialized set view of the entries contained in this map.
+		 * A lazily initialized set view of the map entries.
 		 */
 		protected EntrySet _entrySet;
 		
-		// Removed StartOfFreeList, HASH_CODE_MASK, NEXT_MASK - no longer needed with split hash/links
-		
 		/**
-		 * Mask to extract the index from a token.
+		 * A special index used within a token to represent the {@code null} key.
 		 */
 		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF;
 		
 		/**
-		 * Bit shift for extracting the version from a token.
+		 * The number of bits to shift to extract the version from a token.
 		 */
 		protected static final int VERSION_SHIFT = 32;
 		
 		/**
-		 * Represents an invalid token, typically returned when a key is not found or iteration has completed. Value is -1.
+		 * A constant representing an invalid or non-existent token, typically returned when
+		 * a key is not found or an iteration has completed. Its value is {@code -1L}.
 		 */
 		protected static final long INVALID_TOKEN = -1L;
 		
 		/**
-		 * Constructs a read-only {@code ObjectObjectMap.R} with the specified value equality and hash strategy.
+		 * Constructs a read-only map with a specified strategy for value equality and hashing.
 		 *
 		 * @param equal_hash_V The strategy for value equality and hash code calculation.
 		 */
@@ -157,16 +149,16 @@ public interface ObjectObjectMap {
 		
 		/**
 		 * Returns the total number of active non-null entries in the map.
-		 * This is the sum of entries in the low and high regions.
+		 * This is the sum of entries in both the low and high regions.
 		 *
-		 * @return The current count of non-null entries.
+		 * @return The current count of non-null key-value mappings.
 		 */
 		protected int _count() { return _lo_Size + _hi_Size; }
 		
 		/**
-		 * Checks if this map is empty.
+		 * Returns {@code true} if this map contains no key-value mappings.
 		 *
-		 * @return {@code true} if the map contains no key-value mappings, {@code false} otherwise.
+		 * @return {@code true} if this map is empty.
 		 */
 		@Override
 		public boolean isEmpty() { return size() == 0; }
@@ -191,9 +183,10 @@ public interface ObjectObjectMap {
 		public int count() { return size(); }
 		
 		/**
-		 * Returns the total capacity (number of slots) of the internal hash table, including both occupied and free slots.
+		 * Returns the total capacity of the internal arrays, which is the maximum number
+		 * of entries the map can hold before resizing.
 		 *
-		 * @return The capacity of the internal hash table.
+		 * @return The capacity of the internal data structures.
 		 */
 		public int length() {
 			return keys == null ?
@@ -202,28 +195,28 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Checks if this map contains a mapping for the specified key.
+		 * Returns {@code true} if this map contains a mapping for the specified key.
 		 *
 		 * @param key The key whose presence in this map is to be tested.
-		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
+		 * @return {@code true} if this map contains a mapping for the specified key.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
 		public boolean containsKey( Object key ) { return contains( ( K ) key ); }
 		
 		/**
-		 * Checks if this map contains a mapping for the specified key.
+		 * Returns {@code true} if this map contains a mapping for the specified key.
 		 *
 		 * @param key The key whose presence in this map is to be tested.
-		 * @return {@code true} if this map contains a mapping for the specified key, {@code false} otherwise.
+		 * @return {@code true} if this map contains a mapping for the specified key.
 		 */
 		public boolean contains( K key ) { return tokenOf( key ) != INVALID_TOKEN; }
 		
 		/**
-		 * Checks if this map contains a mapping with the specified value.
+		 * Returns {@code true} if this map maps one or more keys to the specified value.
 		 *
 		 * @param value The value whose presence in this map is to be tested.
-		 * @return {@code true} if this map contains at least one mapping with the specified value, {@code false} otherwise.
+		 * @return {@code true} if this map contains at least one mapping to the specified value.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
@@ -243,21 +236,28 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Checks if this map contains a mapping for the null key.
+		 * Returns {@code true} if this map contains a mapping for the {@code null} key.
 		 *
-		 * @return {@code true} if this map contains a mapping for the null key, {@code false} otherwise.
+		 * @return {@code true} if a mapping for the {@code null} key exists.
 		 */
 		public boolean hasNullKey() { return hasNullKey; }
 		
+		/**
+		 * Returns the value associated with the {@code null} key.
+		 *
+		 * @return The value mapped to the {@code null} key, or {@code null} if no such mapping exists.
+		 */
 		public V nullKeyValue() { return nullKeyValue; }
 		
 		/**
-		 * Returns a token associated with the given key, if present in the map.
-		 * A token is a unique identifier combining the entry index and map version for efficient access to the key-value pair.
+		 * Returns a token for the specified key. A token is a long integer that encodes both
+		 * the entry's index and the map's current version, enabling efficient, version-aware
+		 * access to the entry.
 		 *
-		 * @param key The key to find the token for.
-		 * @return A valid token if the key is found, or {@link #INVALID_TOKEN} (-1) if the key is not found.
-		 * @throws ConcurrentModificationException If excessive collisions indicate concurrent modification.
+		 * @param key The key whose token is to be retrieved.
+		 * @return A valid token if the key is found; otherwise, {@link #INVALID_TOKEN}.
+		 * @throws ConcurrentModificationException if an excessive number of collisions is detected,
+		 *                                         suggesting a concurrent modification issue.
 		 */
 		public long tokenOf( K key ) {
 			if( key == null ) return hasNullKey ?
@@ -286,9 +286,11 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Returns the first valid token for iteration.
+		 * Returns the first token for iterating through the map.
+		 * The iteration order is not guaranteed.
 		 *
-		 * @return A token for iteration, or {@link #INVALID_TOKEN} if the map is empty.
+		 * @return A token corresponding to the first entry for iteration, or
+		 * {@link #INVALID_TOKEN} if the map is empty.
 		 */
 		public long token() {
 			int index = unsafe_token( -1 ); // Get the first non-null key token
@@ -301,12 +303,12 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Returns the next valid token for iteration.
+		 * Returns the token for the next entry in an iteration.
 		 *
-		 * @param token The current token.
-		 * @return The next token, or {@link #INVALID_TOKEN} if no further entries exist or the token is invalid.
-		 * @throws IllegalArgumentException        If the provided token is {@link #INVALID_TOKEN}.
-		 * @throws ConcurrentModificationException If the map has been modified since the token was obtained.
+		 * @param token The token of the current entry.
+		 * @return The token for the next entry, or {@link #INVALID_TOKEN} if this is the last entry.
+		 * @throws IllegalArgumentException        if the provided token is {@link #INVALID_TOKEN}.
+		 * @throws ConcurrentModificationException if the map was structurally modified after the token was obtained.
 		 */
 		public long token( final long token ) {
 			if( token == INVALID_TOKEN ) throw new IllegalArgumentException( "Invalid token argument: INVALID_TOKEN" );
@@ -337,8 +339,8 @@ public interface ObjectObjectMap {
 		 * map is structurally modified (e.g., via add, remove, or resize) during iteration. Such changes may
 		 * cause skipped entries, exceptions, or undefined behavior. Use only when no modifications will occur.
 		 *
-		 * @param token The previous token, or {@code -1} to begin iteration.
-		 * @return The next token (an index) for a non-null key, or {@code -1} if no more entries exist.
+		 * @param token The previous token (index), or {@code -1} to begin iteration.
+		 * @return The next token (index) for a non-null key, or {@code -1} if no more entries exist.
 		 * @see #token(long) For safe iteration including the null key.
 		 * @see #hasNullKey() To check for a null key.
 		 * @see #key(long) To get the key associated with a token.
@@ -367,19 +369,19 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Checks if the key associated with the given token is null.
+		 * Checks if the key associated with the given token is {@code null}.
 		 *
-		 * @param token The token of the entry.
-		 * @return {@code true} if the key is null, {@code false} otherwise.
+		 * @param token The token of the entry to check.
+		 * @return {@code true} if the token corresponds to the {@code null} key, {@code false} otherwise.
 		 */
 		public boolean isKeyNull( long token ) { return index( token ) == NULL_KEY_INDEX; }
 		
 		/**
-		 * Returns the key associated with the given token.
+		 * Returns the key corresponding to the given token.
 		 *
 		 * @param token The token of the entry.
-		 * @return The key associated with the token, or {@code null} if the token represents the null key.
-		 * @throws ConcurrentModificationException If the map has been modified since the token was obtained.
+		 * @return The key for the entry. Returns {@code null} if the token represents the null key mapping.
+		 * @throws ConcurrentModificationException if the map was structurally modified after the token was obtained.
 		 */
 		public K key( long token ) {
 			return isKeyNull( token ) ?
@@ -388,11 +390,11 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Returns the value associated with the given token.
+		 * Returns the value corresponding to the given token.
 		 *
 		 * @param token The token of the entry.
-		 * @return The value associated with the token.
-		 * @throws ConcurrentModificationException If the map has been modified since the token was obtained.
+		 * @return The value for the entry.
+		 * @throws ConcurrentModificationException if the map was structurally modified after the token was obtained.
 		 */
 		public V value( long token ) {
 			return isKeyNull( token ) ?
@@ -402,10 +404,11 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Returns the value to which the specified key is mapped, or {@code null} if no mapping exists.
+		 * Returns the value to which the specified key is mapped, or {@code null} if this map
+		 * contains no mapping for the key.
 		 *
 		 * @param key The key whose associated value is to be returned.
-		 * @return The value associated with the key, or {@code null} if no mapping exists.
+		 * @return The value to which the specified key is mapped, or {@code null} if no mapping exists.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
@@ -417,22 +420,24 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Returns the value to which the specified key is mapped, or the default value if no mapping exists.
+		 * Returns the value to which the specified key is mapped, or {@code defaultValue} if
+		 * this map contains no mapping for the key.
 		 *
 		 * @param key          The key whose associated value is to be returned.
-		 * @param defaultValue The default value to return if no mapping exists.
-		 * @return The value associated with the key, or {@code defaultValue} if no mapping exists.
+		 * @param defaultValue The default value to return if no mapping for the key is found.
+		 * @return The value for the key, or {@code defaultValue} if no mapping exists.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
 		public V getOrDefault( Object key, V defaultValue ) { return get( ( K ) key, defaultValue ); }
 		
 		/**
-		 * Returns the value to which the specified key is mapped, or the default value if no mapping exists.
+		 * Returns the value to which the specified key is mapped, or {@code defaultValue} if
+		 * this map contains no mapping for the key.
 		 *
 		 * @param key          The key whose associated value is to be returned.
-		 * @param defaultValue The default value to return if no mapping exists.
-		 * @return The value associated with the key, or {@code defaultValue} if no mapping exists.
+		 * @param defaultValue The default value to return if no mapping for the key is found.
+		 * @return The value for the key, or {@code defaultValue} if no mapping exists.
 		 */
 		public V get( K key, V defaultValue ) {
 			long token = tokenOf( key );
@@ -442,9 +447,10 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Computes the hash code for this map based on its key-value mappings.
+		 * Computes the hash code for this map. The hash code is derived from the hash codes
+		 * of its key-value pairs.
 		 *
-		 * @return The hash code for this map.
+		 * @return The hash code value for this map.
 		 */
 		@Override
 		public int hashCode() {
@@ -476,10 +482,10 @@ public interface ObjectObjectMap {
 		private static final int seed = R.class.hashCode();
 		
 		/**
-		 * Checks if this map is equal to another object.
+		 * Compares the specified object with this map for equality.
 		 *
-		 * @param obj The object to compare with.
-		 * @return {@code true} if the objects are equal, {@code false} otherwise.
+		 * @param obj The object to be compared for equality with this map.
+		 * @return {@code true} if the specified object is equal to this map.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
@@ -488,11 +494,11 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Compares this map with another read-only map for equality.
-		 * Two maps are equal if they contain the same key-value mappings.
+		 * Compares this map with another {@code ObjectObjectMap.R} for equality.
+		 * Two maps are considered equal if they contain the same key-value mappings.
 		 *
 		 * @param other The other map to compare with.
-		 * @return {@code true} if the maps are equal, {@code false} otherwise.
+		 * @return {@code true} if the two maps are equal, {@code false} otherwise.
 		 */
 		public boolean equals( R< K, V > other ) {
 			if( other == this ) return true;
@@ -512,9 +518,9 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Creates a shallow copy of this map.
+		 * Creates and returns a shallow copy of this map. The keys and values themselves are not cloned.
 		 *
-		 * @return A cloned instance of this map.
+		 * @return A clone of this map instance.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
@@ -537,15 +543,16 @@ public interface ObjectObjectMap {
 		/**
 		 * Returns a JSON string representation of this map.
 		 *
-		 * @return A JSON string representing the map.
+		 * @return A JSON formatted string representing the map's contents.
 		 */
 		@Override
 		public String toString() { return toJSON(); }
 		
 		/**
-		 * Writes the map's contents to a JSON writer.
+		 * Serializes the map's contents into JSON format using the provided {@link JsonWriter}.
+		 * If keys are strings, it generates a JSON object. Otherwise, it generates a JSON array of key-value objects.
 		 *
-		 * @param json The JSON writer to write to.
+		 * @param json The {@link JsonWriter} to write the JSON output to.
 		 */
 		@Override
 		public void toJSON( JsonWriter json ) {
@@ -583,43 +590,41 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Calculates the bucket index for a given hash code.
+		 * Calculates the bucket index for a given key hash code.
 		 *
 		 * @param hash The hash code of the key.
-		 * @return The bucket index.
+		 * @return The corresponding bucket index in the {@link #_buckets} array.
 		 */
 		protected int bucketIndex( int hash ) { return ( hash & 0x7FFF_FFFF ) % _buckets.length; }
 		
-		// Removed static methods hash, next, hash_next, next(long[],...), hash(long[],...) as hash_nexts is gone
-		
 		/**
-		 * Creates a token from an index and the current version.
+		 * Creates a token from an entry index and the current map version.
 		 *
-		 * @param index The index of the entry.
-		 * @return The created token.
+		 * @param index The 0-based index of the entry.
+		 * @return A long integer token combining the index and version.
 		 */
 		protected long token( int index ) { return ( ( long ) _version << VERSION_SHIFT ) | ( index ); }
 		
 		/**
-		 * Extracts the index from a token.
+		 * Extracts the 0-based entry index from a token.
 		 *
-		 * @param token The token.
-		 * @return The extracted index.
+		 * @param token The token from which to extract the index.
+		 * @return The entry index.
 		 */
 		protected int index( long token ) { return ( int ) ( token ); }
 		
 		/**
-		 * Extracts the version from a token.
+		 * Extracts the map version from a token.
 		 *
-		 * @param token The token.
-		 * @return The extracted version.
+		 * @param token The token from which to extract the version.
+		 * @return The map version encoded in the token.
 		 */
 		protected int version( long token ) { return ( int ) ( token >>> VERSION_SHIFT ); }
 		
 		/**
-		 * Returns a set view of the keys contained in this map.
+		 * Returns a {@link Set} view of the keys contained in this map.
 		 *
-		 * @return A set view of the keys.
+		 * @return A set view of the keys in this map.
 		 */
 		@Override
 		public Set< K > keySet() { return keys(); }
@@ -627,9 +632,9 @@ public interface ObjectObjectMap {
 		/**
 		 * Returns a read-only {@link KeyCollection} view of the keys contained in this map.
 		 * The collection is backed by the map, so changes to the map are reflected in the collection.
-		 * The collection does not support modifications.
+		 * The collection does not support modification operations.
 		 *
-		 * @return A set view of the keys contained in this map.
+		 * @return A read-only set view of the keys contained in this map.
 		 */
 		public KeyCollection keys() {
 			return _keys == null ?
@@ -638,9 +643,9 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Returns a collection view of the values contained in this map.
+		 * Returns a {@link Collection} view of the values contained in this map.
 		 *
-		 * @return A collection view of the values.
+		 * @return A collection view of the values in this map.
 		 */
 		@Override
 		public Collection< V > values() {
@@ -650,9 +655,9 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Returns a set view of the entries contained in this map.
+		 * Returns a {@link Set} view of the mappings contained in this map.
 		 *
-		 * @return A set view of the entries.
+		 * @return A set view of the entries in this map.
 		 */
 		@Override
 		public Set< Entry< K, V > > entrySet() {
@@ -664,28 +669,29 @@ public interface ObjectObjectMap {
 		/**
 		 * Returns a read-only iterator over the entries in this map.
 		 *
-		 * @return An iterator over the entries of this map.
+		 * @return An iterator over the map's entries.
 		 */
 		public Iterator iterator() { return new Iterator( this ); }
 		
 		// Inner classes
 		
 		/**
-		 * {@code KeyCollection} is a read-only set view of the keys contained in the {@code ObjectObjectMap.R}.
-		 * It implements the {@link Set} interface and provides read-only access to the map's keys.
+		 * A read-only set view of the keys contained in a {@code ObjectObjectMap.R}.
+		 * This class implements the {@link Set} interface but throws
+		 * {@link UnsupportedOperationException} for all modification methods.
 		 */
 		public class KeyCollection extends AbstractSet< K > implements Set< K > {
 			private final R< K, V > _map;
 			
 			/**
-			 * Constructs a {@code KeyCollection} associated with the given read-only map.
+			 * Constructs a new key collection backed by the specified read-only map.
 			 *
-			 * @param map The read-only map.
+			 * @param map The backing map.
 			 */
 			public KeyCollection( R< K, V > map ) { _map = map; }
 			
 			/**
-			 * Returns the number of keys in this set.
+			 * Returns the number of keys in this collection, which is the size of the backing map.
 			 *
 			 * @return The number of keys.
 			 */
@@ -693,54 +699,54 @@ public interface ObjectObjectMap {
 			public int size() { return _map.size(); }
 			
 			/**
-			 * Checks if this set contains the specified key.
+			 * Checks if the specified object is a key in the backing map.
 			 *
-			 * @param item The key to check for.
-			 * @return {@code true} if the set contains the key, {@code false} otherwise.
+			 * @param item The object to check for containment.
+			 * @return {@code true} if the key is in the map.
 			 */
 			@Override
 			public boolean contains( Object item ) { return _map.containsKey( item ); }
 			
 			/**
-			 * Returns an iterator over the keys in this set.
+			 * Returns a read-only iterator over the keys in this collection.
 			 *
-			 * @return An iterator over the keys.
+			 * @return A {@link KeyIterator}.
 			 */
 			@Override
 			public java.util.Iterator< K > iterator() { return new KeyIterator( _map ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public void clear() { throw new UnsupportedOperationException( "Read-only collection" ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public boolean add( K item ) { throw new UnsupportedOperationException( "Read-only collection" ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			@SuppressWarnings( "unchecked" )
 			public boolean remove( Object o ) { throw new UnsupportedOperationException( "Read-only collection" ); }
 			
 			/**
-			 * Copies the keys from this collection to the specified array, starting at the specified index.
+			 * Copies the keys from this collection into a destination array.
 			 *
-			 * @param array The array to copy the keys into.
-			 * @param index The starting index in the array.
-			 * @throws IndexOutOfBoundsException If the index is out of range.
-			 * @throws IllegalArgumentException  If the array is too small to contain all the keys.
+			 * @param array The destination array.
+			 * @param index The starting position in the destination array.
+			 * @throws IndexOutOfBoundsException if the index is out of bounds.
+			 * @throws IllegalArgumentException  if the destination array is too small.
 			 */
 			public void CopyTo( K[] array, int index ) {
 				if( index < 0 || index > array.length ) throw new IndexOutOfBoundsException( "Index out of range" );
@@ -754,8 +760,9 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * {@code KeyIterator} is a read-only iterator for the keys of a {@code ObjectObjectMap.R}.
-		 * It allows iteration over the keys in the map.
+		 * A read-only iterator over the keys of a {@code ObjectObjectMap.R}.
+		 * This iterator is fail-fast and will throw a {@link ConcurrentModificationException}
+		 * if the map is structurally modified during iteration.
 		 */
 		public class KeyIterator implements java.util.Iterator< K > {
 			private final R< K, V > _map;
@@ -764,9 +771,9 @@ public interface ObjectObjectMap {
 			private       K         _currentKey;
 			
 			/**
-			 * Constructs a {@code KeyIterator} for the keys of the given read-only map.
+			 * Constructs a key iterator for the specified read-only map.
 			 *
-			 * @param map The read-only map to iterate over.
+			 * @param map The map whose keys are to be iterated.
 			 */
 			KeyIterator( R< K, V > map ) {
 				_map          = map;
@@ -775,10 +782,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Checks if there are more keys to iterate over.
+			 * Returns {@code true} if the iteration has more keys.
 			 *
-			 * @return {@code true} if there are more keys, {@code false} otherwise.
-			 * @throws ConcurrentModificationException If the map has been modified during iteration.
+			 * @return {@code true} if there is a next key.
+			 * @throws ConcurrentModificationException if the map has been modified.
 			 */
 			@Override
 			public boolean hasNext() {
@@ -793,8 +800,8 @@ public interface ObjectObjectMap {
 			 * Returns the next key in the iteration.
 			 *
 			 * @return The next key.
-			 * @throws ConcurrentModificationException If the map has been modified during iteration.
-			 * @throws NoSuchElementException          If there are no more keys to iterate over.
+			 * @throws ConcurrentModificationException if the map has been modified.
+			 * @throws NoSuchElementException          if the iteration has no more keys.
 			 */
 			@Override
 			public K next() {
@@ -805,30 +812,31 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Throws an exception as this is a read-only iterator.
+			 * This operation is not supported by this read-only iterator.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public void remove() { throw new UnsupportedOperationException( "Read-only iterator" ); }
 		}
 		
 		/**
-		 * {@code ValueCollection} is a read-only collection view of the values contained in the {@code ObjectObjectMap.R}.
-		 * It implements the {@link Collection} interface and provides read-only access to the map's values.
+		 * A read-only collection view of the values contained in a {@code ObjectObjectMap.R}.
+		 * This class implements the {@link Collection} interface but throws
+		 * {@link UnsupportedOperationException} for all modification methods.
 		 */
 		public class ValueCollection extends AbstractCollection< V > implements Collection< V > {
 			private final R< K, V > _map;
 			
 			/**
-			 * Constructs a {@code ValueCollection} associated with the given read-only map.
+			 * Constructs a new value collection backed by the specified read-only map.
 			 *
-			 * @param map The read-only map.
+			 * @param map The backing map.
 			 */
 			public ValueCollection( R< K, V > map ) { _map = map; }
 			
 			/**
-			 * Returns the number of values in this collection.
+			 * Returns the number of values in this collection, which is the size of the backing map.
 			 *
 			 * @return The number of values.
 			 */
@@ -836,54 +844,54 @@ public interface ObjectObjectMap {
 			public int size() { return _map.size(); }
 			
 			/**
-			 * Checks if this collection contains the specified value.
+			 * Checks if the specified object is a value in the backing map.
 			 *
-			 * @param item The value to check for.
-			 * @return {@code true} if the collection contains the value, {@code false} otherwise.
+			 * @param item The object to check for containment.
+			 * @return {@code true} if the value is in the map.
 			 */
 			@Override
 			public boolean contains( Object item ) { return _map.containsValue( item ); }
 			
 			/**
-			 * Returns an iterator over the values in this collection.
+			 * Returns a read-only iterator over the values in this collection.
 			 *
-			 * @return An iterator over the values.
+			 * @return A {@link ValueIterator}.
 			 */
 			@Override
 			public java.util.Iterator< V > iterator() { return new ValueIterator( _map ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public void clear() { throw new UnsupportedOperationException( "Read-only collection" ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public boolean add( V item ) { throw new UnsupportedOperationException( "Read-only collection" ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public boolean remove( Object item ) { throw new UnsupportedOperationException( "Read-only collection" ); }
 			
 			/**
-			 * Copies the values from this collection to the specified array, starting at the specified index.
+			 * Copies the values from this collection into a destination array.
 			 *
-			 * @param array The array to copy the values into.
-			 * @param index The starting index in the array.
-			 * @throws NullPointerException      If the array is null.
-			 * @throws IndexOutOfBoundsException If the index is out of range.
-			 * @throws IllegalArgumentException  If the array is too small to contain all the values.
+			 * @param array The destination array.
+			 * @param index The starting position in the destination array.
+			 * @throws NullPointerException      if the destination array is null.
+			 * @throws IndexOutOfBoundsException if the index is out of bounds.
+			 * @throws IllegalArgumentException  if the destination array is too small.
 			 */
 			public void CopyTo( V[] array, int index ) {
 				if( array == null ) throw new NullPointerException( "array is null" );
@@ -898,8 +906,9 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * {@code ValueIterator} is a read-only iterator for the values of a {@code ObjectObjectMap.R}.
-		 * It allows iteration over the values in the map.
+		 * A read-only iterator over the values of a {@code ObjectObjectMap.R}.
+		 * This iterator is fail-fast and will throw a {@link ConcurrentModificationException}
+		 * if the map is structurally modified during iteration.
 		 */
 		public class ValueIterator implements java.util.Iterator< V > {
 			private final R< K, V > _map;
@@ -908,9 +917,9 @@ public interface ObjectObjectMap {
 			private       V         _currentValue;
 			
 			/**
-			 * Constructs a {@code ValueIterator} for the values of the given read-only map.
+			 * Constructs a value iterator for the specified read-only map.
 			 *
-			 * @param map The read-only map to iterate over.
+			 * @param map The map whose values are to be iterated.
 			 */
 			ValueIterator( R< K, V > map ) {
 				_map          = map;
@@ -919,10 +928,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Checks if there are more values to iterate over.
+			 * Returns {@code true} if the iteration has more values.
 			 *
-			 * @return {@code true} if there are more values, {@code false} otherwise.
-			 * @throws ConcurrentModificationException If the map has been modified during iteration.
+			 * @return {@code true} if there is a next value.
+			 * @throws ConcurrentModificationException if the map has been modified.
 			 */
 			@Override
 			public boolean hasNext() {
@@ -937,8 +946,8 @@ public interface ObjectObjectMap {
 			 * Returns the next value in the iteration.
 			 *
 			 * @return The next value.
-			 * @throws ConcurrentModificationException If the map has been modified during iteration.
-			 * @throws NoSuchElementException          If there are no more values to iterate over.
+			 * @throws ConcurrentModificationException if the map has been modified.
+			 * @throws NoSuchElementException          if the iteration has no more values.
 			 */
 			@Override
 			public V next() {
@@ -949,30 +958,31 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Throws an exception as this is a read-only iterator.
+			 * This operation is not supported by this read-only iterator.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public void remove() { throw new UnsupportedOperationException( "Read-only iterator" ); }
 		}
 		
 		/**
-		 * {@code EntrySet} is a read-only set view of the entries contained in the {@code ObjectObjectMap.R}.
-		 * It implements the {@link Set} interface and provides read-only access to the map's entries.
+		 * A read-only set view of the entries contained in a {@code ObjectObjectMap.R}.
+		 * This class implements the {@link Set} interface but throws
+		 * {@link UnsupportedOperationException} for all modification methods.
 		 */
 		public class EntrySet extends AbstractSet< Entry< K, V > > implements Set< Entry< K, V > > {
 			private final R< K, V > _map;
 			
 			/**
-			 * Constructs an {@code EntrySet} associated with the given read-only map.
+			 * Constructs a new entry set backed by the specified read-only map.
 			 *
-			 * @param map The read-only map.
+			 * @param map The backing map.
 			 */
 			public EntrySet( R< K, V > map ) { _map = map; }
 			
 			/**
-			 * Returns the number of entries in this set.
+			 * Returns the number of entries in this set, which is the size of the backing map.
 			 *
 			 * @return The number of entries.
 			 */
@@ -980,10 +990,10 @@ public interface ObjectObjectMap {
 			public int size() { return _map.size(); }
 			
 			/**
-			 * Checks if this set contains the specified entry's key.
+			 * Checks if the specified object, which must be a {@link Map.Entry}, is present in the backing map.
 			 *
-			 * @param o The object to check for (expected to be a key).
-			 * @return {@code true} if the set contains an entry with the specified key, {@code false} otherwise.
+			 * @param o The entry to check for containment.
+			 * @return {@code true} if the entry is in the map.
 			 */
 			@Override
 			@SuppressWarnings( "unchecked" )
@@ -995,41 +1005,42 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Returns an iterator over the entries in this set.
+			 * Returns a read-only iterator over the entries in this set.
 			 *
-			 * @return An iterator over the entries.
+			 * @return An {@link EntryIterator}.
 			 */
 			@Override
 			public java.util.Iterator< Entry< K, V > > iterator() { return new EntryIterator( _map ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public void clear() { throw new UnsupportedOperationException( "Read-only collection" ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public boolean add( Entry< K, V > entry ) { throw new UnsupportedOperationException( "Read-only collection" ); }
 			
 			/**
-			 * Throws an exception as this is a read-only collection.
+			 * This operation is not supported by this read-only collection.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public boolean remove( Object o ) { throw new UnsupportedOperationException( "Read-only collection" ); }
 		}
 		
 		/**
-		 * {@code EntryIterator} is a read-only iterator for the entries of a {@code ObjectObjectMap.R}.
-		 * It allows iteration over the key-value entries in the map.
+		 * A read-only iterator over the entries of a {@code ObjectObjectMap.R}.
+		 * This iterator is fail-fast and will throw a {@link ConcurrentModificationException}
+		 * if the map is structurally modified during iteration.
 		 */
 		public class EntryIterator implements java.util.Iterator< Entry< K, V > > {
 			private final R< K, V >     _map;
@@ -1038,9 +1049,9 @@ public interface ObjectObjectMap {
 			private       Entry< K, V > _currentEntry;
 			
 			/**
-			 * Constructs an {@code EntryIterator} for the entries of the given read-only map.
+			 * Constructs an entry iterator for the specified read-only map.
 			 *
-			 * @param map The read-only map to iterate over.
+			 * @param map The map whose entries are to be iterated.
 			 */
 			EntryIterator( R< K, V > map ) {
 				_map          = map;
@@ -1049,10 +1060,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Checks if there are more entries to iterate over.
+			 * Returns {@code true} if the iteration has more entries.
 			 *
-			 * @return {@code true} if there are more entries, {@code false} otherwise.
-			 * @throws ConcurrentModificationException If the map has been modified during iteration.
+			 * @return {@code true} if there is a next entry.
+			 * @throws ConcurrentModificationException if the map has been modified.
 			 */
 			@Override
 			public boolean hasNext() {
@@ -1067,8 +1078,8 @@ public interface ObjectObjectMap {
 			 * Returns the next entry in the iteration.
 			 *
 			 * @return The next entry.
-			 * @throws ConcurrentModificationException If the map has been modified during iteration.
-			 * @throws NoSuchElementException          If there are no more entries to iterate over.
+			 * @throws ConcurrentModificationException if the map has been modified.
+			 * @throws NoSuchElementException          if the iteration has no more entries.
 			 */
 			@Override
 			public Entry< K, V > next() {
@@ -1079,17 +1090,18 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Throws an exception as this is a read-only iterator.
+			 * This operation is not supported by this read-only iterator.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public void remove() { throw new UnsupportedOperationException( "Read-only iterator" ); }
 		}
 		
 		/**
-		 * {@code Iterator} is a read-only iterator for the entries of a {@code ObjectObjectMap.R}.
-		 * It allows iteration over the key-value entries in the map.
+		 * A read-only iterator over the entries of a {@code ObjectObjectMap.R}.
+		 * This iterator is fail-fast and will throw a {@link ConcurrentModificationException}
+		 * if the map is structurally modified during iteration.
 		 */
 		public class Iterator implements java.util.Iterator< Entry< K, V > > {
 			private final R< K, V >     _map;
@@ -1098,9 +1110,9 @@ public interface ObjectObjectMap {
 			private       Entry< K, V > _current;
 			
 			/**
-			 * Constructs an {@code Iterator} for the entries of the given read-only map.
+			 * Constructs an iterator for the specified read-only map.
 			 *
-			 * @param map The read-only map to iterate over.
+			 * @param map The map whose entries are to be iterated.
 			 */
 			Iterator( R< K, V > map ) {
 				_map          = map;
@@ -1109,10 +1121,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Checks if there are more entries to iterate over.
+			 * Returns {@code true} if the iteration has more entries.
 			 *
-			 * @return {@code true} if there are more entries, {@code false} otherwise.
-			 * @throws ConcurrentModificationException If the map has been modified during iteration.
+			 * @return {@code true} if there is a next entry.
+			 * @throws ConcurrentModificationException if the map has been modified.
 			 */
 			@Override
 			public boolean hasNext() {
@@ -1127,8 +1139,8 @@ public interface ObjectObjectMap {
 			 * Returns the next entry in the iteration.
 			 *
 			 * @return The next entry.
-			 * @throws ConcurrentModificationException If the map has been modified during iteration.
-			 * @throws NoSuchElementException          If there are no more entries to iterate over.
+			 * @throws ConcurrentModificationException if the map has been modified.
+			 * @throws NoSuchElementException          if the iteration has no more entries.
 			 */
 			@Override
 			public Entry< K, V > next() {
@@ -1139,9 +1151,9 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Throws an exception as this is a read-only iterator.
+			 * This operation is not supported by this read-only iterator.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always.
 			 */
 			@Override
 			public void remove() { throw new UnsupportedOperationException( "Read-only iterator" ); }
@@ -1150,109 +1162,114 @@ public interface ObjectObjectMap {
 		// Unsupported write operations
 		
 		/**
-		 * Throws an exception as this is a read-only map.
+		 * This operation is not supported by the read-only map.
 		 *
-		 * @throws UnsupportedOperationException Always thrown.
+		 * @throws UnsupportedOperationException Always.
 		 */
 		@Override
 		public V put( K key, V value ) { throw new UnsupportedOperationException( "Read-only map" ); }
 		
 		/**
-		 * Throws an exception as this is a read-only map.
+		 * This operation is not supported by the read-only map.
 		 *
-		 * @throws UnsupportedOperationException Always thrown.
+		 * @throws UnsupportedOperationException Always.
 		 */
 		@Override
 		public V remove( Object key ) { throw new UnsupportedOperationException( "Read-only map" ); }
 		
 		/**
-		 * Throws an exception as this is a read-only map.
+		 * This operation is not supported by the read-only map.
 		 *
-		 * @throws UnsupportedOperationException Always thrown.
+		 * @throws UnsupportedOperationException Always.
 		 */
 		@Override
 		public void putAll( Map< ? extends K, ? extends V > m ) { throw new UnsupportedOperationException( "Read-only map" ); }
 		
 		/**
-		 * Throws an exception as this is a read-only map.
+		 * This operation is not supported by the read-only map.
 		 *
-		 * @throws UnsupportedOperationException Always thrown.
+		 * @throws UnsupportedOperationException Always.
 		 */
 		@Override
 		public void clear() { throw new UnsupportedOperationException( "Read-only map" ); }
 	}
 	
 	/**
-	 * {@code RW} is a read-write implementation of {@code ObjectObjectMap}, extending the read-only base class {@link R}.
-	 * It provides full map functionalities, including adding, removing, and modifying key-value pairs.
+	 * A read-write implementation of a hash map for object-to-object key-value pairs.
+	 * It extends the read-only base class {@link R} to provide a full suite of
+	 * modification methods, including adding, removing, and updating entries.
 	 *
-	 * @param <K> The type of keys in the map.
-	 * @param <V> The type of values in the map.
+	 * @param <K> The type of keys maintained by this map.
+	 * @param <V> The type of mapped values.
 	 */
 	class RW< K, V > extends R< K, V > {
 		/**
-		 * Threshold for hash collision count, used to trigger rehashing for performance optimization.
+		 * The number of collisions in a chain to tolerate before considering a resize
+		 * with re-hashing.
 		 */
 		private static final int HashCollisionThreshold = 100; // Moved from R
 		
 		/**
-		 * Function to force new hash codes for keys, used in collision resolution strategies. Can be set externally.
+		 * An optional function that can be set to provide a new hashing strategy for keys.
+		 * This is used to resolve states with an unusually high number of hash collisions.
+		 * When {@code resize} is called with {@code forceNewHashCodes = true}, this function
+		 * is applied to {@link #equal_hash_K}.
 		 */
 		public Function< Array.EqualHashOf< K >, Array.EqualHashOf< K > > forceNewHashCodes = null;
 		
 		/**
-		 * Constructs a read-write {@code ObjectObjectMap.RW} with default capacity (7).
-		 * Uses default equality and hash strategies for both keys and values based on their classes.
+		 * Constructs an empty read-write map with a default initial capacity, using default
+		 * hashing and equality strategies for keys and values based on their class types.
 		 *
-		 * @param clazzK The class of keys.
-		 * @param clazzV The class of values.
+		 * @param clazzK The {@link Class} of the keys.
+		 * @param clazzV The {@link Class} of the values.
 		 */
 		public RW( Class< K > clazzK, Class< V > clazzV ) { this( clazzK, clazzV, 0 ); }
 		
 		/**
-		 * Constructs a read-write {@code ObjectObjectMap.RW} with a specified initial capacity.
-		 * Uses default equality and hash strategies for both keys and values based on their classes.
+		 * Constructs an empty read-write map with a specified initial capacity, using default
+		 * hashing and equality strategies for keys and values based on their class types.
 		 *
-		 * @param clazzK   The class of keys.
-		 * @param clazzV   The class of values.
+		 * @param clazzK   The {@link Class} of the keys.
+		 * @param clazzV   The {@link Class} of the values.
 		 * @param capacity The initial capacity of the map.
 		 */
 		public RW( Class< K > clazzK, Class< V > clazzV, int capacity ) { this( Array.get( clazzK ), Array.get( clazzV ), capacity ); }
 		
 		/**
-		 * Constructs a read-write {@code ObjectObjectMap.RW} with default capacity (7).
-		 * Uses a default equality and hash strategy for keys and a custom strategy for values.
+		 * Constructs an empty read-write map with a default initial capacity, using a default
+		 * key strategy and a custom value strategy.
 		 *
-		 * @param clazzK       The class of keys.
-		 * @param equal_hash_V Custom equality and hash strategy for values.
+		 * @param clazzK       The {@link Class} of the keys.
+		 * @param equal_hash_V A custom strategy for value equality and hashing.
 		 */
 		public RW( Class< K > clazzK, Array.EqualHashOf< V > equal_hash_V ) { this( Array.get( clazzK ), equal_hash_V, 0 ); }
 		
 		/**
-		 * Constructs a read-write {@code ObjectObjectMap.RW} with a specified initial capacity.
-		 * Uses a default equality and hash strategy for keys and a custom strategy for values.
+		 * Constructs an empty read-write map with a specified initial capacity, using a default
+		 * key strategy and a custom value strategy.
 		 *
-		 * @param clazzK       The class of keys.
-		 * @param equal_hash_V Custom equality and hash strategy for values.
+		 * @param clazzK       The {@link Class} of the keys.
+		 * @param equal_hash_V A custom strategy for value equality and hashing.
 		 * @param capacity     The initial capacity of the map.
 		 */
 		public RW( Class< K > clazzK, Array.EqualHashOf< V > equal_hash_V, int capacity ) { this( Array.get( clazzK ), equal_hash_V, capacity ); }
 		
 		/**
-		 * Constructs a read-write {@code ObjectObjectMap.RW} with default capacity (7).
-		 * Uses custom equality and hash strategies for both keys and values.
+		 * Constructs an empty read-write map with a default initial capacity, using custom
+		 * strategies for both keys and values.
 		 *
-		 * @param equal_hash_K Custom equality and hash strategy for keys.
-		 * @param equal_hash_V Custom equality and hash strategy for values.
+		 * @param equal_hash_K A custom strategy for key equality and hashing.
+		 * @param equal_hash_V A custom strategy for value equality and hashing.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K, Array.EqualHashOf< V > equal_hash_V ) { this( equal_hash_K, equal_hash_V, 0 ); }
 		
 		/**
-		 * Constructs a read-write {@code ObjectObjectMap.RW} with a specified initial capacity.
-		 * Uses custom equality and hash strategies for both keys and values.
+		 * Constructs an empty read-write map with a specified initial capacity and custom
+		 * strategies for both keys and values.
 		 *
-		 * @param equal_hash_K Custom equality and hash strategy for keys.
-		 * @param equal_hash_V Custom equality and hash strategy for values.
+		 * @param equal_hash_K A custom strategy for key equality and hashing.
+		 * @param equal_hash_V A custom strategy for value equality and hashing.
 		 * @param capacity     The initial capacity of the map.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K, Array.EqualHashOf< V > equal_hash_V, int capacity ) {
@@ -1264,11 +1281,11 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Constructs a read-write {@code ObjectObjectMap.RW} initialized with the mappings from the specified map.
-		 * Uses custom equality and hash strategies for both keys and values.
+		 * Constructs a new read-write map with the same mappings as the specified {@link Map},
+		 * using custom strategies for keys and values.
 		 *
-		 * @param equal_hash_K Custom equality and hash strategy for keys.
-		 * @param equal_hash_V Custom equality and hash strategy for values.
+		 * @param equal_hash_K A custom strategy for key equality and hashing.
+		 * @param equal_hash_V A custom strategy for value equality and hashing.
 		 * @param map          The map whose mappings are to be placed in this map.
 		 */
 		public RW( Array.EqualHashOf< K > equal_hash_K, Array.EqualHashOf< V > equal_hash_V, java.util.Map< ? extends K, ? extends V > map ) {
@@ -1278,12 +1295,12 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Constructs a read-write {@code ObjectObjectMap.RW} initialized with the mappings from the specified collection of entries.
-		 * Uses custom equality and hash strategies for both keys and values.
+		 * Constructs a new read-write map initialized from a collection of entries,
+		 * using custom strategies for keys and values.
 		 *
-		 * @param equal_hash_K Custom equality and hash strategy for keys.
-		 * @param equal_hash_V Custom equality and hash strategy for values.
-		 * @param collection   The collection of entries to initialize the map with.
+		 * @param equal_hash_K A custom strategy for key equality and hashing.
+		 * @param equal_hash_V A custom strategy for value equality and hashing.
+		 * @param collection   An iterable collection of entries to populate the map.
 		 */
 		@SuppressWarnings( "unchecked" )
 		public RW( Array.EqualHashOf< K > equal_hash_K, Array.EqualHashOf< V > equal_hash_V, Iterable< Entry< K, V > > collection ) {
@@ -1302,9 +1319,9 @@ public interface ObjectObjectMap {
 		
 		
 		/**
-		 * Copies all mappings from the specified map to this map.
+		 * Copies all of the mappings from the specified map to this map.
 		 *
-		 * @param m The map containing mappings to be copied.
+		 * @param m Mappings to be stored in this map.
 		 */
 		@Override
 		public void putAll( Map< ? extends K, ? extends V > m ) {
@@ -1315,7 +1332,7 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Removes all mappings from this map.
+		 * Removes all of the mappings from this map. The map will be empty after this call returns.
 		 */
 		@Override
 		public void clear() {
@@ -1331,21 +1348,24 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Removes the mapping for the specified key from this map, if present.
+		 * Removes the mapping for a key from this map if it is present.
 		 *
-		 * @param key The key whose mapping is to be removed.
-		 * @return The previous value associated with the key, or {@code null} if no mapping existed.
+		 * @param key key whose mapping is to be removed from the map.
+		 * @return the previous value associated with the key, or {@code null} if there was no mapping for the key.
 		 */
 		@Override
 		@SuppressWarnings( "unchecked" )
 		public V remove( Object key ) { return remove_( ( K ) key ); }
 		
 		/**
-		 * Removes the mapping for the specified key from this map, if present.
+		 * Removes the mapping for the specified key from this map if present. This method performs
+		 * the core removal logic, handling compaction of the internal arrays by moving elements
+		 * to fill the freed slot.
 		 *
 		 * @param key The key whose mapping is to be removed.
 		 * @return The previous value associated with the key, or {@code null} if no mapping existed.
-		 * @throws ConcurrentModificationException If excessive collisions indicate concurrent modification.
+		 * @throws ConcurrentModificationException if an excessively long collision chain is detected,
+		 *                                         suggesting a corrupted state.
 		 */
 		public V remove_( K key ) {
 			if( key == null ) {
@@ -1445,15 +1465,13 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Relocates an entry's key, hash, link, and value from a source index ({@code src}) to a destination index ({@code dst})
-		 * within the internal arrays. This method is crucial for compaction during removal operations.
-		 * <p>
-		 * After moving the data, this method updates any existing pointers (either from a hash bucket in
-		 * {@code _buckets} or from a {@code links} link in a collision chain) that previously referenced
-		 * {@code src} to now correctly reference {@code dst}.
+		 * Relocates an entry's data from a source index to a destination index within the
+		 * internal arrays. This method is a key part of the compaction process during removal.
+		 * It moves the entry's data and crucially updates the bucket or link that pointed to the
+		 * source index, ensuring the hash table's integrity.
 		 *
-		 * @param src The index of the entry to be moved (its current location).
-		 * @param dst The new index where the entry's data will be placed.
+		 * @param src The index of the entry to move.
+		 * @param dst The index to move the entry to.
 		 */
 		private void move( int src, int dst ) {
 			if( src == dst ) return;
@@ -1485,12 +1503,12 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Ensures the map's capacity is at least the specified minimum capacity.
-		 * If the current capacity is less, it is increased to the next prime number greater than or equal to the specified capacity.
+		 * Ensures that the map can hold at least the given number of entries without
+		 * needing to resize. If the current capacity is insufficient, it is increased.
 		 *
 		 * @param capacity The desired minimum capacity.
-		 * @return The new capacity of the map.
-		 * @throws IllegalArgumentException If the capacity is negative.
+		 * @return The new capacity of the map (which may be larger than requested).
+		 * @throws IllegalArgumentException if the specified capacity is negative.
 		 */
 		public int ensureCapacity( int capacity ) {
 			if( capacity < 0 ) throw new IllegalArgumentException( "capacity is less than 0." );
@@ -1504,15 +1522,16 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Reduces the map's capacity to the minimum size that can hold the current number of entries.
+		 * Reduces the map's capacity to the minimum size required to hold the current number of entries.
 		 */
 		public void trim() { trim( _count() ); } // Use _count()
 		
 		/**
-		 * Reduces the map's capacity to the minimum size that can hold the specified capacity.
+		 * Trims the capacity of the map to be closer to the specified capacity,
+		 * without going below the current number of entries.
 		 *
 		 * @param capacity The desired capacity to trim to.
-		 * @throws IllegalArgumentException If the capacity is less than the current number of entries.
+		 * @throws IllegalArgumentException if the specified capacity is less than the current size of the map.
 		 */
 		public void trim( int capacity ) {
 			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." ); // Use _count()
@@ -1529,7 +1548,7 @@ public interface ObjectObjectMap {
 		 *
 		 * @param key   The key with which the specified value is to be associated.
 		 * @param value The value to be associated with the specified key.
-		 * @return The previous value associated with the key, or {@code null} if no mapping existed.
+		 * @return The previous value associated with the key, or {@code null} if there was no mapping for the key.
 		 */
 		@Override
 		public V put( K key, V value ) {
@@ -1543,13 +1562,15 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Inserts or updates a key-value pair in the map.
-		 * Handles null keys, hash collisions, and resizing as needed.
+		 * The core logic for inserting or updating a key-value pair. If the key is new, it is added.
+		 * If the key already exists, its value is updated. This method handles null keys,
+		 * hash collisions, and resizing.
 		 *
 		 * @param key   The key to insert or update.
 		 * @param value The value to associate with the key.
-		 * @return {@code true} if a new mapping was inserted, {@code false} if an existing mapping was updated.
-		 * @throws ConcurrentModificationException If excessive collisions indicate concurrent modification.
+		 * @return {@code true} if a new mapping was created, {@code false} if an existing mapping was updated.
+		 * @throws ConcurrentModificationException if an excessive number of collisions is detected,
+		 *                                         suggesting a corrupted state.
 		 */
 		public boolean put_( K key, V value ) {
 			if( key == null ) {
@@ -1624,11 +1645,13 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Resizes the internal hash table to the specified size.
-		 * Optionally recalculates hash codes for all keys if {@code forceNewHashCodes} is true.
+		 * Resizes the internal data structures to a new capacity. All existing entries are
+		 * re-hashed and re-inserted into the new arrays.
 		 *
-		 * @param newSize           The new size of the hash table.
-		 * @param forceNewHashCodes If {@code true}, recalculates hash codes for all keys.
+		 * @param newSize           The new capacity for the map.
+		 * @param forceNewHashCodes If {@code true}, applies the {@link #forceNewHashCodes} function
+		 *                          to get a new key hashing strategy before re-inserting elements.
+		 * @return The new capacity of the map.
 		 */
 		private int resize( int newSize, boolean forceNewHashCodes ) {
 			_version++;
@@ -1676,10 +1699,10 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Initializes the internal hash table with the specified capacity.
+		 * Initializes the internal data structures of the map with a given capacity.
 		 *
-		 * @param capacity The initial capacity of the hash table.
-		 * @return The prime number capacity used.
+		 * @param capacity The initial capacity for the map's arrays.
+		 * @return The capacity used for initialization.
 		 */
 		private int initialize( int capacity ) {
 			_version++;
@@ -1694,15 +1717,13 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Internal helper method used during resizing to efficiently copy an
-		 * existing key-value pair into the new hash table structure. It re-hashes the key
-		 * and places it into the correct bucket and region (lo or hi) in the new arrays.
-		 * This method does not check for existing keys, assuming all keys are new in the
-		 * target structure during a resize operation.
+		 * Internal helper method to copy an entry into the map during a resize.
+		 * It places the entry directly without checking for duplicates, as it assumes
+		 * it's operating on a fresh, empty set of arrays.
 		 *
 		 * @param key   The key to copy.
-		 * @param hash  The hash code of the key.
-		 * @param value The value associated with the key.
+		 * @param hash  The pre-computed hash code of the key.
+		 * @param value The value to copy.
 		 */
 		private void copy( K key, int hash, V value ) {
 			int bucketIndex = bucketIndex( hash );
@@ -1727,12 +1748,12 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Copies the entries from this map to the specified array of {@link Entry} objects, starting at the specified index.
+		 * Copies the entries of this map into a destination array of {@link Entry} objects.
 		 *
-		 * @param array The array to copy the entries into.
-		 * @param index The starting index in the array.
-		 * @throws IndexOutOfBoundsException If the index is out of range.
-		 * @throws IllegalArgumentException  If the array is too small to contain all the entries.
+		 * @param array The destination array.
+		 * @param index The starting position in the destination array.
+		 * @throws IndexOutOfBoundsException if the index is out of bounds.
+		 * @throws IllegalArgumentException  if the destination array is too small.
 		 */
 		private void copyTo( Entry< K, V >[] array, int index ) {
 			if( index < 0 || index > array.length ) throw new IndexOutOfBoundsException( "Index out of range" );
@@ -1747,16 +1768,17 @@ public interface ObjectObjectMap {
 		// Override inner classes to support mutation
 		
 		/**
-		 * {@code KeyCollection} for {@code ObjectObjectMap.RW} extends the read-only version to support write operations.
-		 * It allows adding and removing keys, and clearing the collection, which modifies the underlying map.
+		 * A read-write set view of the keys in a {@code ObjectObjectMap.RW}.
+		 * It supports adding, removing, and clearing keys, with changes reflected
+		 * in the backing map.
 		 */
 		public final class KeyCollection extends R< K, V >.KeyCollection {
 			RW< K, V > _map;
 			
 			/**
-			 * Constructs a {@code KeyCollection} associated with the given read-write map.
+			 * Constructs a new key collection backed by the specified read-write map.
 			 *
-			 * @param map The read-write map.
+			 * @param map The backing map.
 			 */
 			public KeyCollection( RW< K, V > map ) {
 				super( map );
@@ -1764,10 +1786,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Adds a key with a null value to the map.
+			 * Adds the specified key to the map, associated with a {@code null} value.
 			 *
 			 * @param key The key to add.
-			 * @return {@code true} if the key was added, {@code false} if it already existed.
+			 * @return {@code true} if the map did not already contain the key.
 			 */
 			@Override
 			public boolean add( K key ) { boolean ret = !_map.contains( key ); _map.put_( key, null ); return ret; }
@@ -1776,30 +1798,30 @@ public interface ObjectObjectMap {
 			 * Removes the specified key from the map.
 			 *
 			 * @param o The key to remove.
-			 * @return {@code true} if the key was removed, {@code false} if it did not exist.
+			 * @return {@code true} if the key was present and removed.
 			 */
 			@Override
 			@SuppressWarnings( "unchecked" )
 			public boolean remove( Object o ) { return _map.remove_( ( K ) o ) != null; } // Use remove_
 			
 			/**
-			 * Clears all mappings from the map.
+			 * Removes all keys from the map.
 			 */
 			@Override
 			public void clear() { _map.clear(); }
 		}
 		
 		/**
-		 * {@code KeyIterator} for {@code ObjectObjectMap.RW} extends the read-only version to support removal of keys during iteration.
-		 * It allows removing the current key from the underlying map.
+		 * An iterator over the keys of a {@code ObjectObjectMap.RW} that supports the
+		 * {@code remove} operation.
 		 */
 		public class KeyIterator extends R< K, V >.KeyIterator {
 			RW< K, V > _map;
 			
 			/**
-			 * Constructs a {@code KeyIterator} for the keys of the given read-write map.
+			 * Constructs a key iterator for the specified read-write map.
 			 *
-			 * @param map The read-write map to iterate over.
+			 * @param map The map whose keys are to be iterated.
 			 */
 			KeyIterator( RW< K, V > map ) {
 				super( map );
@@ -1807,9 +1829,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Removes the current key from the map.
+			 * Removes the last key returned by {@link #next()} from the underlying map.
 			 *
-			 * @throws IllegalStateException If there is no current element.
+			 * @throws IllegalStateException if {@code next} has not yet been called, or {@code remove} has
+			 *                               already been called after the last call to {@code next}.
 			 */
 			@Override
 			public void remove() {
@@ -1820,16 +1843,17 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * {@code ValueCollection} for {@code ObjectObjectMap.RW} extends the read-only version to support write operations.
-		 * It allows adding values (with a null key) and removing values, which modifies the underlying map.
+		 * A read-write collection view of the values in a {@code ObjectObjectMap.RW}.
+		 * It supports clearing the map and removing values. Adding a value will
+		 * associate it with a {@code null} key.
 		 */
 		public final class ValueCollection extends R< K, V >.ValueCollection {
 			RW< K, V > _map;
 			
 			/**
-			 * Constructs a {@code ValueCollection} associated with the given read-write map.
+			 * Constructs a new value collection backed by the specified read-write map.
 			 *
-			 * @param map The read-write map.
+			 * @param map The backing map.
 			 */
 			public ValueCollection( RW< K, V > map ) {
 				super( map );
@@ -1837,19 +1861,20 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Adds a value with a null key to the map.
+			 * Adds a mapping from a {@code null} key to the specified value.
+			 * If a {@code null} key already exists, its value is updated.
 			 *
 			 * @param item The value to add.
-			 * @return {@code true} if the value was added, {@code false} if a null key already existed.
+			 * @return {@code true} if a new mapping was created for the {@code null} key.
 			 */
 			@Override
 			public boolean add( V item ) { return _map.put_( null, item ); } // Use put_
 			
 			/**
-			 * Removes the first entry with the specified value from the map.
+			 * Removes the first occurrence of a mapping with the specified value.
 			 *
 			 * @param value The value to remove.
-			 * @return {@code true} if an entry was removed, {@code false} if no matching value was found.
+			 * @return {@code true} if a mapping was found and removed.
 			 */
 			@Override
 			@SuppressWarnings( "unchecked" )
@@ -1866,39 +1891,41 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Clears all mappings from the map.
+			 * Removes all values (and their associated keys) from the map.
 			 */
 			@Override
 			public void clear() { _map.clear(); }
 		}
 		
 		/**
-		 * {@code ValueIterator} for {@code ObjectObjectMap.RW} extends the read-only version.
-		 * Removal is not supported as it is ambiguous which key to remove when values are not unique.
+		 * An iterator over the values of a {@code ObjectObjectMap.RW}. The {@code remove}
+		 * operation is not supported because it is ambiguous which key to remove if
+		 * multiple keys map to the same value.
 		 */
 		public class ValueIterator extends R< K, V >.ValueIterator {
 			ValueIterator( R< K, V > map ) { super( map ); }
 			
 			/**
-			 * Throws an exception as removal by value is not supported.
+			 * This operation is not supported by this iterator.
 			 *
-			 * @throws UnsupportedOperationException Always thrown.
+			 * @throws UnsupportedOperationException Always, as removing by value is ambiguous.
 			 */
 			@Override
 			public void remove() { throw new UnsupportedOperationException( "remove by value is not supported" ); }
 		}
 		
 		/**
-		 * {@code EntrySet} for {@code ObjectObjectMap.RW} extends the read-only version to support write operations.
-		 * It allows adding and removing entries, and clearing the set, which modifies the underlying map.
+		 * A read-write set view of the entries in a {@code ObjectObjectMap.RW}.
+		 * It supports adding, removing, and clearing entries, with changes reflected
+		 * in the backing map.
 		 */
 		public final class EntrySet extends R< K, V >.EntrySet {
 			RW< K, V > _map;
 			
 			/**
-			 * Constructs an {@code EntrySet} associated with the given read-write map.
+			 * Constructs a new entry set backed by the specified read-write map.
 			 *
-			 * @param map The read-write map.
+			 * @param map The backing map.
 			 */
 			public EntrySet( RW< K, V > map ) {
 				super( map );
@@ -1906,11 +1933,11 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Adds an entry to the map.
+			 * Adds the specified entry to the map.
 			 *
 			 * @param entry The entry to add.
-			 * @return {@code true} if the entry was added, {@code false} if it already existed.
-			 * @throws NullPointerException If the entry is null.
+			 * @return {@code true} if the map did not already contain the entry's key.
+			 * @throws NullPointerException if the specified entry is null.
 			 */
 			@Override
 			public boolean add( Entry< K, V > entry ) {
@@ -1921,10 +1948,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Removes the entry with the specified key from the map.
+			 * Removes the entry corresponding to the key of the specified object.
 			 *
-			 * @param o The object (expected to be an Entry) whose key is to be removed.
-			 * @return {@code true} if the entry was removed, {@code false} if it did not exist.
+			 * @param o The object (expected to be a {@link Map.Entry}) whose key's mapping is to be removed.
+			 * @return {@code true} if an entry was removed.
 			 */
 			@Override
 			@SuppressWarnings( "unchecked" )
@@ -1935,23 +1962,23 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Clears all mappings from the map.
+			 * Removes all entries from the map.
 			 */
 			@Override
 			public void clear() { _map.clear(); }
 		}
 		
 		/**
-		 * {@code EntryIterator} for {@code ObjectObjectMap.RW} extends the read-only version to support removal of entries during iteration.
-		 * It allows removing the current entry from the underlying map.
+		 * An iterator over the entries of a {@code ObjectObjectMap.RW} that supports the
+		 * {@code remove} operation.
 		 */
 		public class EntryIterator extends R< K, V >.EntryIterator {
 			RW< K, V > _map;
 			
 			/**
-			 * Constructs an {@code EntryIterator} for the entries of the given read-write map.
+			 * Constructs an entry iterator for the specified read-write map.
 			 *
-			 * @param map The read-write map to iterate over.
+			 * @param map The map whose entries are to be iterated.
 			 */
 			EntryIterator( RW< K, V > map ) {
 				super( map );
@@ -1959,9 +1986,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Removes the current entry from the map.
+			 * Removes the last entry returned by {@link #next()} from the underlying map.
 			 *
-			 * @throws IllegalStateException If there is no current element.
+			 * @throws IllegalStateException if {@code next} has not yet been called, or {@code remove} has
+			 *                               already been called after the last call to {@code next}.
 			 */
 			@Override
 			public void remove() {
@@ -1972,24 +2000,24 @@ public interface ObjectObjectMap {
 		}
 		
 		/**
-		 * Returns an iterator over the entries in this map, supporting removal.
+		 * Returns an iterator over the entries in this map that supports removal.
 		 *
-		 * @return An iterator over the entries.
+		 * @return An iterator over the map's entries.
 		 */
 		@Override
 		public Iterator iterator() { return new Iterator( this ); }
 		
 		/**
-		 * {@code Iterator} for {@code ObjectObjectMap.RW} extends the read-only version to support removal of entries during iteration.
-		 * It allows removing the current entry from the underlying map.
+		 * An iterator over the entries of a {@code ObjectObjectMap.RW} that supports the
+		 * {@code remove} operation.
 		 */
 		public class Iterator extends R< K, V >.Iterator {
 			RW< K, V > _map;
 			
 			/**
-			 * Constructs an {@code Iterator} for the entries of the given read-write map.
+			 * Constructs an iterator for the specified read-write map.
 			 *
-			 * @param map The read-write map to iterate over.
+			 * @param map The map whose entries are to be iterated.
 			 */
 			Iterator( RW< K, V > map ) {
 				super( map );
@@ -1997,9 +2025,10 @@ public interface ObjectObjectMap {
 			}
 			
 			/**
-			 * Removes the current entry from the map.
+			 * Removes the last entry returned by {@link #next()} from the underlying map.
 			 *
-			 * @throws IllegalStateException If there is no current element.
+			 * @throws IllegalStateException if {@code next} has not yet been called, or {@code remove} has
+			 *                               already been called after the last call to {@code next}.
 			 */
 			@Override
 			public void remove() {
@@ -2012,20 +2041,20 @@ public interface ObjectObjectMap {
 		private static final Object OBJECT = new Array.EqualHashOf<>( RW.class );
 		
 		/**
-		 * Creates a shallow copy of this map.
+		 * Creates and returns a shallow copy of this map. The keys and values themselves are not cloned.
 		 *
-		 * @return A cloned instance of this map.
+		 * @return A clone of this map instance.
 		 */
 		@Override
 		public RW< K, V > clone() { return ( RW< K, V > ) super.clone(); }
 	}
 	
 	/**
-	 * Returns the equality and hash strategy for {@code RW} instances.
+	 * Returns a singleton {@link Array.EqualHashOf} strategy for comparing and hashing {@code RW} maps.
 	 *
-	 * @param <K> The type of keys.
-	 * @param <V> The type of values.
-	 * @return The equality and hash strategy.
+	 * @param <K> The key type of the map.
+	 * @param <V> The value type of the map.
+	 * @return The singleton equality and hash strategy instance.
 	 */
 	@SuppressWarnings( "unchecked" )
 	static < K, V > Array.EqualHashOf< RW< K, V > > equal_hash() { return ( Array.EqualHashOf< RW< K, V > > ) RW.OBJECT; }
