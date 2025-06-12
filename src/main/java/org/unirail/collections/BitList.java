@@ -503,8 +503,7 @@ public interface BitList {
 		 */
 		public int bit( int cardinality ) {
 			// Handle invalid cardinality
-			if( cardinality <= 0 ) return -1; // No position has zero or negative '1's
-			if( cardinality() < cardinality ) return -1; // Exceeds total '1's in list
+			if( cardinality <= 0 || cardinality() < cardinality ) return -1; // Exceeds total '1's in list
 			
 			// If within trailing ones, return cardinality - 1 (since all are '1's)
 			if( cardinality <= trailingOnesCount ) return cardinality - 1; // 0-based index of the cardinality-th '1'

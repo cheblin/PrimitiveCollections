@@ -300,6 +300,7 @@ public interface CharObjectMap {
 					if( equal_hash_V.equals( values[ i ], v ) ) return true;
 				return false;
 			}
+			
 			// Hash map strategy: iterate lo region then hi region
 			for( int i = 0; i < _lo_Size; i++ ) if( equal_hash_V.equals( values[ i ], v ) ) return true;
 			for( int i = keys.length - _hi_Size; i < keys.length; i++ ) if( equal_hash_V.equals( values[ i ], v ) ) return true;
