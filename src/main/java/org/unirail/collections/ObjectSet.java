@@ -67,7 +67,7 @@ public interface ObjectSet {
 		protected boolean hasNullKey;    // True if the set contains a null key
 		protected int[]   _buckets;       // Hash table buckets (1-based indices to chain heads). Stores 0-based indices plus one.
 		protected int[]   hash;           // Stores hash codes for each entry.
-		protected int[]   links;          // Stores the 'next' index in collision chains (0-based indices).
+		protected int[]   links = Array.EqualHashOf._ints.O;          // Stores the 'next' index in collision chains (0-based indices).
 		protected K[]     keys;             // Set elements (keys)
 		
 		protected int _lo_Size;         // Number of active entries in the low region (0 to _lo_Size-1).
@@ -105,6 +105,18 @@ public interface ObjectSet {
 			return _count() + ( hasNullKey ?
 			                    1 :
 			                    0 );
+		}
+		
+		/**
+		 * Returns the total capacity of the internal arrays, which is the maximum number
+		 * of entries the map can hold before resizing.
+		 *
+		 * @return The capacity of the internal data structures.
+		 */
+		public int length() {
+			return keys == null ?
+			       0 :
+			       keys.length;
 		}
 		
 		/**
@@ -518,10 +530,9 @@ public interface ObjectSet {
 					index       = _buckets[ bucketIndex ] - 1;
 				}
 				
-				// Collision occurred and key not found. Place new entry in lo Region
-				// Resize links array if needed, up to keys.length or double current links.length
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				links[ dst_index ] = index; // New entry points to the old head
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = index; // New entry points to the old head
 			}
 			
 			this.hash[ dst_index ]  = hash; // Store hash code
@@ -801,11 +812,15 @@ public interface ObjectSet {
 		 * @param capacity The desired capacity.
 		 */
 		public void trim( int capacity ) {
-			if( capacity < count() ) throw new IllegalArgumentException( "capacity is less than Count." );
-			capacity = Array.prime( Math.max( capacity, _count() ) );
-			if( keys != null && keys.length <= capacity ) return;
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
+			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
 			resize( capacity, false );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._ints.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		/**
@@ -818,7 +833,6 @@ public interface ObjectSet {
 			_version++;
 			_buckets = new int[ capacity ];
 			hash     = new int[ capacity ];
-			links    = new int[ Math.min( 16, capacity ) ]; // Initialize links with a small, reasonable capacity
 			keys     = equal_hash_K.copyOf( null, capacity );
 			_lo_Size = 0;
 			_hi_Size = 0;
@@ -843,7 +857,7 @@ public interface ObjectSet {
 			
 			int old_lo_Size = _lo_Size;
 			int old_hi_Size = _hi_Size;
-			// Re-initialize with new capacity (this clears _buckets, resets _lo_Size, _hi_Size)
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			initialize( newSize );
 			
 			
@@ -891,11 +905,9 @@ public interface ObjectSet {
 			
 			// Bucket is empty: place new entry in hi Region
 			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++;
-			else {
-				// Collision occurred. Place new entry in lo Region
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				links[ dst_index = _lo_Size++ ] = index; // New entry points to the old head
-			}
+			else ( links.length == _lo_Size ?
+			       links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+			       links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ]       = key; // Store the key
 			this.hash[ dst_index ]  = hash; // Store the hash

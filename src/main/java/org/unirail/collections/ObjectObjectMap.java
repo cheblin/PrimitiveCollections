@@ -68,7 +68,7 @@ public interface ObjectObjectMap {
 		 * An array storing 0-based indices to link entries in a collision chain. This array is used
 		 * for entries in the "low" region of the map.
 		 */
-		protected int[] links;
+		protected int[] links= Array.EqualHashOf._ints.O;
 		
 		/**
 		 * The array storing the keys of the map entries.
@@ -1528,12 +1528,15 @@ public interface ObjectObjectMap {
 		 * @throws IllegalArgumentException if the specified capacity is less than the current size of the map.
 		 */
 		public void trim( int capacity ) {
-			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." ); // Use _count()
-			int currentCapacity = length();
-			capacity = Array.prime( Math.max( capacity, _count() ) ); // Ensure capacity is at least current count and prime. Use _count()
-			if( currentCapacity <= capacity ) return; // No need to trim if current capacity is already smaller or equal
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
+			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
-			resize( capacity, false ); // Resize to the new smaller size
+			resize( capacity,false );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._ints.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		/**
@@ -1609,10 +1612,9 @@ public interface ObjectObjectMap {
 					index       = _buckets[ bucketIndex ] - 1;
 				}
 				
-				// Key is new, and a collision occurred (bucket was not empty). Place new entry in {@code lo Region}.
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( int ) index; // Link new entry to the previous head of the chain
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = index; // New entry points to the old head
 			}
 			
 			
@@ -1644,7 +1646,7 @@ public interface ObjectObjectMap {
 			int   old_lo_Size = _lo_Size;
 			int   old_hi_Size = _hi_Size;
 			
-			// Re-initialize with new capacity (this clears _buckets, resets _lo_Size, _hi_Size)
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			initialize( newSize );
 			
 			// If forceNewHashCodes is set, apply it to the equal_hash_K provider BEFORE re-hashing elements.
@@ -1689,7 +1691,6 @@ public interface ObjectObjectMap {
 			_version++;
 			_buckets = new int[ capacity ];
 			hash     = new int[ capacity ]; // Initialize hash array
-			links    = new int[ Math.min( 16, capacity ) ]; // Initialize links with a small, reasonable capacity (from ObjectBitsMap)
 			keys     = equal_hash_K.copyOf( null, capacity );
 			values   = equal_hash_V.copyOf( null, capacity ); // Initialize values array
 			_lo_Size = 0;
@@ -1714,11 +1715,9 @@ public interface ObjectObjectMap {
 			
 			if( index == -1 ) // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++;
-			else {
-				// Collision occurred. Place new entry in {@code lo Region}
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
-				links[ dst_index = _lo_Size++ ] = index; // New entry points to the old head
-			}
+			else ( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ]       = key; // Store the key
 			this.hash[ dst_index ]  = hash; // Store the hash

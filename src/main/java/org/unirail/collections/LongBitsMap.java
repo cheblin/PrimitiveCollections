@@ -187,7 +187,7 @@ public interface LongBitsMap {
 		 * Stores links for collision chains. An entry in the {@code lo Region} uses its corresponding links array slot
 		 * to point to the next entry in its chain. {@code hi Region} entries do not use their links slots.
 		 */
-		protected int[]         links;
+		protected int[]         links= Array.EqualHashOf._ints.O;
 		/**
 		 * Stores the 2-byte primitive keys. Shared by both {@code lo Region} and {@code hi Region}.
 		 */
@@ -743,13 +743,10 @@ public interface LongBitsMap {
 			_version++; // Increment version to invalidate old tokens
 			
 			_buckets = new int[ capacity ];
-			// links array starts smaller, grows on demand for lo Region
-			links    = new int[ Math.min( 16, capacity ) ];
-			_lo_Size = 0; // Reset lo Region size
 			keys     = new long[ capacity ];
-			// If values object exists, reinitialize it with new capacity, preserving bits_per_item
 			if( values != null ) values = new BitsList.RW( values.bits_per_item, values.default_value, capacity );
-			_hi_Size = 0; // Reset hi Region size
+			_lo_Size = 0;
+			_hi_Size = 0;
 			return length();
 		}
 		
@@ -825,10 +822,9 @@ public interface LongBitsMap {
 					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
 				
-				// Key is new, and a collision occurred (bucket was not empty). Place new entry in {@code lo Region}.
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( int ) index; // Link new entry to the previous head of the chain
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = index; // New entry points to the old head
 			}
 			
 			keys[ dst_index ] = ( long ) key;
@@ -1025,10 +1021,15 @@ public interface LongBitsMap {
 		 * @param capacity The minimum desired capacity after trimming.
 		 */
 		public void trim( int capacity ) {
-			// Only trim if current length is greater than the target prime capacity
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
 			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
-			resize( capacity ); // Perform the resize operation
+			resize( capacity );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._ints.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		
@@ -1049,7 +1050,7 @@ public interface LongBitsMap {
 			BitsList.RW   old_values  = values;
 			int           old_lo_Size = _lo_Size;
 			int           old_hi_Size = _hi_Size;
-			
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			initialize( newSize ); // Re-initialize map with new capacity, resetting counters and buckets
 			
 			// Copy existing entries from old structure to new structure
@@ -1070,11 +1071,9 @@ public interface LongBitsMap {
 			
 			if( index == -1 ) // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++;
-			else { // Collision: place new entry in {@code lo Region}
-				// Resize links array if needed, cap at keys.length
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				links[ dst_index = _lo_Size++ ] = ( int ) ( index ); // Link to previous head and increment lo_Size
-			}
+			else ( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ] = key; // Store key
 			values.set1( dst_index, value ); // Store value

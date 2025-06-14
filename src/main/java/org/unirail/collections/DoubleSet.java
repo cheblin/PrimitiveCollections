@@ -110,7 +110,7 @@ public interface DoubleSet {
 		 * An array used for collision chaining. For an entry at index `i` in the `lo Region` of the `keys` array,
 		 * `links[i]` stores the 0-based index of the next element in the same collision chain.
 		 */
-		protected int[]         links;
+		protected int[]         links = Array.EqualHashOf._ints.O;
 		/**
 		 * Stores the primitive keys of the set. This array is logically divided into a `lo Region`
 		 * (for collision-involved entries) and a `hi Region` (for non-colliding entries).
@@ -526,9 +526,9 @@ public interface DoubleSet {
 			_version++;
 			
 			_buckets = new int[ capacity ];
-			links    = new int[ Math.min( 16, capacity ) ];
-			_lo_Size = 0;
+			if( links == null ) links = Array.EqualHashOf._ints.O;
 			keys     = new double[ capacity ];
+			_lo_Size = 0;
 			_hi_Size = 0;
 			return length();
 		}
@@ -582,9 +582,9 @@ public interface DoubleSet {
 					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( int ) index;
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = index; // New entry points to the old head
 			}
 			
 			keys[ dst_index ]       = ( double ) key;
@@ -797,11 +797,15 @@ public interface DoubleSet {
 		 * @param capacity The desired capacity, which must be at least the current size.
 		 */
 		public void trim( int capacity ) {
-			capacity = Array.prime( Math.max( capacity, size() ) );
-			if( length() <= capacity ) return;
-			
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
+			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
 			resize( capacity );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._ints.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		
@@ -820,6 +824,7 @@ public interface DoubleSet {
 			double[] old_keys    = keys;
 			int           old_lo_Size = _lo_Size;
 			int           old_hi_Size = _hi_Size;
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			initialize( newSize );
 			
 			for( int i = 0; i < old_lo_Size; i++ )
@@ -845,10 +850,9 @@ public interface DoubleSet {
 			
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
-			else {
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				links[ dst_index = _lo_Size++ ] = ( int ) index;
-			}
+			else ( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ]       = ( double ) key;
 			_buckets[ bucketIndex ] = ( int ) ( dst_index + 1 );

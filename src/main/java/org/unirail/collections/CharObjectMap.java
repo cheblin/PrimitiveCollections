@@ -169,7 +169,7 @@ public interface CharObjectMap {
 		protected boolean        hasNullKey;          // Indicates if the map contains a null key
 		protected V              nullKeyValue;        // Value for the null key, stored separately.
 		protected char[]         _buckets;            // Hash table buckets array (indices to collision chain heads).
-		protected char[]         links;               // Links within collision chains for entries in the low region.
+		protected char[]         links = Array.EqualHashOf._chars.O;               // Links within collision chains for entries in the low region.
 		protected char[] keys;                // Array for storing keys.
 		protected V[]            values;              // Array for storing values.
 		
@@ -819,7 +819,7 @@ public interface CharObjectMap {
 			// Hash map strategy
 			nulls    = null;
 			_buckets = new char[ capacity ];
-			links    = new char[ Math.min( 16, capacity ) ]; // links array grows as needed for lo_Size
+			if( links == null ) links = Array.EqualHashOf._chars.O;
 			keys     = new char[ capacity ];
 			values   = equal_hash_V.copyOf( null, capacity );
 			_lo_Size = 0;
@@ -928,9 +928,9 @@ public interface CharObjectMap {
 					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( char ) index;
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = ( char ) index; // New entry points to the old head
 			}
 			
 			keys[ dst_index ]       = ( char ) key;
@@ -1164,15 +1164,15 @@ public interface CharObjectMap {
 		 * @param capacity The minimum desired capacity after trimming.
 		 */
 		public void trim( int capacity ) {
-			// Ensure requested capacity is at least the current number of elements
-			capacity = Array.prime( Math.max( capacity, size() - ( hasNullKey ?
-			                                                       1 :
-			                                                       0 ) ) );
-			
-			// If current length is already optimal or smaller than desired capacity, do nothing
-			if( length() <= capacity ) return;
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
+			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
 			resize( capacity );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._chars.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		/**
@@ -1241,7 +1241,7 @@ public interface CharObjectMap {
 			V[]            old_values  = values;
 			int            old_lo_Size = _lo_Size;
 			int            old_hi_Size = _hi_Size;
-			
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			// Initialize new hash map arrays (this resets _lo_Size, _hi_Size to 0)
 			initialize( newSize );
 			
@@ -1271,10 +1271,9 @@ public interface CharObjectMap {
 			
 			// Bucket is empty in the new map: place new entry in {@code hi Region}
 			if( index == -1 ) dst_index = keys.length - 1 - _hi_Size++;
-			else {
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				links[ dst_index = _lo_Size++ ] = ( char ) ( index ); // New entry links to the old head
-			}
+			else ( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ]       = key;
 			values[ dst_index ]     = value;

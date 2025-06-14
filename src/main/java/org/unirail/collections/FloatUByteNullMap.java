@@ -103,7 +103,7 @@ public interface FloatUByteNullMap {
 		 * An array for collision chaining. For an entry at index `i` in the `lo Region`,
 		 * `links[i]` stores the 0-based index of the next element in its collision chain.
 		 */
-		protected int[]                  links;
+		protected int[]                  links= Array.EqualHashOf._ints.O;
 		/**
 		 * Stores the primitive keys of the map. This array is logically divided into a `lo Region`
 		 * (for collision-involved entries) and a `hi Region` (for non-colliding entries).
@@ -679,12 +679,10 @@ public interface FloatUByteNullMap {
 			_version++;
 			
 			_buckets = new int[ capacity ];
-			links    = new int[ Math.min( 16, capacity ) ];
-			_lo_Size = 0;
 			keys     = new float[ capacity ];
 			values   = new byte[ capacity ];
 			nulls    = new long[ capacity + 63 >> 6 ];
-			
+			_lo_Size = 0;
 			_hi_Size = 0;
 			return length();
 		}
@@ -862,9 +860,9 @@ public interface FloatUByteNullMap {
 					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( int ) index;
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = index; // New entry points to the old head
 			}
 			
 			keys[ dst_index ] = ( float ) key;
@@ -1076,8 +1074,15 @@ public interface FloatUByteNullMap {
 		 * @param capacity The desired capacity, which must be at least the current size.
 		 */
 		public void trim( int capacity ) {
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
 			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
+			
 			resize( capacity );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._ints.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		
@@ -1096,6 +1101,7 @@ public interface FloatUByteNullMap {
 			byte[] old_values  = values;
 			int           old_lo_Size = _lo_Size;
 			int           old_hi_Size = _hi_Size;
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			initialize( newSize );
 			
 			long bits = 0;
@@ -1138,10 +1144,9 @@ public interface FloatUByteNullMap {
 			
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
-			else {
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				links[ dst_index = _lo_Size++ ] = ( int ) index;
-			}
+			else ( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ] = key;
 			if( hasValue ) {

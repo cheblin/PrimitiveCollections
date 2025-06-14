@@ -191,7 +191,7 @@ public interface ShortBitsMap {
 		 * An array used to form collision chains in the 'lo Region'. Each element at index `i`
 		 * stores the index of the next entry in the chain, or an index into the {@code hi Region} for terminal nodes.
 		 */
-		protected char[]         links;
+		protected char[]         links = Array.EqualHashOf._chars.O;
 		/**
 		 * The array storing the keys of the map entries.
 		 */
@@ -835,10 +835,10 @@ public interface ShortBitsMap {
 			}
 			nulls    = null;
 			_buckets = new char[ capacity ];
-			links    = new char[ Math.min( 16, capacity ) ];
-			_lo_Size = 0;
-			keys     = new short[ capacity ];
+			if( links == null ) links = Array.EqualHashOf._chars.O;
+			keys = new short[ capacity ];
 			if( values != null ) values = new BitsList.RW( values.bits_per_item, capacity );
+			_lo_Size = 0;
 			_hi_Size = 0;
 			return length();
 		}
@@ -944,9 +944,9 @@ public interface ShortBitsMap {
 					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( char ) index;
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = ( char ) index; // New entry points to the old head
 			}
 			
 			keys[ dst_index ] = ( short ) key;
@@ -1203,9 +1203,15 @@ public interface ShortBitsMap {
 		 * @param capacity The minimum desired capacity after trimming.
 		 */
 		public void trim( int capacity ) {
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
 			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
 			resize( capacity );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._chars.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		
@@ -1271,6 +1277,7 @@ public interface ShortBitsMap {
 			BitsList.RW    old_values  = values;
 			int            old_lo_Size = _lo_Size;
 			int            old_hi_Size = _hi_Size;
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links 
 			initialize( newSize );
 			
 			
@@ -1300,10 +1307,10 @@ public interface ShortBitsMap {
 			
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
-			else {
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				links[ dst_index = _lo_Size++ ] = ( char ) ( index );
-			}
+			else
+				( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			
 			keys[ dst_index ] = key;

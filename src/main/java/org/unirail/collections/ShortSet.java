@@ -183,7 +183,7 @@ public interface ShortSet {
 		
 		protected char[]         _buckets;            // Hash table buckets array (1-based indices to chain heads). Stores 0-based indices plus one.
 		protected short[] keys;                // Stores the primitive keys in the set.
-		protected char[]         links;               // Links within collision chains. Stores 0-based indices.
+		protected char[]         links= Array.EqualHashOf._chars.O;;               // Links within collision chains. Stores 0-based indices.
 		
 		protected int _lo_Size;                       // Number of active entries in the low region (0 to _lo_Size-1).
 		protected int _hi_Size;                       // Number of active entries in the high region (keys.length - _hi_Size to keys.length-1).
@@ -710,9 +710,9 @@ public interface ShortSet {
 			}
 			nulls    = null;
 			_buckets = new char[ capacity ];
-			links    = new char[ Math.min( 16, capacity ) ];
-			_lo_Size = 0;
+			if( links == null ) links = Array.EqualHashOf._chars.O;
 			keys     = new short[ capacity ];
+			_lo_Size = 0;
 			_hi_Size = 0;
 			return length();
 		}
@@ -792,9 +792,9 @@ public interface ShortSet {
 					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( char ) index;
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = ( char ) index; // New entry points to the old head
 			}
 			
 			keys[ dst_index ]       = ( short ) key;
@@ -1069,17 +1069,15 @@ public interface ShortSet {
 		 * @param capacity The minimum desired capacity after trimming.
 		 */
 		public void trim( int capacity ) {
-			capacity = Array.prime( Math.max( capacity, size() ) ); // Ensure capacity is at least current size and a prime
-			if( length() <= capacity ) return; // No trim needed if already small enough or larger capacity requested
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
+			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
-			// If current strategy is flat, and target capacity is below threshold, switch to hash mode
-			if( isFlatStrategy() ) {
-				if( capacity <= flatStrategyThreshold ) resize( capacity );
-				return;
-			}
-			
-			// If current strategy is hash, just resize if capacity is smaller than current length
 			resize( capacity );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._chars.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		
@@ -1133,6 +1131,7 @@ public interface ShortSet {
 			short[] old_keys    = keys;
 			int            old_lo_Size = _lo_Size;
 			int            old_hi_Size = _hi_Size;
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			initialize( newSize ); // Re-initialize with new hash capacity
 			
 			// Copy elements from old hash structure to new hash structure by re-inserting
@@ -1160,11 +1159,9 @@ public interface ShortSet {
 			if( index == -1 ) { // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++;
 			}
-			else {
-				// Collision occurred. Place new entry in {@code lo Region}
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
-				links[ dst_index = _lo_Size++ ] = ( char ) index; // New entry points to the old head
-			}
+			else ( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ]       = ( short ) key; // Store the key
 			_buckets[ bucketIndex ] = ( char ) ( dst_index + 1 ); // Update bucket to new head (1-based)

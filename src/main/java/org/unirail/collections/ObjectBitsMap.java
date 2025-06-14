@@ -78,7 +78,7 @@ public interface ObjectBitsMap {
 		 * An array for storing collision chain links. For an entry at index {@code i} in the "low" region,
 		 * {@code links[i]} stores the 0-based index of the next entry in the same bucket's chain.
 		 */
-		protected int[]       links;
+		protected int[]       links= Array.EqualHashOf._ints.O;
 		/**
 		 * An array storing the keys of the map.
 		 */
@@ -767,11 +767,14 @@ public interface ObjectBitsMap {
 		 */
 		public void trim( int capacity ) {
 			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
-			int currentCapacity = length();
-			capacity = Array.prime( Math.max( capacity, _count() ) ); // Ensure capacity is at least current count and prime
-			if( currentCapacity <= capacity ) return; // No need to trim if current capacity is already smaller or equal
+			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
-			resize( capacity, false ); // Resize to the new smaller size
+			resize( capacity,false );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._ints.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		/**
@@ -848,10 +851,9 @@ public interface ObjectBitsMap {
 					index       = _buckets[ bucketIndex ] - 1;
 				}
 				
-				// Key is new, and a collision occurred (bucket was not empty). Place new entry in {@code lo Region}.
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( int ) index; // Link new entry to the previous head of the chain
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = index; // New entry points to the old head
 			}
 			
 			
@@ -883,7 +885,7 @@ public interface ObjectBitsMap {
 			int         old_lo_Size = _lo_Size;
 			int         old_hi_Size = _hi_Size;
 			
-			// Re-initialize with new capacity (this clears _buckets, resets _lo_Size, _hi_Size)
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			initialize( newSize );
 			
 			
@@ -925,8 +927,6 @@ public interface ObjectBitsMap {
 			_version++;
 			_buckets = new int[ capacity ];     // Initialize buckets array
 			hash     = new int[ capacity ];     // Initialize hash array
-			links    = new int[ Math.min( 16, capacity ) ]; // Initialize links with a small, reasonable capacity
-			keys     = equal_hash_K.copyOf( null, capacity ); // Initialize keys array
 			_lo_Size = 0;
 			_hi_Size = 0;
 			return capacity;
@@ -949,12 +949,9 @@ public interface ObjectBitsMap {
 			
 			if( index == -1 ) // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++;
-			else {
-				// Collision occurred. Place new entry in {@code lo Region}
-				if( links.length == _lo_Size )  	links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) ); // Resize links
-				
-				links[ dst_index = _lo_Size++ ] = index; // New entry points to the old head
-			}
+			else ( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ]      = key; // Store the key
 			this.hash[ dst_index ] = hash; // Store the hash

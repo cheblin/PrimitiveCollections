@@ -167,7 +167,7 @@ public interface UIntFloatMap {
 		 * Each element `links[i]` stores the index of the next entry in the chain,
 		 * or an index >= `_lo_Size` if it points to a terminal node in the {@code hi Region}.
 		 */
-		protected int[]             links;
+		protected int[]             links = Array.EqualHashOf._ints.O;
 		/**
 		 * The array storing the keys of the map entries.
 		 * Keys for {@code lo Region} entries are at indices `0` to `_lo_Size - 1`.
@@ -645,10 +645,9 @@ public interface UIntFloatMap {
 			_version++;
 			
 			_buckets = new int[ capacity ];
-			links    = new int[ Math.min( 16, capacity ) ];
-			_lo_Size = 0;
 			keys     = new int[ capacity ];
 			values   = new float[ capacity ];
+			_lo_Size = 0;
 			_hi_Size = 0;
 			return length();
 		}
@@ -717,9 +716,9 @@ public interface UIntFloatMap {
 					if( _lo_Size + 1 < collisions++ ) throw new ConcurrentModificationException( "Concurrent operations not supported." );
 				}
 				
-				if( links.length == ( dst_index = _lo_Size++ ) ) links = Arrays.copyOf( links, Math.min( keys.length, links.length * 2 ) );
-				
-				links[ dst_index ] = ( int ) index;
+				( links.length == ( dst_index = _lo_Size++ ) ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index ] = index; // New entry points to the old head
 			}
 			
 			keys[ dst_index ]       = ( int ) key;
@@ -916,9 +915,15 @@ public interface UIntFloatMap {
 		 * @param capacity The target capacity.
 		 */
 		public void trim( int capacity ) {
+			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
 			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
 			resize( capacity );
+			
+			if( _lo_Size < links.length )
+				links = _lo_Size == 0 ?
+				        Array.EqualHashOf._ints.O :
+				        Array.copyOf( links, _lo_Size );
 		}
 		
 		
@@ -937,8 +942,8 @@ public interface UIntFloatMap {
 			float[] old_values  = values;
 			int           old_lo_Size = _lo_Size;
 			int           old_hi_Size = _hi_Size;
+			if( links.length < 0xFF && links.length < _buckets.length ) links = _buckets;//reuse buckets as links
 			initialize( newSize );
-			
 			
 			for( int i = 0; i < old_lo_Size; i++ )
 			     copy( old_keys[ i ], old_values[ i ] );
@@ -965,10 +970,9 @@ public interface UIntFloatMap {
 			
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
-			else {
-				if( links.length == _lo_Size ) links = Arrays.copyOf( links, Math.min( _lo_Size * 2, keys.length ) );
-				links[ dst_index = _lo_Size++ ] = ( int ) ( index );
-			}
+			else ( links.length == _lo_Size ?
+				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ]       = key;
 			values[ dst_index ]     = value;
