@@ -202,10 +202,10 @@ public interface UByteSet {
 			return subset == null ||
 			       subset.size() <= size() &&
 			       ( hasNullKey || !subset.hasNullKey ) &&
-			       ( segments[ 0 ] & ( b = subset.segments[ 0 ] ) ) == b &&
-			       ( segments[ 1 ] & ( b = subset.segments[ 1 ] ) ) == b &&
-			       ( segments[ 2 ] & ( b = subset.segments[ 2 ] ) ) == b &&
-			       ( segments[ 3 ] & ( b = subset.segments[ 3 ] ) ) == b;
+			       ( bits[ 0 ] & ( b = subset.bits[ 0 ] ) ) == b &&
+			       ( bits[ 1 ] & ( b = subset.bits[ 1 ] ) ) == b &&
+			       ( bits[ 2 ] & ( b = subset.bits[ 2 ] ) ) == b &&
+			       ( bits[ 3 ] & ( b = subset.bits[ 3 ] ) ) == b;
 		}
 		
 		/**
@@ -418,21 +418,21 @@ public interface UByteSet {
 			boolean modified = false; // Flag to track if any modification occurred.
 			long    _0, _1, _2, _3, b;
 			
-			if( ( _0 = segments[ 0 ] ) != ( b = src.segments[ 0 ] ) ) {
-				segments[ 0 ] = _0 &= b;
-				                modified = true;
+			if( ( _0 = bits[ 0 ] ) != ( b = src.bits[ 0 ] ) ) {
+				bits[ 0 ] = _0 &= b;
+				            modified = true;
 			}
-			if( ( _1 = segments[ 1 ] ) != ( b = src.segments[ 1 ] ) ) {
-				segments[ 1 ] = _1 &= b;
-				                modified = true;
+			if( ( _1 = bits[ 1 ] ) != ( b = src.bits[ 1 ] ) ) {
+				bits[ 1 ] = _1 &= b;
+				            modified = true;
 			}
-			if( ( _2 = segments[ 2 ] ) != ( b = src.segments[ 2 ] ) ) {
-				segments[ 2 ] = _2 &= b;
-				                modified = true;
+			if( ( _2 = bits[ 2 ] ) != ( b = src.bits[ 2 ] ) ) {
+				bits[ 2 ] = _2 &= b;
+				            modified = true;
 			}
-			if( ( _3 = segments[ 3 ] ) != ( b = src.segments[ 3 ] ) ) {
-				segments[ 3 ] = _3 &= b;
-				                modified = true;
+			if( ( _3 = bits[ 3 ] ) != ( b = src.bits[ 3 ] ) ) {
+				bits[ 3 ] = _3 &= b;
+				            modified = true;
 			}
 			
 			if( modified ) {
@@ -463,21 +463,21 @@ public interface UByteSet {
 			boolean modified = false; // Flag to track if any modification occurred.
 			long    _0, _1, _2, _3, b;
 			
-			if( ( _0 = segments[ 0 ] ) != ( b = src.segments[ 0 ] ) ) {
-				segments[ 0 ] = _0 |= b;
-				                modified = true;
+			if( ( _0 = bits[ 0 ] ) != ( b = src.bits[ 0 ] ) ) {
+				bits[ 0 ] = _0 |= b;
+				            modified = true;
 			}
-			if( ( _1 = segments[ 1 ] ) != ( b = src.segments[ 1 ] ) ) {
-				segments[ 1 ] = _1 |= b;
-				                modified = true;
+			if( ( _1 = bits[ 1 ] ) != ( b = src.bits[ 1 ] ) ) {
+				bits[ 1 ] = _1 |= b;
+				            modified = true;
 			}
-			if( ( _2 = segments[ 2 ] ) != ( b = src.segments[ 2 ] ) ) {
-				segments[ 2 ] = _2 |= b;
-				                modified = true;
+			if( ( _2 = bits[ 2 ] ) != ( b = src.bits[ 2 ] ) ) {
+				bits[ 2 ] = _2 |= b;
+				            modified = true;
 			}
-			if( ( _3 = segments[ 3 ] ) != ( b = src.segments[ 3 ] ) ) {
-				segments[ 3 ] = _3 |= b;
-				                modified = true;
+			if( ( _3 = bits[ 3 ] ) != ( b = src.bits[ 3 ] ) ) {
+				bits[ 3 ] = _3 |= b;
+				            modified = true;
 			}
 			
 			if( modified ) {

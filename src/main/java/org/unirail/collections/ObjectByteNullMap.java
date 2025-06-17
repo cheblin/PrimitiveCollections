@@ -57,7 +57,7 @@ public interface ObjectByteNullMap {
 		protected byte            nullKeyValue;
 		protected int[]                  _buckets;
 		protected int[]                  hash; // Replaced hash_nexts
-		protected int[]                  links= Array.EqualHashOf._ints.O; // Replaced hash_nexts
+		protected int[]                  links = Array.EqualHashOf._ints.O; // Replaced hash_nexts
 		protected K[]                    keys;
 		protected ByteNullList.RW values;
 		
@@ -454,7 +454,11 @@ public interface ObjectByteNullMap {
 			if( equal_hash_K == Array.string ) {
 				json.enterObject();
 				
-				if( hasNullKey ) json.name().value( nullKeyValue );
+				if( hasNullKey )
+					if( nullKeyHasValue )
+						json.name().value( nullKeyValue );
+					else
+						json.name().value();
 				
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.name( key( token ) == null ?
@@ -471,11 +475,18 @@ public interface ObjectByteNullMap {
 				json.enterArray();
 				
 				if( hasNullKey )
-					json
-							.enterObject()
-							.name( "Key" ).value()
-							.name( "Value" ).value( nullKeyValue )
-							.exitObject();
+					if( nullKeyHasValue )
+						json
+								.enterObject()
+								.name( "Key" ).value()
+								.name( "Value" ).value( nullKeyValue )
+								.exitObject();
+					else
+						json
+								.enterObject()
+								.name( "Key" ).value()
+								.name( "Value" ).value()
+								.exitObject();
 				
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
 				     json.enterObject()
@@ -772,7 +783,7 @@ public interface ObjectByteNullMap {
 			if( capacity < _count() ) throw new IllegalArgumentException( "capacity is less than Count." );
 			if( length() <= ( capacity = Array.prime( Math.max( capacity, size() ) ) ) ) return;
 			
-			resize( capacity,false );
+			resize( capacity, false );
 			
 			if( _lo_Size < links.length )
 				links = _lo_Size == 0 ?
@@ -840,7 +851,7 @@ public interface ObjectByteNullMap {
 					index       = _buckets[ bucketIndex ] - 1;
 				}
 				
-			( links.length == ( dst_index = _lo_Size++ ) ?
+				( links.length == ( dst_index = _lo_Size++ ) ?
 				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
 				  links )[ dst_index ] = index; // New entry points to the old head
 			}
@@ -955,8 +966,8 @@ public interface ObjectByteNullMap {
 			if( index == -1 ) // Bucket is empty: place new entry in {@code hi Region}
 				dst_index = keys.length - 1 - _hi_Size++;
 			else ( links.length == _lo_Size ?
-				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
-				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
+			       links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+			       links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ]      = key; // Store the key
 			this.hash[ dst_index ] = hash; // Store the hash

@@ -2932,7 +2932,7 @@ public interface Array {
 		 * segment 2: keys 128-191
 		 * segment 3: keys 192-255
 		 */
-		protected long[] segments = new long[ 4 ];
+		protected long[] bits = new long[ 4 ];
 		
 		protected int cardinality = 0; // The number of elements currently in the set.
 		protected int _version;  // Version counter for detecting concurrent modifications.
@@ -2940,7 +2940,7 @@ public interface Array {
 		@Override
 		protected Object clone() throws CloneNotSupportedException {
 			FF cloned = ( FF ) super.clone();
-			cloned.segments = segments.clone();
+			cloned.bits = bits.clone();
 			return cloned;
 		}
 		
@@ -2957,7 +2957,7 @@ public interface Array {
 		 * @return {@code true} if the Flag Sets are equal, {@code false} otherwise.
 		 */
 		public boolean equals( FF other ) {
-			return this.cardinality == other.cardinality && Arrays.equals( this.segments, other.segments );
+			return this.cardinality == other.cardinality && Arrays.equals( this.bits, other.bits );
 		}
 		
 		
@@ -2967,7 +2967,7 @@ public interface Array {
 		 *
 		 * @return The hash code value for this Flag Set.
 		 */
-		public int hashCode() { return Array.finalizeHash( Array.hash( 22633363, segments, 0, 4 ), cardinality ); }
+		public int hashCode() { return Array.finalizeHash( Array.hash( 22633363, bits, 0, 4 ), cardinality ); }
 		
 		/**
 		 * Calculates the rank of a given byte value within the set.
@@ -2978,11 +2978,11 @@ public interface Array {
 		 * @return The rank of the byte value. Returns the count of elements in the set less than {@code key}.
 		 */
 		protected int rank( byte key ) {
-			final int segmentIndex = ( key & 0xFF ) >>> 6;
+			final int index = ( key & 0xFF ) >>> 6;
 			
-			int rank = Long.bitCount( segments[ segmentIndex ] << 63 - key );
+			int rank = Long.bitCount( bits[ index ] << 63 - key );
 			
-			for( int i = 0; i < segmentIndex; i++ ) rank += Long.bitCount( segments[ i ] );
+			for( int i = 0; i < index; i++ ) rank += Long.bitCount( bits[ i ] );
 			
 			return rank;
 		}
@@ -3001,11 +3001,11 @@ public interface Array {
 			
 			int index = bit >>> 6;
 			
-			long word = segments[ index ] >>> bit;
+			long word = bits[ index ] >>> bit;
 			if( word != 0 ) return bit + Long.numberOfTrailingZeros( word );
 			
 			for( index++; index < 4; index++ )
-				if( ( word = segments[ index ] ) != 0 )
+				if( ( word = bits[ index ] ) != 0 )
 					return ( index << 6 ) + Long.numberOfTrailingZeros( word );
 			
 			return -1;
@@ -3024,11 +3024,11 @@ public interface Array {
 			
 			int index = bit >>> 6;
 			
-			long word = ~segments[ index ] >>> bit;
+			long word = ~bits[ index ] >>> bit;
 			if( word != 0 ) return bit + Long.numberOfTrailingZeros( word );
 			
 			for( index++; index < 4; index++ )
-				if( ( word = segments[ index ] ) != -1L )  // -1L means all bits are set
+				if( ( word = bits[ index ] ) != -1L )  // -1L means all bits are set
 					return index << 6 + Long.numberOfTrailingZeros( ~word );
 			
 			return -1;
@@ -3045,11 +3045,11 @@ public interface Array {
 		protected boolean set0( byte key ) {
 			if( cardinality == 0 ) return false; // Optimization: empty set cannot contain any key to remove.
 			int  k   = ( key & 0xFF ) >> 6;
-			long was = segments[ k ];
+			long was = bits[ k ];
 			long now = was & ~( 1L << key );
 			if( was == now ) return false;
 			
-			segments[ k ] = now;
+			bits[ k ] = now;
 			cardinality--; // Decrement size as an element was removed.
 			_version++; // Increment version to indicate structural modification.
 			return true; // Value was removed.
@@ -3064,11 +3064,11 @@ public interface Array {
 		 */
 		protected boolean set1( final byte key ) {
 			int  k   = ( key & 0xFF ) >> 6;
-			long was = segments[ k ];
+			long was = bits[ k ];
 			long now = was | 1L << key;
 			if( was == now ) return false;
 			
-			segments[ k ] = now;
+			bits[ k ] = now;
 			cardinality++; // Increment size as a new element was added.
 			_version++; // Increment version to indicate structural modification.
 			return true; // Value was added.
@@ -3078,7 +3078,7 @@ public interface Array {
 		 * Clears all byte values from the set, making it empty.
 		 */
 		protected void _clear() {
-			Arrays.fill( segments, 0 );
+			Arrays.fill( bits, 0 );
 			cardinality = 0; // Reset all bitset segments to 0.
 			_version++; // Increment version to indicate structural modification.
 		}
@@ -3090,7 +3090,7 @@ public interface Array {
 		 * @param key The byte value to check for presence in the set (valid range is 0-255).
 		 * @return {@code true} if the set contains the specified byte value, {@code false} otherwise.
 		 */
-		protected boolean is1( byte key ) { return cardinality != 0 && ( segments[ ( key & 0xFF ) >> 6 ] & 1L << key ) != 0; }
+		protected boolean is1( byte key ) { return cardinality != 0 && ( bits[ ( key & 0xFF ) >> 6 ] & 1L << key ) != 0; }
 	}
 }
 

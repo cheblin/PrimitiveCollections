@@ -448,9 +448,11 @@ public interface ByteByteNullMap {
 			json.enterObject();
 			
 			if( hasNullKey )
-				json.name().value( nullKeyHasValue ?
-				                   nullKeyValue :
-				                   null );
+				if( nullKeyHasValue )
+					json.name().value( nullKeyValue );
+				else
+					json.name().value();
+			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				json.name( key( token ) );
 				if( hasValue( token ) )

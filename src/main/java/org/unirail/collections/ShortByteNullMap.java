@@ -758,7 +758,11 @@ public interface ShortByteNullMap {
 			json.preallocate( size() * 10 );
 			json.enterObject();
 			
-			if( hasNullKey ) json.name().value( nullKeyValue );
+			if( hasNullKey )
+				if( nullKeyHasValue )
+					json.name().value( nullKeyValue );
+				else
+					json.name().value();
 			
 			if( isFlatStrategy() )
 				for( int token = -1; ( token = unsafe_token( token ) ) != -1; )

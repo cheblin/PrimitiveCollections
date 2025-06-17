@@ -103,7 +103,7 @@ public interface DoubleCharNullMap {
 		 * An array for collision chaining. For an entry at index `i` in the `lo Region`,
 		 * `links[i]` stores the 0-based index of the next element in its collision chain.
 		 */
-		protected int[]                  links= Array.EqualHashOf._ints.O;
+		protected int[]                  links = Array.EqualHashOf._ints.O;
 		/**
 		 * Stores the primitive keys of the map. This array is logically divided into a `lo Region`
 		 * (for collision-involved entries) and a `hi Region` (for non-colliding entries).
@@ -592,7 +592,11 @@ public interface DoubleCharNullMap {
 			json.preallocate( size() * 10 );
 			json.enterObject();
 			
-			if( hasNullKey ) json.name().value( nullKeyValue );
+			if( hasNullKey )
+				if( nullKeyHasValue )
+					json.name().value( nullKeyValue );
+				else
+					json.name().value();
 			
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; )
@@ -1145,8 +1149,8 @@ public interface DoubleCharNullMap {
 			if( index == -1 )
 				dst_index = keys.length - 1 - _hi_Size++;
 			else ( links.length == _lo_Size ?
-				  links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
-				  links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
+			       links = Arrays.copyOf( links, Math.max( 16, Math.min( _lo_Size * 2, keys.length ) ) ) :
+			       links )[ dst_index = _lo_Size++ ] = ( char ) ( index );
 			
 			keys[ dst_index ] = key;
 			if( hasValue ) {
