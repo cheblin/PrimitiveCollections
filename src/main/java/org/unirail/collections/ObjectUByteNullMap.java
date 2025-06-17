@@ -412,7 +412,8 @@ public interface ObjectUByteNullMap {
 		 */
 		public boolean equals( R< K > other ) {
 			if( other == this ) return true;
-			if( other == null || hasNullKey != other.hasNullKey ||
+			if( other == null ||
+			    hasNullKey != other.hasNullKey ||
 			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyHasValue && nullKeyValue != other.nullKeyValue ) ||
 			    size() != other.size() ) return false;
 			

@@ -537,8 +537,8 @@ public interface IntCharNullMap {
 			if( other == this ) return true;
 			if( other == null ||
 			    hasNullKey != other.hasNullKey ||
-			    hasNullKey && nullKeyValue != other.nullKeyValue || size() != other.size() )
-				return false;
+			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyHasValue && nullKeyValue != other.nullKeyValue ) ||
+			    size() != other.size() ) return false;
 			
 			for( int token = -1; ( token = unsafe_token( token ) ) != -1; ) {
 				long t = other.tokenOf( key( token ) );

@@ -325,11 +325,10 @@ public interface ByteCharNullMap {
 		 */
 		public boolean equals( R other ) {
 			if( other == this ) return true;
-			if( other == null || hasNullKey != other.hasNullKey ||
+			if( other == null ||
+			    hasNullKey != other.hasNullKey ||
 			    hasNullKey && ( nullKeyHasValue != other.nullKeyHasValue || nullKeyHasValue && nullKeyValue != other.nullKeyValue ) ||
-			    size() != other.size() ||
-			    !super.equals( other ) || !nulls.equals( other.nulls ) )
-				return false;
+			    size() != other.size() ) return false;
 			
 			int t1 = -1, t2 = -1;
 			for( t1 = unsafe_token( t1 ), t2 = other.unsafe_token( t2 ); t1 != -1 && t2 != -1; t1 = unsafe_token( t1 ), t2 = other.unsafe_token( t2 ) )
