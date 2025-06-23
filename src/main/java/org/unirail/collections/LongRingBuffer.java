@@ -17,13 +17,16 @@
 
 package org.unirail.collections;
 
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 /**
  * A thread-safe, fixed-size ring buffer (circular buffer) for storing primitive values.
- * Optimized for efficient producer-consumer scenarios and bounded circular data storage.
- * The buffer uses atomic operations for thread-safe access and a bitwise mask for efficient index wrapping.
+ * Optimized for Single-Producer, Single-Consumer (SPSC), Multiple-Producer, Single-Consumer (MPSC),
+ * or Single-Producer, Multiple-Consumer (SPMC) scenarios. Not safe for Multiple-Producer,
+ * Multiple-Consumer (MPMC) without external synchronization.
+ *
+ * <p>Uses {@link AtomicLongFieldUpdater} for lock-free atomic operations and a bitwise mask
+ * for efficient index wrapping.</p>
  */
 public class LongRingBuffer {
 	/**
@@ -37,44 +40,37 @@ public class LongRingBuffer {
 	private final int mask;
 	
 	/**
-	 * Lock for thread-safe operations in multi-threaded methods (0 = unlocked, 1 = locked).
-	 */
-	private volatile int lock = 0;
-	
-	/**
-	 * Atomic updater for thread-safe modifications to the lock field.
-	 */
-	static final AtomicIntegerFieldUpdater< LongRingBuffer > lock_update = AtomicIntegerFieldUpdater.newUpdater( LongRingBuffer.class, "lock" );
-	
-	/**
 	 * Head pointer indicating the next element to read (used for get operations).
 	 */
-	private volatile long get = Long.MIN_VALUE;
-	
-	/**
-	 * Atomic updater for thread-safe modifications to the get pointer.
-	 */
-	private static final AtomicLongFieldUpdater< LongRingBuffer > GET_UPDATER = AtomicLongFieldUpdater.newUpdater( LongRingBuffer.class, "get" );
+	private volatile long get = 0L;
 	
 	/**
 	 * Tail pointer indicating the next available slot to write (used for put operations).
 	 */
-	private volatile long put = Long.MIN_VALUE;
+	private volatile long put = 0L;
+	
+	/**
+	 * Atomic updater for thread-safe modifications to the get pointer.
+	 */
+	private static final AtomicLongFieldUpdater< LongRingBuffer > GET = AtomicLongFieldUpdater.newUpdater( LongRingBuffer.class, "get" );
 	
 	/**
 	 * Atomic updater for thread-safe modifications to the put pointer.
 	 */
-	private static final AtomicLongFieldUpdater< LongRingBuffer > PUT_UPDATER = AtomicLongFieldUpdater.newUpdater( LongRingBuffer.class, "put" );
+	private static final AtomicLongFieldUpdater< LongRingBuffer > PUT = AtomicLongFieldUpdater.newUpdater( LongRingBuffer.class, "put" );
 	
 	/**
 	 * Creates a new ring buffer with a capacity of 2^capacityPowerOfTwo.
 	 *
 	 * @param capacityPowerOfTwo The power of two defining the buffer's capacity (e.g., 4 for 16 elements).
-	 * @throws IllegalArgumentException If capacityPowerOfTwo is negative.
+	 * @throws IllegalArgumentException If capacityPowerOfTwo is negative or exceeds 30.
 	 */
 	public LongRingBuffer( int capacityPowerOfTwo ) {
 		if( capacityPowerOfTwo < 0 ) throw new IllegalArgumentException( "capacityPowerOfTwo must be non-negative" );
-		buffer = new long[ ( mask = ( 1 << capacityPowerOfTwo ) - 1 ) + 1 ];
+		if( 30 < capacityPowerOfTwo ) throw new IllegalArgumentException( "capacityPowerOfTwo must not exceed 30 to avoid integer overflow" );
+		int capacity = 1 << capacityPowerOfTwo;
+		mask   = capacity - 1;
+		buffer = new long[ capacity ];
 	}
 	
 	/**
@@ -82,33 +78,86 @@ public class LongRingBuffer {
 	 *
 	 * @return The maximum number of elements the buffer can hold.
 	 */
-	public int length() {
-		return buffer.length;
-	}
+	public int length() { return buffer.length; }
 	
 	/**
-	 * Returns the current number of elements in the ring buffer.
+	 * Returns the approximate number of elements in the ring buffer.
+	 * <p>In concurrent scenarios, the result may be stale due to non-atomic reads.</p>
 	 *
-	 * @return The number of elements currently stored.
+	 * @return The approximate number of elements currently stored.
 	 */
 	public int size() {
-		return ( int ) ( put - get );
+		long size = put - get;
+		return size < 0 ?
+		       0 :
+		       ( int ) Math.min( size, buffer.length );
 	}
 	
 	/**
-	 * Thread-safely retrieves and removes the next integer from the buffer.
+	 * Checks if the buffer is approximately empty.
+	 * <p>In concurrent scenarios, the result may be stale.</p>
+	 *
+	 * @return true if the buffer appears empty, false otherwise
+	 */
+	public boolean isEmpty() {
+		return get == put;
+	}
+	
+	/**
+	 * Checks if the buffer is approximately full.
+	 * <p>In concurrent scenarios, the result may be stale.</p>
+	 *
+	 * @return true if the buffer appears full, false otherwise
+	 */
+	public boolean isFull() {
+		return put - get == buffer.length;
+	}
+	
+	/**
+	 * Thread-safely retrieves the next integer from the buffer without removing it.
+	 * Suitable for SPSC or SPMC scenarios.
 	 *
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
 	public long get_multithreaded( long defaultValueIfEmpty ) {
-		long _get;
-		
-		do
-			if( ( _get = get ) == put ) return defaultValueIfEmpty;
-		while( !GET_UPDATER.compareAndSet( this, _get, _get + 1 ) );
-		
-		return buffer[ ( int ) _get & mask ] & ( ~0L );
+		long get;
+		do {
+			get = GET.get( this ); // Volatile read
+			if( get == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
+		}
+		while( !GET.compareAndSet( this, get, get + 1L ) );
+		return buffer[ ( int ) get & mask ];
+	}
+	
+	/**
+	 * Thread-safely retrieves and removes the next integer from the buffer.
+	 * Suitable for SPSC or SPMC scenarios.
+	 *
+	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
+	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
+	 */
+	public long remove_multithreaded( long defaultValueIfEmpty ) {
+		long currentGet;
+		do {
+			currentGet = GET.get( this ); // Volatile read
+			if( currentGet == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
+		}
+		while( !GET.compareAndSet( this, currentGet, currentGet + 1L ) );
+		return buffer[ ( int ) currentGet & mask ];
+	}
+	
+	/**
+	 * Retrieves the next integer from the buffer without removing it (non-thread-safe).
+	 * Use only in single-threaded contexts or with external synchronization.
+	 *
+	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
+	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
+	 */
+	public long get( long defaultValueIfEmpty ) {
+		return get == put ?
+		       defaultValueIfEmpty :
+		       buffer[ ( int ) get++ & mask ];
 	}
 	
 	/**
@@ -118,9 +167,10 @@ public class LongRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public long get( long defaultValueIfEmpty ) {
-		if( get == put ) return defaultValueIfEmpty;
-		return buffer[ ( int ) ( get++ ) & mask ] & ( ~0L );
+	public long remove( long defaultValueIfEmpty ) {
+		return get == put ?
+		       defaultValueIfEmpty :
+		       buffer[ ( int ) get++ & mask ];
 	}
 	
 	/**
@@ -130,15 +180,14 @@ public class LongRingBuffer {
 	 * @return True if the value was added, false if the buffer is full.
 	 */
 	public boolean put_multithreaded( long value ) {
-		long _put;
-		
+		long currentPut;
 		do {
-			_put = put;
-			if( size() == buffer.length ) return false;
+			currentPut = PUT.get( this ); // Volatile read
+			// Volatile read
+			if( currentPut - GET.get( this ) >= buffer.length ) return false;
 		}
-		while( !PUT_UPDATER.compareAndSet( this, _put, _put + 1 ) );
-		
-		buffer[ ( int ) _put & mask ] = ( long ) value;
+		while( !PUT.compareAndSet( this, currentPut, currentPut + 1L ) );
+		buffer[ ( int ) currentPut & mask ] = ( long ) value;
 		return true;
 	}
 	
@@ -150,20 +199,32 @@ public class LongRingBuffer {
 	 * @return True if the value was added, false if the buffer is full.
 	 */
 	public boolean put( long value ) {
-		if( size() == buffer.length ) return false;
-		buffer[ ( int ) ( put++ ) & mask ] = ( long ) value;
+		if( put - get >= buffer.length ) return false;
+		buffer[ ( int ) put++ & mask ] = ( long ) value;
 		return true;
 	}
 	
 	/**
 	 * Resets the buffer to an empty state (non-thread-safe).
-	 * Use with caution in concurrent environments.
+	 * Use with caution in concurrent environments; ensure no concurrent access.
 	 *
 	 * @return This instance for method chaining.
 	 */
 	public LongRingBuffer clear() {
-		get = Long.MIN_VALUE;
-		put = Long.MIN_VALUE;
+		get = 0L;
+		put = 0L;
 		return this;
+	}
+	
+	/**
+	 * Returns a string representation of the buffer's state.
+	 * <p>For debugging purposes; not thread-safe due to non-atomic state access.</p>
+	 *
+	 * @return String representation of the buffer
+	 */
+	@Override
+	public String toString() {
+		return String.format( "IntRingBuffer{capacity=%d, size=%d, get=%d, put=%d}",
+		                      length(), size(), get, put );
 	}
 }
