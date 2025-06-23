@@ -130,8 +130,8 @@ public class RingBuffer< T > {
 	public int size() {
 		long size = put - get;
 		return size < 0 ?
-		       0 :
-		       ( int ) Math.min( size, buffer.length );
+				0 :
+				( int ) Math.min( size, buffer.length );
 	}
 	
 	/**
@@ -155,27 +155,27 @@ public class RingBuffer< T > {
 	}
 	
 	/**
-     * Retrieves and removes an element from the buffer in a thread-safe manner.
-     * Suitable for SPSC or SPMC scenarios.
-     *
-     * @param defaultValue Value to return if the buffer is empty
-     * @return Retrieved element or defaultValue if empty
-     */
-	public T get_multithreaded( T defaultValue ) { return get_multithreaded( defaultValue, null ); }
+	 * Retrieves and removes an element from the buffer in a thread-safe manner.
+	 * Suitable for SPSC or SPMC scenarios.
+	 *
+	 * @param return_if_empty Value to return if the buffer is empty
+	 * @return Retrieved element or return_if_empty if empty
+	 */
+	public T get_multithreaded( T return_if_empty ) { return get_multithreaded( return_if_empty, null ); }
 	
-
-    /**
-     * Retrieves an element from the buffer in a thread-safe manner and replacing it with the specified value.
-     *
-     * @param defaultValue Value to return if the buffer is empty
-     * @param replacement  Value to place in the buffer at the retrieved index
-     * @return Retrieved element or defaultValue if empty
-     */
-	public T get_multithreaded( T defaultValue, T replacement ) {
+	
+	/**
+	 * Retrieves an element from the buffer in a thread-safe manner and replacing it with the specified value.
+	 *
+	 * @param return_if_empty Value to return if the buffer is empty
+	 * @param replacement     Value to place in the buffer at the retrieved index
+	 * @return Retrieved element or return_if_empty if empty
+	 */
+	public T get_multithreaded( T return_if_empty, T replacement ) {
 		long get;
 		do {
 			get = GET.get( this ); // Volatile read
-			if( get == PUT.get( this ) ) return defaultValue;// Volatile read
+			if( get == PUT.get( this ) ) return return_if_empty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, get, get + 1L ) );
 		int index = ( int ) get & mask;
@@ -183,20 +183,21 @@ public class RingBuffer< T > {
 		buffer[ index ] = replacement;
 		return ret;
 	}
-	  /**
-     * Retrieves and removes an element from the buffer (non-thread-safe).
-     * For single-threaded or externally synchronized use only.
-     *
-     * @param defaultValue Value to return if the buffer is empty
-     * @return Retrieved element or defaultValue if empty
-     */
-	public T get( T defaultValue ) { return get( defaultValue, null ); }
 	
 	/**
-     * Retrieves an element from the buffer (non-thread-safe) and replacing it with the specified value.
+	 * Retrieves and removes an element from the buffer (non-thread-safe).
+	 * For single-threaded or externally synchronized use only.
+	 *
+	 * @param return_if_empty Value to return if the buffer is empty
+	 * @return Retrieved element or return_if_empty if empty
+	 */
+	public T get( T return_if_empty ) { return get( return_if_empty, null ); }
+	
+	/**
+	 * Retrieves an element from the buffer (non-thread-safe) and replacing it with the specified value.
 	 *
 	 * @param defaultValue Value to return if the buffer is empty
-     * @param replacement  Value to place in the buffer at the retrieved index
+	 * @param replacement  Value to place in the buffer at the retrieved index
 	 * @return Retrieved element or defaultValue if empty
 	 */
 	public T get( T defaultValue, T replacement ) {
@@ -225,19 +226,19 @@ public class RingBuffer< T > {
 		return true;
 	}
 	
-    /**
-     * Adds an element to the buffer in a thread-safe manner, returning the element
-     * at the insertion index, or defaultValue if the buffer is full.
-     *
-     * @param defaultValue Value to return if the buffer is full
-     * @param value        Element to add
-     * @return Previous element at the index or defaultValue if buffer is full
-     */
-	public T put_multithreaded( T defaultValue, T value ) {
+	/**
+	 * Adds an element to the buffer in a thread-safe manner, returning the element
+	 * at the insertion index, or return_if_full if the buffer is full.
+	 *
+	 * @param return_if_full Value to return if the buffer is full
+	 * @param value          Element to add
+	 * @return Previous element at the index or return_if_full if buffer is full
+	 */
+	public T put_multithreaded( T return_if_full, T value ) {
 		long put;
 		do {
 			put = PUT.get( this ); // Volatile read
-			if( buffer.length <= put - GET.get( this ) ) return defaultValue;// Volatile read
+			if( buffer.length <= put - GET.get( this ) ) return return_if_full;// Volatile read
 		}
 		while( !PUT.compareAndSet( this, put, put + 1L ) );
 		int index = ( int ) put & mask;
@@ -257,6 +258,14 @@ public class RingBuffer< T > {
 		if( buffer.length <= put - get ) return false;
 		buffer[ ( int ) put++ & mask ] = value;
 		return true;
+	}
+	
+	public T put( T return_if_full, T value ) {
+		if( buffer.length <= put - get ) return return_if_full;
+		int index = ( int ) put++ & mask;
+		T   ret   = buffer[ index ];
+		buffer[ index ] = value;
+		return ret;
 	}
 	
 	
