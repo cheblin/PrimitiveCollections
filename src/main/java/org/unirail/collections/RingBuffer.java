@@ -18,6 +18,8 @@
 package org.unirail.collections;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
@@ -72,12 +74,42 @@ public class RingBuffer< T > {
 	 * @throws IllegalArgumentException if power_of_2 is negative or exceeds 30
 	 */
 	@SuppressWarnings( "unchecked" )
-	public RingBuffer( Class< T > clazz, int power_of_2 ) {
+	public RingBuffer( Class< T > clazz, int power_of_2 ) { this( clazz, power_of_2, false ); }
+	
+	/**
+	 * Constructs a new RingBuffer with a capacity of 2^{@code power_of_2}.
+	 *
+	 * @param clazz      The class type of the elements
+	 * @param power_of_2 The power of two determining buffer capacity (e.g., 3 for capacity 8)
+	 * @param fill       If true, initializes buffer elements using the class's no-arg constructor
+	 * @throws IllegalArgumentException if power_of_2 is negative or exceeds 30
+	 * @throws RuntimeException         if fill is true and element initialization fails
+	 */
+	@SuppressWarnings( "unchecked" )
+	public RingBuffer( Class< T > clazz, int power_of_2, boolean fill ) {
+		
 		if( power_of_2 < 0 ) throw new IllegalArgumentException( "power_of_2 must be non-negative" );
 		if( 30 < power_of_2 ) throw new IllegalArgumentException( "power_of_2 must not exceed 30 to avoid integer overflow" );
 		int capacity = 1 << power_of_2;
 		mask   = capacity - 1;
 		buffer = ( T[] ) Array.newInstance( clazz, capacity );
+		if( fill )
+			try {
+				Constructor< T > ctor = clazz.getDeclaredConstructor();
+				ctor.setAccessible( true ); // Handle non-public constructors
+				for( int i = 0; i < buffer.length; i++ )
+				     buffer[ i ] = ctor.newInstance();
+			} catch( NoSuchMethodException e ) {
+				// Better error message if no default constructor exists
+				throw new RuntimeException( "Class " + clazz.getName() + " requires a no-arg constructor for filling.", e );
+			} catch( InstantiationException | IllegalAccessException | InvocationTargetException e ) {
+				// Catch other reflection-related or constructor-thrown exceptions
+				throw new RuntimeException( "Failed to initialize element in RingBuffer using no-arg constructor.", e );
+			} catch( Exception e ) {
+				// Catch any other unexpected exceptions during fill
+				throw new RuntimeException( "An unexpected error occurred during RingBuffer fill.", e );
+			}
+		
 	}
 	
 	/**
@@ -98,8 +130,8 @@ public class RingBuffer< T > {
 	public int size() {
 		long size = put - get;
 		return size < 0 ?
-				0 :
-				( int ) Math.min( size, buffer.length );
+		       0 :
+		       ( int ) Math.min( size, buffer.length );
 	}
 	
 	/**
@@ -123,30 +155,23 @@ public class RingBuffer< T > {
 	}
 	
 	/**
-	 * Retrieves an element from the buffer in a thread-safe manner without removing it.
-	 * Suitable for SPSC or SPMC scenarios.
-	 *
-	 * @param defaultValue Value to return if the buffer is empty
-	 * @return Retrieved element or defaultValue if empty
-	 */
-	public T get_multithreaded( T defaultValue ) {
-		long get;
-		do {
-			get = GET.get( this ); // Volatile read
-			if( get == PUT.get( this ) ) return defaultValue;// Volatile read
-		}
-		while( !GET.compareAndSet( this, get, get + 1L ) );
-		return buffer[ ( int ) get & mask ];
-	}
+     * Retrieves and removes an element from the buffer in a thread-safe manner.
+     * Suitable for SPSC or SPMC scenarios.
+     *
+     * @param defaultValue Value to return if the buffer is empty
+     * @return Retrieved element or defaultValue if empty
+     */
+	public T get_multithreaded( T defaultValue ) { return get_multithreaded( defaultValue, null ); }
 	
-	/**
-	 * Retrieves and removes an element from the buffer in a thread-safe manner.
-	 * Suitable for SPSC or SPMC scenarios.
-	 *
-	 * @param defaultValue Value to return if the buffer is empty
-	 * @return Retrieved element or defaultValue if empty
-	 */
-	public T remove_multithreaded( T defaultValue ) {
+
+    /**
+     * Retrieves an element from the buffer in a thread-safe manner and replacing it with the specified value.
+     *
+     * @param defaultValue Value to return if the buffer is empty
+     * @param replacement  Value to place in the buffer at the retrieved index
+     * @return Retrieved element or defaultValue if empty
+     */
+	public T get_multithreaded( T defaultValue, T replacement ) {
 		long get;
 		do {
 			get = GET.get( this ); // Volatile read
@@ -154,36 +179,31 @@ public class RingBuffer< T > {
 		}
 		while( !GET.compareAndSet( this, get, get + 1L ) );
 		int index = ( int ) get & mask;
-		T   item  = buffer[ index ];
-		buffer[ index ] = null; // Prevent memory leaks
-		return item;
+		T   ret   = buffer[ index ];
+		buffer[ index ] = replacement;
+		return ret;
 	}
+	  /**
+     * Retrieves and removes an element from the buffer (non-thread-safe).
+     * For single-threaded or externally synchronized use only.
+     *
+     * @param defaultValue Value to return if the buffer is empty
+     * @return Retrieved element or defaultValue if empty
+     */
+	public T get( T defaultValue ) { return get( defaultValue, null ); }
 	
 	/**
-	 * Retrieves an element from the buffer without removing it (non-thread-safe).
-	 * For single-threaded or externally synchronized use only.
+     * Retrieves an element from the buffer (non-thread-safe) and replacing it with the specified value.
 	 *
 	 * @param defaultValue Value to return if the buffer is empty
+     * @param replacement  Value to place in the buffer at the retrieved index
 	 * @return Retrieved element or defaultValue if empty
 	 */
-	public T get( T defaultValue ) {
-		return get == put ?
-				defaultValue :
-				buffer[ ( int ) get++ & mask ];
-	}
-	
-	/**
-	 * Retrieves and removes an element from the buffer (non-thread-safe).
-	 * For single-threaded or externally synchronized use only.
-	 *
-	 * @param defaultValue Value to return if the buffer is empty
-	 * @return Retrieved element or defaultValue if empty
-	 */
-	public T remove( T defaultValue ) {
+	public T get( T defaultValue, T replacement ) {
 		if( get == put ) return defaultValue;
 		int index = ( int ) get++ & mask;
 		T   item  = buffer[ index ];
-		buffer[ index ] = null; // Prevent memory leaks
+		buffer[ index ] = replacement;
 		return item;
 	}
 	
@@ -205,6 +225,27 @@ public class RingBuffer< T > {
 		return true;
 	}
 	
+    /**
+     * Adds an element to the buffer in a thread-safe manner, returning the element
+     * at the insertion index, or defaultValue if the buffer is full.
+     *
+     * @param defaultValue Value to return if the buffer is full
+     * @param value        Element to add
+     * @return Previous element at the index or defaultValue if buffer is full
+     */
+	public T put_multithreaded( T defaultValue, T value ) {
+		long put;
+		do {
+			put = PUT.get( this ); // Volatile read
+			if( buffer.length <= put - GET.get( this ) ) return defaultValue;// Volatile read
+		}
+		while( !PUT.compareAndSet( this, put, put + 1L ) );
+		int index = ( int ) put & mask;
+		T   ret   = buffer[ index ];
+		buffer[ index ] = value;
+		return ret;
+	}
+	
 	/**
 	 * Adds an element to the buffer (non-thread-safe).
 	 * For single-threaded or externally synchronized use only.
@@ -217,6 +258,7 @@ public class RingBuffer< T > {
 		buffer[ ( int ) put++ & mask ] = value;
 		return true;
 	}
+	
 	
 	/**
 	 * Clears the buffer, resetting it to an empty state.
