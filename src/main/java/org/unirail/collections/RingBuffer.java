@@ -20,114 +20,145 @@ package org.unirail.collections;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import java.util.function.Supplier;
 
 /**
- * A generic, fixed-size ring buffer (circular buffer) implementation.
- * Supports thread-safe operations for Single-Producer, Single-Consumer (SPSC),
- * Multiple-Producer, Single-Consumer (MPSC), or Single-Producer, Multiple-Consumer
- * (SPMC) scenarios. Not safe for Multiple-Producer, Multiple-Consumer (MPMC) without
- * external synchronization.
+ * A generic, fixed-size, lock-free ring buffer (circular buffer).
  *
- * <p>Uses {@link AtomicLongFieldUpdater} for atomic operations, ensuring lock-free
- * access in supported scenarios.</p>
+ * <p>This implementation uses a power-of-two capacity for high-performance index calculation
+ * via bit masking. It is optimized for the following concurrent scenarios:
+ * <ul>
+ *   <li>Single-Producer, Single-Consumer (SPSC) - Use non-multithreaded methods like {@link #put(Object)} and {@link #get()}.</li>
+ *   <li>Multiple-Producers, Single-Consumer (MPSC) - Use {@link #put_multithreaded(Object)}.</li>
+ *   <li>Single-Producer, Multiple-Consumers (SPMC) - Use {@link #get_multithreaded(Object)}.</li>
+ * </ul>
  *
- * @param <T> The type of elements stored in the buffer
+ * <p><b>Warning:</b> This implementation is <b>not safe</b> for Multiple-Producers, Multiple-Consumers (MPMC)
+ * scenarios without external synchronization. In an MPMC context, data races can occur, leading to incorrect behavior.
+ *
+ * <p>Thread safety for MPSC and SPMC scenarios is achieved using {@link AtomicLongFieldUpdater} to perform lock-free
+ * compare-and-set (CAS) operations on the head ({@code get}) and tail ({@code put}) pointers.
+ *
+ * @param <T> The type of elements held in this collection.
  */
 public class RingBuffer< T > {
 	/**
-	 * The underlying array storing buffer elements.
+	 * The final array that stores the buffer's elements. Its length is always a power of two.
 	 */
 	private final T[] buffer;
 	
 	/**
-	 * Bit mask for efficient index wrapping (capacity - 1).
+	 * Bit mask used for efficient index wrapping. Calculated as {@code capacity - 1}.
 	 */
 	private final int mask;
 	
 	/**
-	 * Pointer to the head of the buffer for get operations.
+	 * The head pointer, tracking the index of the next element to be read (dequeued).
+	 * Declared {@code volatile} to ensure visibility of writes across threads.
 	 */
 	private volatile long get = 0L;
 	
 	/**
-	 * Pointer to the tail of the buffer for put operations.
+	 * The tail pointer, tracking the index of the next available slot for writing (enqueuing).
+	 * Declared {@code volatile} to ensure visibility of writes across threads.
 	 */
 	private volatile long put = 0L;
 	
 	/**
-	 * Atomic updater for the get pointer.
+	 * Atomic updater for the {@code get} pointer, enabling lock-free CAS operations for thread-safe reads.
 	 */
+	@SuppressWarnings( "rawtypes" )
 	private static final AtomicLongFieldUpdater< RingBuffer > GET = AtomicLongFieldUpdater.newUpdater( RingBuffer.class, "get" );
 	
 	/**
-	 * Atomic updater for the put pointer.
+	 * Atomic updater for the {@code put} pointer, enabling lock-free CAS operations for thread-safe writes.
 	 */
+	@SuppressWarnings( "rawtypes" )
 	private static final AtomicLongFieldUpdater< RingBuffer > PUT = AtomicLongFieldUpdater.newUpdater( RingBuffer.class, "put" );
 	
 	/**
-	 * Constructs a new RingBuffer with a capacity of 2^{@code power_of_2}.
+	 * Constructs a ring buffer with a capacity equal to 2<sup>{@code powerOf2}</sup>.
 	 *
-	 * @param clazz      The class type of the elements
-	 * @param power_of_2 The power of two determining buffer capacity (e.g., 3 for capacity 8)
-	 * @throws IllegalArgumentException if power_of_2 is negative or exceeds 30
+	 * @param clazz    The class type of the elements. This is required to create a generic array.
+	 * @param powerOf2 The exponent for the capacity calculation (e.g., 10 results in a capacity of 1024).
+	 * @throws IllegalArgumentException if {@code powerOf2} is negative or greater than 30 (to prevent overflow).
 	 */
-	@SuppressWarnings( "unchecked" )
-	public RingBuffer( Class< T > clazz, int power_of_2 ) { this( clazz, power_of_2, false ); }
+	public RingBuffer( Class< T > clazz, int powerOf2 ) { this( clazz, powerOf2, false ); }
 	
 	/**
-	 * Constructs a new RingBuffer with a capacity of 2^{@code power_of_2}.
+	 * Constructs a ring buffer with a capacity of 2<sup>{@code powerOf2}</sup>, optionally pre-filling it with new instances.
+	 * <p>Pre-filling is useful when the buffer will be used for recycling objects, allowing consumers to retrieve
+	 * an object and producers to replace it without causing a null pointer exception on the first pass.
 	 *
-	 * @param clazz      The class type of the elements
-	 * @param power_of_2 The power of two determining buffer capacity (e.g., 3 for capacity 8)
-	 * @param fill       If true, initializes buffer elements using the class's no-arg constructor
-	 * @throws IllegalArgumentException if power_of_2 is negative or exceeds 30
-	 * @throws RuntimeException         if fill is true and element initialization fails
+	 * @param clazz    The class type of the elements. This is required to create a generic array.
+	 * @param powerOf2 The exponent for the capacity calculation (e.g., 10 results in a capacity of 1024).
+	 * @param fill     If {@code true}, the buffer is pre-filled with new instances created via the type's
+	 *                 default (no-argument) constructor.
+	 * @throws IllegalArgumentException if {@code powerOf2} is negative or greater than 30 (to prevent overflow).
+	 * @throws RuntimeException         if {@code fill} is {@code true} but the class {@code T} does not have an accessible
+	 *                                  no-argument constructor, or if instantiation fails for any other reason.
 	 */
 	@SuppressWarnings( "unchecked" )
-	public RingBuffer( Class< T > clazz, int power_of_2, boolean fill ) {
+	public RingBuffer( Class< T > clazz, int powerOf2, boolean fill ) {
+		if( powerOf2 < 0 ) throw new IllegalArgumentException( "powerOf2 must be non-negative" );
+		if( powerOf2 > 30 ) throw new IllegalArgumentException( "powerOf2 must not exceed 30 to avoid integer overflow" );
+		int capacity = 1 << powerOf2;
+		this.mask   = capacity - 1;
+		this.buffer = ( T[] ) Array.newInstance( clazz, capacity );
 		
-		if( power_of_2 < 0 ) throw new IllegalArgumentException( "power_of_2 must be non-negative" );
-		if( 30 < power_of_2 ) throw new IllegalArgumentException( "power_of_2 must not exceed 30 to avoid integer overflow" );
-		int capacity = 1 << power_of_2;
-		mask   = capacity - 1;
-		buffer = ( T[] ) Array.newInstance( clazz, capacity );
-		if( fill )
-			try {
-				Constructor< T > ctor = clazz.getDeclaredConstructor();
-				ctor.setAccessible( true ); // Handle non-public constructors
-				for( int i = 0; i < buffer.length; i++ )
-				     buffer[ i ] = ctor.newInstance();
-			} catch( NoSuchMethodException e ) {
-				// Better error message if no default constructor exists
-				throw new RuntimeException( "Class " + clazz.getName() + " requires a no-arg constructor for filling.", e );
-			} catch( InstantiationException | IllegalAccessException | InvocationTargetException e ) {
-				// Catch other reflection-related or constructor-thrown exceptions
-				throw new RuntimeException( "Failed to initialize element in RingBuffer using no-arg constructor.", e );
-			} catch( Exception e ) {
-				// Catch any other unexpected exceptions during fill
-				throw new RuntimeException( "An unexpected error occurred during RingBuffer fill.", e );
-			}
-		
+		if( fill ) try {
+			Constructor< T > constructor = clazz.getDeclaredConstructor();
+			constructor.setAccessible( true ); // Allow access to non-public constructors
+			for( int i = 0; i < buffer.length; i++ ) buffer[ i ] = constructor.newInstance();
+		} catch( NoSuchMethodException e ) {
+			throw new RuntimeException( "Class " + clazz.getName() + " requires a no-arg constructor for filling", e );
+		} catch( InstantiationException | IllegalAccessException | InvocationTargetException e ) {
+			throw new RuntimeException( "Failed to initialize elements in RingBuffer", e );
+		}
 	}
 	
 	/**
-	 * Returns the fixed capacity of the ring buffer (always a power of 2).
+	 * Constructs a ring buffer and pre-fills it using the provided factory.
+	 * <p>This is the most flexible and performant way to create a pre-filled buffer. The factory
+	 * is called once for each slot in the buffer.
+	 * <p>Example usage with a method reference:
+	 * <pre>{@code RingBuffer<MyObject> rb = new RingBuffer<>(MyObject.class, 10, MyObject::new);}</pre>
+	 * <p>Example usage with a lambda for a constructor with arguments:
+	 * <pre>{@code RingBuffer<User> rb = new RingBuffer<>(User.class, 8, () -> new User("default"));}</pre>
 	 *
-	 * @return Buffer capacity
+	 * @param clazz    The class type of the elements. This is required to create a generic array.
+	 * @param powerOf2 The exponent for the capacity calculation (e.g., 10 results in a capacity of 1024).
+	 * @param factory  A {@link Supplier} that provides new instances of {@code T}. If null, the buffer is not filled.
+	 * @throws IllegalArgumentException if {@code powerOf2} is negative or greater than 30.
 	 */
-	public int capacity() {
-		return buffer.length;
+	@SuppressWarnings( "unchecked" )
+	public RingBuffer( Class< T > clazz, int powerOf2, Supplier< T > factory ) {
+		if( powerOf2 < 0 ) throw new IllegalArgumentException( "powerOf2 must be non-negative" );
+		if( powerOf2 > 30 ) throw new IllegalArgumentException( "powerOf2 must not exceed 30 to avoid integer overflow" );
+		int capacity = 1 << powerOf2;
+		this.mask   = capacity - 1;
+		this.buffer = ( T[] ) Array.newInstance( clazz, capacity );
+		
+		if( factory != null ) for( int i = 0; i < buffer.length; i++ ) buffer[ i ] = factory.get();
 	}
 	
 	/**
-	 * Returns the approximate number of elements in the buffer.
-	 * <p>In concurrent scenarios, the result may be stale due to non-atomic reads.</p>
+	 * Returns the fixed capacity of the ring buffer.
 	 *
-	 * @return Approximate number of elements
+	 * @return the buffer's capacity, which is always a power of 2.
+	 */
+	public int capacity() { return buffer.length; }
+	
+	/**
+	 * Returns the approximate number of elements currently in the buffer.
+	 * <p><b>Note:</b> In a concurrent environment, this value can be stale as soon as it is returned,
+	 * as other threads may be adding or removing elements. It should be used as an estimate.
+	 *
+	 * @return The approximate count of elements in the buffer.
 	 */
 	public int size() {
+		// A snapshot of the size. Can be stale in a concurrent environment.
 		long size = put - get;
 		return size < 0 ?
 				0 :
@@ -135,73 +166,88 @@ public class RingBuffer< T > {
 	}
 	
 	/**
-	 * Checks if the buffer is approximately empty.
-	 * <p>In concurrent scenarios, the result may be stale.</p>
+	 * Checks if the buffer is empty.
+	 * <p><b>Note:</b> In a concurrent environment, the buffer's state can change after this method returns.
+	 * The result is a snapshot in time and may be stale.
 	 *
-	 * @return true if the buffer appears empty, false otherwise
+	 * @return {@code true} if the head and tail pointers were equal at the time of the check.
 	 */
-	public boolean isEmpty() {
-		return get == put;
-	}
+	public boolean isEmpty() { return get == put; }
 	
 	/**
-	 * Checks if the buffer is approximately full.
-	 * <p>In concurrent scenarios, the result may be stale.</p>
+	 * Checks if the buffer is full.
+	 * <p><b>Note:</b> In a concurrent environment, the buffer's state can change after this method returns.
+	 * The result is a snapshot in time and may be stale.
 	 *
-	 * @return true if the buffer appears full, false otherwise
+	 * @return {@code true} if the number of elements equals the capacity at the time of the check.
 	 */
-	public boolean isFull() {
-		return put - get == buffer.length;
-	}
+	public boolean isFull() { return put - get == buffer.length; }
 	
 	/**
-	 * Retrieves and removes an element from the buffer in a thread-safe manner.
-	 * Suitable for SPSC or SPMC scenarios.
+	 * Atomically retrieves and removes an element from the buffer.
+	 * This method is thread-safe for multiple consumers (SPMC).
 	 *
-	 * @param return_if_empty Value to return if the buffer is empty
-	 * @return Retrieved element or return_if_empty if empty
+	 * @param returnIfEmpty The value to return if the buffer is empty.
+	 * @return The retrieved element, or {@code returnIfEmpty} if the buffer was empty.
 	 */
-	public T get_multithreaded( T return_if_empty ) { return get_multithreaded( return_if_empty, null ); }
-	
+	public T get_multithreaded( T returnIfEmpty ) { return get_multithreaded( returnIfEmpty, null ); }
 	
 	/**
-	 * Retrieves an element from the buffer in a thread-safe manner and replacing it with the specified value.
+	 * Atomically retrieves and removes an element from the buffer, replacing it with a specified value.
+	 * This method is thread-safe for multiple consumers (SPMC).
+	 * <p>
+	 * It uses a compare-and-set (CAS) loop to atomically increment the 'get' pointer,
+	 * ensuring that each consumer retrieves a unique element.
 	 *
-	 * @param return_if_empty Value to return if the buffer is empty
-	 * @param replacement     Value to place in the buffer at the retrieved index
-	 * @return Retrieved element or return_if_empty if empty
+	 * @param returnIfEmpty The value to return if the buffer is empty.
+	 * @param replacement   The value to place in the buffer at the retrieved element's slot.
+	 *                      This is useful for 'nulling out' the reference to aid garbage collection
+	 *                      or for recycling pooled objects.
+	 * @return The retrieved element, or {@code returnIfEmpty} if the buffer was empty.
 	 */
-	public T get_multithreaded( T return_if_empty, T replacement ) {
-		long get;
+	public T get_multithreaded( T returnIfEmpty, T replacement ) {
+		long currentGet;
 		do {
-			get = GET.get( this ); // Volatile read
-			if( get == PUT.get( this ) ) return return_if_empty;// Volatile read
+			currentGet = GET.get( this ); // Volatile read of the head pointer
+			if( currentGet == PUT.get( this ) ) return returnIfEmpty; // Buffer is empty, checked with a volatile read of the tail
 		}
-		while( !GET.compareAndSet( this, get, get + 1L ) );
-		int index = ( int ) get & mask;
-		T   ret   = buffer[ index ];
+		while( !GET.compareAndSet( this, currentGet, currentGet + 1L ) ); // Atomically claim the item
+		
+		int index  = ( int ) currentGet & mask;
+		T   result = buffer[ index ];
 		buffer[ index ] = replacement;
-		return ret;
+		return result;
 	}
 	
 	/**
-	 * Retrieves and removes an element from the buffer (non-thread-safe).
-	 * For single-threaded or externally synchronized use only.
+	 * Retrieves and removes an element from the buffer.
+	 * <p><b>Warning: This method is not thread-safe.</b> It should only be used in a single-consumer
+	 * context or when external synchronization is in place.
+	 * <p>
+	 * <b>Precondition:</b> The caller is responsible for ensuring the buffer is <b>not empty</b>
+	 * before calling this method (e.g., by checking {@link #isEmpty()}). Invoking this on an empty buffer
+	 * will corrupt the buffer's state by advancing the read pointer past the write pointer,
+	 * and will return a stale, invalid element.
 	 *
-	 * @param return_if_empty Value to return if the buffer is empty
-	 * @return Retrieved element or return_if_empty if empty
+	 * @return The retrieved element.
 	 */
-	public T get( T return_if_empty ) { return get( return_if_empty, null ); }
+	public T get() { return get( null ); }
 	
 	/**
-	 * Retrieves an element from the buffer (non-thread-safe) and replacing it with the specified value.
+	 * Retrieves and removes an element from the buffer, replacing it with the specified value.
+	 * Call isEmpty before call this method
+	 * <p><b>Warning: This method is not thread-safe.</b> It should only be used in a single-consumer
+	 * context or when external synchronization is in place. It performs a non-atomic update.
+	 * <p>
+	 * <b>Precondition:</b> The caller is responsible for ensuring the buffer is <b>not empty</b>
+	 * before calling this method (e.g., by checking {@link #isEmpty()}). Invoking this on an empty buffer
+	 * will corrupt the buffer's state by advancing the read pointer past the write pointer,
+	 * and will return a stale, invalid element.
 	 *
-	 * @param defaultValue Value to return if the buffer is empty
-	 * @param replacement  Value to place in the buffer at the retrieved index
-	 * @return Retrieved element or defaultValue if empty
+	 * @param replacement The value to place in the buffer at the retrieved element's slot.
+	 * @return The retrieved element.
 	 */
-	public T get( T defaultValue, T replacement ) {
-		if( get == put ) return defaultValue;
+	public T get( T replacement ) {
 		int index = ( int ) get++ & mask;
 		T   item  = buffer[ index ];
 		buffer[ index ] = replacement;
@@ -209,85 +255,99 @@ public class RingBuffer< T > {
 	}
 	
 	/**
-	 * Adds an element to the buffer in a thread-safe manner.
-	 * Suitable for SPSC or MPSC scenarios.
+	 * Atomically adds an element to the buffer if space is available.
+	 * This method is thread-safe for multiple producers (MPSC).
+	 * <p>
+	 * It uses a compare-and-set (CAS) loop to atomically increment the 'put' pointer,
+	 * ensuring that each producer claims a unique slot.
 	 *
-	 * @param value Element to add
-	 * @return true if added, false if buffer is full
+	 * @param value The element to add.
+	 * @return {@code true} if the element was successfully added, {@code false} if the buffer was full.
 	 */
 	public boolean put_multithreaded( T value ) {
-		long put;
+		long currentPut;
 		do {
-			put = PUT.get( this ); // Volatile read
-			if( buffer.length <= put - GET.get( this ) ) return false;// Volatile read
+			currentPut = PUT.get( this ); // Volatile read of the tail pointer
+			if( buffer.length <= currentPut - GET.get( this ) ) return false; // Buffer is full, checked with a volatile read of the head
 		}
-		while( !PUT.compareAndSet( this, put, put + 1L ) );
-		buffer[ ( int ) put & mask ] = value;
+		while( !PUT.compareAndSet( this, currentPut, currentPut + 1L ) ); // Atomically claim the slot
+		
+		buffer[ ( int ) currentPut & mask ] = value;
 		return true;
 	}
 	
 	/**
-	 * Adds an element to the buffer in a thread-safe manner, returning the element
-	 * at the insertion index, or return_if_full if the buffer is full.
+	 * Atomically adds an element to the buffer, returning the element that was overwritten at the insertion index.
+	 * This method is thread-safe for multiple producers (MPSC).
+	 * <p>
+	 * This is useful in object pooling scenarios where the overwritten object needs to be handled (e.g., returned to a pool).
 	 *
-	 * @param return_if_full Value to return if the buffer is full
-	 * @param value          Element to add
-	 * @return Previous element at the index or return_if_full if buffer is full
+	 * @param returnIfFull The value to return if the buffer is full and the new element cannot be added.
+	 * @param value        The element to add.
+	 * @return The element that was previously at the insertion index, or {@code returnIfFull} if the buffer was full.
 	 */
-	public T put_multithreaded( T return_if_full, T value ) {
-		long put;
+	public T put_multithreaded( T returnIfFull, T value ) {
+		long currentPut;
 		do {
-			put = PUT.get( this ); // Volatile read
-			if( buffer.length <= put - GET.get( this ) ) return return_if_full;// Volatile read
+			currentPut = PUT.get( this ); // Volatile read
+			if( buffer.length <= currentPut - GET.get( this ) ) return returnIfFull; // Buffer is full
 		}
-		while( !PUT.compareAndSet( this, put, put + 1L ) );
-		int index = ( int ) put & mask;
-		T   ret   = buffer[ index ];
+		while( !PUT.compareAndSet( this, currentPut, currentPut + 1L ) );
+		
+		int index  = ( int ) currentPut & mask;
+		T   result = buffer[ index ];
 		buffer[ index ] = value;
-		return ret;
+		return result;
 	}
 	
 	/**
-	 * Adds an element to the buffer (non-thread-safe).
-	 * For single-threaded or externally synchronized use only.
+	 * Adds an element to the buffer, returning the element that was overwritten.
+	 * <p><b>Warning: This method is not thread-safe.</b> It should only be used in a single-producer
+	 * context or when external synchronization is in place.
+	 * <p>The caller is responsible for ensuring the buffer is not full before calling this method.
 	 *
-	 * @param value Element to add
-	 * @return true if added, false if buffer is full
+	 * @param value The element to add.
+	 * @return The element that was previously at the insertion index.
 	 */
-	public boolean put( T value ) {
-		if( buffer.length <= put - get ) return false;
-		buffer[ ( int ) put++ & mask ] = value;
-		return true;
-	}
-	
-	public T put( T return_if_full, T value ) {
-		if( buffer.length <= put - get ) return return_if_full;
-		int index = ( int ) put++ & mask;
-		T   ret   = buffer[ index ];
+	public T put( T value ) {
+		int index  = ( int ) put++ & mask;
+		T   result = buffer[ index ];
 		buffer[ index ] = value;
-		return ret;
+		return result;
 	}
-	
 	
 	/**
-	 * Clears the buffer, resetting it to an empty state.
-	 * <p>Not thread-safe; use only when the buffer is quiescent or externally synchronized.
-	 * Nulls out all elements to prevent memory leaks.</p>
+	 * Adds an element to the buffer.
+	 * This is a slightly more performant version of {@link #put(Object)} for cases where the
+	 * overwritten value is not needed.
+	 * <p><b>Warning: This method is not thread-safe.</b> It should only be used in a single-producer context.
+	 * <p>The caller is responsible for ensuring the buffer is not full before calling this method.
 	 *
-	 * @return This buffer instance for method chaining
+	 * @param value The element to add.
 	 */
-	public RingBuffer< T > clear( boolean nullify ) {
+	public void put_( T value ) { buffer[ ( int ) put++ & mask ] = value; }
+	
+	/**
+	 * Resets the buffer to an empty state by setting the head and tail pointers to zero.
+	 * <p><b>Warning: This method is not thread-safe.</b> It should only be called when no other threads
+	 * are accessing the buffer, or when access is controlled by external synchronization.
+	 *
+	 * @return Internal array for advanced cleaning.
+	 */
+	public T[] clear() {
+		// Not thread-safe. Should be called only when no other operations are in progress.
 		get = 0L;
 		put = 0L;
-		if( nullify ) Arrays.fill( buffer, null ); // Prevent memory leaks
-		return this;
+		return buffer;
 	}
 	
 	/**
-	 * Returns a string representation of the buffer's state.
-	 * <p>For debugging purposes; not thread-safe due to non-atomic state access.</p>
+	 * Returns a string representation of the buffer's current state.
+	 * <p><b>Warning: This method is not thread-safe.</b> The reported values of size, get, and put
+	 * are snapshots and may be inconsistent if the buffer is being modified concurrently.
+	 * It is intended for debugging and logging in controlled scenarios.
 	 *
-	 * @return String representation of the buffer
+	 * @return A string summarizing the buffer's capacity, size, and pointer positions.
 	 */
 	@Override
 	public String toString() {
