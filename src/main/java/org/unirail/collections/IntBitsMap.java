@@ -238,7 +238,7 @@ public interface IntBitsMap {
 		/**
 		 * A special token value indicating that a key was not found or that iteration has ended.
 		 */
-		protected static final long INVALID_TOKEN = -1L;
+		public static final long INVALID_TOKEN = -1L;
 		
 		
 		/**

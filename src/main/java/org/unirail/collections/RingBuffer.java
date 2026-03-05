@@ -159,10 +159,7 @@ public class RingBuffer< T > {
 	 */
 	public int size() {
 		// A snapshot of the size. Can be stale in a concurrent environment.
-		long size = put - get;
-		return size < 0 ?
-				0 :
-				( int ) Math.min( size, buffer.length );
+        return (int) (put - get);
 	}
 	
 	/**

@@ -127,7 +127,7 @@ public class ShortRingBuffer {
 			if( get == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, get, get + 1L ) );
-		return buffer[ ( int ) get & mask ];
+		return (short) (buffer[ ( int ) get & mask ]);
 	}
 	
 	/**
@@ -144,7 +144,7 @@ public class ShortRingBuffer {
 			if( currentGet == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, currentGet, currentGet + 1L ) );
-		return buffer[ ( int ) currentGet & mask ];
+		return (short) (buffer[ ( int ) currentGet & mask ]);
 	}
 	
 	/**
@@ -157,7 +157,7 @@ public class ShortRingBuffer {
 	public short get( short defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (short) (buffer[ ( int ) get++ & mask ]);
 	}
 	
 	/**
@@ -170,7 +170,7 @@ public class ShortRingBuffer {
 	public short remove( short defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (short) (buffer[ ( int ) get++ & mask ]);
 	}
 	
 	/**

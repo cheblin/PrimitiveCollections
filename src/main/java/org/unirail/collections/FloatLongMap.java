@@ -214,7 +214,7 @@ public interface FloatLongMap {
 		/**
 		 * A special token value indicating that a key was not found or no more elements exist.
 		 */
-		protected static final long INVALID_TOKEN = -1L;
+		public static final long INVALID_TOKEN = -1L;
 		
 		/**
 		 * Returns {@code true} if this map contains no key-value mappings.

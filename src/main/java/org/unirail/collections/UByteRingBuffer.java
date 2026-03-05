@@ -120,14 +120,14 @@ public class UByteRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public byte get_multithreaded( char defaultValueIfEmpty ) {
+	public char get_multithreaded( char defaultValueIfEmpty ) {
 		long get;
 		do {
 			get = GET.get( this ); // Volatile read
 			if( get == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, get, get + 1L ) );
-		return buffer[ ( int ) get & mask ];
+		return (char)( 0xFF &  (buffer[ ( int ) get & mask ]));
 	}
 	
 	/**
@@ -137,14 +137,14 @@ public class UByteRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public byte remove_multithreaded( char defaultValueIfEmpty ) {
+	public char remove_multithreaded( char defaultValueIfEmpty ) {
 		long currentGet;
 		do {
 			currentGet = GET.get( this ); // Volatile read
 			if( currentGet == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, currentGet, currentGet + 1L ) );
-		return buffer[ ( int ) currentGet & mask ];
+		return (char)( 0xFF &  (buffer[ ( int ) currentGet & mask ]));
 	}
 	
 	/**
@@ -154,10 +154,10 @@ public class UByteRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public byte get( char defaultValueIfEmpty ) {
+	public char get( char defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (char)( 0xFF &  (buffer[ ( int ) get++ & mask ]));
 	}
 	
 	/**
@@ -167,10 +167,10 @@ public class UByteRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public byte remove( char defaultValueIfEmpty ) {
+	public char remove( char defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (char)( 0xFF &  (buffer[ ( int ) get++ & mask ]));
 	}
 	
 	/**

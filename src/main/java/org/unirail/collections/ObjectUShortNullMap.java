@@ -73,7 +73,7 @@ public interface ObjectUShortNullMap {
 		protected static final int NULL_KEY_INDEX = 0x7FFF_FFFF;
 		
 		protected static final int  VERSION_SHIFT = 32;
-		protected static final long INVALID_TOKEN = -1L;
+		public static final long INVALID_TOKEN = -1L;
 		// HashCollisionThreshold is only used in RW, moving it there
 		
 		/**

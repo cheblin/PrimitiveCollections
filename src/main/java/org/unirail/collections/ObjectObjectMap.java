@@ -136,7 +136,7 @@ public interface ObjectObjectMap {
 		 * A constant representing an invalid or non-existent token, typically returned when
 		 * a key is not found or an iteration has completed. Its value is {@code -1L}.
 		 */
-		protected static final long INVALID_TOKEN = -1L;
+		public static final long INVALID_TOKEN = -1L;
 		
 		/**
 		 * Constructs a read-only map with a specified strategy for value equality and hashing.
@@ -1457,7 +1457,49 @@ public interface ObjectObjectMap {
 			_version++; // Structural modification
 			return oldValue;
 		}
-		
+		/**
+		 * Removes all mappings that satisfy the given predicate.
+		 * 
+		 * @param filter A predicate that returns true for entries to be removed.
+		 * @return The number of elements that were removed.
+		 */
+		public int removeWhere( java.util.function.BiPredicate< ? super K, ? super V > filter ) {
+			java.util.Objects.requireNonNull( filter );
+			int removed = 0;
+
+			// 1. Handle the null key mapping
+			if( hasNullKey && filter.test( null, nullKeyValue ) ) {
+				remove_( null );
+				removed++;
+			}
+
+			// 2. Handle the lo Region (collision chain elements)
+			// remove_ moves the element at (_lo_Size - 1) into the current index.
+			// We do not increment i upon removal to re-evaluate the moved element.
+			for( int i = 0; i < _lo_Size; ) {
+				if( filter.test( keys[ i ], values[ i ] ) ) {
+					remove_( keys[ i ] );
+					removed++;
+				}
+				else i++;
+			}
+
+			// 3. Handle the hi Region (terminal/non-colliding elements)
+			// remove_ moves the element at the start of the hi region (keys.length - _hi_Size) 
+			// into the current index i. We iterate backwards and stay on the current index
+			// after a removal to ensure the moved element is checked.
+			if( keys != null ) {
+				for( int i = keys.length - 1; i >= keys.length - _hi_Size; ) {
+					if( filter.test( keys[ i ], values[ i ] ) ) {
+						remove_( keys[ i ] );
+						removed++;
+					}
+					else i--;
+				}
+			}
+
+			return removed;
+		}
 		/**
 		 * Relocates an entry's data from a source index to a destination index within the
 		 * internal arrays. This method is a key part of the compaction process during removal.

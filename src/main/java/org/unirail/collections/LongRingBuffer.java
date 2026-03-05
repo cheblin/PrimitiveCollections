@@ -127,7 +127,7 @@ public class LongRingBuffer {
 			if( get == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, get, get + 1L ) );
-		return buffer[ ( int ) get & mask ];
+		return  (buffer[ ( int ) get & mask ]);
 	}
 	
 	/**
@@ -144,7 +144,7 @@ public class LongRingBuffer {
 			if( currentGet == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, currentGet, currentGet + 1L ) );
-		return buffer[ ( int ) currentGet & mask ];
+		return  (buffer[ ( int ) currentGet & mask ]);
 	}
 	
 	/**
@@ -157,7 +157,7 @@ public class LongRingBuffer {
 	public long get( long defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		        (buffer[ ( int ) get++ & mask ]);
 	}
 	
 	/**
@@ -170,7 +170,7 @@ public class LongRingBuffer {
 	public long remove( long defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		        (buffer[ ( int ) get++ & mask ]);
 	}
 	
 	/**

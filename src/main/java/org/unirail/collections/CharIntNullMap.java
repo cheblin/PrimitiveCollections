@@ -243,7 +243,7 @@ public interface CharIntNullMap {
 		
 		protected static final int NULL_KEY_INDEX = 0x1_FFFF;
 		
-		protected static final long INVALID_TOKEN = -1L;
+		public static final long INVALID_TOKEN = -1L;
 		
 		/**
 		 * Checks if the map is currently operating in the dense (flat array) strategy.

@@ -111,7 +111,7 @@ public interface ObjectUIntMap {
 		/**
 		 * A constant representing an invalid or non-existent token, typically returned when a key is not found.
 		 */
-		protected static final long INVALID_TOKEN  = -1L;
+		public static final long INVALID_TOKEN  = -1L;
 		
 		/**
 		 * Returns the total number of non-null key-value mappings in the map.

@@ -78,7 +78,7 @@ public interface ObjectSet {
 		
 		protected static final int  NULL_KEY_INDEX = 0x7FFF_FFFF;
 		protected static final int  VERSION_SHIFT  = 32;
-		protected static final long INVALID_TOKEN  = -1L;
+		public static final    long INVALID_TOKEN  = -1L;
 		
 		/**
 		 * Checks if the set contains a null key.
@@ -553,6 +553,48 @@ public interface ObjectSet {
 		public boolean remove( Object key ) { return remove_( ( K ) key ); }
 		
 		/**
+		 * Removes all elements that satisfy the given predicate.
+		 *
+		 * @param filter A predicate which returns true for elements to be removed.
+		 * @return The number of elements that were removed.
+		 */
+		public int removeWhere( java.util.function.Predicate< ? super K > filter ) {
+			java.util.Objects.requireNonNull( filter );
+			int removed = 0;
+			
+			// 1. Handle the null key
+			if( hasNullKey && filter.test( null ) ) {
+				remove_( null );
+				removed++;
+			}
+			
+			// 2. Handle the lo Region (elements involved in collisions)
+			// remove_ moves the element at (_lo_Size - 1) into the gap.
+			// By not incrementing i on removal, we evaluate the moved element in the next iteration.
+			for( int i = 0; i < _lo_Size; ) {
+				if( filter.test( keys[ i ] ) ) {
+					remove_( keys[ i ] );
+					removed++;
+				}
+				else i++;
+			}
+			
+			// 3. Handle the hi Region (non-collision/terminal elements)
+			// remove_ moves the element at (keys.length - _hi_Size) into the gap.
+			// We iterate backwards to ensure all shifted elements are evaluated.
+			if( keys != null )
+				for( int i = keys.length - 1; keys.length - _hi_Size <= i; ) {
+					if( filter.test( keys[ i ] ) ) {
+						remove_( keys[ i ] );
+						removed++;
+					}
+					else i--;
+				}
+			
+			return removed;
+		}
+		
+		/**
 		 * Removes the specified key from the set if it is present (type-safe version).
 		 *
 		 * @param key The key to remove.
@@ -702,6 +744,7 @@ public interface ObjectSet {
 			
 			return v != _version;
 		}
+		
 		
 		/**
 		 * Retains only the elements in the set that are contained in the specified collection.

@@ -156,7 +156,7 @@ public interface UIntObjectMap {
 		 * A constant representing an invalid or non-existent token, returned when a key is not found
 		 * or at the end of an iteration.
 		 */
-		protected static final long INVALID_TOKEN = -1L;
+		public static final long INVALID_TOKEN = -1L;
 		
 		/**
 		 * A strategy object for comparing and hashing the map's values. Allows for custom

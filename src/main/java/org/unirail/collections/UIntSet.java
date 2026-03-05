@@ -156,7 +156,7 @@ public interface UIntSet {
 		 * A constant representing an invalid or non-existent token, returned when a key is not found
 		 * or at the end of an iteration.
 		 */
-		protected static final long INVALID_TOKEN = -1L;
+		public static final long INVALID_TOKEN = -1L;
 		
 		
 		/**

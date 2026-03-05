@@ -127,7 +127,7 @@ public class ByteRingBuffer {
 			if( get == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, get, get + 1L ) );
-		return buffer[ ( int ) get & mask ];
+		return (byte) (buffer[ ( int ) get & mask ]);
 	}
 	
 	/**
@@ -144,7 +144,7 @@ public class ByteRingBuffer {
 			if( currentGet == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, currentGet, currentGet + 1L ) );
-		return buffer[ ( int ) currentGet & mask ];
+		return (byte) (buffer[ ( int ) currentGet & mask ]);
 	}
 	
 	/**
@@ -157,7 +157,7 @@ public class ByteRingBuffer {
 	public byte get( byte defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (byte) (buffer[ ( int ) get++ & mask ]);
 	}
 	
 	/**
@@ -170,7 +170,7 @@ public class ByteRingBuffer {
 	public byte remove( byte defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (byte) (buffer[ ( int ) get++ & mask ]);
 	}
 	
 	/**

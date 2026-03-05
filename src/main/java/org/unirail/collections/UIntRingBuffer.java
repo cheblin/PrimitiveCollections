@@ -120,14 +120,14 @@ public class UIntRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public int get_multithreaded( long defaultValueIfEmpty ) {
+	public long get_multithreaded( long defaultValueIfEmpty ) {
 		long get;
 		do {
 			get = GET.get( this ); // Volatile read
 			if( get == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, get, get + 1L ) );
-		return buffer[ ( int ) get & mask ];
+		return (0xFFFFFFFFL &  (buffer[ ( int ) get & mask ]));
 	}
 	
 	/**
@@ -137,14 +137,14 @@ public class UIntRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public int remove_multithreaded( long defaultValueIfEmpty ) {
+	public long remove_multithreaded( long defaultValueIfEmpty ) {
 		long currentGet;
 		do {
 			currentGet = GET.get( this ); // Volatile read
 			if( currentGet == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, currentGet, currentGet + 1L ) );
-		return buffer[ ( int ) currentGet & mask ];
+		return (0xFFFFFFFFL &  (buffer[ ( int ) currentGet & mask ]));
 	}
 	
 	/**
@@ -154,10 +154,10 @@ public class UIntRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public int get( long defaultValueIfEmpty ) {
+	public long get( long defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (0xFFFFFFFFL &  (buffer[ ( int ) get++ & mask ]));
 	}
 	
 	/**
@@ -167,10 +167,10 @@ public class UIntRingBuffer {
 	 * @param defaultValueIfEmpty Value to return if the buffer is empty.
 	 * @return The retrieved integer, or defaultValueIfEmpty if the buffer is empty.
 	 */
-	public int remove( long defaultValueIfEmpty ) {
+	public long remove( long defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (0xFFFFFFFFL &  (buffer[ ( int ) get++ & mask ]));
 	}
 	
 	/**

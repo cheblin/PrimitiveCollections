@@ -127,7 +127,7 @@ public class CharRingBuffer {
 			if( get == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, get, get + 1L ) );
-		return buffer[ ( int ) get & mask ];
+		return (char) (buffer[ ( int ) get & mask ]);
 	}
 	
 	/**
@@ -144,7 +144,7 @@ public class CharRingBuffer {
 			if( currentGet == PUT.get( this ) ) return defaultValueIfEmpty;// Volatile read
 		}
 		while( !GET.compareAndSet( this, currentGet, currentGet + 1L ) );
-		return buffer[ ( int ) currentGet & mask ];
+		return (char) (buffer[ ( int ) currentGet & mask ]);
 	}
 	
 	/**
@@ -157,7 +157,7 @@ public class CharRingBuffer {
 	public char get( char defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (char) (buffer[ ( int ) get++ & mask ]);
 	}
 	
 	/**
@@ -170,7 +170,7 @@ public class CharRingBuffer {
 	public char remove( char defaultValueIfEmpty ) {
 		return get == put ?
 		       defaultValueIfEmpty :
-		       buffer[ ( int ) get++ & mask ];
+		       (char) (buffer[ ( int ) get++ & mask ]);
 	}
 	
 	/**

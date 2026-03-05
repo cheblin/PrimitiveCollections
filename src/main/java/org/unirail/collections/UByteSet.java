@@ -43,7 +43,7 @@ public interface UByteSet {
 		protected static final int  KEY_MASK      = 0x1_FF; // Bits 0-9 for key
 		protected static final int  KEY_LEN       = 9; // Bits 0-9 for key
 		protected static final int  VERSION_SHIFT = 32;                    // Number of bits to shift to get the version from an iteration token.
-		protected static final long INVALID_TOKEN = -1L;                   // Special token value (-1) indicating an invalid iteration state or end of iteration.
+		public static final long INVALID_TOKEN = -1L;                   // Special token value (-1) indicating an invalid iteration state or end of iteration.
 		
 		/**
 		 * Returns the total number of elements in the set.

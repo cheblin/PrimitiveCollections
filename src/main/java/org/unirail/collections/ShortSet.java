@@ -208,7 +208,7 @@ public interface ShortSet {
 		/**
 		 * A constant representing an invalid or non-existent token.
 		 */
-		protected static final long INVALID_TOKEN = -1L; // Invalid token constant.
+		public static final long INVALID_TOKEN = -1L; // Invalid token constant.
 		
 		
 		/**

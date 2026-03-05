@@ -185,7 +185,7 @@ public interface CharObjectMap {
 		// Special index used in tokens to represent the null key. Outside valid array index ranges.
 		protected static final int NULL_KEY_INDEX = 0x1_FFFF; // 65537
 		
-		protected static final long INVALID_TOKEN = -1L; // Constant representing an invalid or absent token.
+		public static final long INVALID_TOKEN = -1L; // Constant representing an invalid or absent token.
 		
 		/**
 		 * Strategy for comparing object values and calculating their hash codes.

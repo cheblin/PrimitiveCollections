@@ -249,7 +249,7 @@ public interface ShortIntMap {
 		/**
 		 * A special token value indicating that a key was not found or an iteration has ended.
 		 */
-		protected static final long INVALID_TOKEN = -1L;
+		public static final long INVALID_TOKEN = -1L;
 		
 		/**
 		 * Checks if the map is currently operating in the dense (flat array) strategy.
